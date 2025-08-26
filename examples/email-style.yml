@@ -1,0 +1,120 @@
+# Email Style Configuration
+# Place this file at ~/.config/mcp-email/style.yml or ~/.emailstyle.yml
+# Or set EMAIL_STYLE_FILE environment variable to point to it
+
+version: "1"
+default_style: professional
+
+styles:
+  professional:
+    tone: professional
+    system_message: "Compose professional business emails with clear structure and formal tone"
+    guidelines:
+      - "Keep subject line concise and descriptive (max 65 characters)"
+      - "Use formal salutation and closing"
+      - "Structure content with clear paragraphs"
+      - "Include specific action items and deadlines"
+      - "Maintain professional tone throughout"
+      - "Avoid excessive exclamation marks and emojis"
+    greeting: "Hello"
+    signoff: "Best regards,"
+    max_subject_len: 65
+    example_template: |
+      {greeting} {recipient},
+
+      I hope this email finds you well. {content}
+
+      Please let me know if you need any additional information.
+
+      {signoff}
+      {sender}
+
+  casual:
+    tone: casual
+    system_message: "Compose friendly, informal emails with a relaxed tone"
+    guidelines:
+      - "Use friendly, conversational language"
+      - "Keep it brief and to the point"
+      - "Contractions and informal phrases are fine"
+      - "Use simple, direct sentences"
+      - "Feel free to use appropriate emojis sparingly"
+    greeting: "Hi"
+    signoff: "Thanks,"
+    example_template: |
+      Hi {recipient},
+
+      {content}
+
+      Thanks!
+      {sender}
+
+  academic:
+    tone: academic
+    system_message: "Compose formal academic emails with scholarly tone and precise language"
+    guidelines:
+      - "Use formal academic language and proper titles"
+      - "Be precise and specific in references"
+      - "Maintain scholarly tone and objectivity"
+      - "Include relevant citations or references when applicable"
+      - "Use complete sentences and proper grammar"
+      - "Structure arguments logically"
+    greeting: "Dear"
+    signoff: "Sincerely,"
+    max_subject_len: 80
+    example_template: |
+      Dear {title} {recipient},
+
+      {content}
+
+      I look forward to your response.
+
+      {signoff}
+      {sender}
+
+  executive:
+    tone: executive
+    system_message: "Compose concise executive-level emails focusing on key points and decisions"
+    guidelines:
+      - "Lead with the most important point"
+      - "Use bullet points for clarity"
+      - "Keep total length under 5 sentences when possible"
+      - "Focus on decisions and actions needed"
+      - "Include clear next steps"
+    greeting: "Hi"
+    signoff: "Best,"
+    max_subject_len: 50
+    example_template: |
+      Hi {recipient},
+
+      {content}
+
+      Next steps:
+      • [Action item 1]
+      • [Action item 2]
+
+      {signoff}
+      {sender}
+
+  technical:
+    tone: technical
+    system_message: "Compose technical emails with precise terminology and clear problem descriptions"
+    guidelines:
+      - "Use precise technical terminology"
+      - "Include relevant error messages or logs"
+      - "Provide step-by-step reproduction steps when applicable"
+      - "Reference ticket numbers or documentation"
+      - "Be specific about versions and environments"
+    greeting: "Hi"
+    signoff: "Regards,"
+    max_subject_len: 80
+    example_template: |
+      Hi {recipient},
+
+      {content}
+
+      Environment details:
+      - Version: [X.Y.Z]
+      - OS: [Operating System]
+
+      {signoff}
+      {sender}

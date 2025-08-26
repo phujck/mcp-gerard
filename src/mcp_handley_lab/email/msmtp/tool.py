@@ -1,4 +1,4 @@
-"""MSMTP email sending provider."""
+"""MSMTP email sending provider with style support."""
 
 from pathlib import Path
 
@@ -6,6 +6,39 @@ from pydantic import BaseModel, Field
 
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.email.common import mcp
+from mcp_handley_lab.email.style_config import (
+    STYLE_CONFIG,
+    create_example_body,
+    format_guidelines,
+    get_style_prompt_messages,
+)
+
+# Generate dynamic descriptions from loaded style configuration
+DEFAULT_STYLE = STYLE_CONFIG.styles.get(
+    STYLE_CONFIG.default_style,
+    list(STYLE_CONFIG.styles.values())[0] if STYLE_CONFIG.styles else None,
+)
+GUIDELINES = format_guidelines(DEFAULT_STYLE.guidelines) if DEFAULT_STYLE else ""
+EXAMPLE = create_example_body(DEFAULT_STYLE) if DEFAULT_STYLE else ""
+
+# Dynamic tool description with style guidance
+SEND_DESCRIPTION = (
+    f"Send email using msmtp. Default style: '{STYLE_CONFIG.default_style}'. "
+    f"Before composing, use the appropriate email style prompt (e.g., 'professional_email', 'casual_email'). "
+    f"Guidelines for {STYLE_CONFIG.default_style}: {GUIDELINES}"
+)
+
+# Dynamic field descriptions
+SUBJECT_DESCRIPTION = "The subject line of the email. " + (
+    f"Max {DEFAULT_STYLE.max_subject_len} characters."
+    if DEFAULT_STYLE and DEFAULT_STYLE.max_subject_len
+    else ""
+)
+
+BODY_DESCRIPTION = (
+    f"The main content (body) of the email. Should follow the active style guidelines. "
+    f"For '{STYLE_CONFIG.default_style}' style: {GUIDELINES}"
+)
 
 
 class SendResult(BaseModel):
@@ -47,13 +80,11 @@ def _parse_msmtprc(config_file: str = "") -> list[str]:
     return accounts
 
 
-@mcp.tool(
-    description="Send email using msmtp with configured accounts from ~/.msmtprc. Non-interactive automated sending with support for CC/BCC recipients."
-)
+@mcp.tool(description=SEND_DESCRIPTION)
 def send(
     to: str = Field(..., description="The primary recipient's email address."),
-    subject: str = Field(..., description="The subject line of the email."),
-    body: str = Field(..., description="The main content (body) of the email."),
+    subject: str = Field(..., description=SUBJECT_DESCRIPTION),
+    body: str = Field(..., description=BODY_DESCRIPTION),
     account: str = Field(
         default="",
         description="The msmtp account to send from. If empty, the default account is used. Use 'list_accounts' to see options.",
@@ -118,3 +149,66 @@ def list_accounts(
     accounts = _parse_msmtprc(config_file)
 
     return accounts
+
+
+# MCP Prompts for email styles
+@mcp.prompt()
+def professional_email(
+    message_content: str = Field(
+        ..., description="The core content/purpose of the email"
+    ),
+    recipient: str = Field(..., description="The recipient's name or email"),
+) -> list[dict[str, str]]:
+    """Compose a professional business email with formal tone and clear structure."""
+    return get_style_prompt_messages(
+        "professional", message_content, recipient, STYLE_CONFIG
+    )
+
+
+@mcp.prompt()
+def casual_email(
+    message_content: str = Field(
+        ..., description="The core content/purpose of the email"
+    ),
+    recipient: str = Field(..., description="The recipient's name or email"),
+) -> list[dict[str, str]]:
+    """Compose a casual, friendly email with relaxed tone."""
+    return get_style_prompt_messages("casual", message_content, recipient, STYLE_CONFIG)
+
+
+@mcp.prompt()
+def academic_email(
+    message_content: str = Field(
+        ..., description="The core content/purpose of the email"
+    ),
+    recipient: str = Field(..., description="The recipient's name or email"),
+) -> list[dict[str, str]]:
+    """Compose a formal academic email with scholarly tone."""
+    return get_style_prompt_messages(
+        "academic", message_content, recipient, STYLE_CONFIG
+    )
+
+
+# Style discovery tool
+@mcp.tool(
+    description="Get available email styles and their guidelines. Use before composing emails to understand available style prompts."
+)
+def get_email_styles() -> dict:
+    """Return available email style prompts and their guidelines."""
+    styles_info = {}
+    for name, profile in STYLE_CONFIG.styles.items():
+        styles_info[name] = {
+            "tone": profile.tone,
+            "guidelines": profile.guidelines[:5],  # First 5 guidelines
+            "greeting": profile.greeting,
+            "signoff": profile.signoff,
+            "max_subject_len": profile.max_subject_len,
+            "prompt_name": f"{name}_email",
+            "example": create_example_body(profile, "colleague"),
+        }
+
+    return {
+        "default_style": STYLE_CONFIG.default_style,
+        "available_styles": styles_info,
+        "usage": "Use the appropriate prompt (e.g., 'professional_email') before calling send() to compose emails in that style.",
+    }
