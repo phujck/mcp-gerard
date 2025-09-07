@@ -40,36 +40,28 @@ class EvaluationCancelledError(Exception):
 def _get_kernel_pid(session: WolframLanguageSession) -> int | None:
     """
     Safely retrieve the Wolfram Kernel process ID from the session object.
-
-    The wolframclient library has changed its internal API over time.
-    This function attempts to find the PID in known locations.
+    Iterates through known attribute paths from modern to legacy.
     """
     if not session:
         return None
 
-    # Path 1: session.kernel.pid
-    if hasattr(session, "kernel") and hasattr(session.kernel, "pid"):
-        return session.kernel.pid
+    # Paths to check for the PID, in order of preference
+    pid_paths = (
+        ("kernel", "pid"),
+        ("kernel", "kernel_proc", "pid"),
+        ("controller", "pid"),
+        ("controller", "kernel_proc", "pid"),
+    )
 
-    # Path 2: session.kernel.kernel_proc.pid
-    if (
-        hasattr(session, "kernel")
-        and hasattr(session.kernel, "kernel_proc")
-        and hasattr(session.kernel.kernel_proc, "pid")
-    ):
-        return session.kernel.kernel_proc.pid
-
-    # Path 3: session.controller.pid (older versions)
-    if hasattr(session, "controller") and hasattr(session.controller, "pid"):
-        return session.controller.pid
-
-    # Path 4: session.controller.kernel_proc.pid
-    if (
-        hasattr(session, "controller")
-        and hasattr(session.controller, "kernel_proc")
-        and hasattr(session.controller.kernel_proc, "pid")
-    ):
-        return session.controller.kernel_proc.pid
+    for path in pid_paths:
+        obj = session
+        try:
+            for attr in path:
+                obj = getattr(obj, attr)
+            if isinstance(obj, int):
+                return obj
+        except AttributeError:
+            continue
 
     return None
 
@@ -708,6 +700,10 @@ def convert_latex(
             logger.debug(f"✅ LaTeX conversion successful: {raw_result}")
 
         except WolframKernelException as e:
+            # If the root cause was a user cancellation, re-raise it immediately.
+            if isinstance(e.__cause__, EvaluationCancelledError):
+                raise e.__cause__ from None
+
             logger.info(f"Direct LaTeX parsing failed, trying manual conversion: {e}")
 
             # Try manual preprocessing for common LaTeX patterns
@@ -804,7 +800,7 @@ def save_notebook(
         )
 
 
-def _save_as_markdown(filepath: str, title: str, timestamp: str) -> dict:
+def _save_as_markdown(filepath: str, title: str, timestamp: str) -> None:
     """Save session as GitHub-friendly markdown with In/Out blocks."""
     global _input_history, _result_history, _evaluation_count
 
@@ -844,10 +840,9 @@ To restore this session, copy and paste the input lines into a new Mathematica n
 
     # Write to file
     Path(filepath).write_text(content)
-    return {"format": "markdown"}
 
 
-def _save_as_wolfram_script(filepath: str, title: str, timestamp: str) -> dict:
+def _save_as_wolfram_script(filepath: str, title: str, timestamp: str) -> None:
     """Save session as executable Wolfram Language script."""
     global _input_history, _evaluation_count
 
@@ -869,12 +864,11 @@ Print["Session restored successfully! Variables: ", Length[Names["Global`*"]]];
 """
 
     Path(filepath).write_text(content)
-    return {"format": "wolfram_language"}
 
 
 def _save_as_wolfram_script_with_outputs(
     filepath: str, title: str, timestamp: str
-) -> dict:
+) -> None:
     """Save session as Wolfram script with output comments."""
     global _input_history, _result_history, _evaluation_count
 
@@ -904,7 +898,6 @@ Print["Variables available: ", Names["Global`*"]];
 """
 
     Path(filepath).write_text(content)
-    return {"format": "wolfram_language_with_outputs"}
 
 
 @mcp.tool()
