@@ -5,6 +5,7 @@ Provides MCP tools for interacting with Wolfram Mathematica through a persistent
 Enables LLM-driven mathematical workflows with true REPL behavior and variable persistence.
 """
 
+import functools
 import logging
 import os
 import re
@@ -34,6 +35,79 @@ class EvaluationCancelledError(Exception):
     """Raised when a Wolfram evaluation is cancelled by the user."""
 
     pass
+
+
+def _get_kernel_pid(session: WolframLanguageSession) -> int | None:
+    """
+    Safely retrieve the Wolfram Kernel process ID from the session object.
+
+    The wolframclient library has changed its internal API over time.
+    This function attempts to find the PID in known locations.
+    """
+    if not session:
+        return None
+
+    # Path 1: session.kernel.pid
+    if hasattr(session, "kernel") and hasattr(session.kernel, "pid"):
+        return session.kernel.pid
+
+    # Path 2: session.kernel.kernel_proc.pid
+    if (
+        hasattr(session, "kernel")
+        and hasattr(session.kernel, "kernel_proc")
+        and hasattr(session.kernel.kernel_proc, "pid")
+    ):
+        return session.kernel.kernel_proc.pid
+
+    # Path 3: session.controller.pid (older versions)
+    if hasattr(session, "controller") and hasattr(session.controller, "pid"):
+        return session.controller.pid
+
+    # Path 4: session.controller.kernel_proc.pid
+    if (
+        hasattr(session, "controller")
+        and hasattr(session.controller, "kernel_proc")
+        and hasattr(session.controller.kernel_proc, "pid")
+    ):
+        return session.controller.kernel_proc.pid
+
+    return None
+
+
+def handle_cancellation(func):
+    """Decorator to catch EvaluationCancelledError and return standard response."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except EvaluationCancelledError as e:
+            logger.info(f"Evaluation cancelled: {e}")
+
+            # Extract expression from function arguments
+            expression = "N/A"
+            if "expression" in kwargs:
+                expression = kwargs["expression"]
+            elif "latex_expression" in kwargs:
+                expression = kwargs["latex_expression"]
+            elif "operation" in kwargs:
+                expression = kwargs["operation"]
+            elif len(args) > 0:
+                # For MCP tool functions, first arg after self is typically expression
+                expression = str(args[0])
+
+            return MathematicaResult(
+                result="",
+                raw_result="",
+                success=False,
+                evaluation_count=_evaluation_count,
+                expression=expression,
+                format_used=kwargs.get("output_format", "Raw"),
+                error=str(e),
+                note="Evaluation was cancelled by user interrupt (ESC)",
+            )
+
+    return wrapper
 
 
 # Global session management with thread safety
@@ -229,24 +303,11 @@ def kernel_interrupt_handler(session: WolframLanguageSession):
     Wolfram Kernel process, causing blocking evaluate() calls to raise
     WolframKernelException.
     """
-    # Try to get kernel PID - check different possible attributes
-    kernel_pid = None
-    if session and hasattr(session, "kernel"):
-        if hasattr(session.kernel, "pid"):
-            kernel_pid = session.kernel.pid
-        elif hasattr(session.kernel, "kernel_proc") and hasattr(
-            session.kernel.kernel_proc, "pid"
-        ):
-            kernel_pid = session.kernel.kernel_proc.pid
-    elif session and hasattr(session, "controller"):
-        if hasattr(session.controller, "pid"):
-            kernel_pid = session.controller.pid
-        elif hasattr(session.controller, "kernel_proc"):
-            kernel_pid = session.controller.kernel_proc.pid
-
-    # If we can't find the PID, just yield without installing handler
+    kernel_pid = _get_kernel_pid(session)
     if not kernel_pid:
-        logger.debug("Could not find kernel PID for interrupt handling")
+        logger.debug(
+            "Could not find kernel PID for interrupt handling; evaluations will not be cancellable"
+        )
         yield
         return
 
@@ -293,6 +354,7 @@ def interruptible_evaluate(
 
 
 @mcp.tool()
+@handle_cancellation
 def evaluate(
     expression: str = Field(description="Wolfram Language expression to evaluate"),
     output_format: str = Field(
@@ -344,41 +406,28 @@ def evaluate(
         # Preprocess % references before evaluation
         processed_expression = _preprocess_percent_references(expression)
 
-        try:
-            # Use interruptible evaluation
-            raw_result = interruptible_evaluate(session, processed_expression, "Raw")
-            _evaluation_count += 1
+        # Use interruptible evaluation
+        raw_result = interruptible_evaluate(session, processed_expression, "Raw")
+        _evaluation_count += 1
 
-            # Store result in history for % references
-            global _result_history, _input_history
-            _result_history.append(raw_result)
-            _input_history.append(expression)  # Store input for notebook reconstruction
+        # Store result in history for % references
+        global _result_history, _input_history
+        _result_history.append(raw_result)
+        _input_history.append(expression)  # Store input for notebook reconstruction
 
-            # Format the result based on requested format
-            formatted_result = _format_result(session, raw_result, output_format)
+        # Format the result based on requested format
+        formatted_result = _format_result(session, raw_result, output_format)
 
-            logger.debug(f"✅ Evaluation successful: {formatted_result}")
+        logger.debug(f"✅ Evaluation successful: {formatted_result}")
 
-            return MathematicaResult(
-                result=formatted_result,
-                raw_result=str(raw_result),
-                success=True,
-                evaluation_count=_evaluation_count,
-                expression=expression,
-                format_used=output_format,
-            )
-        except EvaluationCancelledError as e:
-            logger.info(f"Evaluation cancelled: {e}")
-            return MathematicaResult(
-                result="",
-                raw_result="",
-                success=False,
-                evaluation_count=_evaluation_count,
-                expression=expression,
-                format_used=output_format,
-                error=str(e),
-                note="Evaluation was cancelled by user interrupt (ESC)",
-            )
+        return MathematicaResult(
+            result=formatted_result,
+            raw_result=str(raw_result),
+            success=True,
+            evaluation_count=_evaluation_count,
+            expression=expression,
+            format_used=output_format,
+        )
 
 
 @mcp.tool()
@@ -536,6 +585,7 @@ def restart_kernel() -> OperationResult:
 
 
 @mcp.tool()
+@handle_cancellation
 def apply_to_last(
     operation: str = Field(
         description="Wolfram Language operation to apply to the last result (e.g., 'Factor', 'Expand', 'Solve[# == 0, x]')"
@@ -559,82 +609,58 @@ def apply_to_last(
     global _evaluation_count, _result_history
 
     with _session_lock:
-        try:
-            session = _get_session() if not _ensure_session_active() else _session
+        session = _get_session() if not _ensure_session_active() else _session
 
-            if not _result_history:
-                return MathematicaResult(
-                    result="Error: No previous result available",
-                    raw_result="",
-                    success=False,
-                    evaluation_count=_evaluation_count,
-                    expression=operation,
-                    format_used="Raw",
-                    error="No previous result stored",
-                    note="Use the 'evaluate' tool first to generate a result",
-                )
-
-            last_result = _result_history[-1]
-            logger.debug(f"Applying '{operation}' to last result: {last_result}")
-
-            # Apply the operation to the last result
-            last_result_str = _to_input_form(last_result)
-
-            if "#" in operation:
-                operation_expr = operation.replace("#", last_result_str)
-            else:
-                operation_expr = f"{operation}[{last_result_str}]"
-
-            # Use interruptible evaluation
-            raw_result = interruptible_evaluate(session, operation_expr, "Raw")
-            _evaluation_count += 1
-            _result_history.append(raw_result)  # Add to history
-            global _input_history
-            _input_history.append(
-                f"{operation} applied to previous result"
-            )  # Store operation for notebook
-
-            # Use Raw format by default for consistency
-            formatted_result = str(raw_result)
-
-            logger.debug(f"✅ Applied operation successfully: {formatted_result}")
-
+        if not _result_history:
             return MathematicaResult(
-                result=formatted_result,
-                raw_result=str(raw_result),
-                success=True,
-                evaluation_count=_evaluation_count,
-                expression=f"{operation} applied to previous result",
-                format_used="Raw",
-                note="Result stored for further chaining operations",
-            )
-
-        except EvaluationCancelledError as e:
-            logger.info(f"Operation cancelled: {e}")
-            return MathematicaResult(
-                result="",
+                result="Error: No previous result available",
                 raw_result="",
                 success=False,
                 evaluation_count=_evaluation_count,
                 expression=operation,
                 format_used="Raw",
-                error=str(e),
-                note="Operation was cancelled by user interrupt (ESC)",
+                error="No previous result stored",
+                note="Use the 'evaluate' tool first to generate a result",
             )
-        except Exception as e:
-            logger.error(f"❌ Operation application failed: {e}")
-            return MathematicaResult(
-                result=f"Error: {str(e)}",
-                raw_result="",
-                success=False,
-                evaluation_count=_evaluation_count,
-                expression=operation,
-                format_used="Raw",
-                error=str(e),
-            )
+
+        last_result = _result_history[-1]
+        logger.debug(f"Applying '{operation}' to last result: {last_result}")
+
+        # Apply the operation to the last result
+        last_result_str = _to_input_form(last_result)
+
+        if "#" in operation:
+            operation_expr = operation.replace("#", last_result_str)
+        else:
+            operation_expr = f"{operation}[{last_result_str}]"
+
+        # Use interruptible evaluation
+        raw_result = interruptible_evaluate(session, operation_expr, "Raw")
+        _evaluation_count += 1
+        _result_history.append(raw_result)  # Add to history
+        global _input_history
+        _input_history.append(
+            f"{operation} applied to previous result"
+        )  # Store operation for notebook
+
+        # Use Raw format by default for consistency
+        formatted_result = str(raw_result)
+
+        logger.debug(f"✅ Applied operation successfully: {formatted_result}")
+
+        return MathematicaResult(
+            result=formatted_result,
+            raw_result=str(raw_result),
+            success=True,
+            evaluation_count=_evaluation_count,
+            expression=f"{operation} applied to previous result",
+            format_used="Raw",
+            note="Result stored for further chaining operations",
+        )
 
 
 @mcp.tool()
+@handle_cancellation
 def convert_latex(
     latex_expression: str = Field(
         description="LaTeX mathematical expression to convert"
@@ -670,83 +696,53 @@ def convert_latex(
     global _evaluation_count
 
     with _session_lock:
+        session = _get_session() if not _ensure_session_active() else _session
+
+        # Attempt to convert LaTeX to Wolfram Language
         try:
-            session = _get_session() if not _ensure_session_active() else _session
+            # First try direct ToExpression with TeXForm
+            conversion_expr = f'ToExpression["{latex_expression}", TeXForm]'
+            raw_result = interruptible_evaluate(session, conversion_expr, "Raw")
+            _evaluation_count += 1
 
-            # Attempt to convert LaTeX to Wolfram Language
-            try:
-                # First try direct ToExpression with TeXForm
-                conversion_expr = f'ToExpression["{latex_expression}", TeXForm]'
-                raw_result = interruptible_evaluate(session, conversion_expr, "Raw")
-                _evaluation_count += 1
+            logger.debug(f"✅ LaTeX conversion successful: {raw_result}")
 
-                logger.debug(f"✅ LaTeX conversion successful: {raw_result}")
+        except WolframKernelException as e:
+            logger.info(f"Direct LaTeX parsing failed, trying manual conversion: {e}")
 
-            except (EvaluationCancelledError, Exception) as e:
-                if isinstance(e, EvaluationCancelledError):
-                    raise  # Re-raise cancellation
-
-                logger.info(
-                    f"Direct LaTeX parsing failed, trying manual conversion: {e}"
-                )
-
-                # Try manual preprocessing for common LaTeX patterns
-                manual_expr = (
-                    latex_expression.replace(r"\frac{", "Divide[")
-                    .replace(r"}{", ",")
-                    .replace(r"}", "]")
-                    .replace(r"\int", "Integrate")
-                    .replace(r"\sum", "Sum")
-                    .replace(r"\lim", "Limit")
-                    .replace(r"\sin", "Sin")
-                    .replace(r"\cos", "Cos")
-                    .replace(r"\tan", "Tan")
-                    .replace(r"\log", "Log")
-                    .replace(r"\exp", "Exp")
-                )
-
-                raw_result = interruptible_evaluate(
-                    session, f'ToExpression["{manual_expr}"]', "Raw"
-                )
-                _evaluation_count += 1
-
-                logger.debug(f"✅ Manual LaTeX conversion successful: {raw_result}")
-
-            # Format the result
-            formatted_result = _format_result(session, raw_result, output_format)
-
-            return MathematicaResult(
-                result=formatted_result,
-                raw_result=str(raw_result),
-                success=True,
-                evaluation_count=_evaluation_count,
-                expression=f"LaTeX: {latex_expression}",
-                format_used=output_format,
+            # Try manual preprocessing for common LaTeX patterns
+            manual_expr = (
+                latex_expression.replace(r"\frac{", "Divide[")
+                .replace(r"}{", ",")
+                .replace(r"}", "]")
+                .replace(r"\int", "Integrate")
+                .replace(r"\sum", "Sum")
+                .replace(r"\lim", "Limit")
+                .replace(r"\sin", "Sin")
+                .replace(r"\cos", "Cos")
+                .replace(r"\tan", "Tan")
+                .replace(r"\log", "Log")
+                .replace(r"\exp", "Exp")
             )
 
-        except EvaluationCancelledError as e:
-            logger.info(f"LaTeX conversion cancelled: {e}")
-            return MathematicaResult(
-                result="",
-                raw_result="",
-                success=False,
-                evaluation_count=_evaluation_count,
-                expression=latex_expression,
-                format_used=output_format,
-                error=str(e),
-                note="Conversion was cancelled by user interrupt (ESC)",
+            raw_result = interruptible_evaluate(
+                session, f'ToExpression["{manual_expr}"]', "Raw"
             )
-        except Exception as e:
-            logger.error(f"LaTeX conversion failed: {e}")
-            return MathematicaResult(
-                result=f"Error converting LaTeX: {str(e)}",
-                raw_result="",
-                success=False,
-                evaluation_count=_evaluation_count,
-                expression=latex_expression,
-                format_used=output_format,
-                error=str(e),
-            )
+            _evaluation_count += 1
+
+            logger.debug(f"✅ Manual LaTeX conversion successful: {raw_result}")
+
+        # Format the result
+        formatted_result = _format_result(session, raw_result, output_format)
+
+        return MathematicaResult(
+            result=formatted_result,
+            raw_result=str(raw_result),
+            success=True,
+            evaluation_count=_evaluation_count,
+            expression=f"LaTeX: {latex_expression}",
+            format_used=output_format,
+        )
 
 
 @mcp.tool()
