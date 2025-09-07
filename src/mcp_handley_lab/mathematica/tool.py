@@ -6,8 +6,11 @@ Enables LLM-driven mathematical workflows with true REPL behavior and variable p
 """
 
 import logging
+import os
 import re
+import signal
 import threading
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +18,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from wolframclient.evaluation import WolframLanguageSession
+from wolframclient.exception import WolframKernelException
 from wolframclient.language import wlexpr
 
 from mcp_handley_lab.shared.models import OperationResult, ServerInfo
@@ -23,6 +27,14 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
 mcp = FastMCP("Mathematica Tool")
+
+
+# Custom exception for cancelled evaluations
+class EvaluationCancelledError(Exception):
+    """Raised when a Wolfram evaluation is cancelled by the user."""
+
+    pass
+
 
 # Global session management with thread safety
 _session: WolframLanguageSession | None = None
@@ -208,6 +220,78 @@ def _ensure_session_active() -> bool:
             return False
 
 
+@contextmanager
+def kernel_interrupt_handler(session: WolframLanguageSession):
+    """
+    Context manager to enable interruption of blocking wolframclient calls.
+
+    Installs a SIGINT handler that sends interrupt signal directly to the
+    Wolfram Kernel process, causing blocking evaluate() calls to raise
+    WolframKernelException.
+    """
+    # Try to get kernel PID - check different possible attributes
+    kernel_pid = None
+    if session and hasattr(session, "kernel"):
+        if hasattr(session.kernel, "pid"):
+            kernel_pid = session.kernel.pid
+        elif hasattr(session.kernel, "kernel_proc") and hasattr(
+            session.kernel.kernel_proc, "pid"
+        ):
+            kernel_pid = session.kernel.kernel_proc.pid
+    elif session and hasattr(session, "controller"):
+        if hasattr(session.controller, "pid"):
+            kernel_pid = session.controller.pid
+        elif hasattr(session.controller, "kernel_proc"):
+            kernel_pid = session.controller.kernel_proc.pid
+
+    # If we can't find the PID, just yield without installing handler
+    if not kernel_pid:
+        logger.debug("Could not find kernel PID for interrupt handling")
+        yield
+        return
+
+    original_sigint_handler = signal.getsignal(signal.SIGINT)
+
+    def new_sigint_handler(signum, frame):
+        logger.info("Interrupt received, sending SIGINT to Wolfram Kernel...")
+        try:
+            os.kill(kernel_pid, signal.SIGINT)
+            logger.debug(f"Sent SIGINT to kernel PID {kernel_pid}")
+        except ProcessLookupError:
+            logger.warning(f"Kernel process {kernel_pid} not found")
+        except Exception as e:
+            logger.error(f"Error sending signal to kernel: {e}")
+
+    try:
+        signal.signal(signal.SIGINT, new_sigint_handler)
+        yield
+    finally:
+        signal.signal(signal.SIGINT, original_sigint_handler)
+
+
+def interruptible_evaluate(
+    session: WolframLanguageSession, expr: str, output_format: str = "Raw"
+) -> Any:
+    """
+    Synchronously evaluate a Wolfram expression with interrupt support.
+
+    Allows evaluation to be cancelled by interrupt signal (ESC in Claude Code).
+    """
+    try:
+        with kernel_interrupt_handler(session):
+            # This blocking call can now be interrupted
+            raw_result = session.evaluate(wlexpr(expr))
+            if output_format != "Raw":
+                return _format_result(session, raw_result, output_format)
+            return raw_result
+    except WolframKernelException as e:
+        # Kernel was interrupted
+        raise EvaluationCancelledError("Evaluation cancelled by user") from e
+    except KeyboardInterrupt:
+        # Direct keyboard interrupt
+        raise EvaluationCancelledError("Evaluation interrupted") from None
+
+
 @mcp.tool()
 def evaluate(
     expression: str = Field(description="Wolfram Language expression to evaluate"),
@@ -245,6 +329,9 @@ def evaluate(
 
     The session maintains all variables and definitions across calls, enabling
     complex mathematical workflows where LLMs can build on previous calculations.
+
+    Evaluations can be interrupted by pressing ESC in Claude Code or sending
+    SIGINT to the process.
     """
     global _evaluation_count
 
@@ -257,28 +344,41 @@ def evaluate(
         # Preprocess % references before evaluation
         processed_expression = _preprocess_percent_references(expression)
 
-        # Evaluate the processed expression
-        raw_result = session.evaluate(wlexpr(processed_expression))
-        _evaluation_count += 1
+        try:
+            # Use interruptible evaluation
+            raw_result = interruptible_evaluate(session, processed_expression, "Raw")
+            _evaluation_count += 1
 
-        # Store result in history for % references
-        global _result_history, _input_history
-        _result_history.append(raw_result)
-        _input_history.append(expression)  # Store input for notebook reconstruction
+            # Store result in history for % references
+            global _result_history, _input_history
+            _result_history.append(raw_result)
+            _input_history.append(expression)  # Store input for notebook reconstruction
 
-        # Format the result based on requested format
-        formatted_result = _format_result(session, raw_result, output_format)
+            # Format the result based on requested format
+            formatted_result = _format_result(session, raw_result, output_format)
 
-        logger.debug(f"✅ Evaluation successful: {formatted_result}")
+            logger.debug(f"✅ Evaluation successful: {formatted_result}")
 
-        return MathematicaResult(
-            result=formatted_result,
-            raw_result=str(raw_result),
-            success=True,
-            evaluation_count=_evaluation_count,
-            expression=expression,
-            format_used=output_format,
-        )
+            return MathematicaResult(
+                result=formatted_result,
+                raw_result=str(raw_result),
+                success=True,
+                evaluation_count=_evaluation_count,
+                expression=expression,
+                format_used=output_format,
+            )
+        except EvaluationCancelledError as e:
+            logger.info(f"Evaluation cancelled: {e}")
+            return MathematicaResult(
+                result="",
+                raw_result="",
+                success=False,
+                evaluation_count=_evaluation_count,
+                expression=expression,
+                format_used=output_format,
+                error=str(e),
+                note="Evaluation was cancelled by user interrupt (ESC)",
+            )
 
 
 @mcp.tool()
@@ -485,7 +585,8 @@ def apply_to_last(
             else:
                 operation_expr = f"{operation}[{last_result_str}]"
 
-            raw_result = session.evaluate(wlexpr(operation_expr))
+            # Use interruptible evaluation
+            raw_result = interruptible_evaluate(session, operation_expr, "Raw")
             _evaluation_count += 1
             _result_history.append(raw_result)  # Add to history
             global _input_history
@@ -508,6 +609,18 @@ def apply_to_last(
                 note="Result stored for further chaining operations",
             )
 
+        except EvaluationCancelledError as e:
+            logger.info(f"Operation cancelled: {e}")
+            return MathematicaResult(
+                result="",
+                raw_result="",
+                success=False,
+                evaluation_count=_evaluation_count,
+                expression=operation,
+                format_used="Raw",
+                error=str(e),
+                note="Operation was cancelled by user interrupt (ESC)",
+            )
         except Exception as e:
             logger.error(f"❌ Operation application failed: {e}")
             return MathematicaResult(
@@ -564,12 +677,15 @@ def convert_latex(
             try:
                 # First try direct ToExpression with TeXForm
                 conversion_expr = f'ToExpression["{latex_expression}", TeXForm]'
-                raw_result = session.evaluate(wlexpr(conversion_expr))
+                raw_result = interruptible_evaluate(session, conversion_expr, "Raw")
                 _evaluation_count += 1
 
                 logger.debug(f"✅ LaTeX conversion successful: {raw_result}")
 
-            except Exception as e:
+            except (EvaluationCancelledError, Exception) as e:
+                if isinstance(e, EvaluationCancelledError):
+                    raise  # Re-raise cancellation
+
                 logger.info(
                     f"Direct LaTeX parsing failed, trying manual conversion: {e}"
                 )
@@ -589,7 +705,9 @@ def convert_latex(
                     .replace(r"\exp", "Exp")
                 )
 
-                raw_result = session.evaluate(wlexpr(f'ToExpression["{manual_expr}"]'))
+                raw_result = interruptible_evaluate(
+                    session, f'ToExpression["{manual_expr}"]', "Raw"
+                )
                 _evaluation_count += 1
 
                 logger.debug(f"✅ Manual LaTeX conversion successful: {raw_result}")
@@ -606,6 +724,18 @@ def convert_latex(
                 format_used=output_format,
             )
 
+        except EvaluationCancelledError as e:
+            logger.info(f"LaTeX conversion cancelled: {e}")
+            return MathematicaResult(
+                result="",
+                raw_result="",
+                success=False,
+                evaluation_count=_evaluation_count,
+                expression=latex_expression,
+                format_used=output_format,
+                error=str(e),
+                note="Conversion was cancelled by user interrupt (ESC)",
+            )
         except Exception as e:
             logger.error(f"LaTeX conversion failed: {e}")
             return MathematicaResult(
