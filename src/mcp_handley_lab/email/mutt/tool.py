@@ -171,12 +171,12 @@ def _build_mutt_command(
 
 
 @mcp.tool(
-    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
+    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments, pre-filled body, and draft files from draft_email()."
 )
 def compose(
     to: str = Field(
-        ...,
-        description="The primary recipient's email address (e.g., 'user@example.com').",
+        default=None,
+        description="The primary recipient's email address. Not needed if using draft_file.",
     ),
     subject: str = Field(default="", description="The subject line of the email."),
     cc: str = Field(
@@ -188,6 +188,10 @@ def compose(
     ),
     body: str = Field(
         default="", description="Text to pre-populate in the email body."
+    ),
+    draft_file: str = Field(
+        default=None,
+        description="Path to a draft email file (created by draft_email). If provided, overrides to/subject/body.",
     ),
     attachments: list[str] = Field(
         default=None, description="A list of local file paths to attach to the email."
@@ -204,12 +208,33 @@ def compose(
     """Compose an email using mutt's interactive interface."""
     temp_file_path = None
 
-    if body:
+    # If draft_file is provided, use it directly
+    if draft_file:
+        draft_path = Path(draft_file)
+        if not draft_path.exists():
+            raise FileNotFoundError(f"Draft file not found: {draft_file}")
+        temp_file_path = draft_file
+
+        # Extract recipient from draft for status message
+        import builtins
+
+        with builtins.open(draft_file) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line.startswith("To: "):
+                    to = line[4:].strip()
+                    break
+                if line.strip() == "":  # End of headers
+                    break
+
+    # Otherwise, create a draft from parameters
+    elif body or to:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", delete=False
         ) as temp_f:
             # Create RFC822 email draft with headers
-            temp_f.write(f"To: {to}\n")
+            if to:
+                temp_f.write(f"To: {to}\n")
             if subject:
                 temp_f.write(f"Subject: {subject}\n")
             if cc:
@@ -221,31 +246,34 @@ def compose(
             if references:
                 temp_f.write(f"References: {references}\n")
             temp_f.write("\n")  # Empty line separates headers from body
-            temp_f.write(body)
-            if not body.endswith("\n"):
-                temp_f.write("\n")  # Ensure proper line ending
+            if body:
+                temp_f.write(body)
+                if not body.endswith("\n"):
+                    temp_f.write("\n")  # Ensure proper line ending
             temp_file_path = temp_f.name
 
-    # Consolidate command building
+    # Build mutt command
+    # When using a draft file (either provided or created), headers come from the file
+    use_draft = temp_file_path is not None
     mutt_cmd = _build_mutt_command(
-        to=to if not body else None,  # Pass None for args handled by draft file
-        subject=subject if not body else None,
-        cc=cc if not body else None,
-        bcc=bcc if not body else None,
+        to=to if not use_draft else None,
+        subject=subject if not use_draft else None,
+        cc=cc if not use_draft else None,
+        bcc=bcc if not use_draft else None,
         attachments=attachments,
         temp_file_path=temp_file_path,
-        in_reply_to=in_reply_to if not body else None,
-        references=references if not body else None,
+        in_reply_to=in_reply_to if not use_draft else None,
+        references=references if not use_draft else None,
     )
 
-    window_title = f"Mutt: {subject or 'New Email'}"
+    window_title = f"Mutt: {subject or 'Styled Email' if draft_file else 'New Email'}"
     launch_interactive(shlex.join(mutt_cmd), window_title=window_title, wait=True)
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
     return OperationResult(
         status="success",
-        message=f"Email composition completed: {to}{attachment_info}",
+        message=f"Email composition completed: {to or 'styled draft'}{attachment_info}",
     )
 
 
