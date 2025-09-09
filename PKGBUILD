@@ -38,6 +38,12 @@ depends=(
     'python-xai-sdk'
     'jupyter-nbformat'
     'python-dateparser'
+    'python-ftfy'
+    'python-inscriptis'
+    'python-selectolax'
+    'python-email-reply-parser'
+    'python-anthropic'
+    'python-wolframclient'
 )
 makedepends=(
     'python-build'
