@@ -171,12 +171,12 @@ def _build_mutt_command(
 
 
 @mcp.tool(
-    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments, pre-filled body, and draft files from draft_email()."
+    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
 )
 def compose(
     to: str = Field(
         default=None,
-        description="The primary recipient's email address. Not needed if using draft_file.",
+        description="The primary recipient's email address. Not needed if using body_file.",
     ),
     subject: str = Field(default="", description="The subject line of the email."),
     cc: str = Field(
@@ -187,11 +187,12 @@ def compose(
         description="Email address for the 'Bcc' (blind carbon copy) field.",
     ),
     body: str = Field(
-        default="", description="Text to pre-populate in the email body."
+        default="",
+        description="Text to pre-populate in the email body. Mutually exclusive with body_file.",
     ),
-    draft_file: str = Field(
+    body_file: str = Field(
         default=None,
-        description="Path to a draft email file (created by draft_email). If provided, overrides to/subject/body.",
+        description="Path to an email file with headers and body. If provided, overrides to/subject/body. Mutually exclusive with body parameter.",
     ),
     attachments: list[str] = Field(
         default=None, description="A list of local file paths to attach to the email."
@@ -206,19 +207,23 @@ def compose(
     ),
 ) -> OperationResult:
     """Compose an email using mutt's interactive interface."""
+    # Check mutual exclusivity
+    if body_file and body:
+        raise ValueError("Cannot specify both 'body' and 'body_file'. Choose one.")
+
     temp_file_path = None
 
-    # If draft_file is provided, use it directly
-    if draft_file:
-        draft_path = Path(draft_file)
-        if not draft_path.exists():
-            raise FileNotFoundError(f"Draft file not found: {draft_file}")
-        temp_file_path = draft_file
+    # If body_file is provided, use it directly
+    if body_file:
+        body_path = Path(body_file)
+        if not body_path.exists():
+            raise FileNotFoundError(f"Body file not found: {body_file}")
+        temp_file_path = body_file
 
-        # Extract recipient from draft for status message
+        # Extract recipient from file for status message
         import builtins
 
-        with builtins.open(draft_file) as f:
+        with builtins.open(body_file) as f:
             lines = f.readlines()
             for line in lines:
                 if line.startswith("To: "):
@@ -266,14 +271,14 @@ def compose(
         references=references if not use_draft else None,
     )
 
-    window_title = f"Mutt: {subject or 'Styled Email' if draft_file else 'New Email'}"
+    window_title = f"Mutt: {subject or 'Email from file' if body_file else 'New Email'}"
     launch_interactive(shlex.join(mutt_cmd), window_title=window_title, wait=True)
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
     return OperationResult(
         status="success",
-        message=f"Email composition completed: {to or 'styled draft'}{attachment_info}",
+        message=f"Email composition completed: {to or 'from file'}{attachment_info}",
     )
 
 

@@ -1,4 +1,4 @@
-"""MSMTP email sending provider with style support."""
+"""MSMTP email sending provider."""
 
 from pathlib import Path
 
@@ -6,22 +6,6 @@ from pydantic import BaseModel, Field
 
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.email.common import mcp
-from mcp_handley_lab.email.style_config import (
-    DEFAULT_CONFIG,
-    STYLE_CONFIG,
-    StyleProfile,
-    create_example_body,
-    format_guidelines,
-)
-
-# Generate dynamic descriptions from loaded style configuration
-_first_style = next(iter(STYLE_CONFIG.styles.values()), None)
-DEFAULT_STYLE = STYLE_CONFIG.styles.get(STYLE_CONFIG.default_style, _first_style)
-GUIDELINES = format_guidelines(DEFAULT_STYLE.guidelines) if DEFAULT_STYLE else ""
-EXAMPLE = create_example_body(DEFAULT_STYLE) if DEFAULT_STYLE else ""
-
-# Clean tool description focused on functionality
-SEND_DESCRIPTION = "Send email using msmtp. Use draft_email() first to compose styled emails, or provide content directly."
 
 
 class SendResult(BaseModel):
@@ -63,23 +47,52 @@ def _parse_msmtprc(config_file: str = "") -> list[str]:
     return accounts
 
 
-@mcp.tool(description=SEND_DESCRIPTION)
+def _load_email_file(file_path: str) -> tuple[str, str, str]:
+    """Load email file and parse headers (To, Subject) and body."""
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"Email file not found: {file_path}")
+
+    with open(file_path, encoding="utf-8") as f:
+        content = f.read()
+
+    # Parse email format: headers until empty line, then body
+    parts = content.split("\n\n", 1)
+    if len(parts) != 2:
+        # If no empty line, treat entire content as body
+        return "", "", content
+
+    headers_text, body = parts
+    to = ""
+    subject = ""
+
+    for line in headers_text.split("\n"):
+        if line.startswith("To: "):
+            to = line[4:].strip()
+        elif line.startswith("Subject: "):
+            subject = line[9:].strip()
+
+    return to, subject, body
+
+
+@mcp.tool(
+    description="Send email using msmtp. Provide to/subject/body directly or use body_file for pre-composed emails."
+)
 def send(
     to: str = Field(
         default=None,
-        description="The primary recipient's email address. Not needed if using draft_file.",
+        description="The primary recipient's email address. Not needed if using body_file.",
     ),
     subject: str = Field(
         default=None,
-        description="The subject line of the email. Not needed if using draft_file.",
+        description="The subject line of the email. Not needed if using body_file.",
     ),
     body: str = Field(
         default=None,
-        description="The main content (body) of the email. Not needed if using draft_file.",
+        description="The main content (body) of the email. Not needed if using body_file.",
     ),
-    draft_file: str = Field(
+    body_file: str = Field(
         default=None,
-        description="Path to a draft email file (created by draft_email with output_file). If provided, overrides to/subject/body.",
+        description="Path to an email file with headers and body. If provided, overrides to/subject/body. Mutually exclusive with body parameter.",
     ),
     account: str = Field(
         default="",
@@ -95,26 +108,25 @@ def send(
     ),
 ) -> SendResult:
     """Send an email using msmtp with existing ~/.msmtprc configuration."""
-    # Load content from draft file if provided
-    if draft_file:
-        draft_content = _load_draft_file(draft_file)
-        to = draft_content["to"]
-        subject = draft_content["subject"]
-        body = draft_content["body"]
+    # Check mutual exclusivity
+    if body_file and body:
+        raise ValueError("Cannot specify both 'body' and 'body_file'. Choose one.")
+
+    # Load content from body_file if provided
+    if body_file:
+        file_to, file_subject, file_body = _load_email_file(body_file)
+        # Use file values, but allow parameter overrides
+        to = to or file_to
+        subject = subject or file_subject
+        body = file_body
 
     # Validate that we have required fields
     if not to:
-        raise ValueError(
-            "Recipient (to) is required. Provide either 'to' parameter or 'draft_file'."
-        )
+        raise ValueError("Recipient (to) is required.")
     if not subject:
-        raise ValueError(
-            "Subject is required. Provide either 'subject' parameter or 'draft_file'."
-        )
+        raise ValueError("Subject is required.")
     if not body:
-        raise ValueError(
-            "Body is required. Provide either 'body' parameter or 'draft_file'."
-        )
+        raise ValueError("Body is required.")
 
     email_content = f"To: {to}\n"
     email_content += f"Subject: {subject}\n"
@@ -148,34 +160,6 @@ def send(
     )
 
 
-def _load_draft_file(file_path: str) -> dict:
-    """Load draft file and parse email headers."""
-    if not Path(file_path).exists():
-        raise FileNotFoundError(f"Draft file not found: {file_path}")
-
-    with open(file_path, encoding="utf-8") as f:
-        content = f.read()
-
-    # Parse email format: headers until empty line, then body
-    parts = content.split("\n\n", 1)
-    if len(parts) != 2:
-        raise ValueError(f"Invalid draft file format: {file_path}")
-
-    headers_text, body = parts
-    headers = {}
-
-    for line in headers_text.split("\n"):
-        if ":" in line:
-            key, value = line.split(":", 1)
-            headers[key.strip().lower()] = value.strip()
-
-    return {
-        "to": headers.get("to", ""),
-        "subject": headers.get("subject", ""),
-        "body": body,
-    }
-
-
 @mcp.tool(
     description="List available msmtp accounts from ~/.msmtprc configuration. Use to discover valid account names for the send tool."
 )
@@ -187,138 +171,4 @@ def list_accounts(
 ) -> list[str]:
     """List available msmtp accounts by parsing msmtp config."""
     accounts = _parse_msmtprc(config_file)
-
     return accounts
-
-
-# Email drafting tool
-@mcp.tool(
-    description="Draft an email in a specific style. Returns subject and body that can be reviewed and sent via send()."
-)
-def draft_email(
-    style: str = Field(
-        default=STYLE_CONFIG.default_style,
-        description=f"Email style to use. Available: {list(STYLE_CONFIG.styles.keys())}. Default: {STYLE_CONFIG.default_style}",
-    ),
-    message_content: str = Field(
-        ..., description="The core message content or purpose of the email"
-    ),
-    recipient: str = Field(..., description="The recipient's name or email address"),
-    sender_name: str = Field(
-        default=None, description="Sender's name for signature (optional)"
-    ),
-    output_file: str = Field(
-        default=None,
-        description="File path to save the draft (optional). If provided, saves as email format for send(draft_file=...)",
-    ),
-) -> dict:
-    """Draft an email in the specified style with subject and body."""
-    # Get style profile
-    profile = STYLE_CONFIG.styles.get(style)
-    if not profile:
-        profile = STYLE_CONFIG.styles.get(
-            STYLE_CONFIG.default_style, DEFAULT_CONFIG.styles["professional"]
-        )
-        style = STYLE_CONFIG.default_style
-
-    # Generate subject
-    subject = _generate_subject(message_content, profile)
-
-    # Generate body
-    body = _generate_body(message_content, recipient, sender_name, profile)
-
-    draft = {
-        "subject": subject,
-        "body": body,
-        "style_used": style,
-        "recipient": recipient,
-        "sender_name": sender_name,
-    }
-
-    # Save to file if requested
-    if output_file:
-        _save_draft_to_file(draft, output_file)
-        draft["draft_file"] = output_file
-
-    return draft
-
-
-def _generate_subject(message_content: str, profile: StyleProfile) -> str:
-    """Generate a subject line following style guidelines."""
-    # Simple subject generation - could be enhanced with LLM integration
-    subject = f"Re: {message_content}" if message_content else "Email"
-
-    # Apply max length if specified
-    if profile.max_subject_len and len(subject) > profile.max_subject_len:
-        subject = subject[: profile.max_subject_len - 3] + "..."
-
-    return subject
-
-
-def _generate_body(
-    message_content: str, recipient: str, sender_name: str, profile: StyleProfile
-) -> str:
-    """Generate email body following style guidelines."""
-    # Extract recipient name from email if needed
-    recipient_name = recipient.split("@")[0] if "@" in recipient else recipient
-
-    # Handle None sender_name
-    sender_name = sender_name or "[Your name]"
-
-    # Use template if available
-    if profile.example_template:
-        body = profile.example_template.format(
-            greeting=profile.greeting or "Hello",
-            recipient=recipient_name,
-            title="",  # Could be enhanced to detect titles
-            content=message_content,
-            signoff=profile.signoff or "Best regards,",
-            sender=sender_name,
-        )
-    else:
-        # Fallback body generation
-        greeting = profile.greeting or "Hello"
-        signoff = profile.signoff or "Best regards,"
-        body = f"{greeting} {recipient_name},\n\n{message_content}\n\n{signoff}\n{sender_name}"
-
-    return body
-
-
-def _save_draft_to_file(draft: dict, file_path: str) -> None:
-    """Save draft in email format for use with send(draft_file=...)."""
-    from pathlib import Path
-
-    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
-
-    email_content = f"""To: {draft["recipient"]}
-Subject: {draft["subject"]}
-
-{draft["body"]}"""
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(email_content)
-
-
-# Style discovery tool
-@mcp.tool(
-    description="Get available email styles and their guidelines. Use before composing emails to understand available style prompts."
-)
-def get_email_styles() -> dict:
-    """Return available email style prompts and their guidelines."""
-    styles_info = {}
-    for name, profile in STYLE_CONFIG.styles.items():
-        styles_info[name] = {
-            "tone": profile.tone,
-            "guidelines": profile.guidelines[:5],  # First 5 guidelines
-            "greeting": profile.greeting,
-            "signoff": profile.signoff,
-            "max_subject_len": profile.max_subject_len,
-            "prompt_name": f"{name}_email",
-            "example": create_example_body(profile, "colleague"),
-        }
-
-    return {
-        "default_style": STYLE_CONFIG.default_style,
-        "available_styles": styles_info,
-        "usage": "Use the appropriate prompt (e.g., 'professional_email') before calling send() to compose emails in that style.",
-    }
