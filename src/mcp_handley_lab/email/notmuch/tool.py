@@ -329,31 +329,21 @@ def process_html_content(html_content: str) -> str:
         return html_content
 
 
-@mcp.tool(
-    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity."""
-)
-def show(
-    query: str = Field(
-        ...,
-        description="A notmuch query to select the email(s) to display. Typically an 'id:<message-id>' query for a single email.",
-    ),
-    mode: str = Field(
-        default="full",
-        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
-    ),
-    limit: int | None = Field(
-        default=None,
-        description="Maximum number of emails to return (helps prevent token overflow). If None, returns all emails.",
-    ),
-) -> list[EmailContent]:
-    """Show email content with optimized token-efficient processing."""
+def _show_impl(query: str, mode: str = "full", limit: int = 0) -> list[EmailContent]:
+    """Internal implementation of show without Field descriptors.
+
+    Args:
+        query: Notmuch search query
+        mode: Rendering mode ('headers', 'summary', or 'full')
+        limit: Maximum number of emails to return (0 for unlimited)
+    """
     cmd = ["notmuch", "search", "--format=json", "--output=messages", query]
     stdout, stderr = run_command(cmd)
     output = stdout.decode().strip()
     message_ids = json.loads(output)
 
     # Apply limit to prevent token overflow if specified
-    if limit is not None and len(message_ids) > limit:
+    if limit > 0 and len(message_ids) > limit:
         message_ids = message_ids[:limit]
 
     results = []
@@ -395,6 +385,27 @@ def show(
             )
         )
     return results
+
+
+@mcp.tool(
+    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity."""
+)
+def show(
+    query: str = Field(
+        ...,
+        description="A notmuch query to select the email(s) to display. Typically an 'id:<message-id>' query for a single email.",
+    ),
+    mode: str = Field(
+        default="full",
+        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
+    ),
+    limit: int = Field(
+        default=0,
+        description="Maximum number of emails to return (0 for unlimited).",
+    ),
+) -> list[EmailContent]:
+    """Show email content with optimized token-efficient processing."""
+    return _show_impl(query, mode, limit)
 
 
 @mcp.tool(

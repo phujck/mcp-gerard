@@ -20,6 +20,35 @@ def _execute_mutt_command(cmd: list[str], input_text: str = None) -> str:
     return stdout.decode().strip()
 
 
+def _check_msmtp_log_for_recipient(
+    log_path: Path, recipient: str, start_pos: int
+) -> bool:
+    """Check if recipient appears in msmtp log after given position.
+
+    Args:
+        log_path: Path to msmtp log file
+        recipient: Email address to search for
+        start_pos: File position to start searching from
+
+    Returns:
+        True if email was sent to recipient after start_pos
+    """
+    if not log_path.exists():
+        return False
+
+    # Read the entire file and slice from start_pos
+    content = log_path.read_text()
+    new_content = content[start_pos:]
+
+    # Check if recipient appears in new log entries
+    # msmtp log format includes: recipients=email@example.com
+    return (
+        f"recipients={recipient}" in new_content
+        or "recipients=" in new_content
+        and recipient in new_content
+    )
+
+
 def _query_mutt_var(var: str) -> str | None:
     """Query a mutt configuration variable."""
     result = _execute_mutt_command(["mutt", "-Q", var])
@@ -170,38 +199,17 @@ def _build_mutt_command(
     return mutt_cmd
 
 
-@mcp.tool(
-    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
-)
-def compose(
-    to: str = Field(
-        ...,
-        description="The primary recipient's email address (e.g., 'user@example.com').",
-    ),
-    subject: str = Field(default="", description="The subject line of the email."),
-    cc: str = Field(
-        default=None, description="Email address for the 'Cc' (carbon copy) field."
-    ),
-    bcc: str = Field(
-        default=None,
-        description="Email address for the 'Bcc' (blind carbon copy) field.",
-    ),
-    body: str = Field(
-        default="", description="Text to pre-populate in the email body."
-    ),
-    attachments: list[str] = Field(
-        default=None, description="A list of local file paths to attach to the email."
-    ),
-    in_reply_to: str = Field(
-        default=None,
-        description="The Message-ID of the email being replied to, for proper threading. Used by 'reply' tool.",
-    ),
-    references: str = Field(
-        default=None,
-        description="A space-separated list of Message-IDs for threading context. Used by 'reply' tool.",
-    ),
+def _compose_impl(
+    to: str,
+    subject: str = "",
+    cc: str = None,
+    bcc: str = None,
+    body: str = "",
+    attachments: list[str] = None,
+    in_reply_to: str = None,
+    references: str = None,
 ) -> OperationResult:
-    """Compose an email using mutt's interactive interface."""
+    """Internal implementation of compose without Field descriptors."""
     temp_file_path = None
 
     if body:
@@ -238,14 +246,73 @@ def compose(
         references=references if not body else None,
     )
 
+    # Monitor msmtp log to detect if email was sent
+    msmtp_log_path = Path.home() / ".msmtp.log"
+    log_start_pos = 0
+    if msmtp_log_path.exists():
+        log_start_pos = msmtp_log_path.stat().st_size
+
     window_title = f"Mutt: {subject or 'New Email'}"
-    launch_interactive(shlex.join(mutt_cmd), window_title=window_title, wait=True)
+    result = launch_interactive(
+        shlex.join(mutt_cmd), window_title=window_title, wait=True
+    )
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
-    return OperationResult(
-        status="success",
-        message=f"Email composition completed: {to}{attachment_info}",
+    # Check if email was sent by looking for recipient in msmtp log
+    email_sent = _check_msmtp_log_for_recipient(msmtp_log_path, to, log_start_pos)
+
+    if email_sent:
+        return OperationResult(
+            status="sent",
+            message=f"Email sent to: {to}{attachment_info}",
+        )
+    elif result.get("exit_code") == 0:
+        return OperationResult(
+            status="cancelled",
+            message=f"Email composition cancelled for: {to}",
+        )
+    else:
+        return OperationResult(
+            status="error",
+            message=f"Mutt exited with code {result.get('exit_code')} for: {to}",
+        )
+
+
+@mcp.tool(
+    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
+)
+def compose(
+    to: str = Field(
+        ...,
+        description="The primary recipient's email address (e.g., 'user@example.com').",
+    ),
+    subject: str = Field(default="", description="The subject line of the email."),
+    cc: str = Field(
+        default=None, description="Email address for the 'Cc' (carbon copy) field."
+    ),
+    bcc: str = Field(
+        default=None,
+        description="Email address for the 'Bcc' (blind carbon copy) field.",
+    ),
+    body: str = Field(
+        default="", description="Text to pre-populate in the email body."
+    ),
+    attachments: list[str] = Field(
+        default=None, description="A list of local file paths to attach to the email."
+    ),
+    in_reply_to: str = Field(
+        default=None,
+        description="The Message-ID of the email being replied to, for proper threading. Used by 'reply' tool.",
+    ),
+    references: str = Field(
+        default=None,
+        description="A space-separated list of Message-IDs for threading context. Used by 'reply' tool.",
+    ),
+) -> OperationResult:
+    """Compose an email using mutt's interactive interface."""
+    return _compose_impl(
+        to, subject, cc, bcc, body, attachments, in_reply_to, references
     )
 
 
@@ -268,10 +335,13 @@ def reply(
     """Reply to an email using compose with extracted reply data."""
 
     # Import notmuch show to get original message data
-    from mcp_handley_lab.email.notmuch.tool import _get_message_from_raw_source, show
+    from mcp_handley_lab.email.notmuch.tool import (
+        _get_message_from_raw_source,
+        _show_impl,
+    )
 
-    # Get original message data
-    result = show(f"id:{message_id}")
+    # Get original message data - use internal implementation to avoid Field descriptor issues
+    result = _show_impl(f"id:{message_id}")
     original_msg = result[0]
     raw_msg = _get_message_from_raw_source(message_id)
 
@@ -308,8 +378,8 @@ def reply(
         else f"{reply_separator}\n{quoted_body}"
     )
 
-    # Use compose with extracted data
-    return compose(
+    # Use internal compose implementation to avoid Field descriptor issues
+    return _compose_impl(
         to=reply_to,
         cc=reply_cc,
         subject=reply_subject,
@@ -338,11 +408,10 @@ def forward(
     """Forward an email using compose with extracted forward data."""
 
     # Import notmuch show to get original message data
+    from mcp_handley_lab.email.notmuch.tool import _show_impl
 
-    from mcp_handley_lab.email.notmuch.tool import show
-
-    # Get original message data
-    result = show(f"id:{message_id}")
+    # Get original message data - use internal implementation to avoid Field descriptor issues
+    result = _show_impl(f"id:{message_id}")
     original_msg = result[0]
 
     # Build forward subject with Fwd: prefix
@@ -367,8 +436,8 @@ def forward(
         else f"{forward_intro}\n{forwarded_content}\n{forward_trailer}"
     )
 
-    # Use compose with extracted data (no threading headers for forwards)
-    return compose(
+    # Use internal compose implementation to avoid Field descriptor issues
+    return _compose_impl(
         to=to,
         subject=forward_subject,
         body=complete_forward_body,

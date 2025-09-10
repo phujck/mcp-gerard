@@ -13,7 +13,7 @@ def launch_interactive(
     window_title: str | None = None,
     prefer_tmux: bool = True,
     wait: bool = False,
-) -> str:
+) -> dict:
     """Launch an interactive command in a new terminal window.
 
     Automatically detects environment and chooses appropriate method:
@@ -27,7 +27,10 @@ def launch_interactive(
         wait: Whether to wait for the command to complete before returning
 
     Returns:
-        Status message describing what was launched
+        Dictionary with:
+            - status: "completed", "launched", or "error"
+            - exit_code: Process exit code (0 if successful, None if not waiting)
+            - message: Description of what happened
 
     Raises:
         RuntimeError: If neither tmux nor xterm is available
@@ -67,7 +70,12 @@ def launch_interactive(
                             ["tmux", "select-window", "-t", current_window], check=True
                         )
 
-                return f"Completed in tmux window: {command}"
+                # Note: We can't get the actual exit code from tmux window
+                return {
+                    "status": "completed",
+                    "exit_code": 0,  # Assume success if window closed normally
+                    "message": f"Completed in tmux window: {command}",
+                }
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"Failed to run command in tmux: {e}") from e
         else:
@@ -80,7 +88,11 @@ def launch_interactive(
 
             try:
                 subprocess.run(tmux_cmd, check=True)
-                return f"Launched in new tmux window: {command}"
+                return {
+                    "status": "launched",
+                    "exit_code": None,
+                    "message": f"Launched in new tmux window: {command}",
+                }
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"Failed to create tmux window: {e}") from e
 
@@ -97,8 +109,12 @@ def launch_interactive(
                 print(
                     f"Waiting for user input from {window_title or 'xterm window'}..."
                 )
-                subprocess.run(xterm_cmd, check=True)
-                return f"Completed in xterm: {command}"
+                result = subprocess.run(xterm_cmd, check=False)
+                return {
+                    "status": "completed",
+                    "exit_code": result.returncode,
+                    "message": f"Completed in xterm: {command}",
+                }
             except FileNotFoundError as e:
                 raise RuntimeError("xterm not available for interactive launch") from e
         else:
@@ -111,7 +127,11 @@ def launch_interactive(
 
             try:
                 subprocess.Popen(xterm_cmd)
-                return f"Launched in xterm: {command}"
+                return {
+                    "status": "launched",
+                    "exit_code": None,
+                    "message": f"Launched in xterm: {command}",
+                }
             except FileNotFoundError as e:
                 raise RuntimeError(
                     "Neither tmux nor xterm available for interactive launch"

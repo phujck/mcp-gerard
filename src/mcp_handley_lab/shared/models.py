@@ -206,9 +206,7 @@ class FileResult(BaseModel):
 class OperationResult(BaseModel):
     """Generic operation result."""
 
-    status: Literal["success", "error", "warning"] = Field(
-        ..., description="The outcome status of the operation."
-    )
+    status: str = Field(..., description="The outcome status of the operation.")
     message: str = Field(
         ..., description="Human-readable description of the operation result."
     )
