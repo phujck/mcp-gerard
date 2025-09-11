@@ -1,5 +1,6 @@
 """Mutt tool for interactive email composition via MCP."""
 
+import builtins
 import os
 import shlex
 import tempfile
@@ -170,38 +171,159 @@ def _build_mutt_command(
     return mutt_cmd
 
 
-@mcp.tool(
-    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
-)
-def compose(
-    to: str = Field(
-        ...,
-        description="The primary recipient's email address (e.g., 'user@example.com').",
-    ),
-    subject: str = Field(default="", description="The subject line of the email."),
-    cc: str = Field(
-        default=None, description="Email address for the 'Cc' (carbon copy) field."
-    ),
-    bcc: str = Field(
-        default=None,
-        description="Email address for the 'Bcc' (blind carbon copy) field.",
-    ),
-    body: str = Field(
-        default="", description="Text to pre-populate in the email body."
-    ),
-    attachments: list[str] = Field(
-        default=None, description="A list of local file paths to attach to the email."
-    ),
-    in_reply_to: str = Field(
-        default=None,
-        description="The Message-ID of the email being replied to, for proper threading. Used by 'reply' tool.",
-    ),
-    references: str = Field(
-        default=None,
-        description="A space-separated list of Message-IDs for threading context. Used by 'reply' tool.",
-    ),
+def _get_msmtp_log_size() -> int:
+    """Get current size of msmtp log file."""
+    log_path = os.path.expanduser("~/.msmtp.log")
+    try:
+        return os.path.getsize(log_path) if os.path.exists(log_path) else 0
+    except OSError:
+        return 0
+
+
+def _parse_msmtp_log_entry(log_line: str) -> dict:
+    """Parse an msmtp log entry to extract detailed information.
+
+    Example log line:
+    Aug 23 09:16:33 host=smtp.office365.com tls=on auth=on user=wh260@cam.ac.uk
+    from=wh260@cam.ac.uk recipients=wh260@cam.ac.uk,cc@example.com,bcc@example.com
+    mailsize=273 smtpstatus=250 smtpmsg='250 2.0.0 OK <aKj2OhY87X3qWDJs@maxwell> [Hostname=...]'
+    exitcode=EX_OK
+    """
+    data = {}
+
+    # Extract timestamp (first 15 chars typically)
+    if len(log_line) >= 15:
+        data["timestamp"] = log_line[:15].strip()
+
+    # Extract key=value pairs
+    import re
+
+    # Extract recipients (can be comma-separated)
+    recipients_match = re.search(r"recipients=([^\s]+)", log_line)
+    if recipients_match:
+        recipients_str = recipients_match.group(1)
+        data["all_recipients"] = recipients_str.split(",")
+
+    # Extract from address
+    from_match = re.search(r"from=([^\s]+)", log_line)
+    if from_match:
+        data["from"] = from_match.group(1)
+
+    # Extract mail size
+    size_match = re.search(r"mailsize=(\d+)", log_line)
+    if size_match:
+        data["mail_size_bytes"] = int(size_match.group(1))
+
+    # Extract SMTP status code
+    status_match = re.search(r"smtpstatus=(\d+)", log_line)
+    if status_match:
+        data["smtp_status_code"] = status_match.group(1)
+
+    # Extract SMTP message (including message ID)
+    msg_match = re.search(r"smtpmsg='([^']+)'", log_line)
+    if msg_match:
+        smtp_msg = msg_match.group(1)
+        data["smtp_message"] = smtp_msg
+
+        # Try to extract message ID from SMTP response
+        msg_id_match = re.search(r"<([^>]+)>", smtp_msg)
+        if msg_id_match:
+            data["message_id"] = msg_id_match.group(1)
+
+    # Extract error message if present
+    error_match = re.search(r"errormsg='([^']+)'", log_line)
+    if error_match:
+        data["error_message"] = error_match.group(1)
+
+    # Extract exit code
+    exit_match = re.search(r"exitcode=(\w+)", log_line)
+    if exit_match:
+        data["exit_code"] = exit_match.group(1)
+
+    # Extract host
+    host_match = re.search(r"host=([^\s]+)", log_line)
+    if host_match:
+        data["smtp_host"] = host_match.group(1)
+
+    return data
+
+
+def _check_recent_send() -> tuple[bool, bool, dict]:
+    """Check if a recent send occurred and extract detailed information.
+
+    Returns:
+        (send_occurred, send_successful, data_dict)
+    """
+    log_path = os.path.expanduser("~/.msmtp.log")
+    try:
+        if not os.path.exists(log_path):
+            return False, False, {}
+
+        with builtins.open(log_path) as f:
+            lines = f.readlines()
+            if not lines:
+                return False, False, {}
+
+            # Get the last line (most recent entry)
+            last_line = lines[-1].strip()
+            if not last_line:
+                return False, False, {}
+
+            # Check if it contains exitcode info (indicates a send attempt)
+            if "exitcode=" in last_line:
+                # Parse the log entry for detailed data
+                data = _parse_msmtp_log_entry(last_line)
+
+                # Check if it was successful (EX_OK = 0)
+                send_successful = "exitcode=EX_OK" in last_line
+                return True, send_successful, data
+
+        return False, False, {}
+    except OSError:
+        return False, False, {}
+
+
+def _execute_mutt_interactive(
+    mutt_cmd: list[str],
+    window_title: str = "Mutt",
+) -> tuple[int, str, dict]:
+    """Execute mutt command interactively and determine send status.
+
+    Returns:
+        (exit_code, status, data) where status is "success", "error", or "cancelled"
+    """
+    log_size_before = _get_msmtp_log_size()
+
+    command_str = shlex.join(mutt_cmd)
+    _, exit_code = launch_interactive(command_str, window_title=window_title, wait=True)
+
+    log_size_after = _get_msmtp_log_size()
+
+    # If log size increased, check the recent send status
+    if log_size_after > log_size_before:
+        send_occurred, send_successful, data = _check_recent_send()
+        if send_occurred:
+            return exit_code, "success" if send_successful else "error", data
+
+    # No new log entry means user cancelled/quit without sending
+    if exit_code == 0:
+        return exit_code, "cancelled", {}
+    else:
+        # Non-zero exit code is an error regardless
+        return exit_code, "error", {"exit_code": exit_code}
+
+
+def _compose_email(
+    to: str,
+    subject: str = "",
+    cc: str = None,
+    bcc: str = None,
+    body: str = "",
+    attachments: list[str] = None,
+    in_reply_to: str = None,
+    references: str = None,
 ) -> OperationResult:
-    """Compose an email using mutt's interactive interface."""
+    """Internal implementation of email composition."""
     temp_file_path = None
 
     if body:
@@ -239,13 +361,73 @@ def compose(
     )
 
     window_title = f"Mutt: {subject or 'New Email'}"
-    launch_interactive(shlex.join(mutt_cmd), window_title=window_title, wait=True)
+    exit_code, status, data = _execute_mutt_interactive(
+        mutt_cmd, window_title=window_title
+    )
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
-    return OperationResult(
-        status="success",
-        message=f"Email composition completed: {to}{attachment_info}",
+    if status == "success":
+        return OperationResult(
+            status="success",
+            message=f"Email sent successfully: {to}{attachment_info}",
+            data=data,
+        )
+    elif status == "cancelled":
+        return OperationResult(
+            status="cancelled",
+            message=f"Email composition cancelled: {to}{attachment_info}",
+            data=data,
+        )
+    else:  # status == "error"
+        return OperationResult(
+            status="error",
+            message=f"Email sending failed: {to}{attachment_info} (exit code: {exit_code})",
+            data=data,
+        )
+
+
+@mcp.tool(
+    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
+)
+def compose(
+    to: str = Field(
+        ...,
+        description="The primary recipient's email address (e.g., 'user@example.com').",
+    ),
+    subject: str = Field(default="", description="The subject line of the email."),
+    cc: str = Field(
+        default=None, description="Email address for the 'Cc' (carbon copy) field."
+    ),
+    bcc: str = Field(
+        default=None,
+        description="Email address for the 'Bcc' (blind carbon copy) field.",
+    ),
+    body: str = Field(
+        default="", description="Text to pre-populate in the email body."
+    ),
+    attachments: list[str] = Field(
+        default=None, description="A list of local file paths to attach to the email."
+    ),
+    in_reply_to: str = Field(
+        default=None,
+        description="The Message-ID of the email being replied to, for proper threading. Used by 'reply' tool.",
+    ),
+    references: str = Field(
+        default=None,
+        description="A space-separated list of Message-IDs for threading context. Used by 'reply' tool.",
+    ),
+) -> OperationResult:
+    """Compose an email using mutt's interactive interface."""
+    return _compose_email(
+        to=to,
+        subject=subject,
+        cc=cc,
+        bcc=bcc,
+        body=body,
+        attachments=attachments,
+        in_reply_to=in_reply_to,
+        references=references,
     )
 
 
@@ -264,14 +446,20 @@ def reply(
         default="",
         description="Text to add to the top of the reply, above the quoted original message.",
     ),
+    attachments: list[str] = Field(
+        default=None, description="A list of local file paths to attach to the email."
+    ),
 ) -> OperationResult:
     """Reply to an email using compose with extracted reply data."""
 
-    # Import notmuch show to get original message data
-    from mcp_handley_lab.email.notmuch.tool import _get_message_from_raw_source, show
+    # Import notmuch functions to get original message data
+    from mcp_handley_lab.email.notmuch.tool import (
+        _get_message_from_raw_source,
+        _show_email,
+    )
 
-    # Get original message data
-    result = show(f"id:{message_id}")
+    # Get original message data directly without calling the MCP tool
+    result = _show_email(f"id:{message_id}")
     original_msg = result[0]
     raw_msg = _get_message_from_raw_source(message_id)
 
@@ -308,12 +496,14 @@ def reply(
         else f"{reply_separator}\n{quoted_body}"
     )
 
-    # Use compose with extracted data
-    return compose(
+    # Use internal compose implementation with extracted data
+    return _compose_email(
         to=reply_to,
         cc=reply_cc,
+        bcc=None,
         subject=reply_subject,
         body=complete_reply_body,
+        attachments=attachments,
         in_reply_to=in_reply_to,
         references=references,
     )
@@ -334,15 +524,17 @@ def forward(
         default="",
         description="Commentary to add to the top of the email, above the forwarded message.",
     ),
+    attachments: list[str] = Field(
+        default=None, description="A list of local file paths to attach to the email."
+    ),
 ) -> OperationResult:
     """Forward an email using compose with extracted forward data."""
 
-    # Import notmuch show to get original message data
+    # Import notmuch function to get original message data
+    from mcp_handley_lab.email.notmuch.tool import _show_email
 
-    from mcp_handley_lab.email.notmuch.tool import show
-
-    # Get original message data
-    result = show(f"id:{message_id}")
+    # Get original message data directly without calling the MCP tool
+    result = _show_email(f"id:{message_id}")
     original_msg = result[0]
 
     # Build forward subject with Fwd: prefix
@@ -367,11 +559,14 @@ def forward(
         else f"{forward_intro}\n{forwarded_content}\n{forward_trailer}"
     )
 
-    # Use compose with extracted data (no threading headers for forwards)
-    return compose(
+    # Use internal compose implementation with extracted data (no threading headers for forwards)
+    return _compose_email(
         to=to,
+        cc=None,
+        bcc=None,
         subject=forward_subject,
         body=complete_forward_body,
+        attachments=attachments,
     )
 
 
@@ -404,8 +599,30 @@ def open(
     try:
         if not target:
             # No target specified - open default inbox
-            launch_interactive("mutt", window_title="Mutt: Inbox", wait=True)
-            return OperationResult(status="success", message="Opened default inbox")
+            mutt_cmd = ["mutt"]
+            window_title = "Mutt: Inbox"
+            exit_code, status, data = _execute_mutt_interactive(
+                mutt_cmd, window_title=window_title
+            )
+
+            if status == "success":
+                return OperationResult(
+                    status="success",
+                    message="Inbox session completed with email sent",
+                    data=data,
+                )
+            elif status == "cancelled":
+                return OperationResult(
+                    status="cancelled",
+                    message="Inbox session closed",
+                    data=data,
+                )
+            else:
+                return OperationResult(
+                    status="error",
+                    message=f"Inbox session failed (exit code: {exit_code})",
+                    data=data,
+                )
 
         # Heuristic: if it contains '@' and not '/', treat as message ID
         clean_target = target.replace("mailto:", "")
@@ -431,22 +648,58 @@ def open(
             mutt_cmd = ["mutt", "-f", str(folder_path), "-e", push_cmd]
 
             window_title = f"Mutt: Email {clean_target[:12]}..."
-            launch_interactive(
-                shlex.join(mutt_cmd), window_title=window_title, wait=True
-            )
-            return OperationResult(
-                status="success", message=f"Opened email {clean_target} in mutt"
+            exit_code, status, data = _execute_mutt_interactive(
+                mutt_cmd, window_title=window_title
             )
 
+            if status == "success":
+                return OperationResult(
+                    status="success",
+                    message=f"Opened email {clean_target} - email sent",
+                    data=data,
+                )
+            elif status == "cancelled":
+                return OperationResult(
+                    status="cancelled",
+                    message=f"Email viewing closed: {clean_target}",
+                    data=data,
+                )
+            else:
+                return OperationResult(
+                    status="error",
+                    message=f"Failed to open email {clean_target} (exit code: {exit_code})",
+                    data=data,
+                )
+
         # Treat as a folder path
-        resolved_folder, extra_args = _resolve_folder(target)
-        mutt_cmd = ["mutt"] + extra_args
+        resolved_folder = _resolve_folder(target)
+        mutt_cmd = ["mutt"]
         if resolved_folder:
             mutt_cmd.extend(["-f", resolved_folder])
 
         window_title = f"Mutt: {target}"
-        launch_interactive(shlex.join(mutt_cmd), window_title=window_title, wait=True)
-        return OperationResult(status="success", message=f"Opened folder: {target}")
+        exit_code, status, data = _execute_mutt_interactive(
+            mutt_cmd, window_title=window_title
+        )
+
+        if status == "success":
+            return OperationResult(
+                status="success",
+                message=f"Folder {target} - email sent",
+                data=data,
+            )
+        elif status == "cancelled":
+            return OperationResult(
+                status="cancelled",
+                message=f"Folder session closed: {target}",
+                data=data,
+            )
+        else:
+            return OperationResult(
+                status="error",
+                message=f"Failed to open folder {target} (exit code: {exit_code})",
+                data=data,
+            )
 
     except ValueError as e:  # Catch specific resolution errors
         return OperationResult(status="error", message=str(e))
