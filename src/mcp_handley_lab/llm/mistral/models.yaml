@@ -1,0 +1,145 @@
+models:
+  mistral-large-latest:
+    # Model metadata
+    description: "Latest large model for high-complexity tasks"
+    capabilities: "🎯 Best for: Complex reasoning, analysis, long documents"
+    tags: ["mistral-large", "latest", "frontier"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 2.00
+    output_per_1m: 6.00
+
+  pixtral-large-latest:
+    # Model metadata
+    description: "Latest multimodal model with vision capabilities"
+    capabilities: "👁️ Best for: Image analysis, OCR, multimodal tasks"
+    tags: ["pixtral", "latest", "multimodal", "vision"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 2.00
+    output_per_1m: 6.00
+
+  pixtral-12b-2409:
+    # Model metadata
+    description: "Lightweight vision model for image understanding"
+    capabilities: "👁️ Best for: OCR, image analysis, cost-effective vision tasks"
+    tags: ["pixtral", "vision", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 0.15
+    output_per_1m: 0.15
+
+  mistral-small-latest:
+    # Model metadata
+    description: "Fast, cost-effective model for most tasks"
+    capabilities: "⚡ Best for: Everyday tasks, balanced performance"
+    tags: ["mistral-small", "latest", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 0.10
+    output_per_1m: 0.30
+
+  codestral-latest:
+    # Model metadata
+    description: "Specialized model for coding tasks"
+    capabilities: "💻 Best for: Code generation, code completion, programming"
+    tags: ["codestral", "coding", "latest"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 0.30
+    output_per_1m: 0.90
+
+  ministral-8b-latest:
+    # Model metadata
+    description: "Lightweight edge model with high performance ratio"
+    capabilities: "🚀 Best for: Fast inference, edge deployment, high-volume tasks"
+    tags: ["ministral", "edge", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 8192
+
+    # Capabilities
+    supports_vision: false
+    supports_grounding: false
+
+    # Pricing (standard per-token)
+    input_per_1m: 0.10
+    output_per_1m: 0.10
+
+  mistral-ocr-latest:
+    # Model metadata
+    description: "Dedicated OCR model for document text extraction"
+    capabilities: "📄 Best for: OCR, document parsing, PDF extraction, multi-language text recognition"
+    tags: ["ocr", "document-ai"]
+    context_window: "N/A (document processing)"
+    output_tokens: 0
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: false
+
+    # Pricing (per-page, not per-token)
+    # $1 per 1,000 pages = $0.001 per page
+    # Representing as equivalent token pricing for compatibility
+    input_per_1m: 1.00
+    output_per_1m: 0.00
+
+# Display categories (how to group models by tags for presentation)
+display_categories:
+  - name: "📄 Document AI (OCR)"
+    tags: ["ocr", "document-ai"]
+    description: "Specialized OCR models for document text extraction"
+  - name: "👁️ Vision Models (Pixtral)"
+    tags: ["pixtral"]
+    description: "Multimodal models with image understanding capabilities"
+  - name: "🚀 Frontier Models"
+    tags: ["frontier"]
+    description: "Most capable models for complex tasks"
+  - name: "⚡ Cost-Effective Models"
+    tags: ["cost-effective"]
+    description: "Efficient models for everyday tasks"
+  - name: "💻 Specialized Models"
+    tags: ["codestral", "coding"]
+    description: "Domain-specific models for coding and other specialized tasks"
+
+# Default model
+default_model: "mistral-large-latest"
+
+# Usage notes
+usage_notes:
+  - "mistral-ocr-latest: Dedicated OCR model for high-accuracy document extraction ($1 per 1,000 pages)"
+  - "Pixtral models support both text and image inputs for interactive analysis"
+  - "All chat models have 128k token context windows"
+  - "Free API tier available for experimentation and prototyping"
+  - "Function calling and structured outputs supported across all models"
+  - "Batch processing available for cost optimization"
+  - "Use process_ocr() tool for dedicated OCR, analyze_image() for interactive vision tasks"

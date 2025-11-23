@@ -143,6 +143,13 @@ def build_model_configs_dict(provider: str) -> dict[str, dict[str, Any]]:
                         f"Missing 'output_tokens' for Grok model {model_id}"
                     )
                 model_configs[model_id] = {"output_tokens": model_info["output_tokens"]}
+        elif provider == "mistral":
+            # Mistral format - similar to Gemini
+            if "output_tokens" not in model_info:
+                raise ValueError(
+                    f"Missing 'output_tokens' for Mistral model {model_id}"
+                )
+            model_configs[model_id] = {"output_tokens": model_info["output_tokens"]}
         # Other providers can be added here as needed
 
     return model_configs
