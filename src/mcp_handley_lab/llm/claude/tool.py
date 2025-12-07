@@ -146,6 +146,8 @@ def _claude_generation_adapter(
     # Extract Claude-specific parameters
     temperature = kwargs.get("temperature", 1.0)
     files = kwargs.get("files")
+    enable_thinking = kwargs.get("enable_thinking", False)
+    thinking_budget = kwargs.get("thinking_budget", 10000)
 
     # Get model configuration
     resolved_model = _resolve_model_alias(model)
@@ -168,13 +170,22 @@ def _claude_generation_adapter(
 
     # Resolve model alias and prepare request parameters
     resolved_model = _resolve_model_alias(model)
-    request_params = {
+    request_params: dict[str, Any] = {
         "model": resolved_model,
         "messages": claude_history,
         "max_tokens": output_tokens,
-        "temperature": temperature,
         "timeout": 599,
     }
+
+    # Add thinking configuration if enabled (temperature not allowed with thinking)
+    if enable_thinking:
+        request_params["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget,
+        }
+        # Temperature must be 1.0 when thinking is enabled
+    else:
+        request_params["temperature"] = temperature
 
     # Add system instruction if provided
     if system_instruction:
@@ -187,12 +198,28 @@ def _claude_generation_adapter(
         # Convert all API errors to ValueError for consistent error handling
         raise ValueError(f"Claude API error: {str(e)}") from e
 
-    if not response.content or not response.content[0].text:
+    # Extract text and thinking from response content blocks
+    text_parts = []
+    thinking_parts = []
+    for block in response.content:
+        if block.type == "thinking":
+            thinking_parts.append(block.thinking)
+        elif block.type == "text":
+            text_parts.append(block.text)
+
+    # Format output with thinking if present
+    if thinking_parts and enable_thinking:
+        thinking_text = "\n".join(thinking_parts)
+        answer_text = "\n".join(text_parts) if text_parts else ""
+        text = f"<thinking>\n{thinking_text}\n</thinking>\n\n{answer_text}"
+    elif text_parts:
+        text = "\n".join(text_parts)
+    else:
         raise RuntimeError("No response text generated")
 
     # Extract additional Claude metadata
     return {
-        "text": response.content[0].text,
+        "text": text,
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
         "finish_reason": response.stop_reason,
@@ -323,6 +350,14 @@ def ask(
         default_factory=dict,
         description="A dictionary of variables for template substitution in the system prompt using ${var} syntax.",
     ),
+    enable_thinking: bool = Field(
+        default=False,
+        description="Enable extended thinking mode for deeper reasoning. Output includes <thinking> tags with model's reasoning process.",
+    ),
+    thinking_budget: int = Field(
+        default=10000,
+        description="Maximum tokens for thinking when enable_thinking is True. Minimum 1024. Higher values allow more thorough reasoning.",
+    ),
 ) -> LLMResult:
     """Ask Claude a question with optional persistent memory."""
     # Resolve model alias to full model name for consistent pricing
@@ -342,6 +377,8 @@ def ask(
         system_prompt=system_prompt,
         system_prompt_file=system_prompt_file,
         system_prompt_vars=system_prompt_vars,
+        enable_thinking=enable_thinking,
+        thinking_budget=thinking_budget,
     )
 
 
