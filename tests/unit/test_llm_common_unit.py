@@ -31,8 +31,8 @@ class TestGetSessionId:
         mock_context.client_id = "test_client_123"
         mock_mcp.get_context.return_value = mock_context
 
-        result = get_session_id(mock_mcp)
-        assert result == "_session_test_client_123"
+        result = get_session_id(mock_mcp, "openai")
+        assert result == "_session_openai_test_client_123"
 
     def test_get_session_id_no_client_id(self):
         """Test session ID when context has no client_id."""
@@ -42,8 +42,18 @@ class TestGetSessionId:
         mock_mcp.get_context.return_value = mock_context
 
         with patch("os.getpid", return_value=12345):
-            result = get_session_id(mock_mcp)
-            assert result == "_session_12345"
+            result = get_session_id(mock_mcp, "gemini")
+            assert result == "_session_gemini_12345"
+
+    def test_get_session_id_default_provider(self):
+        """Test session ID with default provider."""
+        mock_mcp = Mock()
+        mock_context = Mock()
+        mock_context.client_id = "test_client_456"
+        mock_mcp.get_context.return_value = mock_context
+
+        result = get_session_id(mock_mcp)
+        assert result == "_session_default_test_client_456"
 
 
 class TestDetermineMimeType:
@@ -662,6 +672,19 @@ class TestLoadPromptText:
         """Test that string 'false' is normalized to boolean False."""
         result = handle_agent_memory(
             agent_name="false",  # String "false" should be treated as False
+            user_prompt="Test prompt",
+            response_text="Test response",
+            input_tokens=100,
+            output_tokens=50,
+            cost=0.001,
+            session_id_func=lambda: "session_123",
+        )
+
+        assert result is None
+
+        # Test case insensitive
+        result = handle_agent_memory(
+            agent_name="FALSE",  # Case insensitive
             user_prompt="Test prompt",
             response_text="Test response",
             input_tokens=100,
