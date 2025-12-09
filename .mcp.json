@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "google-calendar": {
+      "type": "stdio",
+      "command": "mcp-google-calendar",
+      "args": [],
+      "env": {}
+    },
+    "mistral": {
+      "type": "stdio",
+      "command": "mcp-mistral",
+      "args": [],
+      "env": {}
+    }
+  }
+}

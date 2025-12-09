@@ -1,8 +1,10 @@
 """Unit tests for common modules (config and pricing) with parametrized tests."""
+
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 from mcp_handley_lab.common.config import Settings
 from mcp_handley_lab.common.pricing import (
     PricingCalculator,
@@ -67,8 +69,8 @@ class TestPricingCalculator:
         pytest.param(
             "gpt-4o-mini", 2000, 1000, "openai", 0.0009, id="openai-gpt4o-mini"
         ),
-        pytest.param("o1-preview", 1000, 500, "openai", 0.045, id="openai-o1-preview"),
-        pytest.param("o1-mini", 1000, 500, "openai", 0.009, id="openai-o1-mini"),
+        pytest.param("o3", 1000, 500, "openai", 0.006, id="openai-o3"),
+        pytest.param("o1-mini", 1000, 500, "openai", 0.00330, id="openai-o1-mini"),
         pytest.param("gpt-4.1", 1000, 500, "openai", 0.006, id="openai-gpt41"),
         pytest.param(
             "gpt-4.1-mini", 1000, 500, "openai", 0.0012, id="openai-gpt41-mini"
@@ -190,8 +192,10 @@ class TestPricingCalculator:
         """Test Gemini video generation per-second pricing."""
         calc = PricingCalculator()
 
-        # Test veo-2 video model
-        cost = calc.calculate_cost("veo-2", 0, 0, "gemini", seconds_generated=10)
+        # Test veo-2.0-generate-001 video model
+        cost = calc.calculate_cost(
+            "veo-2.0-generate-001", 0, 0, "gemini", seconds_generated=10
+        )
         expected = 10 * 0.35  # 10 seconds at $0.35 per second
         assert cost == expected
 

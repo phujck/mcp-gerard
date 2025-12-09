@@ -150,19 +150,19 @@ interactions:
       Accept-Ranges:
       - bytes
       Age:
-      - '818785'
+      - '1250602'
       Connection:
       - keep-alive
       Content-Length:
       - '10569'
       Date:
-      - Sun, 06 Jul 2025 20:04:29 GMT
+      - Wed, 13 Aug 2025 10:22:24 GMT
       X-Cache:
-      - HIT, MISS
+      - HIT, HIT
       X-Served-By:
-      - cache-lga21947-LGA, cache-lon4278-LON
+      - cache-lga21947-LGA, cache-lcy-eglc8600063-LCY
       X-Timer:
-      - S1751832269.448122,VS0,VE82
+      - S1755080544.163344,VS0,VE1
       content-type:
       - text/html; charset=utf-8
       server:
@@ -170,8 +170,57 @@ interactions:
       via:
       - 1.1 google, 1.1 varnish, 1.1 varnish
       x-cloud-trace-context:
-      - 542ee782de8186fa3e8b852c816896e3
+      - 024e38c5fe779470381c12db40b4f8d1
     status:
       code: 404
       message: Not Found
+- request:
+    body: ''
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Host:
+      - arxiv.org
+      User-Agent:
+      - python-httpx/0.28.1
+    method: GET
+    uri: https://arxiv.org/src/invalid-id-99999999
+  response:
+    body:
+      string: "\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html PUBLIC
+        \"-//W3C//DTD XHTML 1.0 Strict//EN\"\n \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n<html>\n
+        \ <head>\n    <title>403 Forbidden</title>\n  </head>\n  <body>\n    <h1>Error
+        403 Forbidden</h1>\n    <p>Forbidden</p>\n    <h3>Error 54113</h3>\n    <p>Details:
+        cache-lcy-eglc8600034-LCY 1764796629 747354834</p>\n    <hr>\n    <p>Varnish
+        cache server</p>\n  </body>\n</html>\n"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - close
+      Content-Length:
+      - '424'
+      Content-Type:
+      - text/html; charset=utf-8
+      Date:
+      - Wed, 03 Dec 2025 21:17:09 GMT
+      Retry-After:
+      - '0'
+      Server:
+      - Varnish
+      Via:
+      - 1.1 varnish
+      X-Cache:
+      - MISS
+      X-Served-By:
+      - cache-lcy-eglc8600034-LCY
+      X-Timer:
+      - S1764796629.431146,VS0,VE0
+    status:
+      code: 403
+      message: Forbidden
 version: 1

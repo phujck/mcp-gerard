@@ -1,15 +1,17 @@
 """Integration tests for system_prompt functionality across all LLM providers."""
+
 import os
 import tempfile
 from pathlib import Path
 
 import pytest
+from PIL import Image
+
 from mcp_handley_lab.llm.claude.tool import mcp as claude_mcp
 from mcp_handley_lab.llm.gemini.tool import mcp as gemini_mcp
 from mcp_handley_lab.llm.grok.tool import mcp as grok_mcp
 from mcp_handley_lab.llm.memory import memory_manager
 from mcp_handley_lab.llm.openai.tool import mcp as openai_mcp
-from PIL import Image
 
 # Skip all API-requiring tests if API keys not available
 gemini_available = bool(os.getenv("GEMINI_API_KEY"))
@@ -21,7 +23,7 @@ grok_available = bool(os.getenv("XAI_API_KEY"))
 system_prompt_providers = [
     pytest.param(
         gemini_mcp,
-        "ask",
+        "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-flash",
         id="gemini",
@@ -31,7 +33,7 @@ system_prompt_providers = [
     ),
     pytest.param(
         openai_mcp,
-        "ask",
+        "openai",
         "OPENAI_API_KEY",
         "gpt-4o-mini",
         id="openai",
@@ -41,9 +43,9 @@ system_prompt_providers = [
     ),
     pytest.param(
         claude_mcp,
-        "ask",
+        "claude",
         "ANTHROPIC_API_KEY",
-        "claude-3-5-haiku-20241022",
+        "claude-haiku-4-5-20251001",
         id="claude",
         marks=pytest.mark.skipif(
             not claude_available, reason="ANTHROPIC_API_KEY not available"
@@ -51,7 +53,7 @@ system_prompt_providers = [
     ),
     pytest.param(
         grok_mcp,
-        "ask",
+        "grok",
         "XAI_API_KEY",
         "grok-3-mini",
         id="grok",
@@ -62,7 +64,7 @@ system_prompt_providers = [
 image_analysis_providers = [
     pytest.param(
         gemini_mcp,
-        "analyze_image",
+        "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-pro",
         id="gemini",
@@ -72,7 +74,7 @@ image_analysis_providers = [
     ),
     pytest.param(
         openai_mcp,
-        "analyze_image",
+        "openai",
         "OPENAI_API_KEY",
         "gpt-4o",
         id="openai",
@@ -82,9 +84,9 @@ image_analysis_providers = [
     ),
     pytest.param(
         claude_mcp,
-        "analyze_image",
+        "claude",
         "ANTHROPIC_API_KEY",
-        "claude-3-5-sonnet-20240620",
+        "claude-sonnet-4-5-20250929",
         id="claude",
         marks=pytest.mark.skipif(
             not claude_available, reason="ANTHROPIC_API_KEY not available"
@@ -92,7 +94,7 @@ image_analysis_providers = [
     ),
     pytest.param(
         grok_mcp,
-        "analyze_image",
+        "grok",
         "XAI_API_KEY",
         "grok-2-vision-1212",
         id="grok",
@@ -114,100 +116,148 @@ class TestSystemPromptBasic:
     """Test basic system prompt functionality."""
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_system_prompt_parameter_exists(
-        self, mcp_instance, tool_name, api_key, model
-    ):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_parameter_exists(self, mcp, provider, api_key, model):
         """Test that system_prompt parameter is accepted by all providers."""
         # Test with a simple math question and specific system prompt
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 2+2?",
-                "output_file": "/tmp/test_system_prompt.txt",
-                "agent_name": "test_system_prompt_param",
-                "model": model,
-                "system_prompt": "You are a helpful math tutor. Always explain your reasoning.",
-            },
-        )
 
-        assert "error" not in result
-        assert "content" in result
-        assert len(result["content"]) > 0
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What is 2+2?",
+            "output_file": "/tmp/test_system_prompt.txt",
+            "agent_name": "test_system_prompt_param",
+            "model": model,
+            "system_prompt": "You are a helpful math tutor. Always explain your reasoning.",
+            "files": [],
+        }
+
+        # Add provider-specific parameters
+        if provider == "openai":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+        elif provider == "gemini":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                    "grounding": False,
+                }
+            )
+        elif provider == "claude":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+
+        _, response = await mcp.call_tool("ask", base_params)
+        assert "error" not in response, response.get("error")
+
+        assert response["content"] is not None
+        assert len(response["content"]) > 0
 
         # Verify response reflects the system prompt (should be explanatory)
-        content = result["content"]
-        assert len(content) > 10  # Should be more than just "4"
+        assert len(response["content"]) > 10  # Should be more than just "4"
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", image_analysis_providers
-    )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", image_analysis_providers)
     async def test_system_prompt_image_analysis(
-        self, mcp_instance, tool_name, api_key, model, sample_image_path
+        self, mcp, provider, api_key, model, sample_image_path
     ):
         """Test system_prompt works with image analysis tools."""
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What do you see in this image?",
-                "output_file": "/tmp/test_image_system_prompt.txt",
-                "agent_name": "test_image_system_prompt",
-                "model": model,
-                "files": [str(sample_image_path)],
-                "system_prompt": "You are a professional art critic. Provide detailed, sophisticated analysis.",
-            },
-        )
 
-        assert "error" not in result
-        assert "content" in result
-        assert len(result["content"]) > 0
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What do you see in this image?",
+            "output_file": "/tmp/test_image_system_prompt.txt",
+            "agent_name": "test_image_system_prompt",
+            "model": model,
+            "files": [str(sample_image_path)],
+            "system_prompt": "You are a professional art critic. Provide detailed, sophisticated analysis.",
+        }
+
+        # Add provider-specific parameters
+        if provider in ("openai", "gemini", "claude"):
+            base_params.update({})
+
+        _, response = await mcp.call_tool("analyze_image", base_params)
+        assert "error" not in response, response.get("error")
+
+        assert response["content"] is not None
+        assert len(response["content"]) > 0
 
 
 class TestSystemPromptPersistence:
     """Test that system prompts are remembered across calls."""
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_system_prompt_persistence(
-        self, mcp_instance, tool_name, api_key, model
-    ):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_persistence(self, mcp, provider, api_key, model):
         """Test that system prompt is remembered across multiple calls."""
         agent_name = f"test_persistence_{model.replace('-', '_')}"
 
-        # First call: Set system prompt
-        _, result1 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 3+3?",
-                "output_file": "/tmp/test_persistence1.txt",
+        # Provider-specific parameters
+        def get_base_params(prompt, output_file, system_prompt=None):
+            base_params = {
+                "prompt": prompt,
+                "output_file": output_file,
                 "agent_name": agent_name,
                 "model": model,
-                "system_prompt": "You are a concise math expert. Give only the answer and one short explanation.",
-            },
-        )
+                "files": [],
+            }
+            if system_prompt:
+                base_params["system_prompt"] = system_prompt
 
-        assert "error" not in result1
-        content1 = result1["content"]
+            # Add provider-specific parameters
+            if provider == "openai":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            elif provider == "gemini":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                        "grounding": False,
+                    }
+                )
+            elif provider == "claude":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            return base_params
+
+        # First call: Set system prompt
+        params1 = get_base_params(
+            "What is 3+3?",
+            "/tmp/test_persistence1.txt",
+            "You are a concise math expert. Give only the answer and one short explanation.",
+        )
+        _, response1 = await mcp.call_tool("ask", params1)
+        assert "error" not in response1, response1.get("error")
+
+        assert response1["content"] is not None
+        content1 = response1["content"]
 
         # Second call: No system prompt provided - should use remembered one
-        _, result2 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 4+4?",
-                "output_file": "/tmp/test_persistence2.txt",
-                "agent_name": agent_name,
-                "model": model,
-                # Note: no system_prompt parameter
-            },
+        params2 = get_base_params(
+            "What is 4+4?",
+            "/tmp/test_persistence2.txt",
+            None,  # No system prompt - should use remembered one
         )
+        _, response2 = await mcp.call_tool("ask", params2)
+        assert "error" not in response2, response2.get("error")
 
-        assert "error" not in result2
-        content2 = result2["content"]
+        assert response2["content"] is not None
+        content2 = response2["content"]
 
         # Both responses should be concise (reflecting the system prompt)
         # This is a heuristic test - responses should be relatively short
@@ -215,101 +265,148 @@ class TestSystemPromptPersistence:
         assert len(content2) < 200  # Also concise (using remembered system prompt)
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_system_prompt_update(self, mcp_instance, tool_name, api_key, model):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_update(self, mcp, provider, api_key, model):
         """Test that system prompt can be updated and new one is remembered."""
         agent_name = f"test_update_{model.replace('-', '_')}"
 
-        # First call: Detailed system prompt
-        _, result1 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 5+5?",
-                "output_file": "/tmp/test_update1.txt",
+        # Provider-specific parameters
+        def get_base_params(prompt, output_file, system_prompt=None):
+            base_params = {
+                "prompt": prompt,
+                "output_file": output_file,
                 "agent_name": agent_name,
                 "model": model,
-                "system_prompt": "You are a verbose math teacher. Explain everything in great detail with examples.",
-            },
-        )
+                "files": [],
+            }
+            if system_prompt:
+                base_params["system_prompt"] = system_prompt
 
-        assert "error" not in result1
-        content1 = result1["content"]
+            # Add provider-specific parameters
+            if provider == "openai":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            elif provider == "gemini":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                        "grounding": False,
+                    }
+                )
+            elif provider == "claude":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            return base_params
+
+        # First call: Detailed system prompt
+        params1 = get_base_params(
+            "What is 5+5?",
+            "/tmp/test_update1.txt",
+            "You are a verbose math teacher. Explain everything in great detail with examples.",
+        )
+        _, response1 = await mcp.call_tool("ask", params1)
+        assert "error" not in response1, response1.get("error")
+        assert response1["content"] is not None
+        content1 = response1["content"]
 
         # Second call: Change to brief system prompt
-        _, result2 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 6+6?",
-                "output_file": "/tmp/test_update2.txt",
-                "agent_name": agent_name,
-                "model": model,
-                "system_prompt": "You are brief. Give only the answer.",
-            },
+        params2 = get_base_params(
+            "What is 6+6?",
+            "/tmp/test_update2.txt",
+            "You are brief. Give only the answer.",
         )
-
-        assert "error" not in result2
-        content2 = result2["content"]
+        _, response2 = await mcp.call_tool("ask", params2)
+        assert "error" not in response2, response2.get("error")
+        assert response2["content"] is not None
+        content2 = response2["content"]
 
         # Third call: No system prompt - should use the new brief one
-        _, result3 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 7+7?",
-                "output_file": "/tmp/test_update3.txt",
-                "agent_name": agent_name,
-                "model": model,
-                # Note: no system_prompt parameter
-            },
+        params3 = get_base_params(
+            "What is 7+7?",
+            "/tmp/test_update3.txt",
+            None,  # No system prompt
         )
-
-        assert "error" not in result3
-        content3 = result3["content"]
+        _, response3 = await mcp.call_tool("ask", params3)
+        assert "error" not in response3, response3.get("error")
+        assert response3["content"] is not None
+        content3 = response3["content"]
 
         # First response should be verbose, second and third should be brief
         assert len(content1) > len(content2)  # Verbose vs brief
         assert len(content3) < 100  # Third response should also be brief
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
     async def test_different_agents_different_prompts(
-        self, mcp_instance, tool_name, api_key, model
+        self, mcp, provider, api_key, model
     ):
         """Test that different agents can have different system prompts."""
-        # Agent 1: Formal style
-        _, result1 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 8+2?",
-                "output_file": "/tmp/test_agent1.txt",
-                "agent_name": f"formal_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": "You are a formal mathematics professor. Use proper mathematical terminology.",
-            },
-        )
 
-        assert "error" not in result1
+        # Provider-specific parameters for Agent 1
+        def get_base_params(prompt, output_file, agent_name, system_prompt=None):
+            base_params = {
+                "prompt": prompt,
+                "output_file": output_file,
+                "agent_name": agent_name,
+                "model": model,
+                "files": [],
+            }
+            if system_prompt:
+                base_params["system_prompt"] = system_prompt
+
+            # Add provider-specific parameters
+            if provider == "openai":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            elif provider == "gemini":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                        "grounding": False,
+                    }
+                )
+            elif provider == "claude":
+                base_params.update(
+                    {
+                        "temperature": 1.0,
+                    }
+                )
+            return base_params
+
+        # Agent 1: Formal style
+        params1 = get_base_params(
+            "What is 8+2?",
+            "/tmp/test_agent1.txt",
+            f"formal_agent_{model.replace('-', '_')}",
+            "You are a formal mathematics professor. Use proper mathematical terminology.",
+        )
+        _, response1 = await mcp.call_tool("ask", params1)
+        assert "error" not in response1, response1.get("error")
+        assert response1["content"] is not None
+        content1 = response1["content"]
 
         # Agent 2: Casual style
-        _, result2 = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 8+2?",
-                "output_file": "/tmp/test_agent2.txt",
-                "agent_name": f"casual_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": "You are a friendly buddy. Be casual and use simple words.",
-            },
+        params2 = get_base_params(
+            "What is 8+2?",
+            "/tmp/test_agent2.txt",
+            f"casual_agent_{model.replace('-', '_')}",
+            "You are a friendly buddy. Be casual and use simple words.",
         )
-
-        assert "error" not in result2
-
-        # Both should answer the same question but in different styles
-        content1 = result1["content"]
-        content2 = result2["content"]
+        _, response2 = await mcp.call_tool("ask", params2)
+        assert "error" not in response2, response2.get("error")
+        assert response2["content"] is not None
+        content2 = response2["content"]
 
         # Both should contain "10" but in different styles
         assert "10" in content1 or "ten" in content1.lower()
@@ -400,91 +497,170 @@ class TestSystemPromptEdgeCases:
     """Test edge cases and error scenarios for system prompts."""
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_empty_system_prompt(self, mcp_instance, tool_name, api_key, model):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_empty_system_prompt(self, mcp, provider, api_key, model):
         """Test behavior with empty system prompt."""
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 9+1?",
-                "output_file": "/tmp/test_empty_prompt.txt",
-                "agent_name": f"empty_prompt_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": "",  # Empty string
-            },
-        )
 
-        assert "error" not in result
-        assert "content" in result
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What is 9+1?",
+            "output_file": "/tmp/test_empty_prompt.txt",
+            "agent_name": f"empty_prompt_agent_{model.replace('-', '_')}",
+            "model": model,
+            "system_prompt": "",  # Empty string
+            "files": [],
+        }
+
+        # Add provider-specific parameters
+        if provider == "openai":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+        elif provider == "gemini":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                    "grounding": False,
+                }
+            )
+        elif provider == "claude":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+
+        _, response = await mcp.call_tool("ask", base_params)
+        assert "error" not in response, response.get("error")
+        assert response["content"] is not None
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_none_system_prompt(self, mcp_instance, tool_name, api_key, model):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_none_system_prompt(self, mcp, provider, api_key, model):
         """Test behavior with None system prompt."""
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 1+9?",
-                "output_file": "/tmp/test_none_prompt.txt",
-                "agent_name": f"none_prompt_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": None,
-            },
-        )
 
-        assert "error" not in result
-        assert "content" in result
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What is 1+9?",
+            "output_file": "/tmp/test_none_prompt.txt",
+            "agent_name": f"none_prompt_agent_{model.replace('-', '_')}",
+            "model": model,
+            "files": [],
+        }
+
+        # Add provider-specific parameters
+        if provider == "openai":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+        elif provider == "gemini":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                    "grounding": False,
+                }
+            )
+        elif provider == "claude":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+
+        _, response = await mcp.call_tool("ask", base_params)
+        assert "error" not in response, response.get("error")
+        assert response["content"] is not None
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
-    async def test_very_long_system_prompt(
-        self, mcp_instance, tool_name, api_key, model
-    ):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
+    async def test_very_long_system_prompt(self, mcp, provider, api_key, model):
         """Test behavior with very long system prompt."""
         long_prompt = "You are a helpful assistant. " * 100  # Very long prompt
 
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 6+4?",
-                "output_file": "/tmp/test_long_prompt.txt",
-                "agent_name": f"long_prompt_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": long_prompt,
-            },
-        )
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What is 6+4?",
+            "output_file": "/tmp/test_long_prompt.txt",
+            "agent_name": f"long_prompt_agent_{model.replace('-', '_')}",
+            "model": model,
+            "system_prompt": long_prompt,
+            "files": [],
+        }
 
-        assert "error" not in result
-        assert "content" in result
+        # Add provider-specific parameters
+        if provider == "openai":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+        elif provider == "gemini":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                    "grounding": False,
+                }
+            )
+        elif provider == "claude":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+
+        _, response = await mcp.call_tool("ask", base_params)
+        assert "error" not in response, response.get("error")
+        assert response["content"] is not None
 
     @pytest.mark.vcr
-    @pytest.mark.parametrize(
-        "mcp_instance,tool_name,api_key,model", system_prompt_providers
-    )
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
     async def test_special_characters_system_prompt(
-        self, mcp_instance, tool_name, api_key, model
+        self, mcp, provider, api_key, model
     ):
         """Test system prompt with special characters and Unicode."""
         special_prompt = (
             "You are a helpful assistant 🤖. Use emojis: ∑, ∏, ∆, ∇, ∈, ∉, ∀, ∃"
         )
 
-        _, result = await mcp_instance.call_tool(
-            tool_name,
-            {
-                "prompt": "What is 3+7?",
-                "output_file": "/tmp/test_special_prompt.txt",
-                "agent_name": f"special_prompt_agent_{model.replace('-', '_')}",
-                "model": model,
-                "system_prompt": special_prompt,
-            },
-        )
+        # Provider-specific parameters
+        base_params = {
+            "prompt": "What is 3+7?",
+            "output_file": "/tmp/test_special_prompt.txt",
+            "agent_name": f"special_prompt_agent_{model.replace('-', '_')}",
+            "model": model,
+            "system_prompt": special_prompt,
+            "files": [],
+        }
 
-        assert "error" not in result
-        assert "content" in result
+        # Add provider-specific parameters
+        if provider == "openai":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+        elif provider == "gemini":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                    "grounding": False,
+                }
+            )
+        elif provider == "claude":
+            base_params.update(
+                {
+                    "temperature": 1.0,
+                }
+            )
+
+        _, response = await mcp.call_tool("ask", base_params)
+        assert "error" not in response, response.get("error")
+        assert response["content"] is not None

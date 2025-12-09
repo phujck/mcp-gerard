@@ -1,75 +1,80 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": "Test prompt"}], "model": "invalid-model-name-that-does-not-exist",
-      "max_completion_tokens": 100000, "temperature": 0.7}'
+    body: '{"input": "Test prompt", "max_output_tokens": 128000, "model": "invalid-model-name-that-does-not-exist"}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '152'
-      content-type:
+      Content-Length:
+      - '99'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.93.0
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.8.1
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.93.0
+      X-Stainless-Package-Version:
+      - 2.8.1
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.3
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n    \"error\": {\n        \"message\": \"The model `invalid-model-name-that-does-not-exist`
-        does not exist or you do not have access to it.\",\n        \"type\": \"invalid_request_error\",\n
-        \       \"param\": null,\n        \"code\": \"model_not_found\"\n    }\n}\n"
+      string: "{\n  \"error\": {\n    \"message\": \"The requested model 'invalid-model-name-that-does-not-exist'
+        does not exist.\",\n    \"type\": \"invalid_request_error\",\n    \"param\":
+        \"model\",\n    \"code\": \"model_not_found\"\n  }\n}"
     headers:
       CF-RAY:
-      - 95b1b61b29704f47-MAN
+      - 9aa352d1cf6e63aa-LHR
       Connection:
       - keep-alive
+      Content-Length:
+      - '204'
       Content-Type:
-      - application/json; charset=utf-8
+      - application/json
       Date:
-      - Sun, 06 Jul 2025 20:04:28 GMT
+      - Sun, 07 Dec 2025 10:26:14 GMT
       Server:
       - cloudflare
-      Transfer-Encoding:
-      - chunked
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       X-Content-Type-Options:
       - nosniff
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '244'
-      strict-transport-security:
-      - max-age=31536000; includeSubDomains; preload
-      vary:
-      - Origin
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '940'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '943'
       x-request-id:
-      - req_05852d0bbb92419af4815ac98601f600
+      - req_691d1724bb0b41d4a4bd7b67072537c4
     status:
-      code: 404
-      message: Not Found
+      code: 400
+      message: Bad Request
 version: 1

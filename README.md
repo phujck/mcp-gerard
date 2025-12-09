@@ -1,21 +1,37 @@
 # MCP Handley Lab Toolkit
 
+> **⚠️ BETA SOFTWARE**: This toolkit is in active development. While functional, APIs may change and some features may have rough edges. Issues and pull requests are welcome!
+
 A toolkit that bridges AI assistants with command-line tools and services. Built on the Model Context Protocol (MCP), it enables AI models like Claude, Gemini, or GPT to interact with your local development environment, manage calendars, analyze code, and automate workflows through a standardized interface.
+
+## Requirements
+
+- **Python**: 3.10 or higher
+- **MCP CLI**: `pip install mcp[cli]` (for Claude Desktop integration)
+- **Package Manager**: Either standard `pip`/`venv` or [uv](https://github.com/astral-sh/uv) (optional, faster alternative)
+
+### System Dependencies (Optional)
+Some tools require additional system packages:
+- **code2prompt tool**: `cargo install code2prompt`
+- **word tool**: `pandoc` for document conversion
+- **email tools**: `msmtp`, `mutt`, `notmuch` for email management
 
 ## Quick Start
 
 Get up and running in 5 minutes:
+
+### Standard Installation (venv)
 
 ```bash
 # 1. Clone and enter the project
 git clone git@github.com:handley-lab/mcp-handley-lab.git
 cd mcp-handley-lab
 
-# 2. Set up Python environment
+# 2. Set up Python environment (requires Python 3.10+)
 python3 -m venv venv
 source venv/bin/activate
 
-# 3. Install the toolkit (editable mode for development)
+# 3. Install the toolkit (includes mcp[cli] automatically)
 pip install -e .
 
 # 4. Set up API keys and authentication
@@ -23,9 +39,61 @@ pip install -e .
 export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="AIza..."
 export ANTHROPIC_API_KEY="sk-ant-..."
+export GROQ_API_KEY="gsk_..."
 export GROK_API_KEY="grok-..."
 export GOOGLE_MAPS_API_KEY="AIza..."
 # Note: Google Calendar requires OAuth setup (see tool description below)
+
+# 5. Register essential tools with Claude (add others as needed)
+# Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
+# Only register the tools you actively need to maintain optimal performance
+claude mcp add gemini --scope user mcp-gemini
+claude mcp add openai --scope user mcp-openai
+claude mcp add arxiv --scope user mcp-arxiv
+claude mcp add google-maps --scope user mcp-google-maps
+claude mcp add word --scope user mcp-word
+
+# Add additional tools as needed:
+# claude mcp add claude --scope user mcp-claude
+# claude mcp add groq --scope user mcp-groq
+# claude mcp add grok --scope user mcp-grok
+# claude mcp add py2nb --scope user mcp-py2nb
+# claude mcp add code2prompt --scope user mcp-code2prompt
+# claude mcp add google-calendar --scope user mcp-google-calendar
+# claude mcp add vim --scope user mcp-vim
+# claude mcp add email --scope user mcp-email
+# claude mcp add mathematica --scope user mcp-mathematica
+
+# 6. Verify tools are working
+# Use /mcp command in Claude to check tool status
+```
+
+### Alternative Installation (uv)
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package installer and environment manager. If you add the `.venv/bin` directory to your system PATH, the MCP tools can be called from anywhere without having to activate the virtual environment:
+
+```bash
+# 1. Clone and enter the project
+git clone git@github.com:handley-lab/mcp-handley-lab.git
+cd mcp-handley-lab
+
+# 2. Set up Python environment and install (requires uv)
+uv sync
+
+# 3. Set up API keys and authentication
+# Export in your .bashrc/.zshrc, a .env file, or the current session
+export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="AIza..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GROK_API_KEY="grok-..."
+export GOOGLE_MAPS_API_KEY="AIza..."
+# Note: Google Calendar requires OAuth setup (see tool description below)
+
+# 4. (Optional) Add venv bin directory to PATH for global access
+# This allows MCP tools to be called from anywhere without activating venv
+readlink -f .venv/bin
+export PATH="/absolute/path/to/mcp-handley-lab/.venv/bin:$PATH"
+# Add the above export line to your .bashrc or .zshrc for persistence
 
 # 5. Register essential tools with Claude (add others as needed)
 # Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
@@ -44,6 +112,7 @@ claude mcp add word --scope user mcp-word
 # claude mcp add google-calendar --scope user mcp-google-calendar
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
+# claude mcp add mathematica --scope user mcp-mathematica
 
 # 6. Verify tools are working
 # Use /mcp command in Claude to check tool status
@@ -51,11 +120,12 @@ claude mcp add word --scope user mcp-word
 
 ## Available Tools
 
-### 🤖 **AI Integration** (`gemini`, `openai`, `claude`, `grok`)
+### 🤖 **AI Integration** (`gemini`, `openai`, `claude`, `groq`, `grok`)
 Connect with major AI providers
   - Persistent conversations with memory
-  - Image analysis and generation  
-  - Claude, Gemini, OpenAI, and Grok support
+  - Image analysis and generation
+  - Claude, Gemini, OpenAI, Groq, and Grok support
+  - Groq uses LPUs to deliver fast inference for Moonshot Kimi-k2 model (as well as a selection of other open source models)
   - _Claude example_: `> ask gemini to review the changes you just made`
 
 ### 📚 **ArXiv** (`arxiv`)
@@ -103,6 +173,15 @@ Process Word documents for analysis and conversion
   - Document metadata and structure analysis
   - _Claude example_: `> extract all the comments from this feedback document and show me the author breakdown`
   - **Requires**: [pandoc](https://pandoc.org/installing.html) for document conversion
+
+### 🧮 **Mathematica** (`mathematica`)
+Execute Mathematica code and computations
+  - Run WolframScript commands and notebooks
+  - Perform symbolic and numerical calculations
+  - Generate plots and visualizations
+  - Export results in various formats
+  - _Claude example_: `> use Mathematica to solve this differential equation and plot the solution`
+  - **Requires**: [WolframScript](https://www.wolfram.com/wolframscript/) installed and licensed
 
 ### ✏️ **Interactive Editing** (`vim`)
 Open vim for user input when needed
@@ -162,18 +241,18 @@ This project uses `pytest` for testing. The tests are divided into `unit` and `i
     pytest -m integration
     ```
 
-## Development
+## Contributing
 
-This modular structure makes it easy to use **Claude Code itself** to write new MCP tools. Simply ask Claude to analyze existing tools and create new ones following the same patterns.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
-*   **Project Structure**: Each tool is a self-contained Python module located in `src/mcp_handley_lab/`. New tools should follow the existing structure. Shared logic is placed in `src/mcp_handley_lab/common/`.
-*   **Adding New Tools**: Use Claude Code to generate new tools by analyzing existing implementations and following the established patterns.
-*   **Testing Changes**: After modifying tools, Claude Desktop must be restarted to use the updated versions. For development testing, ask Claude to run tools via JSON-RPC without restarting.
-*   **Coding Standards**: This project uses `black` for code formatting and `ruff` for linting. Please apply them before submitting changes.
-    ```bash
-    black .
-    ruff check . --fix
-    ```
-*   **Dependencies**: Project dependencies are managed in `pyproject.toml`.
-*   **Entry Points**: Command-line scripts for new tools should be added to the `[project.scripts]` section of `pyproject.toml`.
-# Testing CI trigger
+**Quick start for contributors:**
+1. Fork and clone the repository
+2. Create a feature branch
+3. Make your changes following existing patterns
+4. Run tests and linting: `pytest && ruff check .`
+5. Bump version: `python scripts/bump_version.py`
+6. Submit a pull request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
