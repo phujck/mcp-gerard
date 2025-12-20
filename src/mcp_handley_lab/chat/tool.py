@@ -4,7 +4,6 @@ Provides a single entry point for multiple LLM providers (Gemini, OpenAI, Claude
 Mistral, Grok, Groq) with model-based provider inference.
 """
 
-from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -212,81 +211,6 @@ def generate_image(
         quality=quality,
         aspect_ratio=aspect_ratio,
     )
-
-
-@mcp.tool(
-    description="Fill-in-the-middle code completion using Mistral Codestral. "
-    "Provide code before and after cursor to get intelligent completions."
-)
-def fill_in_middle(
-    prefix: str = Field(
-        ...,
-        description="Code before the cursor position.",
-    ),
-    output_file: str = Field(
-        ...,
-        description="File path to save the completion result.",
-    ),
-    suffix: str = Field(
-        default="",
-        description="Code after the cursor position.",
-    ),
-    model: str = Field(
-        default="codestral-latest",
-        description="Model: 'codestral-latest' or 'devstral-small-latest'.",
-    ),
-    max_tokens: int = Field(
-        default=256,
-        description="Maximum tokens to generate.",
-    ),
-    temperature: float = Field(
-        default=0.0,
-        description="Temperature for sampling. Use 0 for deterministic.",
-    ),
-    stop: list[str] = Field(
-        default_factory=list,
-        description="Stop sequences to end generation.",
-    ),
-) -> dict[str, Any]:
-    """Fill-in-the-middle code completion."""
-    provider, canonical_model, _ = resolve_model(model)
-
-    if provider != "mistral":
-        raise ValueError(
-            f"fill_in_middle only supports Mistral models. Got: {model} ({provider})"
-        )
-
-    from mcp_handley_lab.llm.mistral import adapter
-
-    result = adapter.fill_in_middle_adapter(
-        prefix=prefix,
-        suffix=suffix,
-        model=canonical_model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        stop=stop if stop else None,
-    )
-
-    # Write to output file
-    Path(output_file).write_text(result["full_code"])
-
-    return result
-
-
-@mcp.tool(
-    description="Analyze text for harmful content using Mistral's moderation model. "
-    "Detects violence, hate speech, sexual content, and self-harm."
-)
-def moderate_content(
-    text: str = Field(
-        ...,
-        description="Text to analyze for harmful content.",
-    ),
-) -> dict[str, Any]:
-    """Moderate text content for safety."""
-    from mcp_handley_lab.llm.mistral import adapter
-
-    return adapter.moderation_adapter(text)
 
 
 @mcp.tool(
