@@ -28,7 +28,7 @@ def generate(
         description="Text description of the image to generate.",
     ),
     model: str = Field(
-        default="imagen-3.0-generate-002",
+        default="imagen-4.0-generate-001",
         description="Image model. Provider auto-detected from name.",
     ),
     size: str = Field(

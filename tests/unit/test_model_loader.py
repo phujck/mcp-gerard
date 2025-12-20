@@ -29,7 +29,7 @@ class TestLoadModelConfig:
         # Verify some expected models
         assert "gemini-2.5-pro" in config["models"]
         assert "gemini-2.5-flash" in config["models"]
-        assert "imagen-3.0-generate-002" in config["models"]
+        assert "imagen-4.0-generate-001" in config["models"]
 
         # Verify default model
         assert config["default_model"] == "gemini-3-pro-preview"
@@ -183,8 +183,8 @@ class TestBuildModelConfigsDict:
         assert configs["gemini-2.5-pro"]["output_tokens"] == 65536
 
         # Test image generation model
-        assert "imagen-3.0-generate-002" in configs
-        assert configs["imagen-3.0-generate-002"]["output_tokens"] is None
+        assert "imagen-4.0-generate-001" in configs
+        assert configs["imagen-4.0-generate-001"]["output_tokens"] is None
 
 
 class TestFormatModelListing:
@@ -206,7 +206,7 @@ class TestFormatModelListing:
 
         # Check specific models
         assert "gemini-2.5-pro" in listing
-        assert "imagen-3.0-generate-002" in listing
+        assert "imagen-4.0-generate-001" in listing
 
         # Check pricing information
         assert "$" in listing  # Should have pricing info

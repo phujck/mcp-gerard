@@ -55,6 +55,13 @@ def get_client() -> google_genai.Client:
     return _client
 
 
+def reset_client() -> None:
+    """Reset the global client. Used by tests to ensure VCR can intercept requests."""
+    global _client
+    with _client_lock:
+        _client = None
+
+
 # Generate session ID once at module load time
 _SESSION_ID = f"_session_{os.getpid()}_{int(time.time())}"
 
@@ -372,12 +379,6 @@ def image_generation_adapter(prompt: str, model: str, **kwargs) -> dict:
     generated_image = response.generated_images[0]
     image = generated_image.image
 
-    # Get the prompt token count
-    count_response = get_client().models.count_tokens(
-        model="gemini-1.5-flash-latest", contents=prompt
-    )
-    input_tokens = count_response.total_tokens
-
     # Extract safety attributes
     safety_attributes = {}
     if generated_image.safety_attributes:
@@ -396,7 +397,7 @@ def image_generation_adapter(prompt: str, model: str, **kwargs) -> dict:
 
     return {
         "image_bytes": image.image_bytes,
-        "input_tokens": input_tokens,
+        "input_tokens": 0,  # Not used for Imagen pricing (per-image billing)
         "enhanced_prompt": generated_image.enhanced_prompt or "",
         "original_prompt": prompt,
         "aspect_ratio": aspect_ratio,

@@ -158,22 +158,6 @@ models:
     pricing_type: "per_image"
     quality: "standard"
 
-  imagen-3.0-generate-002:
-    # Model metadata
-    description: "Previous generation image model"
-    capabilities: "🎨 Best for: High-quality image generation (legacy)"
-    tags: ["image-generation", "legacy"]
-    context_window: "N/A (Image generation)"
-
-    # Capabilities
-    supports_vision: false
-    supports_grounding: false
-
-    # Pricing (per image)
-    price_per_image: 0.030
-    pricing_type: "per_image"
-    quality: "standard"
-
   # Video generation models
   veo-2.0-generate-001:
     # Model metadata
