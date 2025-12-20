@@ -7,10 +7,23 @@ import pytest
 
 from mcp_handley_lab.llm.image.tool import generate as generate_image
 
+# Skip conditions for API key requirements
+requires_openai = pytest.mark.skipif(
+    not os.getenv("OPENAI_API_KEY"), reason="OPENAI_API_KEY not set"
+)
+requires_gemini = pytest.mark.skipif(
+    not os.getenv("GEMINI_API_KEY"), reason="GEMINI_API_KEY not set"
+)
+requires_both = pytest.mark.skipif(
+    not (os.getenv("OPENAI_API_KEY") and os.getenv("GEMINI_API_KEY")),
+    reason="Both OPENAI_API_KEY and GEMINI_API_KEY required",
+)
+
 
 class TestOpenAIImageGeneration:
     """Test OpenAI image generation functionality."""
 
+    @requires_openai
     @pytest.mark.vcr
     def test_dalle3_basic_generation(self):
         """Test DALL-E 3 basic image generation."""
@@ -29,6 +42,7 @@ class TestOpenAIImageGeneration:
         assert result["original_prompt"] == "A simple red circle"
         assert result["cost"] > 0
 
+    @requires_openai
     @pytest.mark.vcr
     def test_dalle3_enhanced_prompt(self):
         """Test DALL-E 3 prompt enhancement."""
@@ -47,6 +61,7 @@ class TestOpenAIImageGeneration:
         # DALL-E 3 enhances prompts
         assert result["enhanced_prompt"] != ""
 
+    @requires_openai
     @pytest.mark.vcr
     def test_dalle3_portrait_size(self):
         """Test DALL-E 3 with portrait orientation."""
@@ -66,6 +81,7 @@ class TestOpenAIImageGeneration:
 class TestGeminiImageGeneration:
     """Test Gemini image generation functionality."""
 
+    @requires_gemini
     @pytest.mark.vcr
     def test_imagen3_basic_generation(self):
         """Test Imagen 3 basic image generation."""
@@ -82,6 +98,7 @@ class TestGeminiImageGeneration:
         assert result["original_prompt"] == "A peaceful garden"
         assert result["cost"] >= 0
 
+    @requires_gemini
     @pytest.mark.vcr
     def test_imagen3_with_aspect_ratio(self):
         """Test Imagen 3 with custom aspect ratio."""
@@ -96,6 +113,7 @@ class TestGeminiImageGeneration:
         assert result["file_size_bytes"] > 0
         assert result["provider"] == "gemini"
 
+    @requires_gemini
     @pytest.mark.vcr
     def test_imagen_model_variants(self):
         """Test different Imagen model variants."""
@@ -113,6 +131,7 @@ class TestGeminiImageGeneration:
 class TestImageGenerationComparison:
     """Test comparing functionality across providers."""
 
+    @requires_both
     @pytest.mark.vcr
     def test_response_structure_consistency(self):
         """Test that both providers return consistent response structure."""
@@ -144,6 +163,7 @@ class TestImageGenerationComparison:
         assert openai_result["provider"] == "openai"
         assert gemini_result["provider"] == "gemini"
 
+    @requires_both
     @pytest.mark.vcr
     def test_prompt_enhancement_differences(self):
         """Test how different providers handle prompt enhancement."""
@@ -181,6 +201,7 @@ class TestImageGenerationErrorHandling:
         with pytest.raises(ValueError, match="Prompt is required and cannot be empty"):
             generate_image(prompt="")
 
+    @requires_openai
     @pytest.mark.vcr
     def test_invalid_size_openai(self):
         """Test OpenAI with invalid size parameter."""
@@ -198,9 +219,9 @@ if __name__ == "__main__":
     if os.getenv("OPENAI_API_KEY"):
         print("Testing OpenAI...")
         result = generate_image(prompt="Test", model="dall-e-3", size="1024x1024")
-        print(f"✅ Generated: {result['file_path']}")
+        print(f"Generated: {result['file_path']}")
 
     if os.getenv("GEMINI_API_KEY"):
         print("Testing Gemini...")
         result = generate_image(prompt="Test", model="imagen-3.0-generate-002")
-        print(f"✅ Generated: {result['file_path']}")
+        print(f"Generated: {result['file_path']}")
