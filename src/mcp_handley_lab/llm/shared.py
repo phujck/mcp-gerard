@@ -94,7 +94,7 @@ def _enhance_prompt_for_images(
 
 
 def process_llm_request(
-    prompt: str,
+    prompt: str | None,
     output_file: str,
     agent_name: str,
     model: str,
@@ -143,7 +143,7 @@ def process_llm_request(
     # Extract response metadata
     metadata = _extract_response_metadata(response_data, model, provider)
 
-    # Handle memory
+    # Handle memory with provider attribution
     if use_memory:
         handle_agent_memory(
             actual_agent_name,
@@ -153,6 +153,8 @@ def process_llm_request(
             metadata["output_tokens"],
             metadata["cost"],
             lambda: actual_agent_name,
+            provider=provider,
+            model=model,
         )
 
     # Handle output - write to file unless "-" sentinel
@@ -260,6 +262,8 @@ def process_image_generation(
             output_tokens,
             cost,
             lambda: actual_agent_name,  # Use resolved agent name, not recomputed session ID
+            provider=provider,
+            model=model,
         )
 
     file_size = len(image_bytes)

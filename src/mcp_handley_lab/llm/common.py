@@ -62,9 +62,9 @@ TEXT_BASED_APPLICATION_TYPES = {
 
 
 def load_prompt_text(
-    prompt: str,
-    prompt_file: str,
-    prompt_vars: dict[str, str],
+    prompt: str | None,
+    prompt_file: str | None,
+    prompt_vars: dict[str, str] | None,
 ) -> str:
     """Resolve and render prompt from either string or file with optional templating.
 
@@ -87,7 +87,7 @@ def load_prompt_text(
     if prompt_file:
         final_prompt = Path(prompt_file).read_text(encoding="utf-8")
     else:
-        final_prompt = prompt
+        final_prompt = prompt  # type: ignore[assignment]  # XOR ensures non-None
 
     # Apply template substitution if variables provided
     if prompt_vars:
@@ -272,8 +272,22 @@ def handle_agent_memory(
     output_tokens: int,
     cost: float,
     session_id_func,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> str | None:
-    """Handle agent memory storage. Returns actual agent name used."""
+    """Handle agent memory storage with provider attribution. Returns actual agent name used.
+
+    Args:
+        agent_name: Agent name or False/None to disable memory
+        user_prompt: The user's prompt
+        response_text: The assistant's response
+        input_tokens: Number of input tokens
+        output_tokens: Number of output tokens
+        cost: Total cost in USD
+        session_id_func: Function to get session ID
+        provider: Provider name (e.g., "openai", "gemini")
+        model: Model name (e.g., "gpt-4o", "gemini-2.5-pro")
+    """
     # Handle memory disable patterns
     if isinstance(agent_name, str) and (
         agent_name.lower() == "false" or agent_name == ""
@@ -290,11 +304,27 @@ def handle_agent_memory(
         if not agent:
             agent = memory_manager.create_agent(agent_name)
 
+        # User message: attribute input tokens, half the cost
         memory_manager.add_message(
-            agent_name, "user", user_prompt, input_tokens, cost / 2
+            agent_name,
+            "user",
+            user_prompt,
+            input_tokens=input_tokens,
+            output_tokens=0,
+            cost=cost / 2,
+            provider=provider,
+            model=model,
         )
+        # Assistant message: attribute output tokens, half the cost
         memory_manager.add_message(
-            agent_name, "assistant", response_text, output_tokens, cost / 2
+            agent_name,
+            "assistant",
+            response_text,
+            input_tokens=0,
+            output_tokens=output_tokens,
+            cost=cost / 2,
+            provider=provider,
+            model=model,
         )
         return agent_name
 

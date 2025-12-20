@@ -480,10 +480,24 @@ class TestHandleAgentMemory:
 
         assert result == "test_agent"
         mock_memory_manager.add_message.assert_any_call(
-            "test_agent", "user", "Test prompt", 100, 0.0005
+            "test_agent",
+            "user",
+            "Test prompt",
+            input_tokens=100,
+            output_tokens=0,
+            cost=0.0005,
+            provider=None,
+            model=None,
         )
         mock_memory_manager.add_message.assert_any_call(
-            "test_agent", "assistant", "Test response", 50, 0.0005
+            "test_agent",
+            "assistant",
+            "Test response",
+            input_tokens=0,
+            output_tokens=50,
+            cost=0.0005,
+            provider=None,
+            model=None,
         )
 
     @patch("mcp_handley_lab.llm.common.memory_manager")

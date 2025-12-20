@@ -9,6 +9,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+from mcp_handley_lab.llm.memory import get_memory_manager
 from mcp_handley_lab.llm.registry import (
     get_adapter,
     resolve_model,
@@ -27,11 +28,11 @@ mcp = FastMCP("Chat Tool")
     "Use options dict for provider-specific features. Run list_models() to see options."
 )
 def ask(
-    prompt: str = Field(
+    prompt: str | None = Field(
         default=None,
         description="The message to send to the LLM.",
     ),
-    prompt_file: str = Field(
+    prompt_file: str | None = Field(
         default=None,
         description="Path to a file containing the prompt. Cannot be used with 'prompt'.",
     ),
@@ -40,8 +41,10 @@ def ask(
         description="Variables for template substitution using ${var} syntax.",
     ),
     output_file: str = Field(
-        ...,
-        description="File path to save the response. Use '-' for stdout only.",
+        default="-",
+        description="File path to save the response. Defaults to '-' (stdout only). "
+        "With global memory, responses are stored in ~/.handley-lab/llm/ and can be "
+        "retrieved later via get_response().",
     ),
     agent_name: str = Field(
         default="session",
@@ -61,11 +64,11 @@ def ask(
         default_factory=list,
         description="File paths to include as context.",
     ),
-    system_prompt: str = Field(
+    system_prompt: str | None = Field(
         default=None,
         description="System instructions for the conversation.",
     ),
-    system_prompt_file: str = Field(
+    system_prompt_file: str | None = Field(
         default=None,
         description="Path to a file containing system instructions.",
     ),
@@ -119,8 +122,9 @@ def analyze_image(
         description="Image file paths or base64 strings to analyze.",
     ),
     output_file: str = Field(
-        ...,
-        description="File path to save analysis. Use '-' for stdout only.",
+        default="-",
+        description="File path to save analysis. Defaults to '-' (stdout only). "
+        "With global memory, responses are stored and retrievable via get_response().",
     ),
     model: str = Field(
         default="gemini",
@@ -135,7 +139,7 @@ def analyze_image(
         default="session",
         description="Conversation thread name.",
     ),
-    system_prompt: str = Field(
+    system_prompt: str | None = Field(
         default=None,
         description="System instructions for the analysis.",
     ),
@@ -163,3 +167,27 @@ def analyze_image(
         system_prompt=system_prompt,
         options=options,
     )
+
+
+@mcp.tool(
+    description="Retrieve a past response from an agent's conversation history. "
+    "Useful for accessing responses when output_file was not specified."
+)
+def get_response(
+    agent_name: str = Field(
+        ...,
+        description="The agent name to retrieve the response from.",
+    ),
+    index: int = Field(
+        default=-1,
+        description="Message index. Use -1 for last response, -2 for second-to-last, "
+        "0 for first, etc.",
+    ),
+) -> str:
+    """Retrieve a message from an agent's conversation history by index.
+
+    Returns the content of the message at the specified index.
+    Raises ValueError if agent not found, IndexError if index out of range.
+    """
+    memory_manager = get_memory_manager()
+    return memory_manager.get_response(agent_name, index)
