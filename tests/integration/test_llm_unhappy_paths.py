@@ -39,6 +39,7 @@ image_unhappy_providers = [
 class TestLLMRateLimitingErrors:
     """Test rate limiting and quota scenarios."""
 
+    @pytest.mark.vcr
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_rapid_sequential_requests(
@@ -431,6 +432,7 @@ class TestLLMFileInputErrors:
             # Restore permissions for cleanup
             restricted_file.chmod(0o644)
 
+    @pytest.mark.vcr
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_binary_file_input(
@@ -664,6 +666,7 @@ class TestLLMProviderSpecificErrors:
 class TestLLMOutputFileErrors:
     """Test output file writing error scenarios."""
 
+    @pytest.mark.vcr
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_output_file_permission_denied(
@@ -719,6 +722,7 @@ class TestLLMOutputFileErrors:
             # Restore permissions for cleanup
             readonly_dir.chmod(0o755)
 
+    @pytest.mark.vcr
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_output_directory_not_found(
