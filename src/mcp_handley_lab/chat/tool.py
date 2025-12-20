@@ -15,8 +15,8 @@ from mcp_handley_lab.llm.registry import (
     resolve_model,
     validate_options,
 )
-from mcp_handley_lab.llm.shared import process_image_generation, process_llm_request
-from mcp_handley_lab.shared.models import ImageGenerationResult, LLMResult
+from mcp_handley_lab.llm.shared import process_llm_request
+from mcp_handley_lab.shared.models import LLMResult
 
 mcp = FastMCP("Chat Tool")
 
@@ -162,54 +162,6 @@ def analyze_image(
         focus=focus,
         system_prompt=system_prompt,
         options=options,
-    )
-
-
-@mcp.tool(
-    description="Generate images from text prompts. "
-    "Supports: Gemini (imagen-*), OpenAI (dall-e-*), Grok (grok-*-image)."
-)
-def generate_image(
-    prompt: str = Field(
-        ...,
-        description="Detailed description of the image to generate.",
-    ),
-    model: str = Field(
-        default="imagen-3.0-generate-002",
-        description="Image generation model. Provider is inferred.",
-    ),
-    agent_name: str = Field(
-        default="session",
-        description="Conversation thread for prompt history.",
-    ),
-    size: str = Field(
-        default="1024x1024",
-        description="Image dimensions (OpenAI DALL-E only).",
-    ),
-    quality: str = Field(
-        default="standard",
-        description="Image quality: 'standard' or 'hd' (OpenAI DALL-E 3 only).",
-    ),
-    aspect_ratio: str = Field(
-        default="1:1",
-        description="Aspect ratio (Gemini Imagen only).",
-    ),
-) -> ImageGenerationResult:
-    """Generate images from text descriptions."""
-    provider, canonical_model, _ = resolve_model(model)
-
-    generation_func = get_adapter(provider, "image_generation")
-
-    return process_image_generation(
-        prompt=prompt,
-        agent_name=agent_name,
-        model=canonical_model,
-        provider=provider,
-        generation_func=generation_func,
-        mcp_instance=mcp,
-        size=size,
-        quality=quality,
-        aspect_ratio=aspect_ratio,
     )
 
 

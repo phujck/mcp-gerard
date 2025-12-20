@@ -71,6 +71,7 @@ semantic = [
 [project.scripts]
 # Unified LLM tools (new)
 mcp-chat = "mcp_handley_lab.chat.tool:mcp.run"
+mcp-image = "mcp_handley_lab.image.tool:mcp.run"
 mcp-embeddings = "mcp_handley_lab.embeddings.tool:mcp.run"
 mcp-ocr = "mcp_handley_lab.ocr.tool:mcp.run"
 mcp-audio = "mcp_handley_lab.audio.tool:mcp.run"
