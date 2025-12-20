@@ -1,0 +1,55 @@
+"""Audio Tool for speech-to-text transcription via MCP.
+
+Provides audio transcription using Mistral's Voxtral model.
+Supports MP3, WAV, FLAC, OGG, M4A formats.
+"""
+
+import json
+from pathlib import Path
+from typing import Any
+
+from mcp.server.fastmcp import FastMCP
+from pydantic import Field
+
+mcp = FastMCP("Audio Tool")
+
+
+@mcp.tool(
+    description="Transcribe audio to text using Mistral Voxtral. "
+    "Supports MP3, WAV, FLAC, OGG, M4A. "
+    "Returns text with optional segment timestamps."
+)
+def transcribe(
+    audio_path: str = Field(
+        ...,
+        description="Path to audio file or URL.",
+    ),
+    output_file: str = Field(
+        ...,
+        description="File path to save transcription results.",
+    ),
+    language: str = Field(
+        default="",
+        description="Language code (e.g., 'en', 'fr'). Empty for auto-detection.",
+    ),
+    include_timestamps: bool = Field(
+        default=False,
+        description="Include segment-level timestamps.",
+    ),
+) -> dict[str, Any]:
+    """Transcribe audio using Mistral Voxtral model."""
+    from mcp_handley_lab.llm.mistral.adapter import audio_transcription_adapter
+
+    try:
+        result = audio_transcription_adapter(
+            audio_path=audio_path,
+            language=language,
+            include_timestamps=include_timestamps,
+        )
+
+        # Write to output file
+        Path(output_file).write_text(json.dumps(result, indent=2))
+
+        return result
+    except Exception as e:
+        raise ValueError(f"Transcription error: {str(e)}") from e
