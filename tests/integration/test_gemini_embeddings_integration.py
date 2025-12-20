@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.gemini.tool import (
+from mcp_handley_lab.llm.providers.gemini.tool import (
     calculate_similarity,
     get_embeddings,
     index_documents,

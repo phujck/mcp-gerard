@@ -11,7 +11,6 @@ from pydantic import Field
 
 from mcp_handley_lab.llm.registry import (
     get_adapter,
-    list_all_models,
     resolve_model,
     validate_options,
 )
@@ -76,7 +75,7 @@ def ask(
     ),
     options: dict[str, Any] = Field(
         default_factory=dict,
-        description="Provider-specific options. Use capabilities(model) to discover. "
+        description="Provider-specific options. Use mcp-models list_models() to discover. "
         "Examples: grounding (Gemini), reasoning_effort (OpenAI), enable_thinking (Claude).",
     ),
 ) -> LLMResult:
@@ -163,12 +162,3 @@ def analyze_image(
         system_prompt=system_prompt,
         options=options,
     )
-
-
-@mcp.tool(
-    description="List all available models from all providers with full details including "
-    "capabilities, supported options, and constraints."
-)
-def list_models() -> dict[str, list[dict[str, Any]]]:
-    """List all available models grouped by provider with capabilities."""
-    return list_all_models()

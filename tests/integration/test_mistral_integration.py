@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.mistral.tool import mcp
+from mcp_handley_lab.llm.providers.mistral.tool import mcp
 
 
 @pytest.fixture

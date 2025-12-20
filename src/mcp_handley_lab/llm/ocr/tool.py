@@ -34,7 +34,7 @@ def process(
     ),
 ) -> dict[str, Any]:
     """Process document with Mistral OCR for text extraction."""
-    from mcp_handley_lab.llm.mistral.adapter import ocr_adapter
+    from mcp_handley_lab.llm.providers.mistral.adapter import ocr_adapter
 
     try:
         result = ocr_adapter(document_path, include_images)

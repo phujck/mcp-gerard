@@ -1,6 +1,6 @@
 """Unit tests for Claude LLM module."""
 
-from mcp_handley_lab.llm.claude.tool import (
+from mcp_handley_lab.llm.providers.claude.tool import (
     MODEL_CONFIGS,
     _get_model_config,
     _resolve_model_alias,
@@ -51,7 +51,7 @@ class TestClaudeModelConfiguration:
 
     def test_get_model_config_fallback_to_default(self):
         """Test _get_model_config falls back to default for unknown models."""
-        from mcp_handley_lab.llm.claude.tool import DEFAULT_MODEL
+        from mcp_handley_lab.llm.providers.claude.tool import DEFAULT_MODEL
 
         config = _get_model_config("nonexistent-model")
         default_config = MODEL_CONFIGS[DEFAULT_MODEL]

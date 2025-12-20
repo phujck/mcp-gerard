@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from mcp_handley_lab.llm.common import determine_mime_type, is_text_file
-from mcp_handley_lab.llm.openai.tool import (
+from mcp_handley_lab.llm.providers.openai.tool import (
     MODEL_CONFIGS,
     _get_model_config,
 )

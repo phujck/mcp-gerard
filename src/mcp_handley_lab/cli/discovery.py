@@ -17,13 +17,17 @@ def get_available_tools() -> dict[str, str]:
         "code2prompt": "mcp-code2prompt",
         "arxiv": "mcp-arxiv",
         "google-calendar": "mcp-google-calendar",
-        "gemini": "mcp-gemini",
-        "openai": "mcp-openai",
-        "claude": "mcp-claude",
         "google-maps": "mcp-google-maps",
         "email": "mcp-email",
         "github": "mcp-github",
         "notes": "mcp-notes",
+        # LLM tools
+        "chat": "mcp-chat",
+        "image": "mcp-image",
+        "embeddings": "mcp-embeddings",
+        "ocr": "mcp-ocr",
+        "audio": "mcp-audio",
+        "models": "mcp-models",
     }
 
     return scripts

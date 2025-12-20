@@ -5,8 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.gemini.tool import generate_image as gemini_generate_image
-from mcp_handley_lab.llm.openai.tool import generate_image as openai_generate_image
+from mcp_handley_lab.llm.providers.gemini.tool import (
+    generate_image as gemini_generate_image,
+)
+from mcp_handley_lab.llm.providers.openai.tool import (
+    generate_image as openai_generate_image,
+)
 from mcp_handley_lab.shared.models import ImageGenerationResult
 
 

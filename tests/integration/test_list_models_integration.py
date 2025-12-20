@@ -2,9 +2,9 @@
 
 import pytest
 
-from mcp_handley_lab.llm.claude.tool import list_models as claude_list_models
-from mcp_handley_lab.llm.gemini.tool import list_models as gemini_list_models
-from mcp_handley_lab.llm.openai.tool import list_models as openai_list_models
+from mcp_handley_lab.llm.providers.claude.tool import list_models as claude_list_models
+from mcp_handley_lab.llm.providers.gemini.tool import list_models as gemini_list_models
+from mcp_handley_lab.llm.providers.openai.tool import list_models as openai_list_models
 from mcp_handley_lab.shared.models import ModelListing
 
 

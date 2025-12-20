@@ -4,10 +4,10 @@ import inspect
 
 import pytest
 
-from mcp_handley_lab.llm.claude.tool import ask as claude_ask
-from mcp_handley_lab.llm.gemini.tool import ask as gemini_ask
-from mcp_handley_lab.llm.grok.tool import ask as grok_ask
-from mcp_handley_lab.llm.openai.tool import ask as openai_ask
+from mcp_handley_lab.llm.providers.claude.tool import ask as claude_ask
+from mcp_handley_lab.llm.providers.gemini.tool import ask as gemini_ask
+from mcp_handley_lab.llm.providers.grok.tool import ask as grok_ask
+from mcp_handley_lab.llm.providers.openai.tool import ask as openai_ask
 
 
 class TestProviderXORValidation:

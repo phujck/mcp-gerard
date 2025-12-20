@@ -40,7 +40,7 @@ def _get_embeddings(texts: list[str], model: str) -> list[list[float]]:
     provider = _resolve_embedding_provider(model)
 
     if provider == "openai":
-        from mcp_handley_lab.llm.openai.adapter import get_client
+        from mcp_handley_lab.llm.providers.openai.adapter import get_client
 
         response = get_client().embeddings.create(
             model=model,
@@ -49,7 +49,7 @@ def _get_embeddings(texts: list[str], model: str) -> list[list[float]]:
         return [item.embedding for item in response.data]
 
     elif provider == "gemini":
-        from mcp_handley_lab.llm.gemini.adapter import get_client
+        from mcp_handley_lab.llm.providers.gemini.adapter import get_client
 
         embeddings = []
         for text in texts:
@@ -61,7 +61,7 @@ def _get_embeddings(texts: list[str], model: str) -> list[list[float]]:
         return embeddings
 
     elif provider == "mistral":
-        from mcp_handley_lab.llm.mistral.adapter import get_client
+        from mcp_handley_lab.llm.providers.mistral.adapter import get_client
 
         response = get_client().embeddings.create(
             model=model,

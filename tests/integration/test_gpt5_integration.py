@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mcp_handley_lab.llm.openai.tool import mcp
+from mcp_handley_lab.llm.providers.openai.tool import mcp
 
 
 def skip_if_no_openai_key():

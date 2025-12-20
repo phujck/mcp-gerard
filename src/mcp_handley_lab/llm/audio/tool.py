@@ -38,7 +38,9 @@ def transcribe(
     ),
 ) -> dict[str, Any]:
     """Transcribe audio using Mistral Voxtral model."""
-    from mcp_handley_lab.llm.mistral.adapter import audio_transcription_adapter
+    from mcp_handley_lab.llm.providers.mistral.adapter import (
+        audio_transcription_adapter,
+    )
 
     try:
         result = audio_transcription_adapter(

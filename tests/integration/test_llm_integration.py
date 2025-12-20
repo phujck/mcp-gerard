@@ -6,10 +6,10 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 from PIL import Image
 
-from mcp_handley_lab.llm.claude.tool import mcp as claude_mcp
-from mcp_handley_lab.llm.gemini.tool import mcp as gemini_mcp
-from mcp_handley_lab.llm.grok.tool import mcp as grok_mcp
-from mcp_handley_lab.llm.openai.tool import mcp as openai_mcp
+from mcp_handley_lab.llm.providers.claude.tool import mcp as claude_mcp
+from mcp_handley_lab.llm.providers.gemini.tool import mcp as gemini_mcp
+from mcp_handley_lab.llm.providers.grok.tool import mcp as grok_mcp
+from mcp_handley_lab.llm.providers.openai.tool import mcp as openai_mcp
 
 # Define provider-specific parameters (MCP instances)
 llm_providers = [

@@ -1,6 +1,6 @@
 """Unit tests for Grok LLM module."""
 
-from mcp_handley_lab.llm.grok.tool import (
+from mcp_handley_lab.llm.providers.grok.tool import (
     MODEL_CONFIGS,
     _get_model_config,
 )
@@ -57,7 +57,7 @@ class TestGrokModelConfiguration:
 
     def test_get_model_config_fallback_to_default(self):
         """Test _get_model_config falls back to default for unknown models."""
-        from mcp_handley_lab.llm.grok.tool import DEFAULT_MODEL
+        from mcp_handley_lab.llm.providers.grok.tool import DEFAULT_MODEL
 
         config = _get_model_config("nonexistent-model")
         default_config = MODEL_CONFIGS[DEFAULT_MODEL]

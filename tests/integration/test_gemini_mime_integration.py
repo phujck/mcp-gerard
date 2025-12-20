@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.gemini.tool import mcp as gemini_mcp
+from mcp_handley_lab.llm.providers.gemini.tool import mcp as gemini_mcp
 
 # File type test parameters
 file_type_params = [

@@ -107,7 +107,7 @@ PROVIDER_OPTIONS = {
 
 def _load_models_yaml(provider: str) -> dict[str, Any]:
     """Load models.yaml for a provider."""
-    yaml_path = Path(__file__).parent / provider / "models.yaml"
+    yaml_path = Path(__file__).parent / "providers" / provider / "models.yaml"
     if not yaml_path.exists():
         return {}
     with open(yaml_path, encoding="utf-8") as f:
@@ -386,7 +386,7 @@ def get_adapter(provider: str, adapter_type: str):
         ValueError: If provider is unknown or doesn't support the adapter type
     """
     if provider == "gemini":
-        from mcp_handley_lab.llm.gemini import adapter
+        from mcp_handley_lab.llm.providers.gemini import adapter
 
         adapters = {
             "generation": adapter.generation_adapter,
@@ -394,7 +394,7 @@ def get_adapter(provider: str, adapter_type: str):
             "image_generation": adapter.image_generation_adapter,
         }
     elif provider == "openai":
-        from mcp_handley_lab.llm.openai import adapter
+        from mcp_handley_lab.llm.providers.openai import adapter
 
         adapters = {
             "generation": adapter.generation_adapter,
@@ -402,14 +402,14 @@ def get_adapter(provider: str, adapter_type: str):
             "image_generation": adapter.image_generation_adapter,
         }
     elif provider == "claude":
-        from mcp_handley_lab.llm.claude import adapter
+        from mcp_handley_lab.llm.providers.claude import adapter
 
         adapters = {
             "generation": adapter.generation_adapter,
             "image_analysis": adapter.image_analysis_adapter,
         }
     elif provider == "mistral":
-        from mcp_handley_lab.llm.mistral import adapter
+        from mcp_handley_lab.llm.providers.mistral import adapter
 
         adapters = {
             "generation": adapter.generation_adapter,
@@ -418,7 +418,7 @@ def get_adapter(provider: str, adapter_type: str):
             "moderation": adapter.moderation_adapter,
         }
     elif provider == "grok":
-        from mcp_handley_lab.llm.grok import adapter
+        from mcp_handley_lab.llm.providers.grok import adapter
 
         adapters = {
             "generation": adapter.generation_adapter,
@@ -426,7 +426,7 @@ def get_adapter(provider: str, adapter_type: str):
             "image_generation": adapter.image_generation_adapter,
         }
     elif provider == "groq":
-        from mcp_handley_lab.llm.groq import adapter
+        from mcp_handley_lab.llm.providers.groq import adapter
 
         adapters = {"generation": adapter.generation_adapter}
     else:

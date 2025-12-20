@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_handley_lab.llm.mistral.tool import (
+from mcp_handley_lab.llm.providers.mistral.tool import (
     MODEL_CONFIGS,
     _get_model_config,
 )
@@ -161,7 +161,7 @@ class TestMistralHelpers:
 
     def test_resolve_files_processing_error(self):
         """Test file processing error in _resolve_files - should fail fast."""
-        from mcp_handley_lab.llm.mistral.tool import _resolve_files
+        from mcp_handley_lab.llm.providers.mistral.tool import _resolve_files
 
         # Use invalid path with unknown MIME type
         files = ["/invalid/nonexistent/path"]
