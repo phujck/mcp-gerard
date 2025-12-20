@@ -321,10 +321,10 @@ def _get_model_constraints(provider: str, config: dict[str, Any]) -> list[str]:
 
 
 def list_all_models() -> dict[str, list[dict[str, Any]]]:
-    """List all available models grouped by provider.
+    """List all available models grouped by provider with full details.
 
     Returns:
-        Dict mapping provider → list of model info dicts
+        Dict mapping provider → list of model info dicts with capabilities
     """
     result: dict[str, list[dict[str, Any]]] = {p: [] for p in PROVIDERS}
 
@@ -333,12 +333,35 @@ def list_all_models() -> dict[str, list[dict[str, Any]]]:
         if model_id in CLAUDE_ALIASES:
             continue
 
+        # Get supported options for this model
+        supported = get_supported_options(provider, config)
+        option_details = {}
+        for opt_name in supported:
+            opt_info = PROVIDER_OPTIONS.get(provider, {}).get(opt_name, {})
+            option_details[opt_name] = {
+                "type": opt_info.get("type", "unknown"),
+                "description": opt_info.get("description", ""),
+            }
+            if "values" in opt_info:
+                option_details[opt_name]["values"] = opt_info["values"]
+
         result[provider].append(
             {
                 "id": model_id,
                 "description": config.get("description", ""),
                 "context_window": config.get("context_window", ""),
                 "tags": config.get("tags", []),
+                "capabilities": {
+                    "vision": config.get("supports_vision", False),
+                    "grounding": config.get("supports_grounding", False),
+                    "reasoning": config.get("supports_reasoning", False),
+                    "extended_thinking": config.get(
+                        "supports_extended_thinking", False
+                    ),
+                    "image_generation": config.get("pricing_type") == "per_image",
+                },
+                "supported_options": option_details,
+                "constraints": _get_model_constraints(provider, config),
             }
         )
 

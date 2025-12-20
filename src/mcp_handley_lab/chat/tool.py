@@ -12,7 +12,6 @@ from pydantic import Field
 
 from mcp_handley_lab.llm.registry import (
     get_adapter,
-    get_model_capabilities,
     list_all_models,
     resolve_model,
     validate_options,
@@ -291,22 +290,9 @@ def moderate_content(
 
 
 @mcp.tool(
-    description="List all available models from all providers with descriptions and capabilities."
+    description="List all available models from all providers with full details including "
+    "capabilities, supported options, and constraints."
 )
 def list_models() -> dict[str, list[dict[str, Any]]]:
-    """List all available models grouped by provider."""
+    """List all available models grouped by provider with capabilities."""
     return list_all_models()
-
-
-@mcp.tool(
-    description="Get detailed capabilities and supported options for a specific model. "
-    "Use this to discover what options are available for a model."
-)
-def capabilities(
-    model: str = Field(
-        ...,
-        description="Model name to get capabilities for.",
-    ),
-) -> dict[str, Any]:
-    """Get capabilities and supported options for a model."""
-    return get_model_capabilities(model)
