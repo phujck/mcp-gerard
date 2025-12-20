@@ -259,7 +259,7 @@ def process_image_generation(
             input_tokens,
             output_tokens,
             cost,
-            lambda: get_session_id(mcp_instance, provider),
+            lambda: actual_agent_name,  # Use resolved agent name, not recomputed session ID
         )
 
     file_size = len(image_bytes)
