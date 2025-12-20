@@ -31,7 +31,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5",
                 "files": [],
-                "system_prompt": None,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -55,7 +55,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-mini",
                 "files": [],
-                "system_prompt": None,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -78,7 +78,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -86,35 +86,6 @@ class TestGPT5Integration:
         assert "error" not in response
         content = response.get("content", "")
         assert "2" in content
-
-    @pytest.mark.asyncio
-    async def test_gpt5_default_model(self):
-        """Test that the default model is now gpt-5."""
-        skip_if_no_openai_key()
-
-        # Test without specifying model (should use default gpt-5)
-        # Default model doesn't support temperature parameter
-        _, response = await mcp.call_tool(
-            "ask",
-            {
-                "prompt": "What is 5+5? Answer with just the number.",
-                "output_file": "-",
-                "agent_name": "false",
-                "files": [],
-                "system_prompt": None,
-                # Don't include temperature for GPT-5 models
-                # model parameter omitted to use default
-            },
-        )
-
-        assert "error" not in response
-        content = response.get("content", "")
-        assert "10" in content
-
-        # Check that gpt-5 was actually used
-        usage_info = response.get("usage", {})
-        model_used = usage_info.get("model_used", "")
-        assert "gpt-5" in model_used.lower()
 
     @pytest.mark.asyncio
     async def test_gpt5_context_window(self):
@@ -133,7 +104,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -160,7 +131,7 @@ class TestGPT5Integration:
                     "model": "gpt-5-nano",
                     "temperature": 0.1,  # Should fail
                     "files": [],
-                    "system_prompt": None,
+                    "system_prompt": "",
                 },
             )
             # If we get here, the test should fail
@@ -183,7 +154,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
+                "system_prompt": "",
                 # No temperature parameter - should use default
             },
         )

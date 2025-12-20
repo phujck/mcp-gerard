@@ -1,0 +1,69 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 5+5? Answer with just the number."}],
+      "role": "user"}], "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      64000}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '166'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/11T25KiOhR99yssXjlTAo3YzpsCIxdB8cIAp84DQribAIlc7Op/H7TbHvukKqnU
+        Xit776xa+200HlOBD8M09AnA1M/xv0NkPH67nzcMQQIgGYBHaAiWfk3+cj/W29N9oBDQ3R5RLEP9
+        8z8kQZc4Ifs0hj651ODGkptAFBtLXDhrlYNdN42zmaVPuePEKRN7H64477zTGRTheJsq0dFCldU2
+        WmoqZfWyKAHttdV6CuVAiYNFwspG1r9mJFZPF++Qw1xpZJdugbGtq36qtW1gm9n0WE+k5CoaJfQg
+        XknGi7wFpcNMM/MQ6dBKI/a6pE1ogumx57Bd8kJJJ2tOUHZirgZcygTORAEam6e1Kxa+HtJMbvJZ
+        J9FebQSQZ3URFxggWZnhhXU8RlrHINGcZBunxU1Iql18OQr9ru7mbLczFzsj39Vy4nrI4JcFdI1r
+        ZgLp0JgTdq9WurYNUzXH9FK4ROW5X0nzRdhyp0BvGWyvZxvEnJJTxYVxwfCFV4azzRLL/Lmu9Zf6
+        t5Z5JvIUqZwQRiuPDqNm+7Xl7EMNSzabJd5vK1BcEM0Y+5cr2Dx6NWhDsbNA8FjuFCfAkKbXbbSO
+        RM/tnWgQ3XSb08aZOP3ydcbMK2cpa0G+6pKZiuVkc9lnhD0X6mSu8te1bLL+ayCUBxLqAanOv3pm
+        KdMCUwHqyRrvX/f//jqGqlFxd8gZhaB40N8fBCpKYYqTHfAxgjfa/rDZfhmOSmEIuiHMjB4F7qmp
+        C/ZjYADiD6b3v6xNlTU6l+SAcgBFdLmbnuU/kj3NyDec+4QJIn7x/SX7wJ7SYmkomhbPs/M0VsMf
+        /SIl/e0jB9k5PE3OUOBbVw8hRk96PSbre4dzYfQp2IeGNqhx+iFWDM6DfD9efgwdDhs0KWjvNaka
+        4BJBDNTwxruCYuWffENxHaEJ1e2MF7bIUqnR++gP2RmixEAEAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:24:13 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=2545
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

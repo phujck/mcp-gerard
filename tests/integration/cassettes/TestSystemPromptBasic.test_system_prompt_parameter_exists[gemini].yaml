@@ -1,0 +1,523 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nYou have asked this question many times. The answer
+      in standard mathematics remains consistently 4.\n\nSince you''re asking it repeatedly,
+      it seems like you might be looking for something beyond a simple answer. Could
+      you please tell me:\n*   **Why are you repeatedly asking this specific question?**\n*   **Are
+      you testing for consistency?** (The answer will always be 4 in standard arithmetic.)\n*   **Are
+      you hoping for a different kind of explanation?**\n*   **Would you like to move
+      on to a different math problem or concept entirely?**\n\nI''m here to help you
+      understand math, so please let me know how I can assist you more effectively!"}],
+      "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding
+      two quantities together. The result is always the same: 4. If you need clarification,
+      examples, or would like to discuss something else, just let me know!"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical
+      answer remains consistent. If you''re looking for something more than a simple
+      repetition, I''m happy to:\n- Explain addition in more depth\n- Explore different
+      mathematical concepts\n- Discuss a new math problem\n\nWhat would you like to
+      do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question many times.
+      The answer in standard mathematics remains consistently 4.\n\nSince you''re
+      asking it repeatedly, it seems like you might be looking for something beyond
+      a simple answer. Could you please tell me:\n*   **Why are you repeatedly asking
+      this specific question?**\n*   **Are you testing for consistency?** (The answer
+      will always be 4 in standard arithmetic.)\n*   **Are you hoping for a different
+      kind of explanation?**\n*   **Would you like to move on to a different math
+      problem or concept entirely?**\n\nI''m here to help you understand math, so
+      please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding two quantities
+      together. The result is always the same: 4. If you need clarification, examples,
+      or would like to discuss something else, just let me know!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical answer
+      remains consistent. If you''re looking for something more than a simple repetition,
+      I''m happy to:\n- Explain addition in more depth\n- Explore different mathematical
+      concepts\n- Discuss a new math problem\n\nWhat would you like to do?"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou have asked this question many times. The answer in standard
+      mathematics remains consistently 4.\n\nSince you''re asking it repeatedly, it
+      seems like you might be looking for something beyond a simple answer. Could
+      you please tell me:\n*   **Why are you repeatedly asking this specific question?**\n*   **Are
+      you testing for consistency?** (The answer will always be 4 in standard arithmetic.)\n*   **Are
+      you hoping for a different kind of explanation?**\n*   **Would you like to move
+      on to a different math problem or concept entirely?**\n\nI''m here to help you
+      understand math, so please let me know how I can assist you more effectively!"}],
+      "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding
+      two quantities together. The result is always the same: 4. If you need clarification,
+      examples, or would like to discuss something else, just let me know!"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical
+      answer remains consistent. If you''re looking for something more than a simple
+      repetition, I''m happy to:\n- Explain addition in more depth\n- Explore different
+      mathematical concepts\n- Discuss a new math problem\n\nWhat would you like to
+      do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question many times.
+      The answer in standard mathematics remains consistently 4.\n\nSince you''re
+      asking it repeatedly, it seems like you might be looking for something beyond
+      a simple answer. Could you please tell me:\n*   **Why are you repeatedly asking
+      this specific question?**\n*   **Are you testing for consistency?** (The answer
+      will always be 4 in standard arithmetic.)\n*   **Are you hoping for a different
+      kind of explanation?**\n*   **Would you like to move on to a different math
+      problem or concept entirely?**\n\nI''m here to help you understand math, so
+      please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding two quantities
+      together. The result is always the same: 4. If you need clarification, examples,
+      or would like to discuss something else, just let me know!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical answer
+      remains consistent. If you''re looking for something more than a simple repetition,
+      I''m happy to:\n- Explain addition in more depth\n- Explore different mathematical
+      concepts\n- Discuss a new math problem\n\nWhat would you like to do?"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou have asked this question many times. The answer in standard
+      mathematics remains consistently 4.\n\nSince you''re asking it repeatedly, it
+      seems like you might be looking for something beyond a simple answer. Could
+      you please tell me:\n*   **Why are you repeatedly asking this specific question?**\n*   **Are
+      you testing for consistency?** (The answer will always be 4 in standard arithmetic.)\n*   **Are
+      you hoping for a different kind of explanation?**\n*   **Would you like to move
+      on to a different math problem or concept entirely?**\n\nI''m here to help you
+      understand math, so please let me know how I can assist you more effectively!"}],
+      "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding
+      two quantities together. The result is always the same: 4. If you need clarification,
+      examples, or would like to discuss something else, just let me know!"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical
+      answer remains consistent. If you''re looking for something more than a simple
+      repetition, I''m happy to:\n- Explain addition in more depth\n- Explore different
+      mathematical concepts\n- Discuss a new math problem\n\nWhat would you like to
+      do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question many times.
+      The answer in standard mathematics remains consistently 4.\n\nSince you''re
+      asking it repeatedly, it seems like you might be looking for something beyond
+      a simple answer. Could you please tell me:\n*   **Why are you repeatedly asking
+      this specific question?**\n*   **Are you testing for consistency?** (The answer
+      will always be 4 in standard arithmetic.)\n*   **Are you hoping for a different
+      kind of explanation?**\n*   **Would you like to move on to a different math
+      problem or concept entirely?**\n\nI''m here to help you understand math, so
+      please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding two quantities
+      together. The result is always the same: 4. If you need clarification, examples,
+      or would like to discuss something else, just let me know!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical answer
+      remains consistent. If you''re looking for something more than a simple repetition,
+      I''m happy to:\n- Explain addition in more depth\n- Explore different mathematical
+      concepts\n- Discuss a new math problem\n\nWhat would you like to do?"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou have asked this question many times. The answer in standard
+      mathematics remains consistently 4.\n\nSince you''re asking it repeatedly, it
+      seems like you might be looking for something beyond a simple answer. Could
+      you please tell me:\n*   **Why are you repeatedly asking this specific question?**\n*   **Are
+      you testing for consistency?** (The answer will always be 4 in standard arithmetic.)\n*   **Are
+      you hoping for a different kind of explanation?**\n*   **Would you like to move
+      on to a different math problem or concept entirely?**\n\nI''m here to help you
+      understand math, so please let me know how I can assist you more effectively!"}],
+      "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding
+      two quantities together. The result is always the same: 4. If you need clarification,
+      examples, or would like to discuss something else, just let me know!"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical
+      answer remains consistent. If you''re looking for something more than a simple
+      repetition, I''m happy to:\n- Explain addition in more depth\n- Explore different
+      mathematical concepts\n- Discuss a new math problem\n\nWhat would you like to
+      do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question many times.
+      The answer in standard mathematics remains consistently 4.\n\nSince you''re
+      asking it repeatedly, it seems like you might be looking for something beyond
+      a simple answer. Could you please tell me:\n*   **Why are you repeatedly asking
+      this specific question?**\n*   **Are you testing for consistency?** (The answer
+      will always be 4 in standard arithmetic.)\n*   **Are you hoping for a different
+      kind of explanation?**\n*   **Would you like to move on to a different math
+      problem or concept entirely?**\n\nI''m here to help you understand math, so
+      please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding two quantities
+      together. The result is always the same: 4. If you need clarification, examples,
+      or would like to discuss something else, just let me know!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical answer
+      remains consistent. If you''re looking for something more than a simple repetition,
+      I''m happy to:\n- Explain addition in more depth\n- Explore different mathematical
+      concepts\n- Discuss a new math problem\n\nWhat would you like to do?"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou have asked this question many times. The answer in standard
+      mathematics remains consistently 4.\n\nSince you''re asking it repeatedly, it
+      seems like you might be looking for something beyond a simple answer. Could
+      you please tell me:\n*   **Why are you repeatedly asking this specific question?**\n*   **Are
+      you testing for consistency?** (The answer will always be 4 in standard arithmetic.)\n*   **Are
+      you hoping for a different kind of explanation?**\n*   **Would you like to move
+      on to a different math problem or concept entirely?**\n\nI''m here to help you
+      understand math, so please let me know how I can assist you more effectively!"}],
+      "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts":
+      [{"text": "2 + 2 = 4.\n\nThis is a basic arithmetic problem where you are adding
+      two quantities together. The result is always the same: 4. If you need clarification,
+      examples, or would like to discuss something else, just let me know!"}], "role":
+      "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4.\n\nYou''ve asked this question many times, and the mathematical
+      answer remains consistent. If you''re looking for something more than a simple
+      repetition, I''m happy to:\n- Explain addition in more depth\n- Explore different
+      mathematical concepts\n- Discuss a new math problem\n\nWhat would you like to
+      do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question many times.
+      The answer in standard mathematics remains consistently 4.\n\nSince you''re
+      asking it repeatedly, it seems like you might be looking for something beyond
+      a simple answer. Could you please tell me:\n*   **Why are you repeatedly asking
+      this specific question?**\n*   **Are you testing for consistency?** (The answer
+      will always be 4 in standard arithmetic.)\n*   **Are you hoping for a different
+      kind of explanation?**\n*   **Would you like to move on to a different math
+      problem or concept entirely?**\n\nI''m here to help you understand math, so
+      please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4.\n\nYou have asked this question
+      many times. The answer in standard mathematics remains consistently 4.\n\nSince
+      you''re asking it repeatedly, it seems like you might be looking for something
+      beyond a simple answer. Could you please tell me:\n*   **Why are you repeatedly
+      asking this specific question?**\n*   **Are you testing for consistency?** (The
+      answer will always be 4 in standard arithmetic.)\n*   **Are you hoping for a
+      different kind of explanation?**\n*   **Would you like to move on to a different
+      math problem or concept entirely?**\n\nI''m here to help you understand math,
+      so please let me know how I can assist you more effectively!"}], "role": "model"},
+      {"parts": [{"text": "What is 2+2?"}], "role": "user"}, {"parts": [{"text": "2
+      + 2 = 4.\n\nThis basic arithmetic remains constant. If there''s something specific
+      you''d like to explore further or if you have another question, feel free to
+      ask!"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4.\n\nYou''ve asked this question many times, and
+      the mathematical answer remains consistent. If you''re looking for something
+      more than a simple repetition, I''m happy to:\n- Explain addition in more depth\n-
+      Explore different mathematical concepts\n- Discuss a new math problem\n\nWhat
+      would you like to do?"}], "role": "model"}, {"parts": [{"text": "What is 2+2?"}],
+      "role": "user"}], "systemInstruction": {"parts": [{"text": "You are a helpful
+      math tutor. Always explain your reasoning."}], "role": "user"}, "generationConfig":
+      {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '36576'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2VU227bMAx9z1dwfingpcHa9TL0pRi2Yciwod0W7NphYCw6FiJLnkQ3NYr++yi5
+        id02QBRHOjo8PCR9OwHICrRKK2QK2Rn8lh2A27TGM2eZLMvBdks2G/Q8YPvP7ehZIEw38VK2qAjQ
+        hg15YAeH8Fy+OgCaDXYB8vwoz2dX9sr+dC1UeE1g3QYwrEkBVwL811Jg7SzUaDtgXVOYQST1FFrD
+        4EohbEwbIq+FwJILegXoNVc1sS5go40BS9cioajQrmgGc44iJLegQ0zPdHCUZMxL6EQJegL2nbar
+        qBqLSst1QFC6LMnLBXAtF64mcJKXKIQgf0SwXU1hDmJoJC+1ryULZFl2LiQ1nmoUtX3MPF84qMg0
+        KXTZekH7qSRFGAgMMUictfhylueCFndfi7yI1VIb8YHFLGETvLdRMi5F3QO1NQqnLLpAE5UV1PB5
+        z/XdtUYlNqPXFNOVxJ9chsa7paH6/tI8xJR8tMSLSinP1jUpXXIt1i62iS5ag34oo6eGpNOU6c6T
+        34A1JCYeeZAyEcMU0E1jnJwOCYQpLCW7gWcISRBQrNrFSlZ3mowaDvsqzOAj8V6A2klZBSnBdwWU
+        VtmATn2wp5Ipz7JRb9/tnv9Mh4nwzlBs99opMlv43RaQldrqUH1JVkXY18XFZbY71VbRjWy/mGwD
+        JOqsDbiiT8Qos4m7CcykFHXDC7cm+8a1aTZPjw5e9nSjYX6AODg5uAewYzQPb58en0yfcIe3Elmb
+        8ZyPXgGSKBrNXZrxdz8W2cgMfixt68dkZFvGlWtXFT+S+epwcm9c7+U38kH3pq2oFhv3D2fH+6XB
+        UKWQmfR/I3NMcxUxePHrPVK7lp/ltZpf/v1QLt3ndTa5m/wH3YihUOsEAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:09:45 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=2320
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

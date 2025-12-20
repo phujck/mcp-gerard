@@ -11,6 +11,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
+from pydantic.fields import FieldInfo
 
 mcp = FastMCP("Embeddings Tool")
 
@@ -74,6 +75,10 @@ def get_embeddings(
     ),
 ) -> dict[str, Any]:
     """Generate embeddings for text or code."""
+    # Resolve Field defaults for direct calls (non-MCP)
+    if isinstance(output_file, FieldInfo):
+        output_file = output_file.default or ""
+
     provider = _resolve_embedding_provider(model)
 
     # Mistral has a 16 text limit

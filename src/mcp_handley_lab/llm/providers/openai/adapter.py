@@ -229,11 +229,13 @@ def image_analysis_adapter(
         input_messages: list[dict[str, Any]] = []
         for msg in history:
             role = msg.get("role", "user")
+            # Use output_text for assistant messages, input_text for user messages
+            content_type = "output_text" if role == "assistant" else "input_text"
             input_messages.append(
                 {
                     "type": "message",
                     "role": role,
-                    "content": [{"type": "input_text", "text": msg.get("content", "")}],
+                    "content": [{"type": content_type, "text": msg.get("content", "")}],
                 }
             )
         input_messages.append(

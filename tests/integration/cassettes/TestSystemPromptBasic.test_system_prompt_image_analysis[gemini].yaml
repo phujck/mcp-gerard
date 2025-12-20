@@ -1,0 +1,108 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What do you see in this image?"}, {"inlineData":
+      {"data": "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD_gAIDAAAA6ElEQVR4nO3QwQ3AIBDAsIP9d25XIC-EZE8QZc18w5l9O-AlZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBT-IYAHHLHkdEgAAAABJRU5ErkJggg==",
+      "mimeType": "image/png"}}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "You are a professional art critic. Provide detailed, sophisticated
+      analysis."}], "role": "user"}, "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '738'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent
+  response:
+    body:
+      string: !!binary |
+        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
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:16 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=24315
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

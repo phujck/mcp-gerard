@@ -1,0 +1,61 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 3+3?"}], "role": "user"}], "generationConfig":
+      {"temperature": 0.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '137'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQQUvEMBCF7/0VIVe3smxZLYIHUdkVURctIoqHuJm2YdOkNFPoUvrfTVrbTTGH
+        EOa9zMz72oAQumeKC84QDL0iX7ZCSNvfTtMKQaEVxpItlqzCk3c4rfe2FoTGfaIROSMRuSYX1NO7
+        6f29OHWttAT3pdAc5GjvRgNNhRImfwVmtHK2t+RlRydVKA6NLS+DcUDfmtaGZfAEyGw+NqWgZaWL
+        EhN9AHWr6z5fPPTyaMzkyz8ZNTI5U6L14l9Tc2dHCulD8vjZhEwKPLoYyf1HQj0KONtppBB4sCjm
+        us5ynO+3csl7WgPAd6iMGEhlUFh24ep8HaaSmbwfRyswpVYGHrjzbOFzw/bbePN4TJrneBfyn3R5
+        c6BBF/wCfttN2CQCAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:08:29 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=361
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

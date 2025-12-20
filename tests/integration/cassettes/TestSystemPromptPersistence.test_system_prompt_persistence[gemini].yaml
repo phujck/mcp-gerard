@@ -1,0 +1,312 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}], "systemInstruction":
+      {"parts": [{"text": "You are a concise math expert. Give only the answer and
+      one short explanation."}], "role": "user"}, "generationConfig": {"temperature":
+      1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '7779'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/12QX0+DMBTF3/kUTZ+FTM3m9M3MxfjgnIqLf7KYu/UOupUWaVEM4btbYLDOPtDm
+        nnPP5f5KjxC6Bsk4A4OaXpEPWyGkbL61pqRBaazQlWwxhcwcvO0pnbe1GCzqJjoKyDVjXEbE/Cgi
+        82SFmSYJgtRkrZIVl40WI8/IN4gcdUCdpKp/L08O8zMlsA5PFEPR2avOQDc2VMdPCFrJ2vYcPsxp
+        r3LJsLDlgdcNaKJpriHCezRgSUC/L00zlaQmVDuUE5U3JC4vhm2aQ+7IcDrY60YZEMe9467XCdY3
+        diwXLlKHtt0SBDe/9Srh9DWkDgnz7786Fs299PZUWlALS563RCJMLCP/LBj6GwE6biJphjpVUuMd
+        qz1b//0W3iaj6df2s5iN5zmez3aPL9SrvD+Oz52tNgIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:23 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=321
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}],
+      "role": "user"}, {"parts": [{"text": "6. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role":
+      "user"}, {"parts": [{"text": "8. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts":
+      [{"text": "6. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding
+      two numbers means combining their values."}], "role": "model"}, {"parts": [{"text":
+      "What is 4+4?"}], "role": "user"}, {"parts": [{"text": "8. Adding two numbers
+      means combining their values."}], "role": "model"}, {"parts": [{"text": "What
+      is 3+3?"}], "role": "user"}, {"parts": [{"text": "6. Adding two numbers means
+      combining their values."}], "role": "model"}, {"parts": [{"text": "What is 4+4?"}],
+      "role": "user"}, {"parts": [{"text": "8. Adding two numbers means combining
+      their values."}], "role": "model"}, {"parts": [{"text": "What is 3+3?"}], "role":
+      "user"}, {"parts": [{"text": "6. Adding two numbers means combining their values."}],
+      "role": "model"}, {"parts": [{"text": "What is 4+4?"}], "role": "user"}, {"parts":
+      [{"text": "8. Adding two numbers means combining their values."}], "role": "model"},
+      {"parts": [{"text": "What is 3+3?"}], "role": "user"}, {"parts": [{"text": "6.
+      Adding two numbers means combining their values."}], "role": "model"}, {"parts":
+      [{"text": "What is 4+4?"}], "role": "user"}], "systemInstruction": {"parts":
+      [{"text": "You are a concise math expert. Give only the answer and one short
+      explanation."}], "role": "user"}, "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '7929'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/61SwU7CQBC99ys2e6YEiEbxRtAYYoxEG0M0Hqbs0C5ud5vOFiGEf3fbUrrg1R42
+        m3lv35t5033AGF+CFlKAReJ37NNVGNvXZ4UZbVFbB7QlV8yhsB23+fbe3VEsbqtH/LbPJkJInTD7
+        Y5gusxgLYhmCJrY0WSx1jaUoC7YBVSL1uad0ON2/ep1/YRRW4pkRqFr6oSXwlROl9BWBjK5ob9HL
+        nJ9QqQVuXXkQtAa1NC8JEnxGCy4JOM3L88JkuY3MN+qpKeskxuOrRs1L7owwHBxxayyoC2jQPV6m
+        KKZNwGekm+Go98ed7l1vUvm5eytxUYCSdlfNGz0sIu7FZS+abwMLvFybbv7TyA1xbhQcd9Ss7d39
+        B7LZT4KZ21g46l+HKwWU1pK8QMqNJpyJirMOPx4BF/FTDPFGzOYJ7dbhhHhwCH4BZRp+FcQCAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:23 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=297
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

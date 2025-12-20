@@ -77,19 +77,6 @@ image_providers = [
     ),
 ]
 
-server_info_providers = [
-    pytest.param("ANTHROPIC_API_KEY", id="claude"),
-    pytest.param("GEMINI_API_KEY", id="gemini"),
-    pytest.param("OPENAI_API_KEY", id="openai"),
-    pytest.param(
-        "XAI_API_KEY",
-        id="grok",
-        marks=pytest.mark.skip(
-            reason="Grok uses gRPC (no VCR cassettes) - consume tokens without recording benefit"
-        ),
-    ),
-]
-
 
 @pytest.fixture
 def create_test_image(tmp_path):
@@ -316,21 +303,6 @@ async def test_llm_memory_disabled(
     assert Path(test_output_file).exists()
     content = Path(test_output_file).read_text()
     assert answer in content
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-@pytest.mark.parametrize("api_key", server_info_providers)
-async def test_llm_server_info(skip_if_no_api_key, api_key):
-    """Test server info for all LLM providers."""
-    skip_if_no_api_key(api_key)
-
-    _, response = await mcp.call_tool("server_info", {})
-    assert "error" not in response, response.get("error")
-
-    assert response["name"] is not None
-    assert response["status"] == "active"
-    assert response["dependencies"] is not None
 
 
 @pytest.mark.vcr

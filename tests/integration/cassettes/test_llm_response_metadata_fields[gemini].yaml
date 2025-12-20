@@ -1,0 +1,181 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}, {"parts": [{"text":
+      "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}], "role": "user"},
+      {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}],
+      "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts":
+      [{"text": "3+3"}], "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role":
+      "model"}, {"parts": [{"text": "2+2"}], "role": "user"}, {"parts": [{"text":
+      "2 + 2 = 4"}], "role": "model"}, {"parts": [{"text": "5+5"}], "role": "user"},
+      {"parts": [{"text": "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}],
+      "role": "user"}, {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts":
+      [{"text": "2+2"}], "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role":
+      "model"}, {"parts": [{"text": "5+5"}], "role": "user"}, {"parts": [{"text":
+      "5 + 5 = 10"}], "role": "model"}, {"parts": [{"text": "3+3"}], "role": "user"},
+      {"parts": [{"text": "3 + 3 = 6"}], "role": "model"}, {"parts": [{"text": "2+2"}],
+      "role": "user"}, {"parts": [{"text": "2 + 2 = 4"}], "role": "model"}, {"parts":
+      [{"text": "5+5"}], "role": "user"}, {"parts": [{"text": "5 + 5 = 10"}], "role":
+      "model"}, {"parts": [{"text": "3+3"}], "role": "user"}], "generationConfig":
+      {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '9665'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQUU/CMBSF3/crmr4KxklEMfFJiOHBCLoYguHhSi/Q0LVL2xnIsv9uu9FRcQ9b
+        c8+5pztflRBC1yAZZ2DR0Efy5SaEVM3ba0palNYJYeSGBWh79rZPFZ2dxeLBL9EBuSID8kSGNNLr
+        7rzqnVO1EuhXcsVQBHsdDHTDJTe7dwSjpLd9ZG8z2qlcMjy48U0SLmiiaWlgi69owfWDrgUttMoL
+        m6k9ymdVNv3S9GHUxkVA/jjuT7JVFsTF7mjY+5dsxu5eLmJSEURXEwS3R98lmywyGqGwlz8WaDTf
+        VXLi0qL6RG14y2SLuaPUv72+628EmF2TSTWaQkmDU+Y943L5AuvjfPINix82naWaczPf06ROfgH0
+        2OrZDgIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:08:14 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=312
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

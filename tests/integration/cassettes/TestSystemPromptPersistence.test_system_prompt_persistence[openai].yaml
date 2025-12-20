@@ -1,0 +1,364 @@
+interactions:
+- request:
+    body: '{"input": [{"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}], "instructions": "You
+      are a concise math expert. Give only the answer and one short explanation.",
+      "max_output_tokens": 16384, "model": "gpt-4o-mini", "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '5814'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//dFTBjqMwDL33K6KcpxUUSml/YH9gL6vRChkwbXZCjBKn22rUf18RCoWd
+        6Q387JdnvzifKyGkquVRSIuuK6Jkv9uV0WEfR1Ge1GkUZYc0wyxvmqSM8viQHLbZFnZQ75IyTSEp
+        5VtPQeUfrHikIeNwiFcWgbEuoMfifZZtd+l2mwTMMbB3fU1FbaeRsR6KSqg+Tpa86XU1oB0OYaW1
+        Mid5FJ8rIYSQHdzQ9vU1XlBTh1auhLgPB4+U/x2dBhStpb7SeK1DQJmxoKiRQWm3RB1bX7EiE/T+
+        Ii/AogBRkamUQ9ECnwVeO7S8ET/UBQUZfRN8RgHG/UUrwNSCDAp3Jst9qgYDPeNmaLqFa0GeO88F
+        0weGg+IsydMJZSJdVKCX2lqqUfeiTh2vU1q3yqj1Ntqm62i/jvOHPYFYHsV7mNwwv8n51p1eGn+I
+        sn2e98bnSRxHWZkfqjiNd7t9YA4sfOsw8KBzcMIn8MrhAFZkGM1T1FzYgnacCl55qg4JYAwxjK68
+        /16Amk6dpfIbJBAdhcw24ucZhfOtoEbw2SIGl4Yv5YRT142cKu+Pr4lMWtJBIDinHIPhIblPDEmy
+        Awtao15ax9YPF7qzeFHkXTHuTBH8mKztLLUdFxVUZyw+8PYSs9hPUpGZZ1gER2axMNg0ZHmW1Hvk
+        2xbsyD3tj4MG+VaouiduFC62xaG9qAoLVuP+NeD14I50TBbnbTK2HVpgH8LxJnpEgwsPZQ3ZFp7/
+        M/dD3jDXh+IL2pKc4ttw52rl2+feD5M+k6oGazyTnIDnZZBMXTG7ItEU7OYarTcVPAYra+Wg1OMj
+        5cNVnxpQZrm5SZK+fUVmj8vUaLCwfpZGi2a/PAnb74DveCf/X1EzMei55DSbxujd0vEWGWpg6A+4
+        r+7/AAAA//8DAN8EYcs3BgAA
+    headers:
+      CF-RAY:
+      - 9b1118a328456c94-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:10:24 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '865'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '870'
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '150000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '149998647'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_9ba7e50c7dc74885ad2afa89954e6590
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"input": [{"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. The sum of four and four
+      is eight."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. The sum of three and three is six."}, {"role": "user", "content":
+      "What is 4+4?"}], "instructions": "You are a concise math expert. Give only
+      the answer and one short explanation.", "max_output_tokens": 16384, "model":
+      "gpt-4o-mini", "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '5926'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//dFTBjqMwDL33KyLO0wpoB9r+wP7AXlajFTLBtNkJcZQ43alG/fcVoVDY
+        md7Az3559ovzuRIiUU1yFIlDb6t0e4A8bQ91WjYoyzZNi8OuwOKQZcVO7rNDedjWTdbu87RIIYdD
+        mbz0FFT/QckjDRmPQ1w6BMamgh7LyqLIX3d5/hoxz8DB9zWSOquRsRmKapDvJ0fB9Lpa0B6HsNJa
+        mVNyFJ8rIYRILFzR9fUNXlCTRZeshLgNB4+U/x1dRBSdo77SBK1jQJmxoGqQQWm/RD27IFmRiXp/
+        URDgUICQZKTyKDrgs8APi4434oe6oCCjr4LPKMD4v+gEmEaQQeHP5LhP1WCgZ9wMTXfwUVFgG7hi
+        esd4UFZs97sJZSJdSdBLbR01qHtRJ8vrHa07ZdQ6T/PdOi3X2f5uTyROjuItTm6Y3+R850/Pjc+z
+        Yh+N30uZ16Wsi7qE17I4RObIwleLkQe9hxM+gGcOR1CSYTQPUXNhC9pxKvjBU3VMAGOIYXTl7fcC
+        1HSyjupvkEh0FMl+I36eUfjQCWpFS2EwKX4oL1CdzrxJpsrb/WsiSxzpKBC8V57B8JDcJ8akxIID
+        rVEvrWMXhgttHV4UBV+NO1NFPyZrraPOciVBnrF6x+tTzGE/SUVmnuEQPJnFwmDbkuNZUu9R6Dpw
+        I/e0Px5a5Gulmp64VbjYFo/uoiRWrMb9ayHowZ3EMzmct8nYWXTAIYazTXqPRhfuylpyHTz+Z+7H
+        vGGud8UXdDV5xdfhzjUqdI+9HyZ9JiUHawJTMgGPy5Aw2Wp2RdIpaOcaXTAS7oNNGuWh1uMjFeJV
+        nxpQZrm52yJ9+YrMHpep0Whh8yhNF81+eRLy74DveCf/n1EzMei55DKfxhj80vEOGRpg6A+4rW7/
+        AAAA//8DAPXlVZs3BgAA
+    headers:
+      CF-RAY:
+      - 9b1118aa3f2519ac-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:10:26 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '1416'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '1430'
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '150000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '149998620'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_6c5034a205a64e89b999c7fa532d0d36
+    status:
+      code: 200
+      message: OK
+version: 1

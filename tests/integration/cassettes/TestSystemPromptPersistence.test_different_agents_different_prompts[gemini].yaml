@@ -1,0 +1,418 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "The presented query seeks to ascertain, once more, the numerical
+      value resulting from the addition of the integer eight to the integer two.\n\nIn
+      the standard arithmetical system, particularly within the additive group of
+      integers $(\\mathbb{Z}, +)$, the operation of addition is uniquely defined.
+      For any two given integers, their sum is a single, well-determined integer.\n\nThe
+      summation of $8$ and $2$ is a foundational arithmetic fact. By definition and
+      consistent application of the rules governing integer addition, we have:\n$$8
+      + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result that is invariant
+      within the framework of standard arithmetic."}], "role": "model"}, {"parts":
+      [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The presented
+      query seeks to ascertain, once more, the numerical value resulting from the
+      addition of the integer eight to the integer two.\n\nIn the standard arithmetical
+      system, particularly within the additive group of integers $(\\mathbb{Z}, +)$,
+      the operation of addition is uniquely defined. For any two given integers, their
+      sum is a single, well-determined integer.\n\nThe summation of $8$ and $2$ is
+      a foundational arithmetic fact. By definition and consistent application of
+      the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts": [{"text": "The
+      presented query seeks to ascertain, once more, the numerical value resulting
+      from the addition of the integer eight to the integer two.\n\nIn the standard
+      arithmetical system, particularly within the additive group of integers $(\\mathbb{Z},
+      +)$, the operation of addition is uniquely defined. For any two given integers,
+      their sum is a single, well-determined integer.\n\nThe summation of $8$ and
+      $2$ is a foundational arithmetic fact. By definition and consistent application
+      of the rules governing integer addition, we have:\n$$8 + 2 = 10$$\n\nTherefore,
+      the value of the sum is ten, a result that is invariant within the framework
+      of standard arithmetic."}], "role": "model"}, {"parts": [{"text": "What is 8+2?"}],
+      "role": "user"}, {"parts": [{"text": "The presented query seeks to ascertain,
+      once more, the numerical value resulting from the addition of the integer eight
+      to the integer two.\n\nIn the standard arithmetical system, particularly within
+      the additive group of integers $(\\mathbb{Z}, +)$, the operation of addition
+      is uniquely defined. For any two given integers, their sum is a single, well-determined
+      integer.\n\nThe summation of $8$ and $2$ is a foundational arithmetic fact.
+      By definition and consistent application of the rules governing integer addition,
+      we have:\n$$8 + 2 = 10$$\n\nTherefore, the value of the sum is ten, a result
+      that is invariant within the framework of standard arithmetic."}], "role": "model"},
+      {"parts": [{"text": "What is 8+2?"}], "role": "user"}], "systemInstruction":
+      {"parts": [{"text": "You are a formal mathematics professor. Use proper mathematical
+      terminology."}], "role": "user"}, "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '19302'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/21T227TQBB9z1eMLD+A6kRteqFU4oV7H1ALRAhCEJpmx/Yq612zu3YaRfl3Zn2r
+        W7AUy5nLOTNnZvYTgGiNWkiBnlx0BT/ZArBv3sFntCft2dGb2Fii9Q+x7bMffXOIp/uQFC1ygtKS
+        YwwS8KciuwNHtHHgDaBbk/UodQJGrwkKYykBzym6KsjKNSqoUVUEjFApL3UGqTVFE4JCSC+NBpM2
+        /yUzZGSBZJb7gD42+q2ZrfRKX+vG7Dy3jFYAWunzgnxD5XbOU5FAaE+uK4VW7WDLAVKPGGuCzJqq
+        DLwdvIP42WpVoM/v7vbLQwJHz+O2j/C7kxq5a1OSxb7goXjpoNKSdWEqQanUJGbw3lhAvQtVQ8aE
+        eiBqUKUFVxUhFcGxJopF25JSU0GebBEw+oSm6TADTigG9vgyZnwB8TxuUVJTsR7BzTI8aAIprv0M
+        XneltRWHRN4KJ11YDMCyVKzeeBK2UuQgMzVZHUbWD6FvOlQLOdZ0tdJxfAlHMIdXcHIcx121ltJh
+        E9r5d8hd20yccNXtUrADfbBKXXPpyDWNZpZaLGhr7CZA/Gfss2i0t4fh+1fysO3WKAqrXBhBqg8/
+        9AFREMblXwid0SHs6+LmNhq8Ugu6Z/PxpCdooKPKYUafyCPLjsN1RSVvd+kXZkP6Dc8knNDpi7OL
+        Fm50qI8iTs7mXYA3HtXj7Jfz8+QfbPeWmaUa3/DovLlRVNLvmvt9930RjcTwT0vr9ZiMZIt8biq+
+        QvekkUmnWyvlN95n2WqWEW+tnM5n59NUocsbxojnW/Ki0bUIMfZm+QGXi9OPVP+uxfXtprxYXn7+
+        EU0Ok7+ovjvlxgQAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:52 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=1130
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}, {"parts":
+      [{"text": "It''s still 10! You''re a pro at asking that question! \ud83d\ude04"}],
+      "role": "model"}, {"parts": [{"text": "What is 8+2?"}], "role": "user"}], "systemInstruction":
+      {"parts": [{"text": "You are a friendly buddy. Be casual and use simple words."}],
+      "role": "user"}, "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '4358'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQwU4CMRCG7/sUQy9cwABqjN6IGsPBSHA1guEwcWeXhtIu7axCCDcfwpuv6CPY
+        3WVh0R7ayczff2a+TQAg3lBHMkImJ67g1WcANsWd14xm0uwLVconU7R80JZnU4u9hGmVfxIDbjpw
+        LJWCbqcBY5M1LQFCag0gA7q51AnwzMfLjLzQ6Ab8fH99iprfdh9PW4cprFGUt1iYiFQl31YCEUst
+        3WxE6IzOZY/hw1Dsq1JHtPLpTlA1KKxF5jChe2L0PHC/tfDjLlIOzZz0tckKHhe9XulW43ck6F7u
+        6mwY1fHfs27rn7G78W2lqoOtMfdbopK8zlcJb19CUSPBf+aqWBTvNNhRKUE9k3WyJJLQwjNq907O
+        27FCNysshSWXGu1oEOUaS5M7nMSn/Xi5fo8Gw2TcHn30n0SwDX4BR24e6jwCAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:53 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=449
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

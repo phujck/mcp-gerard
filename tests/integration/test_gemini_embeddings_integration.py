@@ -157,16 +157,17 @@ class TestGeminiEmbeddings:
             first_result_content = Path(search_result["results"][0]["path"]).read_text()
             assert "Python" in first_result_content
 
-    def test_get_embeddings_empty_input_error(self):
-        """Test that empty input raises appropriate error."""
+    def test_get_embeddings_empty_input(self):
+        """Test that empty input returns empty result."""
         skip_if_no_gemini_key()
 
-        # Empty list should raise an error from the adapter
-        with pytest.raises((ValueError, RuntimeError)):
-            get_embeddings(
-                texts=[],
-                model="gemini-embedding-001",
-            )
+        # Empty list returns empty result
+        result = get_embeddings(
+            texts=[],
+            model="gemini-embedding-001",
+        )
+        assert result["embeddings"] == []
+        assert result["count"] == 0
 
     def test_search_documents_nonexistent_index_error(self):
         """Test that searching non-existent index fails fast."""

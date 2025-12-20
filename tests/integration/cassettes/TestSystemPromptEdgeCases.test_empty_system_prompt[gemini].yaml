@@ -1,0 +1,95 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 9+1?"}], "role": "user"}, {"parts": [{"text": "9 + 1 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 9+1?"}], "role": "user"}, {"parts":
+      [{"text": "9 + 1 = 10"}], "role": "model"}, {"parts": [{"text": "What is 9+1?"}],
+      "role": "user"}], "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2862'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQUU/CMBSF3/crmr4KhgEmaMKTGsKDEXUaouHhxl5GtWuX9c5glv13242NIn1o
+        m3vPPe35qogx/glaSAGElt+wD1dhrGp23zOaUJNrdCVXzKGgo7ZdVXB3EsK9H+LX7ILFbM7iEQ8E
+        dX/fDI62hVHoZzIjUHXyuhPwrdTS7p4RrNFe9pI8rnjflVrg3pVHUfdAY81LCyk+IIELCH0Mnhcm
+        yykx36hvTdkEnE4mrVsA5EQwO7TJEKjT0Wk8OPO1d+5VqUJQAUMXEpSkX58kuV8nPABB/77VoWjO
+        TXSA0nJ6w8LKFkiKmUM0HF9eDbcK7K6x5AXa3GiLS+E1tnxfALi/zcbxj1iuSlp8pU+vPKqjPzAO
+        oIsMAgAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:10:58 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=354
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

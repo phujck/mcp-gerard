@@ -1,0 +1,70 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is configured in this YAML file?
+      What is the application name?"}, {"text": "[File: tmpjyd6ln20.yaml]\n# Configuration
+      file\napp:\n  name: \"Test Application\"\n  version: \"1.0.0\"\n  features:\n    -
+      authentication\n    - logging\n    - metrics\ndatabase:\n  host: \"localhost\"\n  port:
+      5432\n  name: \"testdb\"\n"}], "role": "user"}], "generationConfig": {"temperature":
+      1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '445'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/21TbW/TQAz+3l9h3Re2qBvrpG6lX1DpAFViUCC8iSLtmjjJieQuyjldWdX/ji9t
+        2kshUpKT/fix/Zy96QGISOpYxZLQijH8ZAvApvk6n9GEmtjRmthYyoqO2N2z8c4MIVy7IPFKWozB
+        aKAM4cfk/h0kKsc+ZFjhMwuPmST+cZZEpXWF8XihFzoIvrEdlO8A5TjYdCB5GQQOHPrExwAL9Gig
+        kBwmbYkR2YZ6cAkQBJOyzFUkSXFhd0hS5RbOHmRZPpyPHatrIeDXccsjlivVssDLI2BGFlZYWUek
+        62KJleecQK4sgUkgQUlNTaaCpNaRI5O5IsUmRWDrsjQs6XPUcpmz7UzWrJemfd4+5CZNlU77UCBV
+        KrLnnOa6aeVOklyyyDA1WmPDzK3Ee+t/+smMJdeFq2U2BxnHXJh1VboragPBYrXqdONiXZX7PiHh
+        +GifU6dAphN/ErhLeJJCaUtSRw7r3zl1RW9ivbs+dXHImHVYiBBZbO9mFyIIhDeV28P5V/84y5XJ
+        0Q1qYWLMW/i2BYhEaWWzTyit0Q72OfwwFwev0jGu2XzVaxM01KK2MsV7HizX62F3RFmZoqTQ/EY9
+        NXWzVS9GOzJvCTv+wbAFkCGZd3yj4W3/H2K7n2dvPb3N5S7d3P1xrYSvv4fCU4K6dbVS9DzFBGWm
+        TjPq1nhzNejtNdvJ+HW3ES5JigUreHF9ObxIcmmzJqHgiSuNtjiLHWZdD9+yUtM3yU29fj+aP90+
+        rczHL6K37f0F5FHnoqAEAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:26 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=3529
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

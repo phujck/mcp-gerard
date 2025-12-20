@@ -1,0 +1,211 @@
+interactions:
+- request:
+    body: '{"max_tokens": 64000, "messages": [{"role": "user", "content": "What is
+      3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}, {"role": "assistant", "content": "3 + 7 = 10 \u2728\n\nMathematical
+      breakdown:\n\u2022 3 \u2208 \u2115 (natural numbers)\n\u2022 7 \u2208 \u2115\n\u2022
+      Result: 10 \u2208 \u2115\n\nProof: \u2200 basic addition, direct summation applies
+      \ud83e\uddee\n\nThe answer is 10! \ud83d\udd22\ud83d\ude0a"}, {"role": "user",
+      "content": "What is 3+7?"}], "model": "claude-haiku-4-5-20251001", "system":
+      "You are a helpful assistant \ud83e\udd16. Use emojis: \u2211, \u220f, \u2206,
+      \u2207, \u2208, \u2209, \u2200, \u2203", "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '7174'
+      Content-Type:
+      - application/json
+      Host:
+      - api.anthropic.com
+      User-Agent:
+      - Anthropic/Python 0.74.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 0.74.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      anthropic-version:
+      - '2023-06-01'
+      x-stainless-read-timeout:
+      - '599'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-timeout:
+      - '599'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WRz24TMRDGX8X4BGIj7SZNQlfiAogbUoUAgQhaTeyh62Z3vHhsCkSReuBQcQaJ
+        A1KlXuDEQ+UJ+gjMpgT6Rz3Z/r6fxzOfl7r1FhtdatNAsjiowS3SYGcwHgzz4bjI80Jn2lkBWt6v
+        8mIPJi8fPD948ejhLhefJpODV7AzeixM/NhhTyEz7KMIwTe9AMyOI1AUyXiKKLvy9XLLR/zQO5ul
+        1CN1V03VfVXkav3j14xm9ARijS1EZ6BR84CwsP6Qyhmtj07VSK2Pj9X68zd1myCmIAildo6B75wD
+        0y1wfnyKnJpYbspv9RntBe/flqIcqTmwMwqsddF5ypR1AU1UnNq+BU8Kuq5xyOrs5Ofv/u6zGhUQ
+        H2JQjqXuLXG+np6dfP+iV28yzdF3lTTNnmQ6JFtJl6T/GozvEpKRGCg1TabTJrlyqR11KVbRL5BY
+        l8PpJJfswNRYGSnWN1JdRv75YtubvO3d/gXsJFWUwKpxe53/7xb1VXeVaZ/iRWn3nsyD4b0zWEWH
+        QSbtP9xCsHq1+gMZ4to2YgIAAA==
+    headers:
+      CF-RAY:
+      - 9b1119b24bb04883-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:11:08 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 2c171920-9bc8-49f3-a3b0-ec271bf76c62
+      anthropic-ratelimit-input-tokens-limit:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '3998000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2025-12-20T18:11:07Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '800000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '800000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2025-12-20T18:11:08Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2025-12-20T18:11:07Z'
+      anthropic-ratelimit-tokens-limit:
+      - '4800000'
+      anthropic-ratelimit-tokens-remaining:
+      - '4798000'
+      anthropic-ratelimit-tokens-reset:
+      - '2025-12-20T18:11:07Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CWJPZ2yUM298M6mfDQ8p9
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '785'
+    status:
+      code: 200
+      message: OK
+version: 1

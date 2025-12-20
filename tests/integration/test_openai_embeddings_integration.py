@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from openai import BadRequestError
 
 from mcp_handley_lab.llm.embeddings.tool import (
     calculate_similarity,
@@ -191,7 +192,7 @@ class TestOpenAIEmbeddings:
         """Test that empty input raises appropriate error."""
         skip_if_no_openai_key()
 
-        with pytest.raises((ValueError, RuntimeError)):
+        with pytest.raises((ValueError, RuntimeError, BadRequestError)):
             get_embeddings(texts=[], model="text-embedding-3-small")
 
     def test_search_documents_nonexistent_index_error(self):

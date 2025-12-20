@@ -1,0 +1,74 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What types of files are these and what
+      do they contain?"}, {"text": "[File: tmp_g_wurxs.toml]\n[package]\nname = \"test\"\nversion
+      = \"1.0.0\""}, {"text": "[File: tmp_kn_p2rr.diff]\ndiff --git a/file.txt b/file.txt\n+added
+      line"}, {"text": "[File: tmp9o2nscdh.rs]\nfn main() {\n    println!(\"Hello
+      Rust!\");\n}"}], "role": "user"}], "generationConfig": {"temperature": 1.0,
+      "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '436'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WUbW/bOAzH3+dTcH6zNsuMNluHtu+G7uE6rGi3ZcMBl0OtyLStiyx5Et0kKPrd
+        R9pJ6/awuwBJJJEi+f9J4u0IINHK5SZXhDE5hb94BeC2+xWbd4SO2LBb4sVGBXrw7T+3gzG7EK5l
+        U/IHBnweQcEioFrmfuXAF4BKV1AYi6dzN3eHKcB4/EGmkFHdXJfXqzasY0q+ttl4PHcScizf8WzT
+        4Ol4DLPLi8+wN/M1B79c3BjfxglcGGdqZeGzcmWrStwHLr8wZRsUGe+6jOkw2hmrU8ZFiXgV/D+o
+        CWokxTBUCucOqDIRYoPaFEaDVhEnYAhyLIxDkZU1Si85VQZO1ZjDnJVHmiewMlSJ/QZD5NyZyJ4n
+        h+lBejBP0r5+qYeDBGQjU4Y2coTChydlGwc3KohEaIIvg6pr40oZS8ER9jAt0wl8bSMxjexMhdL3
+        7CZwtaHKO1luNtsNvWk/FfTTp+iX7rqZhpDmpih+g/4dm2CPq2wU6Wr/v6m+hYgk2nXFh8JqF0gr
+        ZK208rBlE8Wu+jgwE+JywYxurQoghUCs/CryYShiP8voIXuh8pxpySSDlWKM3Zz8NtL2PLIuKq0p
+        S/vCH5hrX9fe2Q2U6JBRs/dis6tJjoCCtxA3kbBmyNYsET4a2pccAbUPOfDDAdU0HGMrr4P66gnU
+        Ez91UedVGuJvkMrRQfRt0FJWjv/L1NQNS+y2ba/Ejlw/G97QmvdlULROd7dpVRldTfiPDwHXqFsW
+        zlNjLW82jhgzQqQgV2zO79da3yV6xpealYuV2UTPBSaDN393P/578tApmCBKG6hZlN253+0cEq7R
+        xOorquiduH2bXV4l91bjclzz8sFol6ALnbSRH9zF9pned6aEpdcNzfwS3Zlvu551ePCqjzbocY8c
+        psfTrQN5UvaR7WR6PPlX5PiO8xo77H6DxsgylTW0ES2z93/OkgEKelLYDsZowCzhx9qWFT0u8ui1
+        OHfUepA/+jsqWUrkXmBeTtOjl4VVseoyJgFjw2eE57n4HOLRR7V48/3Tpdrc5OdXbXzT/vxynozu
+        Rr8AqA8YuAAGAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:41 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=3780
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

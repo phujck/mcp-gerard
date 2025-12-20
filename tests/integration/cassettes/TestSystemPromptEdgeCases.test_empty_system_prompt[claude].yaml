@@ -1,0 +1,135 @@
+interactions:
+- request:
+    body: '{"max_tokens": 64000, "messages": [{"role": "user", "content": "What is
+      9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content":
+      "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user",
+      "content": "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"},
+      {"role": "user", "content": "What is 9+1?"}, {"role": "assistant", "content":
+      "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role": "assistant",
+      "content": "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role":
+      "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content": "What is
+      9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content":
+      "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user",
+      "content": "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"},
+      {"role": "user", "content": "What is 9+1?"}, {"role": "assistant", "content":
+      "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role": "assistant",
+      "content": "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role":
+      "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content": "What is
+      9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content":
+      "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user",
+      "content": "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"},
+      {"role": "user", "content": "What is 9+1?"}, {"role": "assistant", "content":
+      "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role": "assistant",
+      "content": "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role":
+      "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content": "What is
+      9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content":
+      "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user",
+      "content": "What is 9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"},
+      {"role": "user", "content": "What is 9+1?"}, {"role": "assistant", "content":
+      "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role": "assistant",
+      "content": "9 + 1 = 10"}, {"role": "user", "content": "What is 9+1?"}, {"role":
+      "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content": "What is
+      9+1?"}, {"role": "assistant", "content": "9 + 1 = 10"}, {"role": "user", "content":
+      "What is 9+1?"}], "model": "claude-haiku-4-5-20251001", "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2253'
+      Content-Type:
+      - application/json
+      Host:
+      - api.anthropic.com
+      User-Agent:
+      - Anthropic/Python 0.74.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 0.74.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      anthropic-version:
+      - '2023-06-01'
+      x-stainless-read-timeout:
+      - '599'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-timeout:
+      - '599'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WQTUvEMBCG/0qZqy0kuxZswZOwB5XFPXhRJIRk3IZNk24+RCn9704Xi1/sKeF9
+        nszLZITea7TQgrIya6w6aQ65uqzqasVWNWeMQwlGk9DHvWB8s3547TbY5Kftdre7uzneNvfukZz0
+        MeBsYYxyjxQEb+dAxmhiki5RpLxLSLf2eVz8hO8zOR0tNMVFwYvrgjOYXkqIyQ8ioIzeEUSnRcrB
+        wReIeMzoFE1x2doS8qm4HcG4ISeR/AFdhLa+aqhZqg6FolnJeCd+G2zhhPU5trydC3DosMcgraj7
+        //435d1fOpXgc/oZ8TWtg+HNKBTJYKBF5+/SMmiYpk+qTxiGoAEAAA==
+    headers:
+      CF-RAY:
+      - 9b1119828bdb330e-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:11:00 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 2c171920-9bc8-49f3-a3b0-ec271bf76c62
+      anthropic-ratelimit-input-tokens-limit:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2025-12-20T18:11:00Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '800000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '800000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2025-12-20T18:11:00Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2025-12-20T18:10:59Z'
+      anthropic-ratelimit-tokens-limit:
+      - '4800000'
+      anthropic-ratelimit-tokens-remaining:
+      - '4800000'
+      anthropic-ratelimit-tokens-reset:
+      - '2025-12-20T18:11:00Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CWJPYUFUFhZaCZQJRyTy1
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '422'
+    status:
+      code: 200
+      message: OK
+version: 1

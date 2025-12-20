@@ -1,0 +1,438 @@
+interactions:
+- request:
+    body: '{"max_tokens": 64000, "messages": [{"role": "user", "content": "What is
+      3+3?"}, {"role": "assistant", "content": "6. This is the result of adding the
+      same number twice, which simply doubles the original number."}, {"role": "user",
+      "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When you add
+      two identical numbers, it''s equivalent to multiplying that number by 2."},
+      {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}], "model": "claude-haiku-4-5-20251001", "system": "You are a concise
+      math expert. Give only the answer and one short explanation.", "temperature":
+      1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '8543'
+      Content-Type:
+      - application/json
+      Host:
+      - api.anthropic.com
+      User-Agent:
+      - Anthropic/Python 0.74.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 0.74.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      anthropic-version:
+      - '2023-06-01'
+      x-stainless-read-timeout:
+      - '599'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-timeout:
+      - '599'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WRy2rDMBBFf0VobQc7xCn1NptsCg203ZRiFGlqiejhakZNQvC/V04T+qIgkLj3
+        aEZXc+IuKLC85dKKpKDUwuxSuSibcl7Nm7qqal5wozLgsO+qevO4jne3cSNX96v10h0Q8bh9ygwd
+        B5goQBQ9ZCEGOwkC0SAJT1mSwRPkU/t8uvIEh8k5by1fztiDNsjyIg0sAiZLLLwyoZTx/VlE4YD5
+        5LYQGe2NhILttZGaoXGDPTIV0tbCZ4EQTW+8sBd+xseXgiOFoYsgMPjcErzqKEXPLwbCWwIv89t8
+        srbg6RynPXHjh0QdhR145G190yxzICE1dDIXIxN89xOprn621X/e9e7UAQYNDqKwXeP+8l9urX+7
+        Y8FDou/SfJHzQHzP/9ORgZiTTlNQIio+jh8SY1Qp9wEAAA==
+    headers:
+      CF-RAY:
+      - 9b1118b4cedf772c-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:10:27 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 2c171920-9bc8-49f3-a3b0-ec271bf76c62
+      anthropic-ratelimit-input-tokens-limit:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '3999000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2025-12-20T18:10:27Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '800000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '800000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2025-12-20T18:10:27Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2025-12-20T18:10:26Z'
+      anthropic-ratelimit-tokens-limit:
+      - '4800000'
+      anthropic-ratelimit-tokens-remaining:
+      - '4799000'
+      anthropic-ratelimit-tokens-reset:
+      - '2025-12-20T18:10:27Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CWJPW3dLHyka3CU8tKWvF
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '515'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"max_tokens": 64000, "messages": [{"role": "user", "content": "What is
+      3+3?"}, {"role": "assistant", "content": "6. This is the result of adding the
+      same number twice, which simply doubles the original number."}, {"role": "user",
+      "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When you add
+      two identical numbers, it''s equivalent to multiplying that number by 2."},
+      {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}, {"role": "assistant", "content": "8. When
+      you add two identical numbers, it''s equivalent to multiplying that number by
+      2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant", "content":
+      "6. This is the result of adding the same number twice, which simply doubles
+      the original number."}, {"role": "user", "content": "What is 4+4?"}, {"role":
+      "assistant", "content": "8. When you add two identical numbers, it''s equivalent
+      to multiplying that number by 2."}, {"role": "user", "content": "What is 3+3?"},
+      {"role": "assistant", "content": "6. This is the result of adding the same number
+      twice, which simply doubles the original number."}, {"role": "user", "content":
+      "What is 4+4?"}, {"role": "assistant", "content": "8. When you add two identical
+      numbers, it''s equivalent to multiplying that number by 2."}, {"role": "user",
+      "content": "What is 3+3?"}, {"role": "assistant", "content": "6. This is the
+      result of adding the same number twice, which simply doubles the original number."},
+      {"role": "user", "content": "What is 4+4?"}, {"role": "assistant", "content":
+      "8. When you add two identical numbers, it''s equivalent to multiplying that
+      number by 2."}, {"role": "user", "content": "What is 3+3?"}, {"role": "assistant",
+      "content": "6. This is the result of adding the same number twice, which simply
+      doubles the original number."}, {"role": "user", "content": "What is 4+4?"},
+      {"role": "assistant", "content": "8. When you add two identical numbers, it''s
+      equivalent to multiplying that number by 2."}, {"role": "user", "content": "What
+      is 3+3?"}, {"role": "assistant", "content": "6. This is the result of adding
+      the same number twice, which simply doubles the original number."}, {"role":
+      "user", "content": "What is 4+4?"}], "model": "claude-haiku-4-5-20251001", "system":
+      "You are a concise math expert. Give only the answer and one short explanation.",
+      "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '8714'
+      Content-Type:
+      - application/json
+      Host:
+      - api.anthropic.com
+      User-Agent:
+      - Anthropic/Python 0.74.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 0.74.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      anthropic-version:
+      - '2023-06-01'
+      x-stainless-read-timeout:
+      - '599'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-timeout:
+      - '599'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WQTU7DMBBGr2J5wyapkogIml0lEFwAIYGQ5cZDbNWxgz0uDVXuzqRq+VVXtua9
+        mfHnPe+9Assb3lqZFORamk3KL/M6r4qqLoui5Bk3ioQ+dqIo72+2u4fVxyt2q6V7urtdqgpBk4Pj
+        ALMFMcoOqBC8nQsyRhNROqRS6x0C3Zrn/clH2M3kcDT8esEeNTg2+sSkUgzfPTOKWkwrLXOpX0OI
+        GTN4ERm8JbOVliBDz/pk0Qx2NK5jqCUeZbYeWbXg00vGI/pBBJDRO9oETglMwfEjiDQOXEtPcsna
+        jKdDimbPjRsSCvQbcJE35dWyoByy1SBaGobGO/Fb+eKE1Tl26p03wKChhyCtqPv//jct9V86Zdwn
+        /FmqasoDYWtaEGggUNL585UMik/TJ7uUaP3uAQAA
+    headers:
+      CF-RAY:
+      - 9b1118b96d7ec418-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:10:28 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 2c171920-9bc8-49f3-a3b0-ec271bf76c62
+      anthropic-ratelimit-input-tokens-limit:
+      - '4000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '3999000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2025-12-20T18:10:27Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '800000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '800000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2025-12-20T18:10:28Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2025-12-20T18:10:27Z'
+      anthropic-ratelimit-tokens-limit:
+      - '4800000'
+      anthropic-ratelimit-tokens-remaining:
+      - '4799000'
+      anthropic-ratelimit-tokens-reset:
+      - '2025-12-20T18:10:27Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CWJPW6kMb6tRWx4co8KBB
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '651'
+    status:
+      code: 200
+      message: OK
+version: 1

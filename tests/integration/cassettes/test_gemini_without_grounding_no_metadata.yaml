@@ -1,0 +1,61 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 2+2?"}], "role": "user"}], "generationConfig":
+      {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '137'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQT0vEMBDF7/0UIVe3srYuiuBBdFk8LC5axD94CGa2jaZJSabQtfS7m7S2m2IO
+        Icx7mZn3ayNC6CdTXHCGYOkVeXcVQtr+9ppWCAqdMJZcsWIGj97htMHbWRAa/4km5IQk5Jqc00Dv
+        pvfH4tjVaAn+S6k5yNHejQa6F0rY4hGY1crbnrKHHZ1UoTg0rryMxgF9a1pblsMWkLl8bEpBK6PL
+        CjP9DepW132+y6FXQGMmX/zJqJHJmZKmi39N7Z0bKWQIKeDnEjIp8OBjZOuXjAYUcLbTSCEKYFEs
+        dJ0XON/vzHt7WgPAZzBWDKRyKB27ODldxXvJbNGPowZspZWFe+49abzaMP5zWL9+QWOXO/O2afKb
+        LY266BdXlycnJAIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:51 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=378
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

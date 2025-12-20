@@ -1,0 +1,64 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is in this text file?"}, {"text":
+      "[File: tmpxdh_7gyv.txt]\nThis is a simple text file with some content for testing."}],
+      "role": "user"}], "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '247'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WRb2vCMBDG3/dThLxWmTpRfDfmGBtsk1nGcI4R7LUNS5PSu06H+N13ba2mrC3h
+        uOe5P/3lEAght8pGOlIEKOfigzNCHOqz0pwlsMRCm+Jkrgq6eJvn4MVsIdhXRTJMQVSxiLUBUXVT
+        2qIgTsfOGLfTNplvLL9s1Sj4UwJ1lhu/bqcpFeiypgPvw8UF60hcPthI6Q0/nuPP3mXlwhmo9slc
+        BKa1H1uDjLXVmL6CQmcr2yp8Wcqzqm0Ee05fBe2AurUsUSXwBKQYnjojknnhspxC9w321pU1vPF1
+        08xj3dFHw5NOjpTpSMPxqPevLy54qjb+JXj3wz+pjKbf+gLu3kPpgaDuWi2JwAMmKXVlklJ3xek0
+        OBFrIL5BgbqhlUDG/PqjwaQfG4VpPU8WgLmzCA9R5RmWk3u1/tk9funV/nm2nG0XOLtJZHAM/gD8
+        o94DhQIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:42 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=882
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

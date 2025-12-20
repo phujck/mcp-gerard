@@ -1,0 +1,93 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What does this shell script do? What
+      are the main steps?"}, {"text": "[File: tmpek2slf7i.sh]\n#!/bin/bash\n# Build
+      and deploy script\nset -e\n\necho \"Starting build process...\"\nnpm install\nnpm
+      run build\nnpm test\n\necho \"Deploying to production...\"\nrsync -av dist/
+      user@server:/var/www/\necho \"Deployment complete!\"\n"}], "role": "user"}],
+      "generationConfig": {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '452'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        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
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:37 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=11229
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

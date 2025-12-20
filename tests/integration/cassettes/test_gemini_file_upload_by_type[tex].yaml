@@ -1,0 +1,65 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What type of document is this and what
+      mathematical formula does it contain?"}, {"text": "[File: tmpg5xeesyw.tex]\n\\documentclass{article}\n\\begin{document}\nThis
+      is a test LaTeX document with mathematical formula: $E = mc^2$\n\\end{document}"}],
+      "role": "user"}], "generationConfig": {"temperature": 1.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '369'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WRb0vDMBDG3/dThLws29C5DR34QrTIwD9DixScyNne1rA0Kc11bIx9KT+Cn8yk
+        tVuLIRzh7slzl1/2HmM8BpWIBAgNn7J3m2FsX0VX04pQkS00KZvMoaCTtl771tlKCLfuEg9TYZjd
+        wHz/AUKMmNFlESNLdFxm1tn3Bwu1UDNirhUIZRilyDKw0QYRg2RLXWSlhKn1CNg1y+Kfb9/nrYaH
+        4/mjdxqz0BLdDJlOUDbyQyPgS6GESV8QjFZO9ho+z/mxKlSCW5s+85oGlTUvDazwEQksMDhi4Xmh
+        s5xCvUZ1q8sK2OSiNmvx7dSH53910gSye3U06v3zNXe2q5Bt8K0/sY8EKWhXQQ+ikLdAUHeshoTX
+        AsYp1eUqpe6I44l7foWspviGhRE1rhVmFmB/OBj3lxJMWjXkBZpcK4OzxGk25fgevqIgiD+vtk+X
+        890s2uibNfcO3i+5VgjUegIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:45:18 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=2747
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -418,8 +418,9 @@ def list_api_models() -> set[str]:
 
 def embeddings_adapter(texts: list[str], model: str) -> list[list[float]]:
     """Generate embeddings for a list of texts."""
-    embeddings = []
+    result = []
     for text in texts:
-        response = get_client().models.embed_content(model=model, content=text)
-        embeddings.append(response.embedding)
-    return embeddings
+        response = get_client().models.embed_content(model=model, contents=text)
+        # response.embeddings is a list of ContentEmbedding, each has .values
+        result.append(response.embeddings[0].values)
+    return result

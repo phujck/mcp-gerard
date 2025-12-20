@@ -1,0 +1,1141 @@
+interactions:
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:40 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      WWW-Authenticate:
+      - Bearer realm="https://accounts.google.com/", error="invalid_token"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: grant_type=refresh_token&client_id=378887917503-cmthhlg1nnnr6hqvum1sgaggmqqbnse7.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar
+    headers:
+      accept-encoding:
+      - gzip, deflate
+      content-type:
+      - application/x-www-form-urlencoded
+      user-agent:
+      - Python-httplib2/0.31.0 (gzip)
+      x-goog-api-client:
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
+    method: POST
+    uri: https://oauth2.googleapis.com/token
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/yXQQW+CMACG4bu/wnBelSHO1FtFUUCYiiJwIbUrUFCLUEBZ9t8X9fol73d4fnv9
+        voQJoVUVCZ7TqzTtSw+swAGWEZ4UGoIznMTlqCG2C40gC1Tvy6PAESFrrfZYp/oFnMKHIyqz1gAY
+        4f05nRVx4+2gFR4sZ39o7VAL9bmtBxrxD2DNY4+fUv8WXVAC1Xxhg9g0kpvCl5/CjlPCCDA77THR
+        rIu12u7qlFn7OwscBJCIDVWWz913uaCyWHRwo9dWErt32FTjY7fPApoZ8yVa8xUH8XKTmZlfqCzB
+        WhJYCG9dtCOuvl0tfcVmQa5e/Vyp8WZl1w1yvAiZMpIVGUofTxV6L1hJq4g9TUZjCF9rRXhBn0ip
+        EEU1HQ7bth0knCdnigtWDQi/DHEt0iHBZ3r9weX77GUbice7nVFc0lLq/f0D5EDy3H8BAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:40 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - scaffolding on HTTPServer2
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/5WNQUsDMRCF7/kVIV61gkUET9KloGhF0Iu1HoZkXMdNZko22zWU/nezgfbubXjf
+        997slTYdsTO32ljwyA7i2fEw54VignaiG5MX7zlB0z2k54v1zdhdXdvd4r6Jj/NuY6pLdWck7wnC
+        DwTsv4GdxzyD+Eu7uzYA+ZmVUO1+CAFi/k8lUcC1ME6d5RBli5dPwk64Uiv8hRHZ4suEYiLsi7lX
+        WhvwXkZ0zUl5FT8kEn7L22p9FEub8ryVIfUrxGRK8qn0QR3UHxaF+UonAQAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:40 GMT
+      ETag:
+      - '"yBYytaCkItN-Z7wk25cvBHCrK3k"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:40 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"summary": "Global Team Sync", "description": "Originally scheduled for
+      PST", "location": "Online", "start": {"dateTime": "2025-12-21T18:00:00+00:00",
+      "timeZone": "Europe/London"}, "end": {"dateTime": "2025-12-21T19:00:00+00:00",
+      "timeZone": "Europe/London"}}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '260'
+      content-type:
+      - application/json
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: POST
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/62TX2vbMBTF3/MpjPe6JrITb01grGxpTaGkHfHSEfqiWDe21ivJ0586Tul3n6Um
+        K31YYTCwH6z709HRudePgyi+55LFsyguKYJkVL+DB5A2ft+XwNLKl+7icTZOsyQdp/1DptnpXRwA
+        HnayhDhjWbI1Tn/EcQZignaymU4nATKWWmfCEUpuuRbAwnptBV5xee8rtbWNmY1GbdsOK6UqhGGp
+        xOjoaRQ8fQbOPq3n5y37sSDr+YUox6tukbb7xe3KLvIdWeSX2XXxrWIpmk2O9ea26d/VnuYXbp3v
+        EJZZXcq6Yfdfni9YaqAWwiVSkmYnSXqSkiI5nU3S2YQMCSHrwLmG/Z1LhsmHA2ecEFR3nstRbShG
+        BVARLTtZhjoDU2reWK6kZ641r7ikiF1kyhqYQ2DRVunoZlkEHlVJ/8ASuYQX20r3q4+DqG+ToBw9
+        0nJETsVPKsDUVDKEbkj1jj+cVR7xkfr9vU/Abb/BageD6MlLKl1RyffwX0X7zmt7FPQJFlzAqxAT
+        HyIhs0PQUWx7Yq1koM6dVg2MrpRkfQQHTQjT+qbi9N8U+VeK3y/nb0/y2ctUPncafjmQpVcl/luD
+        6P8j0OZozhmYw5Y6tK8zCZNcdE3www7E4GnwG6sSfdKLAwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      ETag:
+      - '"3532512322320958"'
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      WWW-Authenticate:
+      - Bearer realm="https://accounts.google.com/", error="invalid_token"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: grant_type=refresh_token&client_id=378887917503-cmthhlg1nnnr6hqvum1sgaggmqqbnse7.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar
+    headers:
+      accept-encoding:
+      - gzip, deflate
+      content-type:
+      - application/x-www-form-urlencoded
+      user-agent:
+      - Python-httplib2/0.31.0 (gzip)
+      x-goog-api-client:
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
+    method: POST
+    uri: https://oauth2.googleapis.com/token
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy3KCMACF4b1P4bCuggRR3EUUBBWKgEo3TMSUS7mEhJvT6bt31O2Z+c/i+x2N
+        xxyKIsxY2FQ/uORWY+6BRGWKBIgWRIXL9GxRV0A2bYue4c5vBcPoPj0k01j3QKCFLpNAoMal3SaU
+        zcmXlEqU1PoF3Dys1RdBth3rcq1MM7dns9B35N6ZgCNrQSYD4+D7QxZkRCnhAdSdXigT+eIdlgMb
+        NrusBDezN7W2WmhCW/egIvY+gieQweV1C1Vj558fjlwXRQ5to7bqTpHbHiQipfB+2h31qyuZ5QCR
+        Ggd7eN668BS5mrPTr+IxLQorLuZI1/X5bAi9dbk5Ot+OIAoK9/FUwQNJKWZh+jQBc0V5rSyqCH4i
+        JU1D2Irn+76fxlUV5xiRlE2jquBR2yR8hHJc3hF9n71sw+bxbtcYUUy50d8/7tqStH8BAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - scaffolding on HTTPServer2
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/62TX2vbMBTF3/MpjPe6JrITb01grGxpTaGkHfHSEfqiWDe21ivJ0586Tul3n6Um
+        K31YYTCwH6z709HRudePgyi+55LFsyguKYJkVL+DB5A2ft+XwNLKl+7icTZOsyQdp/1DptnpXRwA
+        HnayhDhjWbI1Tn/EcQZignaymU4nATKWWmfCEUpuuRbAwnptBV5xee8rtbWNmY1GbdsOK6UqhGGp
+        xOjoaRQ8fQbOPq3n5y37sSDr+YUox6tukbb7xe3KLvIdWeSX2XXxrWIpmk2O9ea26d/VnuYXbp3v
+        EJZZXcq6Yfdfni9YaqAWwiVSkmYnSXqSkiI5nU3S2YQMCSHrwLmG/Z1LhsmHA2ecEFR3nstRbShG
+        BVARLTtZhjoDU2reWK6kZ641r7ikiF1kyhqYQ2DRVunoZlkEHlVJ/8ASuYQX20r3q4+DqG+ToBw9
+        0nJETsVPKsDUVDKEbkj1jj+cVR7xkfr9vU/Abb/BageD6MlLKl1RyffwX0X7zmt7FPQJFlzAqxAT
+        HyIhs0PQUWx7Yq1koM6dVg2MrpRkfQQHTQjT+qbi9N8U+VeK3y/nb0/y2ctUPncafjmQpVcl/luD
+        6P8j0OZozhmYw5Y6tK8zCZNcdE3www7E4GnwG6sSfdKLAwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      ETag:
+      - '"3532512322320958"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/5WNQUsDMRCF7/kVIV61gkUET9KloGhF0Iu1HoZkXMdNZko22zWU/nezgfbubXjf
+        997slTYdsTO32ljwyA7i2fEw54VignaiG5MX7zlB0z2k54v1zdhdXdvd4r6Jj/NuY6pLdWck7wnC
+        DwTsv4GdxzyD+Eu7uzYA+ZmVUO1+CAFi/k8lUcC1ME6d5RBli5dPwk64Uiv8hRHZ4suEYiLsi7lX
+        WhvwXkZ0zUl5FT8kEn7L22p9FEub8ryVIfUrxGRK8qn0QR3UHxaF+UonAQAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      ETag:
+      - '"yBYytaCkItN-Z7wk25cvBHCrK3k"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:41 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"description": "Rescheduled to better time for European team", "location":
+      "", "start": {"dateTime": "2025-12-21T15:00:00+00:00", "timeZone": "Europe/London"},
+      "end": {"dateTime": "2025-12-21T16:00:00+00:00", "timeZone": "Europe/London"}}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '239'
+      content-type:
+      - application/json
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: PATCH
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/61Ty27bMBC8+ysI9drYFCU1jYCiQevECBA4aKM6hZELLa4lNnyoFBnZDvLvJWkb
+        QQ4NUKAHHqidHc7Mrp5GKHngiiUlSmoqQDFq3sEjKJu89yWwtAml+yQrMlKkJCP5KS78uU8igMdO
+        lmLXW5aue2dORVaAzIXNV2dneQT1llrXxye0WnMjgcXvrZXimquHUGmt7fpyMhmGYdxo3QgY11pO
+        jpomUdNn4OzTcnoxsJ9zvJxeyjpbbOdk2M3vFnY+2+D57Kq4qb41jIh+NRPt6q7zZ7Gjs0u3nG0E
+        3BZtrdqOPXzZG6wNUAvRBMGkOEnJCcFV+rHMSZnjMcZ4GXGuY3/HkXFWkD2ud1JSsw24mdArKlAF
+        VKLbrapjnUFfG95ZrlXAfPfXFpgTwJDVaAXWgkGWS0BrbdCFM7oDqpD1JC96tfG9TyPk5yMpF4Fo
+        4EJwKn9RCX1LFROwHVOz4Y/nTYCELEO/Fwhi7RuscTBCz4FSm4YqvoP/SupHbuyRMERXeU+v0kur
+        tCgxLg8JoyS4XmoVUXvjk2utmA/qwAlxTd9k/PBvjPwrFT+upm+v8PnLOu5HDL8dqDqwpuFuQPof
+        CEx/FOd6mMKaOmFfZxJXuNp2UQ87IEbPoz8PDDDKhAMAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:42 GMT
+      ETag:
+      - '"3532512324705470"'
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin,X-Origin,Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:42 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      WWW-Authenticate:
+      - Bearer realm="https://accounts.google.com/", error="invalid_token"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: grant_type=refresh_token&client_id=378887917503-cmthhlg1nnnr6hqvum1sgaggmqqbnse7.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar
+    headers:
+      accept-encoding:
+      - gzip, deflate
+      content-type:
+      - application/x-www-form-urlencoded
+      user-agent:
+      - Python-httplib2/0.31.0 (gzip)
+      x-goog-api-client:
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
+    method: POST
+    uri: https://oauth2.googleapis.com/token
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy3KCMACF4X2fwmFdBEEkcRcYkaIoCPXChgkxYih3UIRO372jbs/Mfxbf78do
+        xGFCaNOEbfFDc24+4noswTEWEVZLHYXgS95F6uHhpCBeZyCqI2SlC3QiLQS1HTBMBtO9TA4K3abB
+        PTzHaEkM3z5O++BewuG6cDpJDQjJgWvuNF9nG1Z6EASpNRt0C0fJrTW1jK9mXuX57aIsFCyrSgrZ
+        3uEfhrNWeDvff/sXsIcArURprVhT1s/cTVg1AzIiwotZokyWgMTu6tQ39MKjDfNgYPqab8Q6O7pY
+        j08r5Bce2hHPcM3lUbKZfDukg6NkhcYPVRLWyfa8DVxREiH3+VShj5LVtAnZ00RWIHytDSlK+kS6
+        tm3ZzAWh67pxXBRxSnHJmjEpMgHf2qtAcErzM67fZy/bsO3frUZxTWvu4+8fFFqay38BAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:42 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - scaffolding on HTTPServer2
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/61Ty27bMBC8+ysI9drYFCU1jYCiQevECBA4aKM6hZELLa4lNnyoFBnZDvLvJWkb
+        QQ4NUKAHHqidHc7Mrp5GKHngiiUlSmoqQDFq3sEjKJu89yWwtAml+yQrMlKkJCP5KS78uU8igMdO
+        lmLXW5aue2dORVaAzIXNV2dneQT1llrXxye0WnMjgcXvrZXimquHUGmt7fpyMhmGYdxo3QgY11pO
+        jpomUdNn4OzTcnoxsJ9zvJxeyjpbbOdk2M3vFnY+2+D57Kq4qb41jIh+NRPt6q7zZ7Gjs0u3nG0E
+        3BZtrdqOPXzZG6wNUAvRBMGkOEnJCcFV+rHMSZnjMcZ4GXGuY3/HkXFWkD2ud1JSsw24mdArKlAF
+        VKLbrapjnUFfG95ZrlXAfPfXFpgTwJDVaAXWgkGWS0BrbdCFM7oDqpD1JC96tfG9TyPk5yMpF4Fo
+        4EJwKn9RCX1LFROwHVOz4Y/nTYCELEO/Fwhi7RuscTBCz4FSm4YqvoP/SupHbuyRMERXeU+v0kur
+        tCgxLg8JoyS4XmoVUXvjk2utmA/qwAlxTd9k/PBvjPwrFT+upm+v8PnLOu5HDL8dqDqwpuFuQPof
+        CEx/FOd6mMKaOmFfZxJXuNp2UQ87IEbPoz8PDDDKhAMAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:42 GMT
+      ETag:
+      - '"3532512324705470"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:42 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/5WNQUsDMRCF7/kVIV61gkUET9KloGhF0Iu1HoZkXMdNZko22zWU/nezgfbubXjf
+        997slTYdsTO32ljwyA7i2fEw54VignaiG5MX7zlB0z2k54v1zdhdXdvd4r6Jj/NuY6pLdWck7wnC
+        DwTsv4GdxzyD+Eu7uzYA+ZmVUO1+CAFi/k8lUcC1ME6d5RBli5dPwk64Uiv8hRHZ4suEYiLsi7lX
+        WhvwXkZ0zUl5FT8kEn7L22p9FEub8ryVIfUrxGRK8qn0QR3UHxaF+UonAQAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:43 GMT
+      ETag:
+      - '"yBYytaCkItN-Z7wk25cvBHCrK3k"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:43 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"description": "Final time in UTC for global accessibility", "location":
+      "", "start": {"dateTime": "2025-12-21T14:00:00+00:00", "timeZone": "Europe/London"},
+      "end": {"dateTime": "2025-12-21T15:00:00+00:00", "timeZone": "Europe/London"}}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '237'
+      content-type:
+      - application/json
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: PATCH
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/62TX0/bMBTF3/spovA6WsdJYESahkZphISKJkJBFS9ufJt49Z/MdkhTxHdf7LZC
+        PAxp0h7ykNzfPT73+OZ1FIQbJmmYBWFJOEhK9Am8gLThl6EEllSu9BzGaYzTCMf4PEYYJWfPoQeY
+        76QRao2l0dq0+pzHKYiE22R1cZF4yFhiW+OPUHLNtADqv9dW8FsmN65SW9uYbDLpum5cKVVxGJdK
+        TI6eJt7Td2D023J63dGnOVpOZ6KMF/0cd7v548LO8y2a5zfpXfGzopibVc7r1WMzPIsdyWftMt9y
+        uE/rUtYN3fzYD1hqIBb8EBjh9DTCpxgV0dcswVmCxgihpefahv6di8dnabTnTCsE0b3jcq5WhAcF
+        EBHc97L0dQqm1KyxTEnHzJgcEMsEBEwGD8VVsFY6qPadpCzBGLZinNn+3a3SQ+frKBhuRxDGnUzH
+        OGdE/CICTE0k5dCPid6yl8vKIS5J1z/YA74eGqxuYRS8OUmlKyLZDv6r6HDh2h4FXXDFMOGH7KIi
+        SjKEskO+QegyWCrpqetWqwYmt0rSIaaDJvgl/VQx/TdFdkX4w8308wW+fF/G/QXD7xZk6VSxe9cg
+        ht8HtDmaaw1MYU1abj9m4he46Bvvhx6I0dvoDxDAB6CCAwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:43 GMT
+      ETag:
+      - '"3532512327302046"'
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin,X-Origin,Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:43 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      WWW-Authenticate:
+      - Bearer realm="https://accounts.google.com/", error="invalid_token"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: grant_type=refresh_token&client_id=378887917503-cmthhlg1nnnr6hqvum1sgaggmqqbnse7.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar
+    headers:
+      accept-encoding:
+      - gzip, deflate
+      content-type:
+      - application/x-www-form-urlencoded
+      user-agent:
+      - Python-httplib2/0.31.0 (gzip)
+      x-goog-api-client:
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
+    method: POST
+    uri: https://oauth2.googleapis.com/token
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy3KCMACF4b1P4bAuikGNuCMoOiIoxYq4YWIIF7mlAQrS6bt31O2Z+c/i+x0M
+        hwImhFaVX5cpLYTlUHhgoIywpGLINHWxRxpzg9DM5V28kri4uoDasTEy2oN15qmnKHf9K4edO+97
+        M0O2mEdrqO0DPL3R+ZYmsFgc9IkIOme7RWjtBcj9jqeWNZ+RRM/L+Jq42k47MVABTifHCDWiNT2G
+        7U9ai013gx4Mg50Ryb457w9GN7tjNfSsuIkzWzkVZEMrqQFXvYSraRab/Pzd7e3sQY4+ABNoIlJn
+        LdYiz1BPnqN+Eke3t5sLMBNb5ps+RxLUExeV7MzSK5VUCUiK8PFUoR1LOK385GkizxTltVakZPSJ
+        FNc1q5bjcdu2o6gso4xillQjUuZj3NTxmOCMFgHm77OXrV8/3i2imFMuDP7+AUD2449/AQAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:43 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - scaffolding on HTTPServer2
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: GET
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994?alt=json
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/62TX0/bMBTF3/spovA6WsdJYESahkZphISKJkJBFS9ufJt49Z/MdkhTxHdf7LZC
+        PAxp0h7ykNzfPT73+OZ1FIQbJmmYBWFJOEhK9Am8gLThl6EEllSu9BzGaYzTCMf4PEYYJWfPoQeY
+        76QRao2l0dq0+pzHKYiE22R1cZF4yFhiW+OPUHLNtADqv9dW8FsmN65SW9uYbDLpum5cKVVxGJdK
+        TI6eJt7Td2D023J63dGnOVpOZ6KMF/0cd7v548LO8y2a5zfpXfGzopibVc7r1WMzPIsdyWftMt9y
+        uE/rUtYN3fzYD1hqIBb8EBjh9DTCpxgV0dcswVmCxgihpefahv6di8dnabTnTCsE0b3jcq5WhAcF
+        EBHc97L0dQqm1KyxTEnHzJgcEMsEBEwGD8VVsFY6qPadpCzBGLZinNn+3a3SQ+frKBhuRxDGnUzH
+        OGdE/CICTE0k5dCPid6yl8vKIS5J1z/YA74eGqxuYRS8OUmlKyLZDv6r6HDh2h4FXXDFMOGH7KIi
+        SjKEskO+QegyWCrpqetWqwYmt0rSIaaDJvgl/VQx/TdFdkX4w8308wW+fF/G/QXD7xZk6VSxe9cg
+        ht8HtDmaaw1MYU1abj9m4he46Bvvhx6I0dvoDxDAB6CCAwAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:44 GMT
+      ETag:
+      - '"3532512327302046"'
+      Expires:
+      - Sat, 20 Dec 2025 18:42:44 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: DELETE
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:44 GMT
+      Server:
+      - ESF
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      WWW-Authenticate:
+      - Bearer realm="https://accounts.google.com/", error="invalid_token"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: grant_type=refresh_token&client_id=378887917503-cmthhlg1nnnr6hqvum1sgaggmqqbnse7.apps.googleusercontent.com&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar
+    headers:
+      accept-encoding:
+      - gzip, deflate
+      content-type:
+      - application/x-www-form-urlencoded
+      user-agent:
+      - Python-httplib2/0.31.0 (gzip)
+      x-goog-api-client:
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
+    method: POST
+    uri: https://oauth2.googleapis.com/token
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy46CMACF4f08hWE9CIo33BUEHFQQMShuSK0FQaC1RdFO5t0n6vYk/1l8v1+d
+        jgQRwpwnDbngWpp2pCfs612oAjimJpDVyGResN+esnBWVB5AXDbs6+UwOIyF0Q40V/8pjsVME7vh
+        dT2KOdEWx5X9cJdaXnkbIMcbj89pGtAloOe0X/qq427tmcVqL4a+f3VD45hGZil7F5Ftb+qeoELA
+        u0W3y3tkrRORyAZ1Rz40J9Ezz+sdH+7y3j3SYnYdOy7TkrQozdYSoAesxZIQI7DSVa93C9pJUDk1
+        Jhk0s3gBUByCDQrtYO7s+6ucrsXkcVLFJnP5uDXmO9vT95naV3Xp+6WCHzRnmCf5y0Qb6vp75YhQ
+        /EI6Nw3lU0Vp27abEZKVGNKcdxGpFHhrzgqCJa5PkH3O3rZJ8/y0BoYMM+nr7x/Yha3dfwEAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sat, 20 Dec 2025 18:42:44 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - scaffolding on HTTPServer2
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      content-length:
+      - '0'
+      user-agent:
+      - (gzip)
+      x-goog-api-client:
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
+    method: DELETE
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/d10ustd1fsur7l35em4lt4b994
+  response:
+    body:
+      string: ''
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Cache-Control:
+      - no-cache, no-store, max-age=0, must-revalidate
+      Content-Length:
+      - '0'
+      Content-Type:
+      - text/html
+      Date:
+      - Sat, 20 Dec 2025 18:42:44 GMT
+      Expires:
+      - Mon, 01 Jan 1990 00:00:00 GMT
+      Pragma:
+      - no-cache
+      Server:
+      - ESF
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+      x-l2-request-path:
+      - l2-managed-14
+    status:
+      code: 204
+      message: No Content
+version: 1
