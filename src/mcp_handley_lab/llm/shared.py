@@ -194,12 +194,25 @@ def process_llm_request(
 
 
 def should_use_memory(agent_name: str | bool | None) -> bool:
-    """Determines if agent memory should be used based on the agent_name parameter."""
-    return (
-        agent_name
-        if isinstance(agent_name, bool)
-        else agent_name is None or (agent_name and agent_name.lower() != "false")
-    )
+    """Determines if agent memory should be used based on the agent_name parameter.
+
+    Returns False (disable memory) when:
+    - agent_name is boolean False
+    - agent_name is None
+    - agent_name is empty string or "false" (case-insensitive)
+
+    Returns True (enable memory) for:
+    - agent_name is boolean True
+    - agent_name is a non-empty string other than "false"
+    """
+    if agent_name is None:
+        return False
+    if isinstance(agent_name, bool):
+        return agent_name
+    if isinstance(agent_name, str):
+        return bool(agent_name) and agent_name.lower() != "false"
+    # Fallback for unexpected types
+    return bool(agent_name)
 
 
 def process_image_generation(
@@ -214,6 +227,10 @@ def process_image_generation(
     """Generic handler for LLM image generation requests."""
     if not prompt.strip():
         raise ValueError("Prompt is required and cannot be empty")
+
+    # Check if memory should be used
+    use_memory = should_use_memory(agent_name)
+    actual_agent_name = agent_name
 
     # Call the provider-specific generation function to get the image
     response_data = generation_func(prompt=prompt, model=model, **kwargs)
@@ -230,15 +247,20 @@ def process_image_generation(
         model, input_tokens, output_tokens, provider, images_generated=1
     )
 
-    handle_agent_memory(
-        agent_name,
-        f"Generate image: {prompt}",
-        f"Generated image saved to {filepath}",
-        input_tokens,
-        output_tokens,
-        cost,
-        lambda: get_session_id(mcp_instance, provider),
-    )
+    # Only handle memory if enabled
+    if use_memory:
+        if agent_name == "session":
+            actual_agent_name = get_session_id(mcp_instance, provider)
+
+        handle_agent_memory(
+            actual_agent_name,
+            f"Generate image: {prompt}",
+            f"Generated image saved to {filepath}",
+            input_tokens,
+            output_tokens,
+            cost,
+            lambda: get_session_id(mcp_instance, provider),
+        )
 
     file_size = len(image_bytes)
 
@@ -256,7 +278,7 @@ def process_image_generation(
         file_path=str(filepath),
         file_size_bytes=file_size,
         usage=usage_stats,
-        agent_name=agent_name if agent_name else "",
+        agent_name=actual_agent_name if use_memory else "",
         # Metadata from provider response
         generation_timestamp=response_data.get("generation_timestamp", 0),
         enhanced_prompt=response_data.get("enhanced_prompt", ""),

@@ -343,3 +343,73 @@ def list_all_models() -> dict[str, list[dict[str, Any]]]:
         )
 
     return result
+
+
+def get_adapter(provider: str, adapter_type: str):
+    """Dynamically import and return the appropriate adapter function.
+
+    This is the central routing function for all provider adapters.
+    Supported adapter types depend on the provider's capabilities.
+
+    Args:
+        provider: Provider name (gemini, openai, claude, mistral, grok, groq)
+        adapter_type: Type of adapter (generation, image_analysis, image_generation,
+                      fill_in_middle, moderation)
+
+    Returns:
+        The adapter function for the specified provider and type
+
+    Raises:
+        ValueError: If provider is unknown or doesn't support the adapter type
+    """
+    if provider == "gemini":
+        from mcp_handley_lab.llm.gemini import adapter
+
+        adapters = {
+            "generation": adapter.generation_adapter,
+            "image_analysis": adapter.image_analysis_adapter,
+            "image_generation": adapter.image_generation_adapter,
+        }
+    elif provider == "openai":
+        from mcp_handley_lab.llm.openai import adapter
+
+        adapters = {
+            "generation": adapter.generation_adapter,
+            "image_analysis": adapter.image_analysis_adapter,
+            "image_generation": adapter.image_generation_adapter,
+        }
+    elif provider == "claude":
+        from mcp_handley_lab.llm.claude import adapter
+
+        adapters = {
+            "generation": adapter.generation_adapter,
+            "image_analysis": adapter.image_analysis_adapter,
+        }
+    elif provider == "mistral":
+        from mcp_handley_lab.llm.mistral import adapter
+
+        adapters = {
+            "generation": adapter.generation_adapter,
+            "image_analysis": adapter.image_analysis_adapter,
+            "fill_in_middle": adapter.fill_in_middle_adapter,
+            "moderation": adapter.moderation_adapter,
+        }
+    elif provider == "grok":
+        from mcp_handley_lab.llm.grok import adapter
+
+        adapters = {
+            "generation": adapter.generation_adapter,
+            "image_analysis": adapter.image_analysis_adapter,
+            "image_generation": adapter.image_generation_adapter,
+        }
+    elif provider == "groq":
+        from mcp_handley_lab.llm.groq import adapter
+
+        adapters = {"generation": adapter.generation_adapter}
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    if adapter_type not in adapters:
+        raise ValueError(f"Provider '{provider}' does not support '{adapter_type}'")
+
+    return adapters[adapter_type]

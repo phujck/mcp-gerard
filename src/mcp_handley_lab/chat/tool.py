@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.llm.registry import (
+    get_adapter,
     get_model_capabilities,
     list_all_models,
     resolve_model,
@@ -20,61 +21,6 @@ from mcp_handley_lab.llm.shared import process_image_generation, process_llm_req
 from mcp_handley_lab.shared.models import ImageGenerationResult, LLMResult
 
 mcp = FastMCP("Chat Tool")
-
-
-def _get_adapter(provider: str, adapter_type: str):
-    """Dynamically import and return the appropriate adapter function."""
-    if provider == "gemini":
-        from mcp_handley_lab.llm.gemini import adapter
-
-        adapters = {
-            "generation": adapter.generation_adapter,
-            "image_analysis": adapter.image_analysis_adapter,
-            "image_generation": adapter.image_generation_adapter,
-        }
-    elif provider == "openai":
-        from mcp_handley_lab.llm.openai import adapter
-
-        adapters = {
-            "generation": adapter.generation_adapter,
-            "image_analysis": adapter.image_analysis_adapter,
-            "image_generation": adapter.image_generation_adapter,
-        }
-    elif provider == "claude":
-        from mcp_handley_lab.llm.claude import adapter
-
-        adapters = {
-            "generation": adapter.generation_adapter,
-            "image_analysis": adapter.image_analysis_adapter,
-        }
-    elif provider == "mistral":
-        from mcp_handley_lab.llm.mistral import adapter
-
-        adapters = {
-            "generation": adapter.generation_adapter,
-            "image_analysis": adapter.image_analysis_adapter,
-            "fill_in_middle": adapter.fill_in_middle_adapter,
-            "moderation": adapter.moderation_adapter,
-        }
-    elif provider == "grok":
-        from mcp_handley_lab.llm.grok import adapter
-
-        adapters = {
-            "generation": adapter.generation_adapter,
-            "image_analysis": adapter.image_analysis_adapter,
-            "image_generation": adapter.image_generation_adapter,
-        }
-    elif provider == "groq":
-        from mcp_handley_lab.llm.groq import adapter
-
-        adapters = {"generation": adapter.generation_adapter}
-    else:
-        raise ValueError(f"Unknown provider: {provider}")
-
-    if adapter_type not in adapters:
-        raise ValueError(f"Provider '{provider}' does not support '{adapter_type}'")
-
-    return adapters[adapter_type]
 
 
 @mcp.tool(
@@ -140,7 +86,7 @@ def ask(
     provider, canonical_model, model_config = resolve_model(model)
     validate_options(provider, model, model_config, options)
 
-    generation_func = _get_adapter(provider, "generation")
+    generation_func = get_adapter(provider, "generation")
 
     return process_llm_request(
         prompt=prompt,
@@ -204,7 +150,7 @@ def analyze_image(
     provider, canonical_model, model_config = resolve_model(model)
     validate_options(provider, model, model_config, options)
 
-    analysis_func = _get_adapter(provider, "image_analysis")
+    analysis_func = get_adapter(provider, "image_analysis")
 
     return process_llm_request(
         prompt=prompt,
@@ -254,7 +200,7 @@ def generate_image(
     """Generate images from text descriptions."""
     provider, canonical_model, _ = resolve_model(model)
 
-    generation_func = _get_adapter(provider, "image_generation")
+    generation_func = get_adapter(provider, "image_generation")
 
     return process_image_generation(
         prompt=prompt,
