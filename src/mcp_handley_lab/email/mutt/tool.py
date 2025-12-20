@@ -11,7 +11,7 @@ from pydantic import Field
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.common.terminal import launch_interactive
 from mcp_handley_lab.email.common import mcp
-from mcp_handley_lab.shared.models import OperationResult, ServerInfo
+from mcp_handley_lab.shared.models import OperationResult
 
 
 def _execute_mutt_command(cmd: list[str], input_text: str = None) -> str:
@@ -29,21 +29,22 @@ def _query_mutt_var(var: str) -> str | None:
     return None
 
 
+MAILDIR_LEAFS = {"cur", "new", "tmp"}
+
+
 def _is_maildir(path: Path) -> bool:
     """Check if a path is a valid Maildir directory."""
-    return path.is_dir() and all(
-        (path / subdir).exists() for subdir in ["cur", "new", "tmp"]
-    )
+    return path.is_dir() and (path / "cur").is_dir()
 
 
 def _find_account_folders(root: Path, mailbox: str) -> list[tuple[str, str]]:
-    """Find all account folders containing a specific mailbox."""
+    """Find all account folders containing a specific mailbox using shallow directory scan."""
     if not root.is_dir():
         return []
 
     candidates = []
     for account_dir in root.iterdir():
-        if not account_dir.is_dir():
+        if not account_dir.is_dir() or account_dir.name in MAILDIR_LEAFS:
             continue
 
         # Case 1: Mailbox is the account root itself (e.g., for INBOX)
@@ -388,14 +389,18 @@ def _compose_email(
 
 
 @mcp.tool(
-    description="Opens Mutt to compose an email, using your full configuration (signatures, editor). Supports attachments and pre-filled body."
+    description="""Send an email via Mutt. Supports compose (new), reply, and forward modes. All emails open in Mutt for user sign-off before sending."""
 )
-def compose(
+def send(
     to: str = Field(
-        ...,
-        description="The primary recipient's email address (e.g., 'user@example.com').",
+        default="",
+        description="Recipient email address. Required for compose/forward, auto-populated for reply.",
     ),
     subject: str = Field(default="", description="The subject line of the email."),
+    body: str = Field(
+        default="",
+        description="Email body text. For reply/forward, added above quoted/forwarded content.",
+    ),
     cc: str = Field(
         default=None, description="Email address for the 'Cc' (carbon copy) field."
     ),
@@ -403,328 +408,173 @@ def compose(
         default=None,
         description="Email address for the 'Bcc' (blind carbon copy) field.",
     ),
-    body: str = Field(
-        default="", description="Text to pre-populate in the email body."
-    ),
     attachments: list[str] = Field(
         default=None, description="A list of local file paths to attach to the email."
     ),
-    in_reply_to: str = Field(
-        default=None,
-        description="The Message-ID of the email being replied to, for proper threading. Used by 'reply' tool.",
-    ),
-    references: str = Field(
-        default=None,
-        description="A space-separated list of Message-IDs for threading context. Used by 'reply' tool.",
-    ),
-) -> OperationResult:
-    """Compose an email using mutt's interactive interface."""
-    return _compose_email(
-        to=to,
-        subject=subject,
-        cc=cc,
-        bcc=bcc,
-        body=body,
-        attachments=attachments,
-        in_reply_to=in_reply_to,
-        references=references,
-    )
-
-
-@mcp.tool(
-    description="""Opens Mutt in interactive terminal to reply to specific email by message ID. Supports reply-all mode and initial body text. Headers auto-populated from original message."""
-)
-def reply(
     message_id: str = Field(
-        ..., description="The notmuch message ID of the email to reply to."
+        default=None,
+        description="For reply/forward: the notmuch message ID of the email to reply to or forward.",
+    ),
+    mode: str = Field(
+        default="compose",
+        description="Email mode: 'compose' (new email), 'reply', or 'forward'.",
     ),
     reply_all: bool = Field(
         default=False,
-        description="If True, reply to all recipients (To and Cc) of the original message.",
-    ),
-    body: str = Field(
-        default="",
-        description="Text to add to the top of the reply, above the quoted original message.",
-    ),
-    attachments: list[str] = Field(
-        default=None, description="A list of local file paths to attach to the email."
+        description="For reply mode: if True, reply to all recipients (To and Cc).",
     ),
 ) -> OperationResult:
-    """Reply to an email using compose with extracted reply data."""
-
-    # Import notmuch functions to get original message data
-    from mcp_handley_lab.email.notmuch.tool import (
-        _get_message_from_raw_source,
-        _show_email,
-    )
-
-    # Get original message data directly without calling the MCP tool
-    result = _show_email(f"id:{message_id}")
-    original_msg = result[0]
-    raw_msg = _get_message_from_raw_source(message_id)
-
-    # Extract reply data
-    reply_to = original_msg.from_address
-    reply_cc = original_msg.to_address if reply_all else None
-
-    # Build subject with Re: prefix
-    original_subject = original_msg.subject
-    reply_subject = (
-        f"Re: {original_subject}"
-        if not original_subject.startswith("Re: ")
-        else original_subject
-    )
-
-    # Build threading headers
-    in_reply_to = raw_msg.get("Message-ID")
-    existing_references = raw_msg.get("References")
-    references = (
-        f"{existing_references} {in_reply_to}" if existing_references else in_reply_to
-    )
-
-    # Build reply body
-    reply_separator = f"On {original_msg.date}, {original_msg.from_address} wrote:"
-    quoted_body_lines = [
-        f"> {line}" for line in original_msg.body_markdown.splitlines()
-    ]
-    quoted_body = "\n".join(quoted_body_lines)
-
-    # Combine user's body + separator + quoted original
-    complete_reply_body = (
-        f"{body}\n\n{reply_separator}\n{quoted_body}"
-        if body
-        else f"{reply_separator}\n{quoted_body}"
-    )
-
-    # Use internal compose implementation with extracted data
-    return _compose_email(
-        to=reply_to,
-        cc=reply_cc,
-        bcc=None,
-        subject=reply_subject,
-        body=complete_reply_body,
-        attachments=attachments,
-        in_reply_to=in_reply_to,
-        references=references,
-    )
-
-
-@mcp.tool(
-    description="""Opens Mutt in interactive terminal to forward specific email by message ID. Supports pre-populated recipient and initial commentary. Original message included per your configuration."""
-)
-def forward(
-    message_id: str = Field(
-        ..., description="The notmuch message ID of the email to forward."
-    ),
-    to: str = Field(
-        default="",
-        description="The recipient's email address for the forwarded message. If empty, Mutt will prompt for it.",
-    ),
-    body: str = Field(
-        default="",
-        description="Commentary to add to the top of the email, above the forwarded message.",
-    ),
-    attachments: list[str] = Field(
-        default=None, description="A list of local file paths to attach to the email."
-    ),
-) -> OperationResult:
-    """Forward an email using compose with extracted forward data."""
-
-    # Import notmuch function to get original message data
-    from mcp_handley_lab.email.notmuch.tool import _show_email
-
-    # Get original message data directly without calling the MCP tool
-    result = _show_email(f"id:{message_id}")
-    original_msg = result[0]
-
-    # Build forward subject with Fwd: prefix
-    original_subject = original_msg.subject
-    forward_subject = (
-        f"Fwd: {original_subject}"
-        if not original_subject.startswith("Fwd: ")
-        else original_subject
-    )
-
-    # Use original message content with normalized line endings
-    forwarded_content = "\n".join(original_msg.body_markdown.splitlines())
-
-    # Build forward body using mutt's configured format
-    forward_intro = f"----- Forwarded message from {original_msg.from_address} -----"
-    forward_trailer = "----- End forwarded message -----"
-
-    # Combine user's body + intro + original message + trailer
-    complete_forward_body = (
-        f"{body}\n\n{forward_intro}\n{forwarded_content}\n{forward_trailer}"
-        if body
-        else f"{forward_intro}\n{forwarded_content}\n{forward_trailer}"
-    )
-
-    # Use internal compose implementation with extracted data (no threading headers for forwards)
-    return _compose_email(
-        to=to,
-        cc=None,
-        bcc=None,
-        subject=forward_subject,
-        body=complete_forward_body,
-        attachments=attachments,
-    )
-
-
-@mcp.tool(
-    description="""Lists all configured mailboxes from Mutt configuration. Useful for discovering folder names for move operations and understanding your email folder structure."""
-)
-def list_folders() -> list[str]:
-    """List available mailboxes from mutt configuration."""
-    result = _execute_mutt_command(["mutt", "-Q", "mailboxes"])
-
-    if not result or "mailboxes=" not in result:
-        return []
-
-    folders_part = result.split("mailboxes=", 1)[1].strip('"')
-    folders = [f.strip() for f in folders_part.split() if f.strip()]
-
-    return folders
-
-
-@mcp.tool(
-    description="""Opens Mutt in interactive terminal. Can open a specific email by message ID or browse a folder. Supports smart folder resolution for shortcuts like =INBOX."""
-)
-def open(
-    target: str = Field(
-        default=None,
-        description="What to open: message ID to view specific email, folder path (e.g., '=INBOX', 'Hermes/INBOX'), or blank for default inbox. Message IDs can include 'mailto:' prefix.",
-    ),
-) -> OperationResult:
-    """Open mutt with a specific email or folder."""
-    try:
-        if not target:
-            # No target specified - open default inbox
-            mutt_cmd = ["mutt"]
-            window_title = "Mutt: Inbox"
-            exit_code, status, data = _execute_mutt_interactive(
-                mutt_cmd, window_title=window_title
-            )
-
-            if status == "success":
-                return OperationResult(
-                    status="success",
-                    message="Inbox session completed with email sent",
-                    data=data,
-                )
-            elif status == "cancelled":
-                return OperationResult(
-                    status="cancelled",
-                    message="Inbox session closed",
-                    data=data,
-                )
-            else:
-                return OperationResult(
-                    status="error",
-                    message=f"Inbox session failed (exit code: {exit_code})",
-                    data=data,
-                )
-
-        # Heuristic: if it contains '@' and not '/', treat as message ID
-        clean_target = target.replace("mailto:", "")
-        if "@" in clean_target and "/" not in clean_target:
-            # Use notmuch to find the email file path
-            stdout, _ = run_command(
-                ["notmuch", "search", "--output=files", f"id:{clean_target}"],
-                raise_on_error=True,
-            )
-            mail_files = stdout.decode().strip().splitlines()
-
-            if not mail_files:
-                return OperationResult(
-                    status="error", message=f"Email with ID '{clean_target}' not found"
-                )
-
-            # Get the folder path (parent of parent of the email file)
-            mail_file_path = Path(mail_files[0])
-            folder_path = mail_file_path.parent.parent
-
-            # Build mutt command to open folder and navigate to the message
-            push_cmd = f"push l~i'{clean_target}'<enter>l.<enter><enter>"
-            mutt_cmd = ["mutt", "-f", str(folder_path), "-e", push_cmd]
-
-            window_title = f"Mutt: Email {clean_target[:12]}..."
-            exit_code, status, data = _execute_mutt_interactive(
-                mutt_cmd, window_title=window_title
-            )
-
-            if status == "success":
-                return OperationResult(
-                    status="success",
-                    message=f"Opened email {clean_target} - email sent",
-                    data=data,
-                )
-            elif status == "cancelled":
-                return OperationResult(
-                    status="cancelled",
-                    message=f"Email viewing closed: {clean_target}",
-                    data=data,
-                )
-            else:
-                return OperationResult(
-                    status="error",
-                    message=f"Failed to open email {clean_target} (exit code: {exit_code})",
-                    data=data,
-                )
-
-        # Treat as a folder path
-        resolved_folder = _resolve_folder(target)
-        mutt_cmd = ["mutt"]
-        if resolved_folder:
-            mutt_cmd.extend(["-f", resolved_folder])
-
-        window_title = f"Mutt: {target}"
-        exit_code, status, data = _execute_mutt_interactive(
-            mutt_cmd, window_title=window_title
+    """Send an email using mutt's interactive interface."""
+    if mode == "compose":
+        if not to:
+            raise ValueError("'to' is required for compose mode")
+        return _compose_email(
+            to=to,
+            subject=subject,
+            cc=cc,
+            bcc=bcc,
+            body=body,
+            attachments=attachments,
         )
 
-        if status == "success":
-            return OperationResult(
-                status="success",
-                message=f"Folder {target} - email sent",
-                data=data,
+    elif mode == "reply":
+        if not message_id:
+            raise ValueError("'message_id' is required for reply mode")
+
+        # Import notmuch functions to get original message data
+        from mcp_handley_lab.email.notmuch.tool import (
+            _get_message_from_raw_source,
+            _show_email,
+        )
+
+        # Get original message data
+        result = _show_email(f"id:{message_id}")
+        original_msg = result[0]
+        raw_msg = _get_message_from_raw_source(message_id)
+
+        # Extract reply data - use Reply-To if available, otherwise From
+        reply_to_header = raw_msg.get("Reply-To")
+        reply_to = reply_to_header if reply_to_header else original_msg.from_address
+
+        # For reply-all, CC should be original To + original Cc recipients
+        reply_cc = cc  # Start with user-provided cc
+        if reply_all:
+            cc_recipients = []
+            if (
+                original_msg.to_address
+                and original_msg.to_address != "[Unknown Recipient]"
+            ):
+                cc_recipients.append(original_msg.to_address)
+            original_cc = raw_msg.get("Cc")
+            if original_cc:
+                cc_recipients.append(original_cc)
+            if cc_recipients:
+                base_cc = cc + ", " if cc else ""
+                reply_cc = base_cc + ", ".join(cc_recipients)
+
+        # Build subject with Re: prefix
+        original_subject = original_msg.subject
+        reply_subject = (
+            subject
+            if subject
+            else (
+                f"Re: {original_subject}"
+                if not original_subject.startswith("Re: ")
+                else original_subject
             )
-        elif status == "cancelled":
-            return OperationResult(
-                status="cancelled",
-                message=f"Folder session closed: {target}",
-                data=data,
+        )
+
+        # Build threading headers
+        in_reply_to = raw_msg.get("Message-ID")
+        existing_references = raw_msg.get("References")
+        references = (
+            f"{existing_references} {in_reply_to}"
+            if existing_references
+            else in_reply_to
+        )
+
+        # Build reply body
+        reply_separator = f"On {original_msg.date}, {original_msg.from_address} wrote:"
+        quoted_body_lines = [
+            f"> {line}" for line in original_msg.body_markdown.splitlines()
+        ]
+        quoted_body = "\n".join(quoted_body_lines)
+
+        complete_reply_body = (
+            f"{body}\n\n{reply_separator}\n{quoted_body}"
+            if body
+            else f"{reply_separator}\n{quoted_body}"
+        )
+
+        return _compose_email(
+            to=reply_to,
+            cc=reply_cc,
+            bcc=bcc,
+            subject=reply_subject,
+            body=complete_reply_body,
+            attachments=attachments,
+            in_reply_to=in_reply_to,
+            references=references,
+        )
+
+    elif mode == "forward":
+        if not message_id:
+            raise ValueError("'message_id' is required for forward mode")
+
+        # Import notmuch function to get original message data
+        from mcp_handley_lab.email.notmuch.tool import (
+            _get_message_from_raw_source,
+            _show_email,
+        )
+
+        result = _show_email(f"id:{message_id}")
+        original_msg = result[0]
+        raw_msg = _get_message_from_raw_source(message_id)
+
+        # Build forward subject with Fwd: prefix
+        original_subject = original_msg.subject
+        forward_subject = (
+            subject
+            if subject
+            else (
+                f"Fwd: {original_subject}"
+                if not original_subject.startswith("Fwd: ")
+                else original_subject
             )
-        else:
-            return OperationResult(
-                status="error",
-                message=f"Failed to open folder {target} (exit code: {exit_code})",
-                data=data,
-            )
+        )
 
-    except ValueError as e:  # Catch specific resolution errors
-        return OperationResult(status="error", message=str(e))
-    except Exception as e:  # Catch other errors (e.g., from run_command)
-        return OperationResult(status="error", message=f"Failed to open: {str(e)}")
+        # Build forward header block
+        forward_intro = (
+            f"----- Forwarded message from {original_msg.from_address} -----"
+        )
+        header_lines = [f"\nDate: {original_msg.date}"]
+        header_lines.append(f"From: {original_msg.from_address}")
+        if original_msg.to_address and original_msg.to_address != "[Unknown Recipient]":
+            header_lines.append(f"To: {original_msg.to_address}")
+        original_cc = raw_msg.get("Cc")
+        if original_cc:
+            header_lines.append(f"CC: {original_cc}")
+        header_lines.append(f"Subject: {original_subject}")
+        header_block = "\n".join(header_lines)
 
+        # Build forward body
+        forwarded_content = "\n".join(original_msg.body_markdown.splitlines())
+        forward_trailer = "----- End forwarded message -----"
 
-@mcp.tool(description="Checks Mutt Tool server status and mutt command availability.")
-def server_info() -> ServerInfo:
-    """Get server status and mutt version."""
-    result = _execute_mutt_command(["mutt", "-v"])
-    version_lines = result.split("\n")
-    version_line = version_lines[0] if version_lines else "Unknown version"
+        complete_forward_body = (
+            f"{body}\n\n{forward_intro}\n{header_block}\n\n{forwarded_content}\n\n{forward_trailer}"
+            if body
+            else f"{forward_intro}\n{header_block}\n\n{forwarded_content}\n\n{forward_trailer}"
+        )
 
-    return ServerInfo(
-        name="Mutt Tool",
-        version=version_line,
-        status="active",
-        capabilities=[
-            "compose",
-            "reply",
-            "forward",
-            "list_folders",
-            "open",
-            "server_info",
-        ],
-        dependencies={"mutt": version_line},
-    )
+        return _compose_email(
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            subject=forward_subject,
+            body=complete_forward_body,
+            attachments=attachments,
+        )
+
+    else:
+        raise ValueError(f"Unknown mode: {mode}. Use 'compose', 'reply', or 'forward'.")

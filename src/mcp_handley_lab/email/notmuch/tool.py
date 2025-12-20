@@ -17,6 +17,29 @@ from selectolax.parser import HTMLParser
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.email.common import mcp
 
+MAILDIR_LEAFS = {"cur", "new", "tmp"}
+
+
+def _new() -> str:
+    """Index newly received emails into notmuch database (internal helper)."""
+    stdout, _ = run_command(["notmuch", "new"], timeout=60)
+    return stdout.decode().strip()
+
+
+def _get_account_folders(maildir_root: Path, account_name: str) -> dict[str, Path]:
+    """Get folders for a specific account using shallow directory scan (fast; skips cur/new/tmp)."""
+    account_path = maildir_root / account_name
+    folders: dict[str, Path] = {}
+
+    if not account_path.is_dir():
+        return folders
+
+    for child in account_path.iterdir():
+        if child.is_dir() and child.name not in MAILDIR_LEAFS:
+            folders[child.name] = child
+
+    return folders
+
 
 def _find_smart_destination(
     source_files: list[str], maildir_root: Path, destination_folder: str
@@ -37,33 +60,32 @@ def _find_smart_destination(
     rel_path = first_source.relative_to(maildir_root)
 
     # Determine account path - handles both root and account-specific folders
-    # Root level emails are in structure: maildir/cur/file.eml or maildir/new/file.eml
-    # Account emails are in structure: maildir/Account/INBOX/cur/file.eml
     if len(rel_path.parts) > 2:  # Account/folder/cur/file.eml
-        account_path = maildir_root / rel_path.parts[0]
+        account_name = rel_path.parts[0]
+        account_path = maildir_root / account_name
     else:  # cur/file.eml or new/file.eml (root level)
         account_path = maildir_root
-    account_name = account_path.name
+        account_name = account_path.name
 
     # Try exact match first
     exact_match = account_path / destination_folder
     if exact_match.is_dir():
         return exact_match
 
+    # Get folders from notmuch index (fast, no filesystem scan)
+    account_folders = _get_account_folders(maildir_root, account_name)
+
     # Try common name variations (case-insensitive)
     destination_lower = destination_folder.lower()
     if potential_names := folder_map.get(destination_lower):
-        for folder in account_path.iterdir():
-            if folder.is_dir() and any(
-                name in folder.name.lower() for name in potential_names
-            ):
-                return folder
+        for folder_name, folder_path in account_folders.items():
+            if any(name in folder_name.lower() for name in potential_names):
+                return folder_path
 
     # No match found - fail with helpful error
-    available_folders = [f.name for f in account_path.iterdir() if f.is_dir()]
     raise FileNotFoundError(
         f"No existing folder matching '{destination_folder}' found in account '{account_name}'. "
-        f"Available folders: {available_folders}"
+        f"Available folders: {list(account_folders.keys())}"
     )
 
 
@@ -94,6 +116,10 @@ class EmailContent(BaseModel):
         default_factory=list,
         description="A list of filenames for any attachments in the email.",
     )
+    saved_files: list[str] = Field(
+        default_factory=list,
+        description="Paths to saved files when save_attachments_to is used (body + attachments).",
+    )
 
 
 class TagResult(BaseModel):
@@ -105,20 +131,6 @@ class TagResult(BaseModel):
     )
     removed_tags: list[str] = Field(
         ..., description="A list of tags that were removed from the message."
-    )
-
-
-class AttachmentExtractionResult(BaseModel):
-    """Result of a successful attachment extraction operation."""
-
-    message_id: str = Field(
-        ..., description="The notmuch message ID from which attachments were extracted."
-    )
-    saved_files: list[str] = Field(
-        ..., description="A list of absolute paths to the saved attachment files."
-    )
-    message: str = Field(
-        ..., description="Status message describing the extraction result."
     )
 
 
@@ -137,6 +149,21 @@ class MoveResult(BaseModel):
     status: str = Field(..., description="A summary of the move operation.")
 
 
+class SearchResult(BaseModel):
+    """Structured search result for a single email."""
+
+    id: str = Field(..., description="The unique message ID of the email.")
+    subject: str = Field(..., description="The subject line of the email.")
+    from_address: str = Field(..., description="The sender's email address and name.")
+    to_address: str | None = Field(
+        default=None, description="The primary recipient's email address."
+    )
+    date: str | None = Field(default=None, description="The date the email was sent.")
+    tags: list[str] = Field(
+        default_factory=list, description="Tags associated with this email."
+    )
+
+
 @mcp.tool(
     description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
 )
@@ -150,12 +177,58 @@ def search(
         description="The maximum number of message IDs to return.",
         gt=0,
     ),
-) -> list[str]:
-    """Search emails using notmuch query syntax."""
-    cmd = ["notmuch", "search", "--limit", str(limit), query]
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    return [line.strip() for line in output.split("\n") if line.strip()]
+    offset: int = Field(
+        default=0,
+        description="Number of results to skip for pagination.",
+        ge=0,
+    ),
+    include_excluded: bool = Field(
+        default=False,
+        description="Include emails with excluded tags (spam, deleted) that are normally hidden.",
+    ),
+) -> list[SearchResult]:
+    """Search emails using notmuch query syntax.
+
+    Returns structured search results with id, subject, from, date, and tags.
+    Use show() for full email content including body.
+    """
+    cmd = [
+        "notmuch",
+        "search",
+        "--format=json",
+        "--output=messages",
+        "--limit",
+        str(limit),
+        "--offset",
+        str(offset),
+    ]
+    if include_excluded:
+        cmd.append("--exclude=false")
+    cmd.append(query)
+    stdout, _ = run_command(cmd)
+    message_ids = json.loads(stdout.decode().strip())
+
+    results = []
+    for message_id in message_ids:
+        msg = _get_message_from_raw_source(message_id)
+
+        # Get tags
+        tag_cmd = ["notmuch", "search", "--output=tags", f"id:{message_id}"]
+        tag_stdout, _ = run_command(tag_cmd)
+        tags = [t.strip() for t in tag_stdout.decode().strip().split("\n") if t.strip()]
+
+        results.append(
+            SearchResult(
+                id=message_id,
+                subject=msg.get("Subject", "") or "[No Subject]",
+                from_address=msg.get("From", "") or "[Unknown Sender]",
+                to_address=msg.get("To", "") or None,
+                date=msg.get("Date", "") or None,
+                tags=tags,
+            )
+        )
+
+    return results
 
 
 def _get_message_from_raw_source(message_id: str) -> EmailMessage:
@@ -329,18 +402,62 @@ def process_html_content(html_content: str) -> str:
         return html_content
 
 
+def _save_email_files(
+    msg, message_id: str, body_content: str, body_format: str, save_path: Path
+) -> list[str]:
+    """Save email body and attachments to files."""
+    saved_files = []
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    # Create safe base filename from message_id
+    safe_id = re.sub(r'[\\/*?:"<>|@]', "_", message_id)[:50]
+
+    # Save body as txt or html
+    body_ext = ".html" if body_format == "html" else ".txt"
+    body_file = save_path / f"{safe_id}_body{body_ext}"
+    body_file.write_text(body_content)
+    saved_files.append(str(body_file))
+
+    # Save attachments
+    for part in msg.walk():
+        if part_filename := part.get_filename():
+            clean_filename = re.sub(r'[\\/*?:"<>|]', "_", Path(part_filename).name)
+            file_path = save_path / clean_filename
+
+            # Handle filename collisions
+            counter = 1
+            stem, suffix = file_path.stem, file_path.suffix
+            while file_path.exists():
+                file_path = save_path / f"{stem}_{counter}{suffix}"
+                counter += 1
+
+            if payload := part.get_payload(decode=True):
+                file_path.write_bytes(payload)
+                saved_files.append(str(file_path))
+
+    return saved_files
+
+
 def _show_email(
-    query: str, mode: str = "full", limit: int = None
+    query: str,
+    mode: str = "full",
+    limit: int | None = None,
+    include_excluded: bool = False,
+    save_to: str = "",
 ) -> list[EmailContent]:
     """Internal implementation of email display."""
-    cmd = ["notmuch", "search", "--format=json", "--output=messages", query]
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    message_ids = json.loads(output)
+    cmd = ["notmuch", "search", "--format=json", "--output=messages"]
+    if include_excluded:
+        cmd.append("--exclude=false")
+    cmd.append(query)
+    stdout, _ = run_command(cmd)
+    message_ids = json.loads(stdout.decode().strip())
 
     # Apply limit to prevent token overflow if specified
     if limit is not None and len(message_ids) > limit:
         message_ids = message_ids[:limit]
+
+    save_path = Path(save_to).expanduser() if save_to else None
 
     results = []
     for message_id in message_ids:
@@ -367,6 +484,13 @@ def _show_email(
             if tag.strip()
         ]
 
+        # Save files if requested
+        saved_files = []
+        if save_path:
+            saved_files = _save_email_files(
+                reconstructed_msg, message_id, body_content, body_format, save_path
+            )
+
         results.append(
             EmailContent(
                 id=message_id,
@@ -378,13 +502,14 @@ def _show_email(
                 body_markdown=body_content,
                 body_format=body_format,
                 attachments=attachments,
+                saved_files=saved_files,
             )
         )
     return results
 
 
 @mcp.tool(
-    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity."""
+    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity. Optionally saves body and attachments to files."""
 )
 def show(
     query: str = Field(
@@ -399,68 +524,19 @@ def show(
         default=None,
         description="Maximum number of emails to return (helps prevent token overflow). If None, returns all emails.",
     ),
+    include_excluded: bool = Field(
+        default=False,
+        description="Include emails with excluded tags (spam, deleted) that are normally hidden by notmuch.",
+    ),
+    save_attachments_to: str = Field(
+        default="",
+        description="Directory to save email body and attachments to. Body saved as .txt/.html, attachments saved with original filenames. Paths returned in saved_files field.",
+    ),
 ) -> list[EmailContent]:
     """Show email content with optimized token-efficient processing."""
-    return _show_email(query, mode, limit)
-
-
-@mcp.tool(
-    description="""Index newly received emails into notmuch database. Required after email sync to make new messages searchable. Updates tags per initial rules."""
-)
-def new() -> str:
-    """Index newly received emails with notmuch new."""
-    stdout, stderr = run_command(["notmuch", "new"])
-    output = stdout.decode().strip()
-    return f"Notmuch database updated:\n{output}"
-
-
-@mcp.tool(
-    description="""List all tags in notmuch database. Shows system tags (inbox, unread, sent) and custom tags. Useful for understanding organization and planning searches."""
-)
-def list_tags() -> list[str]:
-    """List all tags in the notmuch database."""
-    stdout, stderr = run_command(["notmuch", "search", "--output=tags", "*"])
-    output = stdout.decode().strip()
-    return sorted([tag.strip() for tag in output.split("\n") if tag.strip()])
-
-
-@mcp.tool(
-    description="""Retrieve notmuch configuration settings. Shows all settings or specific key. Useful for troubleshooting database path, user info, and tagging rules."""
-)
-def config(
-    key: str = Field(
-        default="",
-        description="An optional specific configuration key to retrieve (e.g., 'database.path'). If omitted, all configurations are listed.",
-    ),
-) -> str:
-    """Get notmuch configuration values."""
-    cmd = ["notmuch", "config", "list"]
-
-    if key:
-        cmd = ["notmuch", "config", "get", key]
-
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    if key:
-        return f"{key} = {output}"
-    return f"Notmuch configuration:\n{output}"
-
-
-@mcp.tool(
-    description="""Count emails matching notmuch query without retrieving content. Fast way to validate queries and monitor email volumes."""
-)
-def count(
-    query: str = Field(
-        ...,
-        description="A valid notmuch search query to count matching emails. Example: 'tag:unread'.",
-    ),
-) -> int:
-    """Count emails matching a notmuch query."""
-    cmd = ["notmuch", "count", query]
-
-    stdout, stderr = run_command(cmd)
-    count_result = stdout.decode().strip()
-    return int(count_result)
+    return _show_email(
+        query, mode, limit, include_excluded, save_to=save_attachments_to
+    )
 
 
 @mcp.tool(
@@ -489,77 +565,6 @@ def tag(
 
     return TagResult(
         message_id=message_id, added_tags=add_tags, removed_tags=remove_tags
-    )
-
-
-@mcp.tool(
-    description="Extracts and saves one or all attachments from a specific email. If 'filename' is provided, only that attachment is saved. Files are saved to 'output_dir', which defaults to the current directory. Returns a result object with a list of absolute paths to the saved files."
-)
-def extract_attachments(
-    message_id: str = Field(
-        ...,
-        description="The notmuch message ID of the email containing the attachments.",
-    ),
-    output_dir: str = Field(
-        default="",
-        description="The directory to save attachments to. Defaults to the current directory.",
-    ),
-    filename: str = Field(
-        default="",
-        description="The specific filename of the attachment to extract. If omitted, all attachments are extracted.",
-    ),
-) -> AttachmentExtractionResult:
-    """
-    Extracts attachments from an email, failing loudly if the email or attachment isn't found.
-    """
-    msg = _get_message_from_raw_source(message_id)
-
-    if filename and (match := re.match(r"(.+?)\s+\(.+\)", filename)):
-        filename = match.group(1)
-
-    save_path = Path(output_dir or ".").expanduser()
-    save_path.mkdir(parents=True, exist_ok=True)
-
-    saved_files = []
-    found_attachments = []
-
-    for part in msg.walk():
-        if (part_filename := part.get_filename()) and (
-            not filename or part_filename == filename
-        ):
-            found_attachments.append(part)
-
-    if filename and not found_attachments:
-        raise FileNotFoundError(
-            f"Attachment '{filename}' not found in email id:{message_id}."
-        )
-
-    if not found_attachments:
-        return AttachmentExtractionResult(
-            message_id=message_id,
-            saved_files=[],
-            message="No attachments found in the email.",
-        )
-
-    for part in found_attachments:
-        part_filename = part.get_filename()
-        clean_filename = re.sub(r'[\\/*?:"<>|]', "_", Path(part_filename).name)
-        file_path = save_path / clean_filename
-
-        counter = 1
-        stem, suffix = file_path.stem, file_path.suffix
-        while file_path.exists():
-            file_path = save_path / f"{stem}_{counter}{suffix}"
-            counter += 1
-
-        if payload := part.get_payload(decode=True):
-            file_path.write_bytes(payload)
-            saved_files.append(str(file_path))
-
-    return AttachmentExtractionResult(
-        message_id=message_id,
-        saved_files=saved_files,
-        message=f"Successfully saved {len(saved_files)} attachment(s) to {save_path}.",
     )
 
 
@@ -611,23 +616,54 @@ def move(
     )
     destination_dir = smart_destination / "new"
 
+    # Create the destination 'new' directory if needed (this is safe)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    moved_count = 0
     for file_path in source_files:
         source_path = Path(file_path)
         destination_path = destination_dir / source_path.name
 
-        # Use os.rename instead of os.renames to avoid creating directories
-        # Create the destination 'new' directory if needed (this is safe)
-        destination_dir.mkdir(parents=True, exist_ok=True)
+        # Handle filename collisions (similar to extract_attachments)
+        counter = 1
+        stem, suffix = destination_path.stem, destination_path.suffix
+        while destination_path.exists():
+            destination_path = destination_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
 
         try:
             os.rename(source_path, destination_path)
+            moved_count += 1
         except OSError as e:
             raise OSError(
                 f"Failed to move {source_path} to {destination_path}: {e}"
             ) from e
 
     # Update the notmuch index to discover the moved files
-    new()
+    _new()
+
+    # Apply destination-based tag policies using resolved folder name
+    tag_policies = {
+        "archive": {"add": [], "remove": ["inbox"]},  # Keep unread status
+        "trash": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "bin": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "deleted": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "spam": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "junk": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "junk email": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "sent": {"add": [], "remove": ["inbox"]},
+        "drafts": {"add": ["draft"], "remove": ["inbox"]},
+    }
+
+    # Use resolved folder name for policy matching (handles Hermes/Archive -> archive)
+    dest_key = smart_destination.name.lower()
+    if policy := tag_policies.get(dest_key):
+        for mid in message_ids:
+            tag_changes = [f"+{t}" for t in policy["add"]] + [
+                f"-{t}" for t in policy["remove"]
+            ]
+            if tag_changes:
+                run_command(["notmuch", "tag"] + tag_changes + [f"id:{mid}"])
 
     # Construct and return a structured result
     moved_count = len(source_files)

@@ -64,7 +64,7 @@ class TestEmailMoveIntegration:
         }
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_hermes_inbox_to_archive(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -78,6 +78,10 @@ class TestEmailMoveIntegration:
             ),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for msg1 (archive policy: -inbox -unread)
+            (b"", b""),
+            # notmuch tag for msg2
+            (b"", b""),
         ]
 
         # Call the move function via MCP
@@ -113,7 +117,7 @@ class TestEmailMoveIntegration:
         mock_new.assert_called_once()
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_gmail_inbox_to_trash(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -123,6 +127,8 @@ class TestEmailMoveIntegration:
             (f"{sample_emails['gmail_email']}\n".encode(), b""),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for gmail_msg (trash policy: +deleted -inbox -unread)
+            (b"", b""),
         ]
 
         _, result = await mcp.call_tool(
@@ -206,7 +212,7 @@ class TestEmailMoveIntegration:
         assert "List should have at least 1 item" in str(exc_info.value)
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_handles_partial_success(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -217,6 +223,10 @@ class TestEmailMoveIntegration:
             (f"{sample_emails['hermes_email1']}\n".encode(), b""),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for msg1 (archive policy: -inbox -unread)
+            (b"", b""),
+            # notmuch tag for missing msg (still called even though file not found)
+            (b"", b""),
         ]
 
         _, result = await mcp.call_tool(
