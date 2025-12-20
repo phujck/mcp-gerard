@@ -413,3 +413,12 @@ def list_api_models() -> set[str]:
     """List model names available from the Gemini API."""
     models_response = get_client().models.list()
     return {model.name.split("/")[-1] for model in models_response}
+
+
+def embeddings_adapter(texts: list[str], model: str) -> list[list[float]]:
+    """Generate embeddings for a list of texts."""
+    embeddings = []
+    for text in texts:
+        response = get_client().models.embed_content(model=model, content=text)
+        embeddings.append(response.embedding)
+    return embeddings

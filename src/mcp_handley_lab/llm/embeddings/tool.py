@@ -36,40 +36,12 @@ def _resolve_embedding_provider(model: str) -> str:
 
 
 def _get_embeddings(texts: list[str], model: str) -> list[list[float]]:
-    """Get embeddings using the appropriate provider."""
+    """Get embeddings using the appropriate provider via registry."""
+    from mcp_handley_lab.llm.registry import get_adapter
+
     provider = _resolve_embedding_provider(model)
-
-    if provider == "openai":
-        from mcp_handley_lab.llm.providers.openai.adapter import get_client
-
-        response = get_client().embeddings.create(
-            model=model,
-            input=texts,
-        )
-        return [item.embedding for item in response.data]
-
-    elif provider == "gemini":
-        from mcp_handley_lab.llm.providers.gemini.adapter import get_client
-
-        embeddings = []
-        for text in texts:
-            response = get_client().models.embed_content(
-                model=model,
-                content=text,
-            )
-            embeddings.append(response.embedding)
-        return embeddings
-
-    elif provider == "mistral":
-        from mcp_handley_lab.llm.providers.mistral.adapter import get_client
-
-        response = get_client().embeddings.create(
-            model=model,
-            inputs=texts,
-        )
-        return [item.embedding for item in response.data]
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    adapter = get_adapter(provider, "embeddings")
+    return adapter(texts, model)
 
 
 def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:

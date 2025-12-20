@@ -390,38 +390,10 @@ def audio_transcription_adapter(
     return result
 
 
-def embeddings_adapter(
-    texts: list[str],
-    model: str = "mistral-embed",
-) -> dict[str, Any]:
-    """Mistral-specific embeddings function."""
-    # Validate input length
-    if len(texts) > 16:
-        raise ValueError(f"Maximum 16 texts per request (got {len(texts)})")
-
-    # Call Mistral embeddings API
-    response = get_client().embeddings.create(
-        model=model,
-        inputs=texts,
-    )
-
-    # Extract embeddings
-    embeddings = [item.embedding for item in response.data]
-
-    return {
-        "embeddings": embeddings,
-        "model": model,
-        "dimensions": len(embeddings[0]) if embeddings else 0,
-        "count": len(embeddings),
-        "usage": {
-            "prompt_tokens": response.usage.prompt_tokens
-            if hasattr(response, "usage")
-            else 0,
-            "total_tokens": response.usage.total_tokens
-            if hasattr(response, "usage")
-            else 0,
-        },
-    }
+def embeddings_adapter(texts: list[str], model: str) -> list[list[float]]:
+    """Generate embeddings for a list of texts."""
+    response = get_client().embeddings.create(model=model, inputs=texts)
+    return [item.embedding for item in response.data]
 
 
 def moderation_adapter(text: str) -> dict[str, Any]:

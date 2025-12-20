@@ -341,3 +341,9 @@ def list_api_models() -> set[str]:
     """List model IDs available from the OpenAI API."""
     api_models = get_client().models.list()
     return {m.id for m in api_models.data}
+
+
+def embeddings_adapter(texts: list[str], model: str) -> list[list[float]]:
+    """Generate embeddings for a list of texts."""
+    response = get_client().embeddings.create(model=model, input=texts)
+    return [item.embedding for item in response.data]

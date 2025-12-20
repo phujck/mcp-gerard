@@ -38,20 +38,14 @@ def transcribe(
     ),
 ) -> dict[str, Any]:
     """Transcribe audio using Mistral Voxtral model."""
-    from mcp_handley_lab.llm.providers.mistral.adapter import (
-        audio_transcription_adapter,
+    from mcp_handley_lab.llm.registry import get_adapter
+
+    adapter = get_adapter("mistral", "audio_transcription")
+    result = adapter(
+        audio_path=audio_path,
+        language=language,
+        include_timestamps=include_timestamps,
     )
 
-    try:
-        result = audio_transcription_adapter(
-            audio_path=audio_path,
-            language=language,
-            include_timestamps=include_timestamps,
-        )
-
-        # Write to output file
-        Path(output_file).write_text(json.dumps(result, indent=2))
-
-        return result
-    except Exception as e:
-        raise ValueError(f"Transcription error: {str(e)}") from e
+    Path(output_file).write_text(json.dumps(result, indent=2))
+    return result

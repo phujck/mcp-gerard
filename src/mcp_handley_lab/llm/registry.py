@@ -4,10 +4,7 @@ Provides model resolution (model name → provider) and option validation
 for the unified mcp-chat tool.
 """
 
-from pathlib import Path
 from typing import Any
-
-import yaml
 
 # All supported providers
 PROVIDERS = ["gemini", "openai", "claude", "mistral", "grok", "groq"]
@@ -106,13 +103,10 @@ PROVIDER_OPTIONS = {
 
 
 def _load_models_yaml(provider: str) -> dict[str, Any]:
-    """Load models.yaml for a provider."""
-    yaml_path = Path(__file__).parent / "providers" / provider / "models.yaml"
-    if not yaml_path.exists():
-        return {}
-    with open(yaml_path, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    return config.get("models", {})
+    """Load models from a provider's models.yaml using model_loader."""
+    from mcp_handley_lab.llm.model_loader import load_model_config
+
+    return load_model_config(provider).get("models", {})
 
 
 def build_model_registry() -> dict[str, tuple[str, dict[str, Any]]]:
@@ -392,6 +386,7 @@ def get_adapter(provider: str, adapter_type: str):
             "generation": adapter.generation_adapter,
             "image_analysis": adapter.image_analysis_adapter,
             "image_generation": adapter.image_generation_adapter,
+            "embeddings": adapter.embeddings_adapter,
         }
     elif provider == "openai":
         from mcp_handley_lab.llm.providers.openai import adapter
@@ -400,6 +395,7 @@ def get_adapter(provider: str, adapter_type: str):
             "generation": adapter.generation_adapter,
             "image_analysis": adapter.image_analysis_adapter,
             "image_generation": adapter.image_generation_adapter,
+            "embeddings": adapter.embeddings_adapter,
         }
     elif provider == "claude":
         from mcp_handley_lab.llm.providers.claude import adapter
@@ -416,6 +412,9 @@ def get_adapter(provider: str, adapter_type: str):
             "image_analysis": adapter.image_analysis_adapter,
             "fill_in_middle": adapter.fill_in_middle_adapter,
             "moderation": adapter.moderation_adapter,
+            "embeddings": adapter.embeddings_adapter,
+            "audio_transcription": adapter.audio_transcription_adapter,
+            "ocr": adapter.ocr_adapter,
         }
     elif provider == "grok":
         from mcp_handley_lab.llm.providers.grok import adapter
