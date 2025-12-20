@@ -1,8 +1,9 @@
-"""Unit tests for Grok LLM module."""
+"""Unit tests for Grok LLM provider adapter."""
 
-from mcp_handley_lab.llm.providers.grok.tool import (
+from mcp_handley_lab.llm.providers.grok.adapter import (
+    DEFAULT_MODEL,
     MODEL_CONFIGS,
-    _get_model_config,
+    get_model_config,
 )
 
 
@@ -51,15 +52,13 @@ class TestGrokModelConfiguration:
             assert output_tokens is None or isinstance(output_tokens, int)
 
     def test_get_model_config_valid_model(self):
-        """Test _get_model_config with valid model names."""
-        config = _get_model_config("grok-4-fast-reasoning")
+        """Test get_model_config with valid model names."""
+        config = get_model_config("grok-4-fast-reasoning")
         assert config["output_tokens"] == 100000
 
     def test_get_model_config_fallback_to_default(self):
-        """Test _get_model_config falls back to default for unknown models."""
-        from mcp_handley_lab.llm.providers.grok.tool import DEFAULT_MODEL
-
-        config = _get_model_config("nonexistent-model")
+        """Test get_model_config falls back to default for unknown models."""
+        config = get_model_config("nonexistent-model")
         default_config = MODEL_CONFIGS[DEFAULT_MODEL]
         assert config == default_config
 
@@ -70,7 +69,7 @@ class TestGrokErrorHandling:
     def test_model_config_retrieval_robust(self):
         """Test model configuration retrieval is robust."""
         # Should not raise exceptions for any model name
-        config = _get_model_config("completely-invalid-model")
+        config = get_model_config("completely-invalid-model")
         assert isinstance(config, dict)
         assert "output_tokens" in config
 

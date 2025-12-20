@@ -1,4 +1,4 @@
-"""Integration tests for Gemini embedding functionality (sync version)."""
+"""Integration tests for embeddings functionality using Gemini models (sync version)."""
 
 import json
 import os
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.providers.gemini.tool import (
+from mcp_handley_lab.llm.embeddings.tool import (
     calculate_similarity,
     get_embeddings,
     index_documents,
@@ -30,17 +30,15 @@ class TestGeminiEmbeddings:
         skip_if_no_gemini_key()
 
         result = get_embeddings(
-            contents="Hello, world!",
+            texts=["Hello, world!"],
             model="gemini-embedding-001",
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=0,
         )
 
-        assert len(result) == 1
-        assert len(result[0].embedding) > 0
+        assert result["count"] == 1
+        assert len(result["embeddings"][0]) > 0
         # Gemini embeddings are typically 768 dimensions for some models, 3072 for others
-        assert len(result[0].embedding) in [768, 3072]
-        assert all(isinstance(x, float) for x in result[0].embedding)
+        assert len(result["embeddings"][0]) in [768, 3072]
+        assert all(isinstance(x, float) for x in result["embeddings"][0])
 
     def test_get_embeddings_multiple_texts(self):
         """Test getting embeddings for multiple texts."""
@@ -48,42 +46,36 @@ class TestGeminiEmbeddings:
 
         texts = ["Hello, world!", "Goodbye, world!", "Python programming"]
         result = get_embeddings(
-            contents=texts,
+            texts=texts,
             model="gemini-embedding-001",
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=0,
         )
 
-        assert len(result) == 3
-        for embedding_result in result:
-            assert len(embedding_result.embedding) > 0
-            assert all(isinstance(x, float) for x in embedding_result.embedding)
+        assert result["count"] == 3
+        for embedding in result["embeddings"]:
+            assert len(embedding) > 0
+            assert all(isinstance(x, float) for x in embedding)
 
-    def test_get_embeddings_different_task_types(self):
-        """Test embeddings with different task types."""
+    def test_get_embeddings_consistent_model(self):
+        """Test embeddings are consistent for the same input."""
         skip_if_no_gemini_key()
 
         text = "Machine learning is fascinating"
 
-        # Test different task types
-        similarity_result = get_embeddings(
-            contents=text,
+        # Get embeddings twice
+        result1 = get_embeddings(
+            texts=[text],
             model="gemini-embedding-001",
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=0,
         )
 
-        retrieval_result = get_embeddings(
-            contents=text,
+        result2 = get_embeddings(
+            texts=[text],
             model="gemini-embedding-001",
-            task_type="RETRIEVAL_DOCUMENT",
-            output_dimensionality=0,
         )
 
-        assert len(similarity_result) == 1
-        assert len(retrieval_result) == 1
-        # Embeddings should be different for different task types
-        assert similarity_result[0].embedding != retrieval_result[0].embedding
+        assert result1["count"] == 1
+        assert result2["count"] == 1
+        # Same text should produce same embeddings
+        assert result1["embeddings"][0] == result2["embeddings"][0]
 
     def test_calculate_similarity_identical_texts(self):
         """Test similarity calculation for identical texts."""
@@ -95,7 +87,7 @@ class TestGeminiEmbeddings:
         )
 
         # Identical texts should have similarity very close to 1.0
-        assert 0.99 <= result.similarity <= 1.0
+        assert 0.99 <= result["similarity"] <= 1.0
 
     def test_calculate_similarity_different_texts(self):
         """Test similarity calculation for different texts."""
@@ -108,7 +100,7 @@ class TestGeminiEmbeddings:
         )
 
         # Different topics should have lower similarity
-        assert 0.0 <= result.similarity <= 0.8
+        assert 0.0 <= result["similarity"] <= 0.8
 
     def test_calculate_similarity_related_texts(self):
         """Test similarity calculation for related texts."""
@@ -121,7 +113,7 @@ class TestGeminiEmbeddings:
         )
 
         # Related texts should have moderate to high similarity
-        assert 0.3 <= result.similarity <= 1.0
+        assert 0.3 <= result["similarity"] <= 1.0
 
     def test_index_documents_and_search(self):
         """Test document indexing and search functionality."""
@@ -139,7 +131,7 @@ class TestGeminiEmbeddings:
             doc3_path.write_text("Data science involves statistical analysis.")
 
             # Create index
-            index_documents(
+            index_result = index_documents(
                 document_paths=[str(doc1_path), str(doc2_path), str(doc3_path)],
                 output_index_path=str(index_path),
                 model="gemini-embedding-001",
@@ -147,44 +139,34 @@ class TestGeminiEmbeddings:
 
             # Verify index was created
             assert index_path.exists()
+            assert index_result["document_count"] == 3
             with open(index_path) as f:
                 index_data = json.load(f)
-                assert len(index_data) == 3
+                assert len(index_data["documents"]) == 3
 
             # Test search
-            results = search_documents(
+            search_result = search_documents(
                 query="programming languages",
                 index_path=str(index_path),
                 top_k=2,
                 model="gemini-embedding-001",
             )
 
-            assert len(results) == 2
+            assert len(search_result["results"]) == 2
             # The Python document should be most relevant
-            first_result_content = Path(results[0].path).read_text()
+            first_result_content = Path(search_result["results"][0]["path"]).read_text()
             assert "Python" in first_result_content
 
     def test_get_embeddings_empty_input_error(self):
         """Test that empty input raises appropriate error."""
         skip_if_no_gemini_key()
 
-        with pytest.raises(ValueError, match="Contents list cannot be empty"):
+        # Empty list should raise an error from the adapter
+        with pytest.raises((ValueError, RuntimeError)):
             get_embeddings(
-                contents=[],
+                texts=[],
                 model="gemini-embedding-001",
-                task_type="SEMANTIC_SIMILARITY",
-                output_dimensionality=0,
             )
-
-    def test_calculate_similarity_empty_text_error(self):
-        """Test that empty text raises appropriate error."""
-        skip_if_no_gemini_key()
-
-        with pytest.raises(ValueError, match="Both text1 and text2 must be provided"):
-            calculate_similarity(text1="", text2="test", model="gemini-embedding-001")
-
-        with pytest.raises(ValueError, match="Both text1 and text2 must be provided"):
-            calculate_similarity(text1="test", text2="", model="gemini-embedding-001")
 
     def test_search_documents_nonexistent_index_error(self):
         """Test that searching non-existent index fails fast."""

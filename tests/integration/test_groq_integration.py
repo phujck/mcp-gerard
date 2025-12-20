@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.providers.groq.tool import mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
 
 @pytest.fixture
@@ -70,38 +70,6 @@ async def test_groq_ask_with_files(test_output_file):
 
     finally:
         Path(test_file_path).unlink(missing_ok=True)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_groq_list_models():
-    """Test listing available Groq models."""
-    _, response = await mcp.call_tool("list_models", {})
-
-    assert "error" not in str(response).lower()
-    assert "categories" in response or "models" in str(response)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_groq_server_info():
-    """Test server info without API call."""
-    _, response = await mcp.call_tool("server_info", {})
-
-    assert "error" not in str(response).lower()
-    assert "groq" in str(response).lower()
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_groq_test_connection():
-    """Test API connection."""
-    _, response = await mcp.call_tool("test_connection", {})
-
-    assert (
-        "error" not in str(response).lower()
-        or "connection successful" in str(response).lower()
-    )
 
 
 @pytest.mark.vcr

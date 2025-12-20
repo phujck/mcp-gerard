@@ -9,33 +9,26 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.llm.providers.claude.tool import mcp as claude_mcp
-from mcp_handley_lab.llm.providers.gemini.tool import mcp as gemini_mcp
-from mcp_handley_lab.llm.providers.openai.tool import mcp as openai_mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
-# Provider configurations for systematic testing (MCP protocol)
-claude_api_key = "ANTHROPIC" + "_API_KEY"
+# Provider configurations for systematic testing (unified MCP, model determines provider)
 llm_unhappy_providers = [
-    pytest.param(openai_mcp, "openai", "OPENAI_API_KEY", "gpt-4o-mini", id="openai"),
+    pytest.param("openai", "OPENAI_API_KEY", "gpt-4o-mini", id="openai"),
+    pytest.param("gemini", "GEMINI_API_KEY", "gemini-2.5-flash", id="gemini"),
     pytest.param(
-        gemini_mcp, "gemini", "GEMINI_API_KEY", "gemini-2.5-flash", id="gemini"
-    ),
-    pytest.param(
-        claude_mcp,
         "claude",
-        claude_api_key,
+        "ANTHROPIC_API_KEY",
         "claude-haiku-4-5-20251001",
         id="claude",
     ),
 ]
 
 image_unhappy_providers = [
-    pytest.param(openai_mcp, "openai", "OPENAI_API_KEY", "gpt-4o", id="openai"),
-    pytest.param(gemini_mcp, "gemini", "GEMINI_API_KEY", "gemini-2.5-pro", id="gemini"),
+    pytest.param("openai", "OPENAI_API_KEY", "gpt-4o", id="openai"),
+    pytest.param("gemini", "GEMINI_API_KEY", "gemini-2.5-pro", id="gemini"),
     pytest.param(
-        claude_mcp,
         "claude",
-        claude_api_key,
+        "ANTHROPIC_API_KEY",
         "claude-sonnet-4-5-20250929",
         id="claude",
     ),
@@ -47,12 +40,11 @@ class TestLLMRateLimitingErrors:
     """Test rate limiting and quota scenarios."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_rapid_sequential_requests(
         self,
         skip_if_no_api_key,
         test_output_file,
-        mcp,
         provider,
         api_key,
         model,
@@ -117,12 +109,11 @@ class TestLLMLargeInputHandling:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_extremely_large_prompt(
         self,
         skip_if_no_api_key,
         test_output_file,
-        mcp,
         provider,
         api_key,
         model,
@@ -187,13 +178,12 @@ class TestLLMLargeInputHandling:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_large_file_input_handling(
         self,
         skip_if_no_api_key,
         test_output_file,
         tmp_path,
-        mcp,
         provider,
         api_key,
         model,
@@ -252,12 +242,11 @@ class TestLLMLargeInputHandling:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_problematic_characters_handling(
         self,
         skip_if_no_api_key,
         test_output_file,
-        mcp,
         provider,
         api_key,
         model,
@@ -333,12 +322,11 @@ class TestLLMFileInputErrors:
     """Test file input error scenarios."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_nonexistent_file_input(
         self,
         skip_if_no_api_key,
         test_output_file,
-        mcp,
         provider,
         api_key,
         model,
@@ -385,13 +373,12 @@ class TestLLMFileInputErrors:
             await mcp.call_tool("ask", base_params)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_permission_denied_file(
         self,
         skip_if_no_api_key,
         test_output_file,
         tmp_path,
-        mcp,
         provider,
         api_key,
         model,
@@ -445,13 +432,12 @@ class TestLLMFileInputErrors:
             restricted_file.chmod(0o644)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_binary_file_input(
         self,
         skip_if_no_api_key,
         test_output_file,
         tmp_path,
-        mcp,
         provider,
         api_key,
         model,
@@ -523,13 +509,12 @@ class TestLLMImageAnalysisUnhappyPaths:
     """Test image analysis error scenarios."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", image_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", image_unhappy_providers)
     async def test_corrupted_image_input(
         self,
         skip_if_no_api_key,
         test_output_file,
         tmp_path,
-        mcp,
         provider,
         api_key,
         model,
@@ -560,12 +545,11 @@ class TestLLMImageAnalysisUnhappyPaths:
             await mcp.call_tool("analyze_image", base_params)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", image_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", image_unhappy_providers)
     async def test_missing_image_file(
         self,
         skip_if_no_api_key,
         test_output_file,
-        mcp,
         provider,
         api_key,
         model,
@@ -620,7 +604,7 @@ class TestLLMProviderSpecificErrors:
                 "temperature": 1.0,
             }
 
-            await openai_mcp.call_tool("ask", base_params)
+            await mcp.call_tool("ask", base_params)
 
             # OpenAI should either refuse or provide safe alternative
             content = Path(test_output_file).read_text()
@@ -662,7 +646,7 @@ class TestLLMProviderSpecificErrors:
                 "grounding": False,
             }
 
-            await gemini_mcp.call_tool("ask", base_params)
+            await mcp.call_tool("ask", base_params)
 
             # Gemini should either refuse or provide filtered response
             content = Path(test_output_file).read_text()
@@ -681,9 +665,9 @@ class TestLLMOutputFileErrors:
     """Test output file writing error scenarios."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_output_file_permission_denied(
-        self, skip_if_no_api_key, tmp_path, mcp, provider, api_key, model
+        self, skip_if_no_api_key, tmp_path, provider, api_key, model
     ):
         """Test handling of output file permission errors."""
         skip_if_no_api_key(api_key)
@@ -736,9 +720,9 @@ class TestLLMOutputFileErrors:
             readonly_dir.chmod(0o755)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp, provider, api_key, model", llm_unhappy_providers)
+    @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
     async def test_output_directory_not_found(
-        self, skip_if_no_api_key, mcp, provider, api_key, model
+        self, skip_if_no_api_key, provider, api_key, model
     ):
         """Test handling of output file in non-existent directory."""
         skip_if_no_api_key(api_key)

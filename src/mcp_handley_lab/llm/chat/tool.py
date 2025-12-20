@@ -22,11 +22,9 @@ mcp = FastMCP("Chat Tool")
 
 @mcp.tool(
     description="Send a message to an LLM. Provider is auto-detected from model name. "
-    "Supports all major providers: Gemini (gemini-*), OpenAI (gpt-*, o3, o4-*), "
-    "Claude (claude-*, sonnet, opus, haiku), Mistral (mistral-*, codestral-*, pixtral-*), "
-    "Grok (grok-*), Groq (llama-*, mixtral-*). "
-    "Use options dict for provider-specific features like grounding (Gemini), "
-    "reasoning_effort (OpenAI), or enable_thinking (Claude)."
+    "Supports Gemini, OpenAI, Claude, Mistral, Grok, and Groq. "
+    "Use provider names (gemini, openai, claude, mistral, grok, groq) for latest defaults. "
+    "Use options dict for provider-specific features. Run list_models() to see options."
 )
 def ask(
     prompt: str = Field(
@@ -50,8 +48,10 @@ def ask(
         description="Conversation thread name. Use 'session' for temporary, custom name for persistent, 'false' to disable.",
     ),
     model: str = Field(
-        default="gemini-2.5-flash",
-        description="Model to use. Provider is inferred from model name.",
+        default="gemini",
+        description="Model or provider name. Provider is inferred automatically. "
+        "Use provider names (gemini, openai, claude) for latest defaults, "
+        "or specific model IDs. Run list_models() to see available options.",
     ),
     temperature: float = Field(
         default=1.0,
@@ -106,8 +106,8 @@ def ask(
 
 @mcp.tool(
     description="Analyze images with vision-capable LLMs. Provider auto-detected from model. "
-    "Supports: Gemini (gemini-*), OpenAI (gpt-4o), Claude (claude-*), "
-    "Mistral (pixtral-*), Grok (grok-*-vision)."
+    "Supports Gemini, OpenAI, Claude, Mistral, and Grok vision models. "
+    "Use provider names for latest defaults."
 )
 def analyze_image(
     prompt: str = Field(
@@ -123,8 +123,9 @@ def analyze_image(
         description="File path to save analysis. Use '-' for stdout only.",
     ),
     model: str = Field(
-        default="gemini-2.5-flash",
-        description="Vision model to use. Provider is inferred.",
+        default="gemini",
+        description="Vision model or provider name. Provider is inferred automatically. "
+        "Use provider names for latest defaults, or specific model IDs.",
     ),
     focus: str = Field(
         default="general",

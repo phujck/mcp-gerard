@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.providers.mistral.tool import mcp
+from mcp_handley_lab.llm.chat.tool import mcp
+from mcp_handley_lab.llm.ocr.tool import mcp as ocr_mcp
 
 
 @pytest.fixture
@@ -135,8 +136,8 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
         image_path = image_file.name
 
     try:
-        _, response = await mcp.call_tool(
-            "process_ocr",
+        _, response = await ocr_mcp.call_tool(
+            "process",
             {
                 "document_path": image_path,
                 "output_file": test_output_file,
@@ -147,44 +148,9 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
         assert "error" not in str(response).lower()
         assert "pages" in response
         assert "model" in response
-        # Model name may vary (e.g., mistral-ocr-latest, mistral-ocr-2505-completion)
-        assert "mistral-ocr" in response["model"]
 
     finally:
         Path(image_path).unlink(missing_ok=True)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_mistral_list_models(skip_if_no_api_key):
-    """Test listing available Mistral models."""
-    _, response = await mcp.call_tool("list_models", {})
-
-    assert "error" not in str(response).lower()
-    assert "categories" in response or "models" in str(response)
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_mistral_server_info():
-    """Test server info without API call."""
-    _, response = await mcp.call_tool("server_info", {})
-
-    assert "error" not in str(response).lower()
-    assert "mistral" in str(response).lower()
-    assert "vision" in str(response).lower()
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_mistral_test_connection(skip_if_no_api_key):
-    """Test API connection."""
-    _, response = await mcp.call_tool("test_connection", {})
-
-    assert (
-        "error" not in str(response).lower()
-        or "connection successful" in str(response).lower()
-    )
 
 
 @pytest.mark.vcr

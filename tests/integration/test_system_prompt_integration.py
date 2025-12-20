@@ -7,11 +7,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from mcp_handley_lab.llm.chat.tool import mcp
 from mcp_handley_lab.llm.memory import memory_manager
-from mcp_handley_lab.llm.providers.claude.tool import mcp as claude_mcp
-from mcp_handley_lab.llm.providers.gemini.tool import mcp as gemini_mcp
-from mcp_handley_lab.llm.providers.grok.tool import mcp as grok_mcp
-from mcp_handley_lab.llm.providers.openai.tool import mcp as openai_mcp
 
 # Skip all API-requiring tests if API keys not available
 gemini_available = bool(os.getenv("GEMINI_API_KEY"))
@@ -19,10 +16,9 @@ openai_available = bool(os.getenv("OPENAI_API_KEY"))
 claude_available = bool(os.getenv("ANTHROPIC_API_KEY"))
 grok_available = bool(os.getenv("XAI_API_KEY"))
 
-# Provider configurations for testing
+# Provider configurations for testing (unified MCP, model determines provider)
 system_prompt_providers = [
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-flash",
@@ -32,7 +28,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o-mini",
@@ -42,7 +37,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-haiku-4-5-20251001",
@@ -52,7 +46,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-3-mini",
@@ -63,7 +56,6 @@ system_prompt_providers = [
 
 image_analysis_providers = [
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-pro",
@@ -73,7 +65,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o",
@@ -83,7 +74,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-sonnet-4-5-20250929",
@@ -93,7 +83,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-2-vision-1212",
@@ -117,8 +106,8 @@ class TestSystemPromptBasic:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_parameter_exists(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_parameter_exists(self, provider, api_key, model):
         """Test that system_prompt parameter is accepted by all providers."""
         # Test with a simple math question and specific system prompt
 
@@ -164,9 +153,9 @@ class TestSystemPromptBasic:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", image_analysis_providers)
+    @pytest.mark.parametrize("provider,api_key,model", image_analysis_providers)
     async def test_system_prompt_image_analysis(
-        self, mcp, provider, api_key, model, sample_image_path
+        self, provider, api_key, model, sample_image_path
     ):
         """Test system_prompt works with image analysis tools."""
 
@@ -196,8 +185,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_persistence(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_persistence(self, provider, api_key, model):
         """Test that system prompt is remembered across multiple calls."""
         agent_name = f"test_persistence_{model.replace('-', '_')}"
 
@@ -266,8 +255,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_update(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_update(self, provider, api_key, model):
         """Test that system prompt can be updated and new one is remembered."""
         agent_name = f"test_update_{model.replace('-', '_')}"
 
@@ -344,10 +333,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_different_agents_different_prompts(
-        self, mcp, provider, api_key, model
-    ):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_different_agents_different_prompts(self, provider, api_key, model):
         """Test that different agents can have different system prompts."""
 
         # Provider-specific parameters for Agent 1
@@ -498,8 +485,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_empty_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_empty_system_prompt(self, provider, api_key, model):
         """Test behavior with empty system prompt."""
 
         # Provider-specific parameters
@@ -539,8 +526,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_none_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_none_system_prompt(self, provider, api_key, model):
         """Test behavior with None system prompt."""
 
         # Provider-specific parameters
@@ -579,8 +566,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_very_long_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_very_long_system_prompt(self, provider, api_key, model):
         """Test behavior with very long system prompt."""
         long_prompt = "You are a helpful assistant. " * 100  # Very long prompt
 
@@ -621,10 +608,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_special_characters_system_prompt(
-        self, mcp, provider, api_key, model
-    ):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_special_characters_system_prompt(self, provider, api_key, model):
         """Test system prompt with special characters and Unicode."""
         special_prompt = (
             "You are a helpful assistant 🤖. Use emojis: ∑, ∏, ∆, ∇, ∈, ∉, ∀, ∃"

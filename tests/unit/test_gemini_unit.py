@@ -1,10 +1,11 @@
-"""Unit tests for Gemini LLM tool functionality."""
+"""Unit tests for Gemini LLM provider adapter."""
 
 import pytest
 
-from mcp_handley_lab.llm.providers.gemini.tool import (
+from mcp_handley_lab.llm.providers.gemini.adapter import (
     MODEL_CONFIGS,
-    _get_model_config,
+    get_model_config,
+    resolve_files,
 )
 
 
@@ -50,13 +51,13 @@ class TestModelConfiguration:
         ],
     )
     def test_get_model_config_parameterized(self, model_name, expected_output_tokens):
-        """Test _get_model_config with various known models."""
-        config = _get_model_config(model_name)
+        """Test get_model_config with various known models."""
+        config = get_model_config(model_name)
         assert config["output_tokens"] == expected_output_tokens
 
     def test_get_model_config_unknown_model(self):
-        """Test _get_model_config falls back to default for unknown models."""
-        config = _get_model_config("unknown-model")
+        """Test get_model_config falls back to default for unknown models."""
+        config = get_model_config("unknown-model")
         # Should default to gemini-3-pro-preview
         assert config["output_tokens"] == 64000
 
@@ -65,12 +66,10 @@ class TestGeminiHelpers:
     """Test Gemini internal helper functions."""
 
     def test_resolve_files_processing_error(self):
-        """Test file processing error in _resolve_files - should fail fast."""
-        from mcp_handley_lab.llm.providers.gemini.tool import _resolve_files
-
+        """Test file processing error in resolve_files - should fail fast."""
         # Use invalid path that will cause stat() to fail
         files = ["/invalid/nonexistent/path"]
 
         # Should raise FileNotFoundError instead of adding error text
         with pytest.raises(FileNotFoundError):
-            _resolve_files(files)
+            resolve_files(files)

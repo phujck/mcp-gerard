@@ -6,15 +6,11 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 from PIL import Image
 
-from mcp_handley_lab.llm.providers.claude.tool import mcp as claude_mcp
-from mcp_handley_lab.llm.providers.gemini.tool import mcp as gemini_mcp
-from mcp_handley_lab.llm.providers.grok.tool import mcp as grok_mcp
-from mcp_handley_lab.llm.providers.openai.tool import mcp as openai_mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
-# Define provider-specific parameters (MCP instances)
+# Define provider-specific parameters (unified MCP, model determines provider)
 llm_providers = [
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-haiku-4-5-20251001",
@@ -23,7 +19,6 @@ llm_providers = [
         id="claude",
     ),
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-flash",
@@ -32,7 +27,6 @@ llm_providers = [
         id="gemini",
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o-mini",
@@ -41,7 +35,6 @@ llm_providers = [
         id="openai",
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-3-mini",
@@ -56,28 +49,24 @@ llm_providers = [
 
 image_providers = [
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-sonnet-4-5-20250929",
         id="claude",
     ),
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-pro",
         id="gemini",
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o",
         id="openai",
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-2-vision-1212",
@@ -89,11 +78,10 @@ image_providers = [
 ]
 
 server_info_providers = [
-    pytest.param(claude_mcp, "ANTHROPIC_API_KEY", id="claude"),
-    pytest.param(gemini_mcp, "GEMINI_API_KEY", id="gemini"),
-    pytest.param(openai_mcp, "OPENAI_API_KEY", id="openai"),
+    pytest.param("ANTHROPIC_API_KEY", id="claude"),
+    pytest.param("GEMINI_API_KEY", id="gemini"),
+    pytest.param("OPENAI_API_KEY", id="openai"),
     pytest.param(
-        grok_mcp,
         "XAI_API_KEY",
         id="grok",
         marks=pytest.mark.skip(
@@ -118,13 +106,10 @@ def create_test_image(tmp_path):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_ask_basic(
     skip_if_no_api_key,
     test_output_file,
-    mcp,
     provider,
     api_key,
     model,
@@ -177,14 +162,11 @@ async def test_llm_ask_basic(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_ask_with_files(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,
-    mcp,
     provider,
     api_key,
     model,
@@ -241,12 +223,11 @@ async def test_llm_ask_with_files(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mcp, provider, api_key, model", image_providers)
+@pytest.mark.parametrize("provider, api_key, model", image_providers)
 async def test_llm_analyze_image(
     skip_if_no_api_key,
     test_output_file,
     create_test_image,
-    mcp,
     provider,
     api_key,
     model,
@@ -283,13 +264,10 @@ async def test_llm_analyze_image(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_memory_disabled(
     skip_if_no_api_key,
     test_output_file,
-    mcp,
     provider,
     api_key,
     model,
@@ -342,8 +320,8 @@ async def test_llm_memory_disabled(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mcp, api_key", server_info_providers)
-async def test_llm_server_info(skip_if_no_api_key, mcp, api_key):
+@pytest.mark.parametrize("api_key", server_info_providers)
+async def test_llm_server_info(skip_if_no_api_key, api_key):
     """Test server info for all LLM providers."""
     skip_if_no_api_key(api_key)
 
@@ -357,13 +335,10 @@ async def test_llm_server_info(skip_if_no_api_key, mcp, api_key):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_input_validation(
     skip_if_no_api_key,
     test_output_file,
-    mcp,
     provider,
     api_key,
     model,
@@ -419,10 +394,9 @@ async def test_llm_input_validation(
     )
 
 
-# Error scenario test parameters (MCP instances)
+# Error scenario test parameters (unified MCP, model determines provider)
 error_scenarios = [
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-haiku-4-5-20251001",
@@ -431,7 +405,6 @@ error_scenarios = [
         id="claude-invalid-model",
     ),
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-flash",
@@ -440,7 +413,6 @@ error_scenarios = [
         id="gemini-invalid-model",
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o-mini",
@@ -449,7 +421,6 @@ error_scenarios = [
         id="openai-invalid-model",
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-3-mini",
@@ -466,13 +437,12 @@ error_scenarios = [
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "mcp, provider, api_key, valid_model, invalid_value, error_param",
+    "provider, api_key, valid_model, invalid_value, error_param",
     error_scenarios,
 )
 async def test_llm_error_scenarios(
     skip_if_no_api_key,
     test_output_file,
-    mcp,
     provider,
     api_key,
     valid_model,
@@ -522,13 +492,10 @@ async def test_llm_error_scenarios(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, prompt, expected", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, prompt, expected", llm_providers)
 async def test_llm_response_metadata_fields(
     skip_if_no_api_key,
     test_output_file,
-    mcp,
     provider,
     api_key,
     model,
@@ -635,7 +602,7 @@ class TestLLMMemory:
         agent_name = f"test_memory_agent_{uuid.uuid4()}"  # Unique name per test run
 
         # Call 1: Provide a piece of information
-        _, response1 = await openai_mcp.call_tool(
+        _, response1 = await mcp.call_tool(
             "ask",
             {
                 "prompt": "My user ID is 789. Remember this important number.",
@@ -651,7 +618,7 @@ class TestLLMMemory:
 
         # Call 2: Ask a question that relies on the information from Call 1
         test_output_file2 = test_output_file.replace(".txt", "_2.txt")
-        _, response2 = await openai_mcp.call_tool(
+        _, response2 = await mcp.call_tool(
             "ask",
             {
                 "prompt": "What was my user ID that I told you?",
@@ -681,7 +648,7 @@ class TestLLMMemory:
         agent_name2 = f"agent_2_{uuid.uuid4()}"
 
         # Agent 1: Remember number 123
-        _, _ = await openai_mcp.call_tool(
+        _, _ = await mcp.call_tool(
             "ask",
             {
                 "prompt": "My favorite number is 123. Remember this.",
@@ -695,7 +662,7 @@ class TestLLMMemory:
 
         # Agent 2: Ask about the number (should NOT know it)
         test_output_file2 = test_output_file.replace(".txt", "_agent2.txt")
-        _, _ = await openai_mcp.call_tool(
+        _, _ = await mcp.call_tool(
             "ask",
             {
                 "prompt": "What is my favorite number?",
@@ -729,14 +696,11 @@ class TestLLMMemory:
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_prompt_file_basic(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,
-    mcp,
     provider,
     api_key,
     model,
@@ -793,14 +757,11 @@ async def test_llm_prompt_file_basic(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_prompt_file_with_template_vars(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,
-    mcp,
     provider,
     api_key,
     model,
@@ -860,14 +821,11 @@ async def test_llm_prompt_file_with_template_vars(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_system_prompt_file_with_templates(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,
-    mcp,
     provider,
     api_key,
     model,
@@ -929,14 +887,11 @@ async def test_llm_system_prompt_file_with_templates(
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "mcp, provider, api_key, model, question, answer", llm_providers
-)
+@pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
 async def test_llm_prompt_file_xor_validation(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,
-    mcp,
     provider,
     api_key,
     model,

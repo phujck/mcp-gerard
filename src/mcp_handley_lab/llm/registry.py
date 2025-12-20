@@ -39,12 +39,15 @@ MODEL_PREFIXES = [
     ("mixtral-", "groq"),
 ]
 
-# Claude model aliases
-CLAUDE_ALIASES = {
+# Model aliases (shorthand → full model ID)
+MODEL_ALIASES = {
+    # Claude shorthand aliases
     "sonnet": "claude-sonnet-4-5-20250929",
     "opus": "claude-opus-4-1-20250805",
     "haiku": "claude-haiku-4-5-20251001",
 }
+
+# Provider name aliases are added dynamically from YAML defaults
 
 # Provider-specific options and their valid values
 PROVIDER_OPTIONS = {
@@ -115,17 +118,30 @@ def build_model_registry() -> dict[str, tuple[str, dict[str, Any]]]:
     Returns:
         Dict mapping model_id → (provider, model_config)
     """
+    from mcp_handley_lab.llm.model_loader import load_model_config
+
     registry: dict[str, tuple[str, dict[str, Any]]] = {}
+    provider_defaults: dict[str, str] = {}
 
     for provider in PROVIDERS:
-        models = _load_models_yaml(provider)
-        for model_id, config in models.items():
-            registry[model_id] = (provider, config)
+        config = load_model_config(provider)
+        models = config.get("models", {})
+        for model_id, model_config in models.items():
+            registry[model_id] = (provider, model_config)
 
-    # Add Claude aliases
-    for alias, full_id in CLAUDE_ALIASES.items():
+        # Track default model for provider alias
+        if "default_model" in config:
+            provider_defaults[provider] = config["default_model"]
+
+    # Add model aliases (sonnet, opus, haiku, etc.)
+    for alias, full_id in MODEL_ALIASES.items():
         if full_id in registry:
             registry[alias] = registry[full_id]
+
+    # Add provider name aliases (gemini, openai, claude, etc.)
+    for provider, default_model in provider_defaults.items():
+        if default_model in registry:
+            registry[provider] = registry[default_model]
 
     return registry
 
@@ -135,23 +151,18 @@ MODEL_REGISTRY = build_model_registry()
 
 
 def get_default_model(provider: str) -> str:
-    """Get the default model for a provider."""
-    defaults = {
-        "gemini": "gemini-2.5-flash",
-        "openai": "gpt-5.2",
-        "claude": "claude-sonnet-4-5-20250929",
-        "mistral": "mistral-large-latest",
-        "grok": "grok-4-fast-reasoning",
-        "groq": "llama-3.3-70b-versatile",
-    }
-    return defaults.get(provider, "")
+    """Get the default model for a provider from its YAML config."""
+    from mcp_handley_lab.llm.model_loader import load_model_config
+
+    config = load_model_config(provider)
+    return config.get("default_model", "")
 
 
 def resolve_model(model: str) -> tuple[str, str, dict[str, Any]]:
     """Resolve a model name to its provider and configuration.
 
     Args:
-        model: Model name (e.g., "gemini-2.5-flash", "sonnet", "gpt-5.2")
+        model: Model name, alias (e.g., "sonnet"), or provider name (e.g., "gemini")
 
     Returns:
         Tuple of (provider, canonical_model_id, model_config)
@@ -159,11 +170,17 @@ def resolve_model(model: str) -> tuple[str, str, dict[str, Any]]:
     Raises:
         ValueError: If model cannot be resolved to any provider
     """
-    # 1. Exact match in registry (includes aliases)
+    # 1. Exact match in registry (includes aliases and provider names)
     if model in MODEL_REGISTRY:
         provider, config = MODEL_REGISTRY[model]
         # Resolve alias to canonical ID if needed
-        canonical_id = CLAUDE_ALIASES.get(model, model)
+        if model in MODEL_ALIASES:
+            canonical_id = MODEL_ALIASES[model]
+        elif model in PROVIDERS:
+            # Provider name used as alias - get its default model
+            canonical_id = get_default_model(model)
+        else:
+            canonical_id = model
         return provider, canonical_id, config
 
     # 2. Prefix fallback (sorted by length, longest first)
@@ -324,7 +341,7 @@ def list_all_models() -> dict[str, list[dict[str, Any]]]:
 
     for model_id, (provider, config) in MODEL_REGISTRY.items():
         # Skip aliases (they duplicate the canonical entry)
-        if model_id in CLAUDE_ALIASES:
+        if model_id in MODEL_ALIASES or model_id in PROVIDERS:
             continue
 
         # Get supported options for this model

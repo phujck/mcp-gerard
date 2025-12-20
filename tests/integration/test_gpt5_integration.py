@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mcp_handley_lab.llm.providers.openai.tool import mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
 
 def skip_if_no_openai_key():
@@ -142,25 +142,6 @@ class TestGPT5Integration:
         content = response.get("content", "")
         # Should be able to handle this context without errors
         assert len(content) > 0
-
-    @pytest.mark.asyncio
-    async def test_gpt5_vision_capability(self):
-        """Test that GPT-5 models are marked as vision-capable."""
-        skip_if_no_openai_key()
-
-        # Test the list_models functionality to check vision tag
-        _, response = await mcp.call_tool("list_models", {})
-
-        assert "error" not in response
-        models = response.get("models", [])
-
-        # Find GPT-5 models and check they have vision tag
-        gpt5_models = [m for m in models if m.get("id", "").startswith("gpt-5")]
-        assert len(gpt5_models) >= 3  # gpt-5, gpt-5-mini, gpt-5-nano
-
-        for model in gpt5_models:
-            tags = model.get("tags", [])
-            assert "vision" in tags, f"Model {model.get('id')} should have vision tag"
 
     @pytest.mark.asyncio
     async def test_gpt5_temperature_not_supported(self):

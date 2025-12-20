@@ -5,7 +5,6 @@ These adapters are used by the unified mcp-chat tool.
 """
 
 import base64
-import mimetypes
 import threading
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ from mistralai import Mistral
 
 from mcp_handley_lab.common.config import settings
 from mcp_handley_lab.llm.common import (
+    determine_mime_type,
     is_text_file,
     load_provider_models,
     resolve_image_data,
@@ -95,11 +95,11 @@ def resolve_files(files: list[str]) -> list[dict[str, Any]]:
             )
         else:
             # For images, encode as base64 with proper MIME type
-            mime_type, _ = mimetypes.guess_type(str(file_path))
-            if not mime_type or not mime_type.startswith("image/"):
+            mime_type = determine_mime_type(file_path)
+            if not mime_type.startswith("image/"):
                 raise ValueError(
                     f"Unsupported file type for chat/vision: {file_path} "
-                    f"({mime_type or 'unknown'}). Only text and image files are supported."
+                    f"({mime_type}). Only text and image files are supported."
                 )
             file_content = file_path.read_bytes()
             encoded_content = base64.b64encode(file_content).decode()
@@ -214,8 +214,8 @@ def image_analysis_adapter(
         # Detect MIME type from path or default to jpeg
         mime_type = "image/jpeg"
         if isinstance(image_item, str) and not image_item.startswith("data:"):
-            guessed_type, _ = mimetypes.guess_type(image_item)
-            if guessed_type and guessed_type.startswith("image/"):
+            guessed_type = determine_mime_type(Path(image_item))
+            if guessed_type.startswith("image/"):
                 mime_type = guessed_type
         content.append(
             {
