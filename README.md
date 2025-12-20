@@ -47,16 +47,21 @@ export GOOGLE_MAPS_API_KEY="AIza..."
 # 5. Register essential tools with Claude (add others as needed)
 # Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
 # Only register the tools you actively need to maintain optimal performance
-claude mcp add gemini --scope user mcp-gemini
-claude mcp add openai --scope user mcp-openai
+
+# Unified LLM tools (one tool handles all providers via model inference)
+claude mcp add llm-chat --scope user mcp-llm-chat      # Chat with any LLM (Gemini, OpenAI, Claude, etc.)
+claude mcp add llm-image --scope user mcp-llm-image    # Image generation (DALL-E, Imagen)
+claude mcp add llm-models --scope user mcp-llm-models  # List available models
+
+# Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
 claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
-# claude mcp add claude --scope user mcp-claude
-# claude mcp add groq --scope user mcp-groq
-# claude mcp add grok --scope user mcp-grok
+# claude mcp add llm-embeddings --scope user mcp-llm-embeddings  # Semantic embeddings
+# claude mcp add llm-ocr --scope user mcp-llm-ocr                # Document OCR
+# claude mcp add llm-audio --scope user mcp-llm-audio            # Audio transcription
 # claude mcp add py2nb --scope user mcp-py2nb
 # claude mcp add code2prompt --scope user mcp-code2prompt
 # claude mcp add google-calendar --scope user mcp-google-calendar
@@ -98,15 +103,21 @@ export PATH="/absolute/path/to/mcp-handley-lab/.venv/bin:$PATH"
 # 5. Register essential tools with Claude (add others as needed)
 # Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
 # Only register the tools you actively need to maintain optimal performance
-claude mcp add gemini --scope user mcp-gemini
-claude mcp add openai --scope user mcp-openai
+
+# Unified LLM tools (one tool handles all providers via model inference)
+claude mcp add llm-chat --scope user mcp-llm-chat      # Chat with any LLM
+claude mcp add llm-image --scope user mcp-llm-image    # Image generation
+claude mcp add llm-models --scope user mcp-llm-models  # List available models
+
+# Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
 claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
-# claude mcp add claude --scope user mcp-claude
-# claude mcp add grok --scope user mcp-grok
+# claude mcp add llm-embeddings --scope user mcp-llm-embeddings
+# claude mcp add llm-ocr --scope user mcp-llm-ocr
+# claude mcp add llm-audio --scope user mcp-llm-audio
 # claude mcp add py2nb --scope user mcp-py2nb
 # claude mcp add code2prompt --scope user mcp-code2prompt
 # claude mcp add google-calendar --scope user mcp-google-calendar
@@ -120,13 +131,17 @@ claude mcp add word --scope user mcp-word
 
 ## Available Tools
 
-### 🤖 **AI Integration** (`gemini`, `openai`, `claude`, `groq`, `grok`)
-Connect with major AI providers
-  - Persistent conversations with memory
-  - Image analysis and generation
-  - Claude, Gemini, OpenAI, Groq, and Grok support
-  - Groq uses LPUs to deliver fast inference for Moonshot Kimi-k2 model (as well as a selection of other open source models)
-  - _Claude example_: `> ask gemini to review the changes you just made`
+### 🤖 **Unified LLM Tools** (`llm-chat`, `llm-image`, `llm-embeddings`, `llm-ocr`, `llm-audio`, `llm-models`)
+Connect with multiple AI providers through unified interfaces
+  - **llm-chat**: Chat with any LLM - provider inferred from model name (e.g., `gpt-5.2` → OpenAI, `gemini-2.5-flash` → Gemini)
+  - **llm-image**: Generate images with DALL-E, Imagen, or Grok
+  - **llm-embeddings**: Semantic embeddings for text (OpenAI, Gemini, Mistral)
+  - **llm-ocr**: Document OCR via Mistral
+  - **llm-audio**: Audio transcription via Mistral Voxtral
+  - **llm-models**: List all available models across providers
+  - Persistent conversations with memory via `agent_name` parameter
+  - Supported providers: OpenAI, Gemini, Claude, Mistral, Grok, Groq
+  - _Claude example_: `> ask gpt-5.2 to review the changes you just made`
 
 ### 📚 **ArXiv** (`arxiv`)
 Search and download academic papers from ArXiv
@@ -209,14 +224,14 @@ You can use AI tools to analyze outputs from other tools. For example:
 # 1. Use code2prompt to summarize your codebase
 # Claude will run: mcp__code2prompt__generate_prompt path="/your/project" output_file="/tmp/summary.md"
 
-# 2. Then ask Gemini to review it
-# Claude will run: mcp__gemini__ask prompt="Review this codebase" files=[{"path": "/tmp/summary.md"}]
+# 2. Then ask any LLM to review it (provider inferred from model name)
+# Claude will run: mcp__llm-chat__ask model="gemini-2.5-flash" prompt="Review this codebase" files=["/tmp/summary.md"]
 ```
 
 This pattern works because:
 - `code2prompt` creates a structured markdown file with your code
-- AI tools like Gemini can read files as context
-- The AI gets a view of your codebase without hitting token limits
+- The unified `llm-chat` tool can read files as context
+- The provider is automatically inferred from the model name
 
 
 ## Testing
