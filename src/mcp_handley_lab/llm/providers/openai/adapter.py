@@ -213,6 +213,7 @@ def image_analysis_adapter(
     prompt_text, image_blocks = resolve_images_for_multimodal_prompt(prompt, images)
 
     # Build content blocks for Responses API multimodal input
+    # Use "input_text" for user text, "input_image" for images (Responses API format)
     current_content: list[dict[str, Any]] = [
         {"type": "input_text", "text": prompt_text}
     ]
@@ -225,25 +226,23 @@ def image_analysis_adapter(
         )
 
     # Build input with conversation history
+    # Responses API format: {"role": "...", "content": [...]} without "type": "message" wrapper
     if history:
         input_messages: list[dict[str, Any]] = []
         for msg in history:
             role = msg.get("role", "user")
-            # Use output_text for assistant messages, input_text for user messages
+            # Use "output_text" for assistant messages, "input_text" for user messages
             content_type = "output_text" if role == "assistant" else "input_text"
             input_messages.append(
                 {
-                    "type": "message",
                     "role": role,
                     "content": [{"type": content_type, "text": msg.get("content", "")}],
                 }
             )
-        input_messages.append(
-            {"type": "message", "role": "user", "content": current_content}
-        )
+        input_messages.append({"role": "user", "content": current_content})
         input_value: Any = input_messages
     else:
-        input_value = [{"type": "message", "role": "user", "content": current_content}]
+        input_value = [{"role": "user", "content": current_content}]
 
     default_tokens = model_config["output_tokens"]
 

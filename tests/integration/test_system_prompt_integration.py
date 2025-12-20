@@ -69,8 +69,8 @@ image_analysis_providers = [
         "OPENAI_API_KEY",
         "gpt-4o",
         id="openai",
-        marks=pytest.mark.skip(
-            reason="OpenAI Responses API has compatibility issues with image analysis + system prompts"
+        marks=pytest.mark.skipif(
+            not openai_available, reason="OPENAI_API_KEY not available"
         ),
     ),
     pytest.param(
