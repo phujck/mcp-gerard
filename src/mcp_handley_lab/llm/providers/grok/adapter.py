@@ -111,18 +111,23 @@ def generation_adapter(
 
     # Get message content - check both content and reasoning_content
     message_content = response.content or ""
-    if not message_content and response.reasoning_content:
+    if not message_content and getattr(response, "reasoning_content", None):
         message_content = response.reasoning_content
+
+    # Extract usage with fallbacks for optional fields
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
+    output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
 
     return {
         "text": message_content,
-        "input_tokens": response.usage.prompt_tokens,
-        "output_tokens": response.usage.completion_tokens,
-        "finish_reason": str(response.finish_reason),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "finish_reason": str(getattr(response, "finish_reason", "") or ""),
         "avg_logprobs": avg_logprobs,
         "model_version": model,
-        "response_id": response.id or "",
-        "system_fingerprint": response.system_fingerprint or "",
+        "response_id": getattr(response, "id", "") or "",
+        "system_fingerprint": getattr(response, "system_fingerprint", "") or "",
         "service_tier": "",  # Grok doesn't have service tiers
         "completion_tokens_details": {},
         "prompt_tokens_details": {},
@@ -193,18 +198,23 @@ def image_analysis_adapter(
 
     # Get message content - check both content and reasoning_content
     message_content = response.content or ""
-    if not message_content and response.reasoning_content:
+    if not message_content and getattr(response, "reasoning_content", None):
         message_content = response.reasoning_content
+
+    # Extract usage with fallbacks for optional fields
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
+    output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
 
     return {
         "text": message_content,
-        "input_tokens": response.usage.prompt_tokens,
-        "output_tokens": response.usage.completion_tokens,
-        "finish_reason": str(response.finish_reason),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "finish_reason": str(getattr(response, "finish_reason", "") or ""),
         "avg_logprobs": 0.0,
         "model_version": model,
-        "response_id": response.id or "",
-        "system_fingerprint": response.system_fingerprint or "",
+        "response_id": getattr(response, "id", "") or "",
+        "system_fingerprint": getattr(response, "system_fingerprint", "") or "",
         "service_tier": "",
         "completion_tokens_details": {},
         "prompt_tokens_details": {},

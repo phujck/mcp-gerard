@@ -155,18 +155,23 @@ class TestAgentMemory:
         assert stats["system_prompt"] == "helpful"
 
     def test_get_response_valid_index(self, tmp_path):
-        """Test getting response by valid index."""
+        """Test getting response by valid index (assistant messages only)."""
         agents_dir = tmp_path / "agents"
         agent = AgentMemory("test", agents_dir)
         agent.add_message("user", "Hello")
         agent.add_message("assistant", "Hi there")
+        agent.add_message("user", "How are you?")
+        agent.add_message("assistant", "I'm fine!")
 
-        # Test default (-1, last message)
-        assert agent.get_response() == "Hi there"
-        assert agent.get_response(-1) == "Hi there"
+        # Test default (-1, last assistant message)
+        assert agent.get_response() == "I'm fine!"
+        assert agent.get_response(-1) == "I'm fine!"
 
-        # Test first message
-        assert agent.get_response(0) == "Hello"
+        # Test first assistant message (index 0)
+        assert agent.get_response(0) == "Hi there"
+
+        # Test second-to-last assistant message
+        assert agent.get_response(-2) == "Hi there"
 
     def test_get_response_empty_raises(self, tmp_path):
         """Test getting response from empty message list raises IndexError."""
@@ -174,7 +179,19 @@ class TestAgentMemory:
         agent = AgentMemory("test", agents_dir)
 
         with pytest.raises(
-            IndexError, match="Cannot get response: agent has no message history"
+            IndexError, match="Cannot get response: agent has no assistant responses"
+        ):
+            agent.get_response()
+
+    def test_get_response_no_assistant_messages_raises(self, tmp_path):
+        """Test getting response when only user messages exist raises IndexError."""
+        agents_dir = tmp_path / "agents"
+        agent = AgentMemory("test", agents_dir)
+        agent.add_message("user", "Hello")
+        agent.add_message("user", "Anyone there?")
+
+        with pytest.raises(
+            IndexError, match="Cannot get response: agent has no assistant responses"
         ):
             agent.get_response()
 
@@ -222,7 +239,7 @@ class TestGlobalMemoryManager:
 
     def test_memory_manager_creation(self, tmp_path, monkeypatch):
         """Test memory manager creation."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         assert manager.cwd == tmp_path
@@ -232,7 +249,7 @@ class TestGlobalMemoryManager:
 
     def test_create_agent(self, tmp_path, monkeypatch):
         """Test creating a new agent."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         agent = manager.create_agent("test_agent", "helpful system prompt")
@@ -242,7 +259,7 @@ class TestGlobalMemoryManager:
 
     def test_get_agent_exists(self, tmp_path, monkeypatch):
         """Test getting existing agent."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         manager.create_agent("test_agent")
@@ -253,7 +270,7 @@ class TestGlobalMemoryManager:
 
     def test_get_agent_not_exists(self, tmp_path, monkeypatch):
         """Test getting non-existing agent."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         agent = manager.get_agent("nonexistent")
@@ -262,7 +279,7 @@ class TestGlobalMemoryManager:
 
     def test_list_agents(self, tmp_path, monkeypatch):
         """Test listing all agents."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         assert len(manager.list_agents()) == 0
@@ -278,7 +295,7 @@ class TestGlobalMemoryManager:
 
     def test_delete_agent(self, tmp_path, monkeypatch):
         """Test deleting agent."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         manager.create_agent("test_agent")
@@ -293,7 +310,7 @@ class TestGlobalMemoryManager:
 
     def test_add_message_creates_agent(self, tmp_path, monkeypatch):
         """Test add_message creates agent if not exists."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Agent doesn't exist yet
@@ -315,7 +332,7 @@ class TestGlobalMemoryManager:
 
     def test_clear_agent_history(self, tmp_path, monkeypatch):
         """Test clearing agent history."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         manager.create_agent("test_agent")
@@ -328,23 +345,27 @@ class TestGlobalMemoryManager:
         assert len(agent.messages) == 0
 
     def test_get_response(self, tmp_path, monkeypatch):
-        """Test getting response from agent."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        """Test getting response from agent (assistant messages only)."""
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         manager.create_agent("test_agent")
         manager.add_message("test_agent", "user", "Hello")
         manager.add_message("test_agent", "assistant", "Hi there")
+        manager.add_message("test_agent", "user", "How are you?")
+        manager.add_message("test_agent", "assistant", "I'm fine!")
 
+        # Default: last assistant response
         response = manager.get_response("test_agent")
-        assert response == "Hi there"
+        assert response == "I'm fine!"
 
+        # Index 0: first assistant response
         response = manager.get_response("test_agent", 0)
-        assert response == "Hello"
+        assert response == "Hi there"
 
     def test_get_response_nonexistent_raises(self, tmp_path, monkeypatch):
         """Test getting response from non-existing agent raises."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         with pytest.raises(ValueError, match="not found"):
@@ -352,7 +373,7 @@ class TestGlobalMemoryManager:
 
     def test_project_metadata(self, tmp_path, monkeypatch):
         """Test project metadata is created and updated."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         metadata_file = manager._project_dir / "project.json"

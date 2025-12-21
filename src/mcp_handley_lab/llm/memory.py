@@ -1,6 +1,6 @@
 """Agent memory management for persistent LLM conversations.
 
-Stores conversation history in global ~/.handley-lab/llm/projects/<encoded-path>/agents/
+Stores conversation history in global ~/.mcp-handley-lab/projects/<encoded-path>/agents/
 with JSONL format for append-only durability.
 """
 
@@ -35,7 +35,7 @@ def encode_project_path(path: Path) -> str:
 
 def get_global_storage_dir() -> Path:
     """Get the global storage directory for LLM memory."""
-    base = Path(os.environ.get("HANDLEY_LAB_MEMORY_DIR", "~/.handley-lab/llm"))
+    base = Path(os.environ.get("MCP_HANDLEY_LAB_MEMORY_DIR", "~/.mcp-handley-lab"))
     return base.expanduser()
 
 
@@ -285,10 +285,15 @@ class AgentMemory:
         return self._messages
 
     def get_response(self, index: int = -1) -> str:
-        """Get a message content by index. Raises IndexError if not found."""
-        if not self._messages:
-            raise IndexError("Cannot get response: agent has no message history")
-        return self._messages[index]["content"]
+        """Get an assistant response by index. Raises IndexError if not found.
+
+        Only considers assistant messages. Index 0 is the first response,
+        -1 is the last, -2 is second-to-last, etc.
+        """
+        responses = [msg for msg in self._messages if msg["role"] == "assistant"]
+        if not responses:
+            raise IndexError("Cannot get response: agent has no assistant responses")
+        return responses[index]["content"]
 
 
 class GlobalMemoryManager:
@@ -302,59 +307,41 @@ class GlobalMemoryManager:
         self._ensure_project_metadata()
 
     def _ensure_project_metadata(self):
-        """Ensure project.json exists with metadata, using file locking."""
+        """Ensure project.json exists with metadata, using atomic writes."""
         self._project_dir.mkdir(parents=True, exist_ok=True)
         metadata_file = self._project_dir / "project.json"
 
         now = datetime.now().isoformat()
 
-        # Use open with locking for atomic read-modify-write
+        # Read existing metadata if present
+        data = None
         try:
-            with open(metadata_file, "r+", encoding="utf-8") as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    data = json.load(f)
-                    data["last_used_at"] = now
-                    f.seek(0)
-                    f.truncate()
-                    json.dump(data, f, indent=2)
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        except FileNotFoundError:
-            # Create new metadata file with locking
-            with open(metadata_file, "w", encoding="utf-8") as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    metadata = ProjectMetadata(
-                        original_path=str(self.cwd.resolve()),
-                        created_at=now,
-                        last_used_at=now,
-                    )
-                    json.dump(metadata.model_dump(), f, indent=2)
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        except (json.JSONDecodeError, KeyError):
-            # Corrupted file, recreate it
-            with open(metadata_file, "w", encoding="utf-8") as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    metadata = ProjectMetadata(
-                        original_path=str(self.cwd.resolve()),
-                        created_at=now,
-                        last_used_at=now,
-                    )
-                    json.dump(metadata.model_dump(), f, indent=2)
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            with open(metadata_file, encoding="utf-8") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            pass
+
+        # Build metadata
+        if data:
+            data["last_used_at"] = now
+        else:
+            data = ProjectMetadata(
+                original_path=str(self.cwd.resolve()),
+                created_at=now,
+                last_used_at=now,
+            ).model_dump()
+
+        # Atomic write: tmp file + os.replace
+        tmp_file = metadata_file.with_suffix(".json.tmp")
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_file, metadata_file)
 
     def create_agent(self, name: str, system_prompt: str | None = None) -> AgentMemory:
         """Create a new agent or get existing one."""
+        validate_agent_name(name)
         if name in self._agents:
             agent = self._agents[name]
             if system_prompt is not None:
@@ -369,6 +356,7 @@ class GlobalMemoryManager:
 
     def get_agent(self, name: str) -> AgentMemory | None:
         """Get an existing agent."""
+        validate_agent_name(name)
         if name not in self._agents:
             agent_file = self._agents_dir / f"{name}.jsonl"
             if agent_file.exists():
@@ -398,6 +386,7 @@ class GlobalMemoryManager:
 
     def delete_agent(self, name: str) -> None:
         """Delete an agent."""
+        validate_agent_name(name)
         if name in self._agents:
             del self._agents[name]
         agent_file = self._agents_dir / f"{name}.jsonl"
@@ -440,10 +429,6 @@ class GlobalMemoryManager:
         if not agent:
             raise ValueError(f"Agent '{agent_name}' not found")
         return agent.get_response(index)
-
-    def _save_agent(self, agent: AgentMemory):
-        """Compatibility method - JSONL agents auto-save on each operation."""
-        pass
 
 
 # Global memory manager instance - initialized lazily per project

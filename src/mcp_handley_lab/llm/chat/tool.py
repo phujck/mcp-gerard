@@ -43,12 +43,14 @@ def ask(
     output_file: str = Field(
         default="-",
         description="File path to save the response. Defaults to '-' (stdout only). "
-        "With global memory, responses are stored in ~/.handley-lab/llm/ and can be "
+        "With global memory, responses are stored in ~/.mcp-handley-lab/ and can be "
         "retrieved later via get_response().",
     ),
     agent_name: str = Field(
         default="session",
-        description="Conversation thread name. Use 'session' for temporary, custom name for persistent, 'false' to disable.",
+        description="Conversation thread name. 'session' uses a shared auto-generated ID "
+        "(WARNING: collides across sub-agents). Use unique names for isolated conversations, "
+        "'false' to disable memory.",
     ),
     model: str = Field(
         default="gemini",
@@ -137,7 +139,8 @@ def analyze_image(
     ),
     agent_name: str = Field(
         default="session",
-        description="Conversation thread name.",
+        description="Conversation thread name. 'session' uses a shared auto-generated ID "
+        "(WARNING: collides across sub-agents). Use unique names for isolated conversations.",
     ),
     system_prompt: str | None = Field(
         default=None,
@@ -170,24 +173,41 @@ def analyze_image(
 
 
 @mcp.tool(
-    description="Retrieve a past response from an agent's conversation history. "
+    description="Retrieve a past assistant response from an agent's conversation history. "
+    "Only returns assistant messages (LLM responses), not user messages. "
     "Useful for accessing responses when output_file was not specified."
 )
 def get_response(
     agent_name: str = Field(
         ...,
-        description="The agent name to retrieve the response from.",
+        description="The agent name to retrieve the response from. "
+        "Use 'session' with provider param to get current session's responses.",
     ),
     index: int = Field(
         default=-1,
-        description="Message index. Use -1 for last response, -2 for second-to-last, "
-        "0 for first, etc.",
+        description="Response index among assistant messages only. "
+        "Use -1 for last response, -2 for second-to-last, 0 for first, etc.",
+    ),
+    provider: str = Field(
+        default="",
+        description="Provider name (gemini, openai, etc.) to resolve 'session' agent name. "
+        "Required when agent_name is 'session'.",
     ),
 ) -> str:
-    """Retrieve a message from an agent's conversation history by index.
+    """Retrieve an assistant response from an agent's conversation history.
 
-    Returns the content of the message at the specified index.
-    Raises ValueError if agent not found, IndexError if index out of range.
+    Returns the content of the assistant message at the specified index.
+    Raises ValueError if agent not found, IndexError if no assistant responses or out of range.
     """
+    from mcp_handley_lab.llm.common import get_session_id
+
+    actual_agent_name = agent_name
+    if agent_name == "session":
+        if not provider:
+            raise ValueError(
+                "provider parameter is required when agent_name is 'session'"
+            )
+        actual_agent_name = get_session_id(mcp, provider)
+
     memory_manager = get_memory_manager()
-    return memory_manager.get_response(agent_name, index)
+    return memory_manager.get_response(actual_agent_name, index)

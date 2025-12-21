@@ -37,7 +37,6 @@ def _handle_memory_setup(
             agent = memory_manager.create_agent(actual_agent_name, system_prompt)
         elif system_prompt is not None:
             agent.system_prompt = system_prompt
-            memory_manager._save_agent(agent)
 
         history = agent.get_history()
         system_instruction = agent.system_prompt
@@ -152,7 +151,6 @@ def process_llm_request(
             metadata["input_tokens"],
             metadata["output_tokens"],
             metadata["cost"],
-            lambda: actual_agent_name,
             provider=provider,
             model=model,
         )
@@ -261,7 +259,6 @@ def process_image_generation(
             input_tokens,
             output_tokens,
             cost,
-            lambda: actual_agent_name,  # Use resolved agent name, not recomputed session ID
             provider=provider,
             model=model,
         )

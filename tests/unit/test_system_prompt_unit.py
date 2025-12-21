@@ -11,7 +11,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_agent_creation_with_system_prompt(self, tmp_path, monkeypatch):
         """Test that agents are created with system prompts."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent with system prompt
@@ -22,7 +22,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_agent_creation_without_system_prompt(self, tmp_path, monkeypatch):
         """Test that agents can be created without system prompts."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent without system prompt
@@ -33,7 +33,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_system_prompt_update_and_persistence(self, tmp_path, monkeypatch):
         """Test that system prompt updates are persisted via JSONL events."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent with initial system prompt
@@ -56,7 +56,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_system_prompt_file_persistence(self, tmp_path, monkeypatch):
         """Test that system prompts are loaded from JSONL on restart."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
 
         # Create first manager and agent
         manager1 = GlobalMemoryManager(tmp_path)
@@ -87,7 +87,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_system_prompt_stats(self, tmp_path, monkeypatch):
         """Test that system prompts appear in agent statistics."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent with system prompt
@@ -101,7 +101,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_empty_system_prompt(self, tmp_path, monkeypatch):
         """Test handling of empty system prompts."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent with empty system prompt
@@ -114,7 +114,7 @@ class TestSystemPromptMemoryOperations:
 
     def test_none_system_prompt(self, tmp_path, monkeypatch):
         """Test handling of None system prompts."""
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         manager = GlobalMemoryManager(tmp_path)
 
         # Create agent with None system prompt
@@ -147,7 +147,7 @@ class TestSystemPromptSharedLogic:
 
         mock_mcp = Mock()
 
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         temp_memory = GlobalMemoryManager(tmp_path)
 
         with (
@@ -191,7 +191,7 @@ class TestSystemPromptSharedLogic:
 
         mock_mcp = Mock()
 
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         temp_memory = GlobalMemoryManager(tmp_path)
 
         with (
@@ -235,7 +235,7 @@ class TestSystemPromptSharedLogic:
 
         mock_mcp = Mock()
 
-        monkeypatch.setenv("HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
+        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
         temp_memory = GlobalMemoryManager(tmp_path)
 
         # Create agent with initial system prompt
