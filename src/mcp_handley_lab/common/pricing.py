@@ -13,7 +13,9 @@ class PricingCalculator:
     def _load_pricing_config(cls, provider: str) -> dict[str, Any]:
         """Load pricing configuration from unified model YAML file."""
         current_dir = Path(__file__).parent
-        models_file = current_dir.parent / "llm" / provider / "models.yaml"
+        models_file = (
+            current_dir.parent / "llm" / "providers" / provider / "models.yaml"
+        )
 
         with open(models_file, encoding="utf-8") as f:
             return yaml.safe_load(f)

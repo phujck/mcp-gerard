@@ -67,6 +67,178 @@ interactions:
       "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
       "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
       if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "This interaction is repetitive. Yes, I remember
+      that you want me to remember the number **777**.\n\nIf you''d like to use it
+      for something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "Understood! I remember the number: **777**.\n\nLet
+      me know if you''d like to use it for anything or if you need further assistance.
+      \ud83d\ude0a"}, {"role": "user", "content": "What number did I ask you to remember?"},
+      {"role": "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "Understood!
+      I remember the number: **777**.\n\nLet me know if you''d like to use it for
+      anything or if you need further assistance. \ud83d\ude0a"}, {"role": "user",
+      "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
       this number: 777. Just confirm you remember it."}], "model": "llama-3.1-8b-instant",
       "max_tokens": 131072, "temperature": 1.0}'
     headers:
@@ -77,13 +249,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '5184'
+      - '18170'
       Content-Type:
       - application/json
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -93,7 +265,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -107,18 +279,20 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/1VSTY/bIBC991cgLpUi2wJ/Yecf7L2XqltZGI9jagMO4M2uVvnvHUdJuj3BDPMe
-        783MJ9UDPVI1yajMuqRyZLnse5FyIeu0ZKxMpWA8hbHMlWKyahSjCXX9H1DxDsyUQyhE7Sw+KQ8y
-        ApJyUVc8L3jFEmrcAAuWL4s0Mi0ynjZ9qm2I0sYdMzmtINDjr0+q7QDv9LiDIAR5Anr8pN4teFIZ
-        gn5inI1gdw0/Jh2IxshLtYsgGHpYUVDUb5CRnxAS8oIpA6YHTyJqJh9uIxdkIgZIdF8fgdjtdj0c
-        hBCHQ/ZqX+3LuCO+D2TR8w2wBSA6ktF5EpyBOGl7IhhYgIGMm0ceTx56FSQEG7T/NVt3yeg1oYs7
-        rd71aNpuy5LQUVsdpg67F7CPRxqiW+n1d0K3RxPOG2zQRW0wYhkv2kaIuikTijxmjV10M1jk47xq
-        /yUf5TwXomyF2Dv3GNcTUrL/03cQa5oyr+qiSGh0US5fvmjbZ+5enDOeM1bz611y16OXeXAX+7AY
-        PkIE06HTE/jV69v0xrVjOYO8KfKG41zfu5N3593vbTM9nDvG5/7iZ1N4mKdWKDPX08RZfq6wPsBt
-        2eqybPK6qsR1T/k33CdUBh4p0NAARtqBXr/9BT8XLTzwAgAA
+        H4sIAAAAAAAAA2xTXW+cMBB8769Y7UukE5z4PAMvfe39gqpqKmTwcrgYm9iG5BLdf6+g5JJKfVuN
+        Z9Yz3vUbSoEVtj337TipMOGFSEuehyIp0jBruQh5zljIkjI5dTwTRccwQNP8ptbvwmNrxkmRl0Zj
+        gK0l7klgFbPTKcmzMmUBjkaQwgqV4iMP02McFk0otfNc+1XTG9mSw+rnG0ot6AWrKMCRnOMXwuoN
+        rVGEFXLn5F1jtCe9ejh7cESjAyUHAt9LB1J7srxdLYF04PzcDiA1cFDGTEf4QS6AM1gaaWzIgu+5
+        h6uZ4ZlrDyOBN58PCfS8lYcDY+xwOD7qR/3NPNNCNli5jSU+bMS1fwDnB6XA2+t6NlmzSEHAQciu
+        I0vagyU3Ge3oCGftPHEBplsvlFpIfdmcbJbO/3Oxthd7WAPcDRV877l/cBtnMlL7vd2mXBt+isAY
+        A7OQBa7FVnzFW4DKXCZrGoeVnpUKsJNaur62xJ3RWKHzZsLbrwDn95E8zTRT7eVIWEXHqMzyMo/X
+        WU/WjJOvvRlIO6zSMs0/wJ2e5HGWlUWSrnN8X567hGX/wrsojlmaJVnBAvTGc3XnZ1FU3rGdnJ4K
+        ViZpfNst19uIhHnW7xHd1Xka607qC9nJym2XuqnuuqSJyoLzDgN8qS/WPK15t39i6amO4qG9dq9x
+        W3RD06S8Xy7L5N1ru2CAjv6ufpTlUZTk2W2F7CLb9anIYoVG14JGrgXevvwBAAD//wMA6fnZA34D
+        AAA=
     headers:
       CF-RAY:
-      - 9aa53a86fde863ea-LHR
+      - 9b112a0eeb4f054f-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -128,27 +302,23 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 15:59:10 GMT
+      - Sat, 20 Dec 2025 18:22:17 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
-      - max-age=2592000
+      - max-age=15552000
       Transfer-Encoding:
       - chunked
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      set-cookie:
-      - __cf_bm=fLI1dNXViUSLBtezY.7jYZhb5lyGb3b4c8w2jnSOdJI-1765123149.9167812-1.0.1.1-B5Ca1fCBihIdT9bOdVuHyxeYtS643nBaZS0NePL8VdqZ5PMPRy87oR6Y0bkN4yK7me0tZLdqmILlpbtpBZcFM01HBmi93vl.f_B_atsOz3yPu.KYQXLZX6Hw4n3TM7IY;
-        HttpOnly; Secure; Path=/; Domain=groq.com; Expires=Sun, 07 Dec 2025 16:29:10
-        GMT
       vary:
       - Origin
       via:
       - 1.1 google
       x-groq-region:
-      - hel
+      - fra
       x-ratelimit-limit-requests:
       - '14400'
       x-ratelimit-limit-tokens:
@@ -156,13 +326,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '14397'
       x-ratelimit-remaining-tokens:
-      - '4811'
+      - '1986'
       x-ratelimit-reset-requests:
       - 18s
       x-ratelimit-reset-tokens:
-      - 11.889s
+      - 40.14s
       x-request-id:
-      - req_01kbwrkm3rekh97cmk6hh102q5
+      - req_01kcyfz1c8fkbb3ahvgvptszcv
     status:
       code: 200
       message: OK
@@ -238,8 +408,182 @@ interactions:
       "This interaction is repetitive. Yes, I remember that you want me to remember
       the number **777**.\n\nIf you''d like to use it for something or need further
       assistance, let me know."}, {"role": "user", "content": "What number did I ask
-      you to remember?"}], "model": "llama-3.1-8b-instant", "max_tokens": 131072,
-      "temperature": 1.0}'
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "This interaction is repetitive. Yes, I remember
+      that you want me to remember the number **777**.\n\nIf you''d like to use it
+      for something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "Understood! I remember the number: **777**.\n\nLet
+      me know if you''d like to use it for anything or if you need further assistance.
+      \ud83d\ude0a"}, {"role": "user", "content": "What number did I ask you to remember?"},
+      {"role": "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "Understood!
+      I remember the number: **777**.\n\nLet me know if you''d like to use it for
+      anything or if you need further assistance. \ud83d\ude0a"}, {"role": "user",
+      "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "It seems like this interaction is stuck in a loop. Yes, I remember that you
+      want me to remember the number **777**.\n\nHowever, to break the loop, I''ll
+      try to provide a different response. Instead of reminding you that I remember
+      the number, I''d like to ask: What''s the point of remembering the number 777
+      over and over?"}, {"role": "user", "content": "What number did I ask you to
+      remember?"}], "model": "llama-3.1-8b-instant", "max_tokens": 131072, "temperature":
+      1.0}'
     headers:
       Accept:
       - application/json
@@ -248,13 +592,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '5463'
+      - '18591'
       Content-Type:
       - application/json
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -264,7 +608,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -277,42 +621,35 @@ interactions:
     uri: https://api.groq.com/openai/v1/chat/completions
   response:
     body:
-      string: !!binary |
-        H4sIAAAAAAAA/1VS266kIBB8368w/TjRiYgj6p9sNhsj2o4cBRzAPbOZ+O+nnYzn8gQ0VUVVNw9Q
-        PdTQjW3o9DInXT5wFAVLOuRlkmM1JKUUIqk4S4tukLLCDmKw8g278CKeO0tUDMoauuoctgFJlIni
-        wjLOLmkM2vY4E3yeW90m/MxINVHGh9aEnTNa1aGH+s8DlOnxDvVOQu/bK0L9AGdnWqH1Xn1yrAlo
-        dg+/7Rq1fsI+0hgFGznUqCW6KIwYmfW5PZ2EEKfTGbYYZntdnJX0nFnnOYZBGeXHhnx7SlCDD3aB
-        7W8M6/H8bcUVm6A0ndJzWhVFlhZZGQPp6CU0wU5oSI9lTHwVD3hZiqzIL9nu+WjUN8rP8kFieZFW
-        QrAYgg3t/A2fVZ+1F5ilnPMiy/j28txICjP19t0cGf1/H1A3FPWKbnHq2bhhaXJeip5jLyW19N5c
-        nb3tgZ+fwuGtSdkk392kxwLvKCvP3hajUXAaEYniPucsJaN5fhHptpfcPxolWUNHEpSoR92aHrZf
-        H6FkE/trAgAA
+      string: '{"error":{"message":"Rate limit reached for model `llama-3.1-8b-instant`
+        in organization `org_01kbwrfntyf958g8gte1fv077v` service tier `on_demand`
+        on tokens per minute (TPM): Limit 6000, Used 4027, Requested 4028. Please
+        try again in 20.55s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+        '
     headers:
       CF-RAY:
-      - 9aa53a89cf9b472f-LHR
+      - 9b112a12bd64e3ca-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
       - keep-alive
-      Content-Encoding:
-      - gzip
+      Content-Length:
+      - '379'
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 15:59:10 GMT
+      - Sat, 20 Dec 2025 18:22:18 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
-      - max-age=2592000
-      Transfer-Encoding:
-      - chunked
+      - max-age=15552000
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      set-cookie:
-      - __cf_bm=5Fj5KayQ9xZXtIHNiZ1pVJRrsKSjK.6t7pAxUYVjCuY-1765123150.3627346-1.0.1.1-wC8TVXeriHN.w9wlX22uip2k9tr6AVbJ75uwdw0gEQcja4lQZafaDnXx7EHJe_RWtHtCjLG9ZK1AXWCRZ90lPJzD8gWjRofnkQ8Psl23lAXz5GCN_dZ_eerS.OANmtt5;
-        HttpOnly; Secure; Path=/; Domain=groq.com; Expires=Sun, 07 Dec 2025 16:29:10
-        GMT
+      retry-after:
+      - '21'
       vary:
       - Origin
       via:
@@ -324,15 +661,358 @@ interactions:
       x-ratelimit-limit-tokens:
       - '6000'
       x-ratelimit-remaining-requests:
-      - '14396'
+      - '14397'
       x-ratelimit-remaining-tokens:
-      - '3596'
+      - '1973'
       x-ratelimit-reset-requests:
-      - 24s
+      - 18s
       x-ratelimit-reset-tokens:
-      - 24.04s
+      - 40.27s
       x-request-id:
-      - req_01kbwrkmh6exeb9s1jpnme73ex
+      - req_01kcyfz1z0eh3rsaw9avzd07de
+    status:
+      code: 429
+      message: Too Many Requests
+- request:
+    body: '{"messages": [{"role": "user", "content": "Remember this number: 777. Just
+      confirm you remember it."}, {"role": "assistant", "content": "Understood! I
+      remember the number: **777**.\n\nLet me know if you''d like to use it for anything
+      or if you need further assistance. \ud83d\ude0a"}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**.\n\nGot it! Let me know if you
+      need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "This interaction is repetitive. Yes, I remember
+      that you want me to remember the number **777**.\n\nIf you''d like to use it
+      for something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "This interaction
+      is repetitive. Yes, I remember that you want me to remember the number **777**.\n\nIf
+      you''d like to use it for something or need further assistance, let me know."},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**."}, {"role":
+      "user", "content": "Remember this number: 777. Just confirm you remember it."},
+      {"role": "assistant", "content": "Understood! I remember the number: **777**.\n\nLet
+      me know if you''d like to use it for anything or if you need further assistance.
+      \ud83d\ude0a"}, {"role": "user", "content": "What number did I ask you to remember?"},
+      {"role": "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "Understood! I remember the number: **777**.\n\nLet me know if you''d
+      like to use it for anything or if you need further assistance. \ud83d\ude0a"},
+      {"role": "user", "content": "What number did I ask you to remember?"}, {"role":
+      "assistant", "content": "You asked me to remember the number **777**.\n\nGot
+      it! Let me know if you need it for anything. \ud83d\ude0a"}, {"role": "user",
+      "content": "Remember this number: 777. Just confirm you remember it."}, {"role":
+      "assistant", "content": "This interaction is repetitive. Yes, I remember that
+      you want me to remember the number **777**.\n\nIf you''d like to use it for
+      something or need further assistance, let me know."}, {"role": "user", "content":
+      "What number did I ask you to remember?"}, {"role": "assistant", "content":
+      "You asked me to remember the number **777**."}, {"role": "user", "content":
+      "Remember this number: 777. Just confirm you remember it."}, {"role": "assistant",
+      "content": "This interaction is repetitive. Yes, I remember that you want me
+      to remember the number **777**.\n\nIf you''d like to use it for something or
+      need further assistance, let me know."}, {"role": "user", "content": "What number
+      did I ask you to remember?"}, {"role": "assistant", "content": "You asked me
+      to remember the number **777**."}, {"role": "user", "content": "Remember this
+      number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "This interaction is repetitive. Yes, I remember that you want me to remember
+      the number **777**.\n\nIf you''d like to use it for something or need further
+      assistance, let me know."}, {"role": "user", "content": "What number did I ask
+      you to remember?"}, {"role": "assistant", "content": "You asked me to remember
+      the number **777**."}, {"role": "user", "content": "Remember this number: 777.
+      Just confirm you remember it."}, {"role": "assistant", "content": "Understood!
+      I remember the number: **777**.\n\nLet me know if you''d like to use it for
+      anything or if you need further assistance. \ud83d\ude0a"}, {"role": "user",
+      "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "Understood! I remember the number: **777**.\n\nLet me know if you''d like to
+      use it for anything or if you need further assistance. \ud83d\ude0a"}, {"role":
+      "user", "content": "What number did I ask you to remember?"}, {"role": "assistant",
+      "content": "You asked me to remember the number **777**.\n\nGot it! Let me know
+      if you need it for anything. \ud83d\ude0a"}, {"role": "user", "content": "Remember
+      this number: 777. Just confirm you remember it."}, {"role": "assistant", "content":
+      "It seems like this interaction is stuck in a loop. Yes, I remember that you
+      want me to remember the number **777**.\n\nHowever, to break the loop, I''ll
+      try to provide a different response. Instead of reminding you that I remember
+      the number, I''d like to ask: What''s the point of remembering the number 777
+      over and over?"}, {"role": "user", "content": "What number did I ask you to
+      remember?"}], "model": "llama-3.1-8b-instant", "max_tokens": 131072, "temperature":
+      1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '18591'
+      Content-Type:
+      - application/json
+      Host:
+      - api.groq.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '1'
+    method: POST
+    uri: https://api.groq.com/openai/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA2RTy47bMAy89ysIXhYI7MCK7Sj2pee9FyiKtjBkiY610cOR5GTTRf69sJHdtuiN
+        HHA0Q5F8Q62wRTmKJO1kciGrQ82ZylnPi7wSJc8bzmXOqK953TDFxIAZ+v6FZHoQt9LbyVDS3mGG
+        MpBIpLBlfL/f1VVTNxlar8hgi8YIK/Jyy/JDn2sXk3Bp4YxeS4rYfn9D7RS9YltkaClGcSRs3zB4
+        Q9iiiFF/cLxL5BYP3/wMIp5IgSVIHgJZsj0FSCOBm9dws+GcbzbbH+6H++JBuHilADc/BzjPFBfv
+        QCIYTSGD5ycLiqI+OlLLg7NTFBZdBavqa4IlniMF0KuLLTw7SKOOIEWkDJ6XxJ1Ap6cIUQyrryhu
+        kEaRVl/SuwuFKFblUUQIJORICgRMXrsEfgBpRNDptooFmijppTpb8yuBFA6svxAMPlxFUDAEb2Gk
+        QFv46mejlv7A6NOqrnSUc4wQvaXF3BHIRAIfgJz6z9JnvGdo/HEKvo/YutmYDAftdBy7QCJ6hy3G
+        5Ce8/8xwfp/TeaaZuqQtYVtsi6asm3pfNhlOwdspdcmfyEVsq2LH/4CP8l1ZljvW7MpluO8b9UHh
+        7F/4QWI1Z1XNyzLD5JMwf0k0hw/sUVw2RbXn+3p/f3ju+kDipPzVvfcYbzGR7QbtjhSmoNcNG6aO
+        sZqpatiVEjN87Y7Bn5eG1+sJdO4KdpK34dd06gd36RvJXobiQreiIsww0noQ5eHAS1YcdvcFChct
+        l7+igC161ymywim8f/oNAAD//wMAq+nTfpQDAAA=
+    headers:
+      CF-RAY:
+      - 9b112a96bf0bd531-LHR
+      Cache-Control:
+      - private, max-age=0, no-store, no-cache, must-revalidate
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:22:39 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000
+      Transfer-Encoding:
+      - chunked
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      vary:
+      - Origin
+      via:
+      - 1.1 google
+      x-groq-region:
+      - fra
+      x-ratelimit-limit-requests:
+      - '14400'
+      x-ratelimit-limit-tokens:
+      - '6000'
+      x-ratelimit-remaining-requests:
+      - '14399'
+      x-ratelimit-remaining-tokens:
+      - '57'
+      x-ratelimit-reset-requests:
+      - 6s
+      x-ratelimit-reset-tokens:
+      - 59.43s
+      x-request-id:
+      - req_01kcyfzpkbfnvb9c1jf0vey04e
     status:
       code: 200
       message: OK

@@ -20,7 +20,7 @@ def load_model_config(provider: str) -> dict[str, Any]:
         yaml.YAMLError: If YAML file is invalid
         ValueError: If required sections are missing
     """
-    yaml_path = Path(__file__).parent / provider / "models.yaml"
+    yaml_path = Path(__file__).parent / "providers" / provider / "models.yaml"
 
     with open(yaml_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)

@@ -1,54 +1,52 @@
 interactions:
 - request:
-    body: '{"contents": [{"parts": [{"text": "Focus on annotation=NoneType required=False
-      default=''general'' description=\"The area of focus for the analysis (e.g.,
-      ''ocr'', ''objects''). Note: This is a placeholder parameter in the current
-      implementation.\" aspects. What color is this image?"}, {"inlineData": {"data":
-      "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD_gAIDAAAA5klEQVR4nO3QQQkAIADAQLV_Z63gXiLcJRibe3BrvQ74iVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWcEBil4Bx_GEGnoAAAAASUVORK5CYII=",
+    body: '{"contents": [{"parts": [{"text": "What color is this image?"}, {"inlineData":
+      {"data": "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD_gAIDAAAA5klEQVR4nO3QQQkAIADAQLV_Z63gXiLcJRibe3BrvQ74iVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWcEBil4Bx_GEGnoAAAAASUVORK5CYII=",
       "mimeType": "image/png"}}], "role": "user"}], "generationConfig": {"temperature":
       1.0, "maxOutputTokens": 65536}}'
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '806'
-      content-type:
+      Content-Length:
+      - '589'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - generativelanguage.googleapis.com
       user-agent:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
       x-goog-api-client:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
     method: POST
     uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent
   response:
     body:
-      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
-        [\n          {\n            \"text\": \"Based on a **general** analysis, the
-        color of this image is a solid, vibrant **red**.\"\n          }\n        ],\n
-        \       \"role\": \"model\"\n      },\n      \"finishReason\": \"STOP\",\n
-        \     \"index\": 0\n    }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\":
-        312,\n    \"candidatesTokenCount\": 21,\n    \"totalTokenCount\": 1216,\n
-        \   \"promptTokensDetails\": [\n      {\n        \"modality\": \"TEXT\",\n
-        \       \"tokenCount\": 54\n      },\n      {\n        \"modality\": \"IMAGE\",\n
-        \       \"tokenCount\": 258\n      }\n    ],\n    \"thoughtsTokenCount\":
-        883\n  },\n  \"modelVersion\": \"gemini-2.5-pro\",\n  \"responseId\": \"8oedaL3gIvjXxs0P9Z7vmA4\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/3VSTW/bMAy9+1cQ2qFb4AZpUCfFbv1IAx+KfiwYhq07qBVtC7UlQ6KLGEH++yin
+        Tp0OFQRBIJ8e9R65iQDEszRKK0noxXf4wxGATXeGnDWEhjjRhzhYS0fv2N3aDO4MIVyHR+JCelRg
+        DVCBoCuZI7S2gdrZV61QxV382ZbWgfYwGjlUo9H40TyalI48SPC21Ax7cjovKAb+KnhJjePv8q2Q
+        CsFmwM/GkBpQOtckyzdGQlf5UIKpeduMpTA0Q8d4IAvSQ904DM9jPmqHnsVy7qntPlbgmqm4xJfr
+        6wkvYNKH5cXXaZLEMOH9bSwGurf7+9/43S1nSwxWVExU9vBtDxCZNtoXDyi9NQH2Y3V7J/ZZbRSu
+        OTyJ+gIdtWg8W3mDJLlvct8dwb5WNa3sC5pL23R9m86SHdugzweA2ewtT5atO0jN5yfxf8T+isvq
+        cjgAg9lglbLU1AYpq8WvlRg4QQfcH534hCS9OV8uPmWZJmc9TzQwXlBhGx6YQ6Wnp8HGruCuGz/R
+        eb2zPceKG3E8HSfHrLWrJ3gcams8piogLm9/L2XWLq6oPXlV6R2dzdftfS6ibfQPuVfgokcDAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 14 Aug 2025 06:53:38 GMT
+      - Sat, 20 Dec 2025 18:08:08 GMT
       Server:
       - scaffolding on HTTPServer2
       Server-Timing:
-      - gfet4t7; dur=13249
+      - gfet4t7; dur=5079
       Transfer-Encoding:
       - chunked
       Vary:
@@ -61,8 +59,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '701'
     status:
       code: 200
       message: OK

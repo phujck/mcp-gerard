@@ -23,16 +23,17 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0SPQW/bMAyF/4rGyy7KEDe1k+rYw9puxx3nIWAk2lZLk4YkIyuC/PdBGdYdePn4
-        gPe9C8QADtr7sPPtfhc6OtzfnXb4gIH84HfNqbvbHgJY8ImwUADX7Lu22bb7prMwayAGB3PMJSFv
-        8ozMG8ZCuYCFNeNI4C6wJJ2Xciz6RpLBNY2FogX5g3QPFrzOC1OJKh+4PVwt6OmVfAEHfsLy5X+q
-        Sk0aPWVwPy8QJdBvcFsLQ5SYp2MizCrgIBddwMJM+Z9PUiZwgDnHXFCqa1Hlo0fmDE5W5uojhaQW
-        9/BMzNqDidkgJ8LwblTInDWFT7308jKYd10/JzKs+hZlNIMmgyZHGZk2NWfGRFTqK4pB0TJRMowy
-        rjiSNRMlMljPDHQ2utSJ2fWyMT8WrIOc6eFZGXuo8Gsi8Tf2qPKqa/qLnyjNKLco3pQr/IYLCmWq
-        +LuKRD/FM/YA1+uv6x8AAAD//wMAhe6oOQMCAAA=
+        H4sIAAAAAAAAA0yQQZLTQAxFr9JoA6ScVOwymdBLNsAadpiaUtyy3YzcSrVkIJXKBTgBO67IEaie
+        gZClvn7pv68zxAAeXjfbhrahCaHdt1s87NumxaapawztbntAqKDPhEYBfH232zWv2ma/q2CWQAwe
+        5qiWkdc6I/Oa0UgNKlgURwJ/hmOW+Wj3Jg+UFHxdV2BiyFdl31TQy3xksijpKt/Vlwrk8IV6Aw/9
+        hLb57ypQk8SeFPynM8QU6Dv4bQVDTFGn+0yoksCDmhyhgpn0H08WJvCAqlENU2E1Eb7vkVnBp4W5
+        8CSjVII/TuS+SQ6ug4mYpQMX1SFnwnBykp62z7rUpfeDO8nyPJNjkYeYRjdIdug0ppFp/XgF2Sgn
+        tPiVquJ2vSwc3KLku7R2q1UH72IHq9V1otPt+DYTWUyj3oofkBfD8pdH2b2wSZZxcjZFLbSzZCos
+        M/LLTSF9s9htH1PioRiPlAfqjU9uiIkcqsNS8Ql9/Bu9cb9//fwBl8vnyx8AAAD//wMAaaKBL0MC
+        AAA=
     headers:
       CF-RAY:
-      - 9aa390e6981fef27-LHR
+      - 9b111a2b4a113eca-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -40,13 +41,9 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 11:08:36 GMT
+      - Sat, 20 Dec 2025 18:11:27 GMT
       Server:
       - cloudflare
-      Set-Cookie:
-      - __cf_bm=NS3xkUe4Q_cImU99co1EiRsdessEpYsogDxMU1BPuqA-1765105716-1.0.1.1-U7iTgqOVZ8ofXR9Xfqi21qzRg.M9le9FGOXENbWFy7.cl9d_2UgNmwBgXPNEsdHZ2SBaurfzZx2HP5ZGXI8v2.MVtosugGd1kXmE5KOcvXk;
-        path=/; expires=Sun, 07-Dec-25 11:38:36 GMT; domain=.mistral.ai; HttpOnly;
-        Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=15552000; includeSubDomains; preload
       Transfer-Encoding:
@@ -60,15 +57,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af87f-cc36-749e-b445-fe8ca4017a59
+      - 019b3cf5-972e-7a7c-b65e-977e8190b023
       x-envoy-upstream-service-time:
-      - '394'
+      - '775'
       x-kong-proxy-latency:
-      - '7'
+      - '6'
       x-kong-request-id:
-      - 019af87f-cc36-749e-b445-fe8ca4017a59
+      - 019b3cf5-972e-7a7c-b65e-977e8190b023
       x-kong-upstream-latency:
-      - '394'
+      - '775'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -76,13 +73,13 @@ interactions:
       x-ratelimit-limit-tokens-month:
       - '1000000000'
       x-ratelimit-remaining-req-minute:
-      - '56'
+      - '53'
       x-ratelimit-remaining-tokens-minute:
-      - '499740'
+      - '492900'
       x-ratelimit-remaining-tokens-month:
-      - '999999210'
+      - '999985952'
       x-ratelimit-tokens-query-cost:
-      - '69'
+      - '82'
     status:
       code: 200
       message: OK
@@ -110,14 +107,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0TOW2qEQBCF4bXkPPcEO94yvYLZQwhSajl20naJVQMBce/Bh2Refw6cb0ccEdBz
-        09ZEV2rba1XR1DfvZVVPhZ+uVLxNJRyGjcl4RPBtU/uibn3jsMjICQFLVNsoXRJtd74kMlaDw0Pp
-        zgg71k2W1TqTb86K4L2DiVF6lsphkGVNbFHyfy4PB+m/eDAEDDPZ63N0mmaJAyvCx46YR/5BKBym
-        mKPO3cakkhGgJiscFtY/ziaJEUCqUY3ySTWR1A2UkiLkR0onJxvn8/gWX3Acn8cvAAAA//8DAFut
-        56QtAQAA
+        H4sIAAAAAAAAA0TOUW6DMBCE4bN0np2qEAiJT9A7VBVa7CW4NV7EbqRKiLtXPLR5/TXSfBtShMcw
+        DnVouuoWrl1zq4lirMfQnNuui3VoIxzCymQc4avucqnbpr52DrNEzvCYk9pK+ZRpvfMpk7EaHB5K
+        d4bfsKwyL9abfHNR+KpyMDHKz9I4BJmXzJak/Ofz7iDDFweDR5jIXp+jwzRJCqzwHxtSifwD/+Yw
+        ppJ06lcmlQIPNVngMLP+cVbJDA9STWpUDqqJ5D5QzgpfHjkfnGJcjuP39IJ9/9x/AQAA//8DAGJN
+        ooUtAQAA
     headers:
       CF-RAY:
-      - 9aa390e9c9b1ef42-LHR
+      - 9b111a30f8cbbea0-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -125,7 +122,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 11:08:37 GMT
+      - Sat, 20 Dec 2025 18:11:28 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -141,15 +138,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af87f-ce5a-7053-9f1f-bff8f957dfc3
+      - 019b3cf5-9ab9-77a1-8f26-b67378ca7f94
       x-envoy-upstream-service-time:
-      - '279'
+      - '452'
       x-kong-proxy-latency:
-      - '6'
+      - '7'
       x-kong-request-id:
-      - 019af87f-ce5a-7053-9f1f-bff8f957dfc3
+      - 019b3cf5-9ab9-77a1-8f26-b67378ca7f94
       x-kong-upstream-latency:
-      - '280'
+      - '453'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -157,11 +154,11 @@ interactions:
       x-ratelimit-limit-tokens-month:
       - '1000000000'
       x-ratelimit-remaining-req-minute:
-      - '55'
+      - '52'
       x-ratelimit-remaining-tokens-minute:
-      - '499726'
+      - '492886'
       x-ratelimit-remaining-tokens-month:
-      - '999999196'
+      - '999985938'
       x-ratelimit-tokens-query-cost:
       - '14'
     status:
@@ -191,14 +188,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0TOUW6DMBCE4bN0np0qJgGKT5A7VFW0mCW4XbwIb6RIEXeveGjz+muk+Z5IAwI4
-        chMr39Vt15yrduy6U0/12NNHX43kGQ5xZTIeEHzb1P5Yt751mHVgQcCSHraSHITWGx+EjIvB4V7o
-        xghPLKvOi11NfzgXBO8dTI3kVc4OUedF2JLm/3zaHLT/5mgIiBPZ+2u0myZNkQvC5xMpD/xAODqM
-        KacyXVemohkBxXSBw8zlj7OqMAKolFSM8k41VblGEikI+S6yc7Jx3o8vLKJv2Lav7RcAAP//AwCF
-        xWGhMAEAAA==
+        H4sIAAAAAAAAA0TOW2rDMBCF4bX0PCvFkS8JWkH3UIqZyONY7VhjrAkEjPde/NDm9efA+TakAQFj
+        3bRV4y++7erGd54qGtu66trbWNXkKzjElcl4QDhfus63jb9eHWYdWBCwpKetJCeh9c4nIeNicHgU
+        ujPChmXVebHe9IdzQTifHUyN5FUah6jzImxJ83+udwe9fXM0BMSJ7P01OkyTpsgF4XNDygM/ESqH
+        MeVUpn5lKpoRUEwXOMxc/jirCiOASknFKB9UU5U+kkhByA+Rg5ON83H8wSL6hn3/2n8BAAD//wMA
+        dwhOcjABAAA=
     headers:
       CF-RAY:
-      - 9aa390ed9cfe002f-LHR
+      - 9b111a349f61b461-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -206,7 +203,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 11:08:37 GMT
+      - Sat, 20 Dec 2025 18:11:28 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -222,15 +219,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af87f-d0a2-717b-b0b4-e3444f07a08f
+      - 019b3cf5-9cff-778f-af1f-48c4de0f7609
       x-envoy-upstream-service-time:
-      - '191'
+      - '168'
       x-kong-proxy-latency:
-      - '9'
+      - '8'
       x-kong-request-id:
-      - 019af87f-d0a2-717b-b0b4-e3444f07a08f
+      - 019b3cf5-9cff-778f-af1f-48c4de0f7609
       x-kong-upstream-latency:
-      - '192'
+      - '168'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -238,11 +235,11 @@ interactions:
       x-ratelimit-limit-tokens-month:
       - '1000000000'
       x-ratelimit-remaining-req-minute:
-      - '54'
+      - '51'
       x-ratelimit-remaining-tokens-minute:
-      - '499712'
+      - '492872'
       x-ratelimit-remaining-tokens-month:
-      - '999999182'
+      - '999985924'
       x-ratelimit-tokens-query-cost:
       - '14'
     status:

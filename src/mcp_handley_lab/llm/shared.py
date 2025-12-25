@@ -37,7 +37,6 @@ def _handle_memory_setup(
             agent = memory_manager.create_agent(actual_agent_name, system_prompt)
         elif system_prompt is not None:
             agent.system_prompt = system_prompt
-            memory_manager._save_agent(agent)
 
         history = agent.get_history()
         system_instruction = agent.system_prompt
@@ -56,7 +55,7 @@ def _extract_response_metadata(response_data: dict, model: str, provider: str) -
         "output_tokens": output_tokens,
         "cost": calculate_cost(model, input_tokens, output_tokens, provider),
         "finish_reason": response_data.get("finish_reason", ""),
-        "avg_logprobs": response_data.get("avg_logprobs", 0.0),
+        "avg_logprobs": response_data.get("avg_logprobs"),
         "model_version": response_data.get("model_version", ""),
         "generation_time_ms": response_data.get("generation_time_ms", 0),
         "response_id": response_data.get("response_id", ""),
@@ -70,6 +69,17 @@ def _extract_response_metadata(response_data: dict, model: str, provider: str) -
         ),
         "cache_read_input_tokens": response_data.get("cache_read_input_tokens", 0),
         "grounding_metadata_dict": response_data.get("grounding_metadata"),
+        # Enhanced metadata fields (from GPT-5 review)
+        "total_tokens": response_data.get("total_tokens", input_tokens + output_tokens),
+        "reasoning_text": response_data.get("reasoning_text", ""),
+        "created_at": response_data.get("created_at") or None,
+        "completed_at": response_data.get("completed_at") or None,
+        "timing": response_data.get("timing", {}),
+        "token_modalities": response_data.get("token_modalities", {}),
+        "cache_creation_details": response_data.get("cache_creation_details", {}),
+        "groq_metadata": response_data.get("groq_metadata", {}),
+        "citations": response_data.get("citations", []),
+        "refusal": response_data.get("refusal"),
     }
 
 
@@ -94,7 +104,7 @@ def _enhance_prompt_for_images(
 
 
 def process_llm_request(
-    prompt: str,
+    prompt: str | None,
     output_file: str,
     agent_name: str,
     model: str,
@@ -143,21 +153,21 @@ def process_llm_request(
     # Extract response metadata
     metadata = _extract_response_metadata(response_data, model, provider)
 
-    # Handle memory
+    # Handle memory with full response metadata
     if use_memory:
         handle_agent_memory(
             actual_agent_name,
             user_prompt,
             metadata["response_text"],
-            metadata["input_tokens"],
-            metadata["output_tokens"],
-            metadata["cost"],
-            lambda: actual_agent_name,
+            provider=provider,
+            model=model,
+            metadata=metadata,
         )
 
-    # Handle output - always write to file
-    output_path = Path(output_file)
-    output_path.write_text(metadata["response_text"])
+    # Handle output - write to file if path provided
+    if output_file:
+        output_path = Path(output_file)
+        output_path.write_text(metadata["response_text"])
 
     from mcp_handley_lab.shared.models import UsageStats
 
@@ -189,16 +199,29 @@ def process_llm_request(
         stop_sequence=metadata["stop_sequence"],
         cache_creation_input_tokens=metadata["cache_creation_input_tokens"],
         cache_read_input_tokens=metadata["cache_read_input_tokens"],
+        # Enhanced metadata fields
+        total_tokens=metadata["total_tokens"],
+        reasoning_text=metadata["reasoning_text"],
+        created_at=metadata["created_at"],
+        completed_at=metadata["completed_at"],
+        timing=metadata["timing"],
+        token_modalities=metadata["token_modalities"],
+        cache_creation_details=metadata["cache_creation_details"],
+        groq_metadata=metadata["groq_metadata"],
+        citations=metadata["citations"],
+        refusal=metadata["refusal"],
     )
 
 
-def should_use_memory(agent_name: str | bool | None) -> bool:
-    """Determines if agent memory should be used based on the agent_name parameter."""
-    return (
-        agent_name
-        if isinstance(agent_name, bool)
-        else agent_name is None or (agent_name and agent_name.lower() != "false")
-    )
+def should_use_memory(agent_name: str) -> bool:
+    """Determines if agent memory should be used based on the agent_name parameter.
+
+    Returns False when agent_name is empty or "false" (case-insensitive).
+    Returns True for any other non-empty string.
+
+    Note: MCP layer handles type validation - we trust the input is a string.
+    """
+    return bool(agent_name) and agent_name.lower() != "false"
 
 
 def process_image_generation(
@@ -213,6 +236,10 @@ def process_image_generation(
     """Generic handler for LLM image generation requests."""
     if not prompt.strip():
         raise ValueError("Prompt is required and cannot be empty")
+
+    # Check if memory should be used
+    use_memory = should_use_memory(agent_name)
+    actual_agent_name = agent_name
 
     # Call the provider-specific generation function to get the image
     response_data = generation_func(prompt=prompt, model=model, **kwargs)
@@ -229,15 +256,27 @@ def process_image_generation(
         model, input_tokens, output_tokens, provider, images_generated=1
     )
 
-    handle_agent_memory(
-        agent_name,
-        f"Generate image: {prompt}",
-        f"Generated image saved to {filepath}",
-        input_tokens,
-        output_tokens,
-        cost,
-        lambda: get_session_id(mcp_instance, provider),
-    )
+    # Only handle memory if enabled
+    if use_memory:
+        if agent_name == "session":
+            actual_agent_name = get_session_id(mcp_instance, provider)
+
+        # Build metadata for image generation
+        image_metadata = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": cost,
+            "file_path": str(filepath),
+            "file_size_bytes": len(image_bytes),
+        }
+        handle_agent_memory(
+            actual_agent_name,
+            f"Generate image: {prompt}",
+            f"Generated image saved to {filepath}",
+            provider=provider,
+            model=model,
+            metadata=image_metadata,
+        )
 
     file_size = len(image_bytes)
 
@@ -255,7 +294,7 @@ def process_image_generation(
         file_path=str(filepath),
         file_size_bytes=file_size,
         usage=usage_stats,
-        agent_name=agent_name if agent_name else "",
+        agent_name=actual_agent_name if use_memory else "",
         # Metadata from provider response
         generation_timestamp=response_data.get("generation_timestamp", 0),
         enhanced_prompt=response_data.get("enhanced_prompt", ""),

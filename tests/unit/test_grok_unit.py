@@ -1,8 +1,9 @@
-"""Unit tests for Grok LLM module."""
+"""Unit tests for Grok LLM provider adapter."""
 
-from mcp_handley_lab.llm.grok.tool import (
+from mcp_handley_lab.llm.providers.grok.adapter import (
+    DEFAULT_MODEL,
     MODEL_CONFIGS,
-    _get_model_config,
+    get_model_config,
 )
 
 
@@ -12,6 +13,8 @@ class TestGrokModelConfiguration:
     def test_model_configs_all_present(self):
         """Test that all expected Grok models are in MODEL_CONFIGS."""
         expected_models = {
+            "grok-4-1-fast-reasoning",
+            "grok-4-1-fast-non-reasoning",
             "grok-4-fast-reasoning",
             "grok-4-fast-non-reasoning",
             "grok-4-0709",
@@ -34,8 +37,8 @@ class TestGrokModelConfiguration:
         assert MODEL_CONFIGS["grok-3"]["output_tokens"] == 65536
         assert MODEL_CONFIGS["grok-3-mini"]["output_tokens"] == 65536
 
-        # Grok 2 series (text models)
-        assert MODEL_CONFIGS["grok-2-vision-1212"]["output_tokens"] == 16384
+        # Grok 2 series (text models) - 8K context per official pricing
+        assert MODEL_CONFIGS["grok-2-vision-1212"]["output_tokens"] == 8192
 
         # Grok 2 image generation model has None (doesn't use token limits)
         assert MODEL_CONFIGS["grok-2-image-1212"]["output_tokens"] is None
@@ -51,15 +54,13 @@ class TestGrokModelConfiguration:
             assert output_tokens is None or isinstance(output_tokens, int)
 
     def test_get_model_config_valid_model(self):
-        """Test _get_model_config with valid model names."""
-        config = _get_model_config("grok-4-fast-reasoning")
+        """Test get_model_config with valid model names."""
+        config = get_model_config("grok-4-fast-reasoning")
         assert config["output_tokens"] == 100000
 
     def test_get_model_config_fallback_to_default(self):
-        """Test _get_model_config falls back to default for unknown models."""
-        from mcp_handley_lab.llm.grok.tool import DEFAULT_MODEL
-
-        config = _get_model_config("nonexistent-model")
+        """Test get_model_config falls back to default for unknown models."""
+        config = get_model_config("nonexistent-model")
         default_config = MODEL_CONFIGS[DEFAULT_MODEL]
         assert config == default_config
 
@@ -70,7 +71,7 @@ class TestGrokErrorHandling:
     def test_model_config_retrieval_robust(self):
         """Test model configuration retrieval is robust."""
         # Should not raise exceptions for any model name
-        config = _get_model_config("completely-invalid-model")
+        config = get_model_config("completely-invalid-model")
         assert isinstance(config, dict)
         assert "output_tokens" in config
 
@@ -86,5 +87,5 @@ class TestGrokErrorHandling:
 
     def test_model_count_matches_expected(self):
         """Test that we have the expected number of models."""
-        # Ensure we have all 8 expected Grok models
-        assert len(MODEL_CONFIGS) == 8
+        # Ensure we have all 10 expected Grok models (added grok-4-1-fast models)
+        assert len(MODEL_CONFIGS) == 10

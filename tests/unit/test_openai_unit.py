@@ -1,14 +1,11 @@
-"""Unit tests for OpenAI LLM module."""
+"""Unit tests for OpenAI LLM provider adapter."""
 
-import tempfile
 from pathlib import Path
 
-import pytest
-
 from mcp_handley_lab.llm.common import determine_mime_type, is_text_file
-from mcp_handley_lab.llm.openai.tool import (
+from mcp_handley_lab.llm.providers.openai.adapter import (
     MODEL_CONFIGS,
-    _get_model_config,
+    get_model_config,
 )
 
 
@@ -18,6 +15,7 @@ class TestOpenAIModelConfiguration:
     def test_model_configs_all_present(self):
         """Test that all expected OpenAI models are in MODEL_CONFIGS."""
         expected_models = {
+            # GPT-5 series
             "gpt-5.2",
             "gpt-5.2-pro",
             "gpt-5.1",
@@ -25,19 +23,33 @@ class TestOpenAIModelConfiguration:
             "gpt-5-mini",
             "gpt-5-nano",
             "gpt-5-pro",
+            # O-series reasoning
             "o3",
             "o3-pro",
             "o3-mini",
+            "o3-deep-research",
             "o4-mini",
+            "o4-mini-deep-research",
             "o1",
             "o1-mini",
+            # GPT-4 series
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4.1",
             "gpt-4.1-mini",
             "gpt-4.1-nano",
+            # Image generation
             "dall-e-3",
+            "gpt-image-1.5",
             "gpt-image-1",
+            "gpt-image-1-mini",
+            # Audio models (ASR/TTS)
+            "whisper-1",
+            "tts-1",
+            "tts-1-hd",
+            # Realtime API
+            "gpt-4o-realtime-preview",
+            "gpt-4o-mini-realtime-preview",
         }
         assert set(MODEL_CONFIGS.keys()) == expected_models
 
@@ -95,19 +107,19 @@ class TestOpenAIModelConfiguration:
         assert MODEL_CONFIGS["gpt-4.1"]["param"] == "max_output_tokens"
 
     def test_get_model_config_known_models(self):
-        """Test _get_model_config with known model names."""
-        config = _get_model_config("o4-mini")
+        """Test get_model_config with known model names."""
+        config = get_model_config("o4-mini")
         assert config["output_tokens"] == 100000
         assert config["param"] == "max_output_tokens"  # Responses API
 
-        config = _get_model_config("gpt-4o")
+        config = get_model_config("gpt-4o")
         assert config["output_tokens"] == 16384
         assert config["param"] == "max_output_tokens"  # Responses API
 
     def test_get_model_config_unknown_model(self):
-        """Test _get_model_config falls back to default for unknown models."""
-        config = _get_model_config("unknown-model")
-        # Should default to gpt-5-mini (Responses API)
+        """Test get_model_config falls back to default for unknown models."""
+        config = get_model_config("unknown-model")
+        # Should default to gpt-5.2 (Responses API)
         assert config["output_tokens"] == 128000
         assert config["param"] == "max_output_tokens"
 
@@ -148,10 +160,3 @@ class TestOpenAIHelperFunctions:
         assert is_text_file(Path("test.png")) is False
         assert is_text_file(Path("test.pdf")) is False
         assert is_text_file(Path("test.exe")) is False
-
-
-@pytest.fixture
-def temp_storage_dir():
-    """Create temporary directory for testing."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield temp_dir

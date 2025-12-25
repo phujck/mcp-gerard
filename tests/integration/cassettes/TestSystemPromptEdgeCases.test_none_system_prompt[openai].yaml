@@ -11,6 +11,26 @@ interactions:
       "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
       "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
       equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
       "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"}],
       "max_output_tokens": 16384, "model": "gpt-4o-mini", "temperature": 1.0}'
     headers:
@@ -21,13 +41,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '937'
+      - '2393'
       Content-Type:
       - application/json
       Host:
       - api.openai.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -37,7 +57,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -51,20 +71,21 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA3xU246jMAx971dEed3pKNAr/ZXRCplgOtmGmE2caqpR/31FKBR2Z/YNfOyDfY7N
-        50oIaWp5EtJj6EoFeDhUuyaHvD5AcVRqX2x2u0O+OW5yfcyK7VHtD1g1x12DUO9VI196Cqp+oeaR
-        hlzAIa49AmNdQo9lh/0uU5tNsUtYYOAY+hpNbWeRsR6KKtCXs6fo+r4asAGHsLHWuLM8ic+VEELI
-        Dm7o+/oar2ipQy9XQtxTMnpPPeaitSlg3PiVskYGY8MSDeyjZkNuEW/ho6TIXeSS6YIJzPab43ZC
-        mciWGuySr6Uabd/aueP1ltatcWadq3y7Vod1dnyIlojlSbyleYapJj/acP6PHVVVqGQHKF1orJss
-        19l2myXmxMK3DhMPhgBnfALf6Z5ATY7RPZuaN7agHVXBD56qUwI4Rwyjkm8/F6Clc+ep+gJJRCch
-        M/FDFAJ/R7BBZOpVTkn3x9NUJz3Z1AuEYAKD4yG5T0xJsgMP1qJdusQ+DhvVebwaiqEcl7ZM0k8u
-        dp7ajksN+h3LC96+xTz2ohly8wyPEMgtNhabhjzPkno7YtuCH7mnBQ7QIN9KU/fEjcHFMgf0V6Ox
-        ZDMeQAPRDkbIwORxPiZj26EHjimcvapHNAn+6Kwh38LzfWZ0yht0fXR8RV9RMHwb1qs2sX0e3qD0
-        Oxk9WBOZ5AQ8fZdMXTnbBjUFu3mPPjoND2FlbQJUdvxLxLTV0wDGLY40z7OXf4HZ6U9zJgfrZ6Va
-        zPr38Rdfxb+indz/jpmJwc4a3qhJwxiWdrfIUANDz39f3f8AAAD//wMAZb9Xe7UFAAA=
+        H4sIAAAAAAAAAwAAAP//dFTbjqMwDH3vV0R53ekKWnqhvzJaIUNMJzshziZONdWo/74iFAq77Rv4
+        2Af7HJvvlRBSK3kS0mNwVdYWm12x2bdFrQ5Yqyzbl8Ue93XR1tvsmJc7aA65UuWmKbbtrt1u5VtP
+        QfVvbHikIRtwiDcegVFV0GP5Yb9P7HnCAgPH0Nc01DmDjGooqqH5PHuKtu+rBRNwCGtjtD3Lk/he
+        CSGEdHBF39crvKAhh16uhLgNHx4pn34avae+0kZjUkDbsaBSyKBNWKKBfWxYk13EO/iqKLKLXDF9
+        YgLz/fZYTCgTmaoBs+TrSKHpGz87Xhe07rTV6022KdbZYZ0f75ImYnkS72naYebJrS6cX5u1O5RZ
+        0Zt1zFRWNjUCqEO72xwSc2Lhq8PEgyHAGR/AK1cS2JBltI+m5o0taEdV8Iun6pQA1hLDqOT7rwVo
+        6Ow81U+QRHQSMhc/RCnwTwQTRJ79lFPS7f401UlPJvUCIejAYHlI7hNTknTgwRg0S5fYx2HfnMeL
+        phiqcaWrJP3kovPUOa4aaD6w+sTrS8xjL5omO8/wCIHsYp+xbcnzLKm3I3Yd+JF7Wu8ALfK10qon
+        bjUuljmgv+gGK9bjebQQzWCEDEwe52Mydg49cEzh/Gd2jybB75215Dt4vM+MTnmDrveOL+hrCpqv
+        w3opHbvHWQ5Kf5BuBmsik5yAh++SyVWzbcimoJv36KNt4C6sVDpAbcZ/SExbPQ2g7eJId8fy7X9g
+        dvrTnMlB9ajMFrP+e/zls/gz2sn9V8xMDGbWcHmcNIxhaXeHDAoYev7b6vYXAAD//wMAPMdpMtMF
+        AAA=
     headers:
       CF-RAY:
-      - 9aa3583d4ef6ba87-LHR
+      - 9b11198a79f563fd-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -72,7 +93,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 10:29:58 GMT
+      - Sat, 20 Dec 2025 18:11:01 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -88,13 +109,13 @@ interactions:
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '2844'
+      - '955'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '2848'
+      - '962'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -102,13 +123,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999760'
+      - '149999390'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_6a14169e754747a88cb2742c6dd9665b
+      - req_9601efed402646f5992fcc25b9d35710
     status:
       code: 200
       message: OK

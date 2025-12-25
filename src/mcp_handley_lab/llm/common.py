@@ -62,9 +62,9 @@ TEXT_BASED_APPLICATION_TYPES = {
 
 
 def load_prompt_text(
-    prompt: str,
-    prompt_file: str,
-    prompt_vars: dict[str, str],
+    prompt: str | None,
+    prompt_file: str | None,
+    prompt_vars: dict[str, str] | None,
 ) -> str:
     """Resolve and render prompt from either string or file with optional templating.
 
@@ -87,7 +87,7 @@ def load_prompt_text(
     if prompt_file:
         final_prompt = Path(prompt_file).read_text(encoding="utf-8")
     else:
-        final_prompt = prompt
+        final_prompt = prompt  # type: ignore[assignment]  # XOR ensures non-None
 
     # Apply template substitution if variables provided
     if prompt_vars:
@@ -240,129 +240,46 @@ def resolve_image_data(image_item: str | dict[str, str]) -> bytes:
     raise ValueError(f"Invalid image format: {image_item}")
 
 
-def handle_output(
-    response_text: str,
-    output_file: str,
-    model: str,
-    input_tokens: int,
-    output_tokens: int,
-    cost: float,
-    provider: str,
-) -> str:
-    """Handle file output and return formatted response."""
-    from mcp_handley_lab.common.pricing import format_usage
-
-    usage_info = format_usage(input_tokens, output_tokens, cost)
-
-    if output_file != "-":
-        output_path = Path(output_file)
-        output_path.write_text(response_text)
-        char_count = len(response_text)
-        line_count = response_text.count("\n") + 1
-        return f"Response saved to: {output_file}\nContent: {char_count} characters, {line_count} lines\n{usage_info}"
-    else:
-        return f"{response_text}\n\n{usage_info}"
-
-
 def handle_agent_memory(
-    agent_name: str | bool | None,
+    agent_name: str,
     user_prompt: str,
     response_text: str,
-    input_tokens: int,
-    output_tokens: int,
-    cost: float,
-    session_id_func,
-) -> str | None:
-    """Handle agent memory storage. Returns actual agent name used."""
-    # Handle memory disable patterns
-    if isinstance(agent_name, str) and (
-        agent_name.lower() == "false" or agent_name == ""
-    ):
-        agent_name = False
+    provider: str,
+    model: str,
+    metadata: dict | None = None,
+) -> None:
+    """Store conversation messages in agent memory with full response metadata.
 
-    # Use session-specific agent for "session" or if no agent_name provided (and memory not disabled)
-    if agent_name == "session" or agent_name is None:
-        agent_name = session_id_func()
+    IMPORTANT: This function assumes agent_name is already resolved (not "session")
+    and memory is enabled. The caller (e.g., process_llm_request) should use
+    should_use_memory() to check if memory is enabled, and resolve "session" to
+    actual session ID before calling this function.
 
-    # Store in agent memory (only if memory not disabled)
-    if agent_name is not False:
-        agent = memory_manager.get_agent(agent_name)
-        if not agent:
-            agent = memory_manager.create_agent(agent_name)
-
-        memory_manager.add_message(
-            agent_name, "user", user_prompt, input_tokens, cost / 2
-        )
-        memory_manager.add_message(
-            agent_name, "assistant", response_text, output_tokens, cost / 2
-        )
-        return agent_name
-
-    return None
-
-
-def resolve_multimodal_content(
-    files: list[str] | None = None, images: list[str] | None = None
-) -> list[dict]:
+    Args:
+        agent_name: Resolved agent name (must be a valid string, not "session")
+        user_prompt: The user's prompt
+        response_text: The assistant's response
+        provider: Provider name (e.g., "openai", "gemini")
+        model: Model name (e.g., "gpt-4o", "gemini-2.5-pro")
+        metadata: Full response metadata dict (tokens, cost, timing, etc.)
     """
-    Resolves file paths and image data into a standardized list of content blocks.
-    Each block is a dict with 'type', 'mime_type', and 'data' (or 'text').
-    """
-    if files is None:
-        files = []
-    if images is None:
-        images = []
-    content_blocks = []
-
-    # Process text/binary files
-    for file_path_str in files:
-        file_path = Path(file_path_str)
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        mime_type = determine_mime_type(file_path)
-        if is_text_file(file_path):
-            text_content = file_path.read_text(encoding="utf-8")
-            content_blocks.append(
-                {
-                    "type": "text_file",
-                    "filename": file_path.name,
-                    "text": text_content,
-                }
-            )
-        else:
-            # For binary files, pass as base64 data
-            binary_data = file_path.read_bytes()
-            content_blocks.append(
-                {
-                    "type": "binary_file",
-                    "filename": file_path.name,
-                    "mime_type": mime_type,
-                    "data": base64.b64encode(binary_data),
-                }
-            )
-
-    # Process images
-    for image_item in images:
-        image_bytes = resolve_image_data(image_item)
-
-        # Determine mime type for the image
-        if isinstance(image_item, str) and image_item.startswith("data:image"):
-            mime_type = image_item.split(";")[0].split(":")[1]
-        else:
-            mime_type = determine_mime_type(Path(image_item))
-            if not mime_type.startswith("image/"):
-                mime_type = "image/jpeg"  # Default for safety
-
-        content_blocks.append(
-            {
-                "type": "image",
-                "mime_type": mime_type,
-                "data": base64.b64encode(image_bytes).decode("utf-8"),
-            }
-        )
-
-    return content_blocks
+    # Store user message (no usage attribution - input counted on assistant message)
+    memory_manager.add_message(
+        agent_name,
+        "user",
+        user_prompt,
+        provider=provider,
+        model=model,
+    )
+    # Store assistant message with full metadata
+    memory_manager.add_message(
+        agent_name,
+        "assistant",
+        response_text,
+        provider=provider,
+        model=model,
+        metadata=metadata,
+    )
 
 
 def resolve_images_for_multimodal_prompt(
@@ -412,6 +329,9 @@ def resolve_files_for_llm(
 
     Returns:
         List of formatted content strings with file headers
+
+    Raises:
+        ValueError: If any file exceeds max_file_size (fail-fast, no silent truncation)
     """
     if not files:
         return []
@@ -419,25 +339,9 @@ def resolve_files_for_llm(
     inline_content = []
     for file_path_str in files:
         file_path = Path(file_path_str)
-        try:
-            content, is_text = read_file_smart(file_path, max_file_size)
-            inline_content.append(content)
-        except ValueError as e:
-            if "too large" in str(e):
-                # File too large - read truncated version
-                if is_text_file(file_path):
-                    content = file_path.read_text(encoding="utf-8")[
-                        :100000
-                    ]  # 100KB limit
-                    inline_content.append(
-                        f"[File: {file_path.name} (truncated)]\n{content}..."
-                    )
-                else:
-                    inline_content.append(
-                        f"[File: {file_path.name} - too large to include]"
-                    )
-            else:
-                raise
+        # Fail-fast: let ValueError propagate for files too large
+        content, is_text = read_file_smart(file_path, max_file_size)
+        inline_content.append(content)
 
     return inline_content
 
@@ -500,11 +404,11 @@ def build_server_info(
     )
 
 
-def load_provider_models(provider: str) -> tuple[dict, str, callable]:
-    """Load model configurations and return configs, default model, and config getter.
+def load_provider_models(provider: str) -> tuple[dict, str]:
+    """Load model configurations and return configs and default model.
 
     Returns:
-        tuple: (MODEL_CONFIGS dict, DEFAULT_MODEL str, _get_model_config function)
+        tuple: (MODEL_CONFIGS dict, DEFAULT_MODEL str)
     """
     from mcp_handley_lab.llm.model_loader import (
         build_model_configs_dict,
@@ -518,9 +422,4 @@ def load_provider_models(provider: str) -> tuple[dict, str, callable]:
     config = load_model_config(provider)
     default_model = config["default_model"]
 
-    # Return a closure for getting model config with fallback
-    def get_model_config(model: str) -> dict:
-        """Get model configuration with fallback to default."""
-        return model_configs.get(model, model_configs[default_model])
-
-    return model_configs, default_model, get_model_config
+    return model_configs, default_model

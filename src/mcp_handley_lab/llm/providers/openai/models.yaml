@@ -1,0 +1,609 @@
+models:
+  gpt-5.2:
+    # Model metadata
+    description: "The best model for coding and agentic tasks across industries"
+    capabilities: "🌟 Best for: Complex reasoning, broad world knowledge, code-heavy tasks, multi-step agentic workflows"
+    tags: ["flagship", "latest", "general", "premium", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false  # Only supported when reasoning.effort = none
+    supports_vision: true
+    supports_reasoning: true  # Supports none (default), low, medium, high, xhigh
+    supports_verbosity: true  # Supports low, medium (default), high
+
+    # Pricing
+    input_per_1m: 1.75
+    output_per_1m: 14.00
+    cached_input_per_1m: 0.175
+    supports_caching: true
+
+  gpt-5.2-pro:
+    # Model metadata
+    description: "Version of GPT-5.2 that produces smarter and more precise responses"
+    capabilities: "🎯 Best for: Tough problems requiring harder thinking, highest precision tasks"
+    tags: ["flagship", "premium", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true
+    supports_verbosity: true
+
+    # Pricing
+    input_per_1m: 21.00
+    output_per_1m: 168.00
+    supports_caching: false
+
+  gpt-5.1:
+    # Model metadata
+    description: "The best model for coding and agentic tasks with configurable reasoning effort"
+    capabilities: "🌟 Best for: Agentic workflows, autonomous coding, complex multimodal tasks, advanced reasoning"
+    tags: ["flagship", "general", "premium", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true  # Supports none, low, medium, high (defaults to none)
+    supports_verbosity: true  # Supports low, medium, high
+
+    # Pricing
+    input_per_1m: 1.25
+    output_per_1m: 10.00
+    cached_input_per_1m: 0.125
+    supports_caching: true
+
+  gpt-5:
+    # Model metadata
+    description: "Previous intelligent reasoning model for coding and agentic tasks"
+    capabilities: "🎯 Best for: Complex coding tasks, advanced reasoning, agentic workflows"
+    tags: ["flagship", "general", "premium", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 1.25
+    output_per_1m: 10.00
+    cached_input_per_1m: 0.125
+    supports_caching: true
+
+  gpt-5-mini:
+    # Model metadata
+    description: "A faster, cheaper version of GPT-5 for well-defined tasks"
+    capabilities: "⚖️ Best for: Most coding tasks, balanced performance and cost"
+    tags: ["flagship", "latest", "general", "cost-effective", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 0.25
+    output_per_1m: 2.00
+    cached_input_per_1m: 0.025
+    supports_caching: true
+
+  gpt-5-nano:
+    # Model metadata
+    description: "The fastest, cheapest version of GPT-5—great for summarization and classification tasks"
+    capabilities: "⚡ Best for: Quick tasks, high-volume processing, cost optimization, classification"
+    tags: ["flagship", "latest", "general", "fast", "cost-effective", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 0.05
+    output_per_1m: 0.40
+    cached_input_per_1m: 0.005
+    supports_caching: true
+
+  gpt-5-pro:
+    # Model metadata
+    description: "Version of GPT-5 that produces smarter and more precise responses"
+    capabilities: "🎯 Best for: Highest quality outputs, critical tasks requiring maximum precision"
+    tags: ["flagship", "premium", "vision"]
+    context_window: "400,000 tokens"
+    output_tokens: 128000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_vision: true
+    supports_reasoning: true  # Defaults to and only supports high
+
+    # Pricing
+    input_per_1m: 15.00
+    output_per_1m: 120.00
+    supports_caching: false
+
+  o3:
+    # Model metadata
+    description: "Reasoning model for complex tasks, succeeded by GPT-5"
+    capabilities: "🎯 Best for: Complex reasoning, advanced problem solving, scientific analysis"
+    tags: ["reasoning", "latest"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 2.00
+    output_per_1m: 8.00
+    cached_input_per_1m: 0.50
+    supports_caching: true
+
+  o3-pro:
+    # Model metadata
+    description: "Version of o3 with more compute for better responses"
+    capabilities: "🎯 Best for: Highest quality reasoning, critical analysis tasks"
+    tags: ["reasoning", "premium"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to and only supports high
+
+    # Pricing
+    input_per_1m: 20.00
+    output_per_1m: 80.00
+    supports_caching: false
+
+  o3-mini:
+    # Model metadata
+    description: "A small model alternative to o3"
+    capabilities: "⚡ Best for: Quick reasoning tasks, cost-sensitive analysis"
+    tags: ["reasoning", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 1.10
+    output_per_1m: 4.40
+    cached_input_per_1m: 0.55
+    supports_caching: true
+
+  o3-deep-research:
+    # Model metadata
+    description: "o3 optimized for deep research and analysis tasks"
+    capabilities: "🔬 Best for: Deep research, comprehensive analysis, multi-step investigations"
+    tags: ["reasoning", "research"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 10.00
+    output_per_1m: 40.00
+    cached_input_per_1m: 2.50
+    supports_caching: true
+
+  o4-mini:
+    # Model metadata
+    description: "Fast, cost-efficient reasoning model, succeeded by GPT-5 mini"
+    capabilities: "⚖️ Best for: Most reasoning tasks, cost-effective complex problems"
+    tags: ["reasoning", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to medium, supports minimal, low, medium, high
+
+    # Pricing
+    input_per_1m: 1.10
+    output_per_1m: 4.40
+    cached_input_per_1m: 0.275
+    supports_caching: true
+
+  o4-mini-deep-research:
+    # Model metadata
+    description: "o4-mini optimized for deep research tasks"
+    capabilities: "🔬 Best for: Cost-effective research, analysis tasks"
+    tags: ["reasoning", "research", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true
+
+    # Pricing
+    input_per_1m: 2.00
+    output_per_1m: 8.00
+    cached_input_per_1m: 0.50
+    supports_caching: true
+
+  o1:
+    # Model metadata
+    description: "Previous full o-series reasoning model"
+    capabilities: "📚 Best for: Legacy reasoning tasks, complex analysis"
+    tags: ["reasoning", "legacy"]
+    context_window: "128,000 tokens"
+    output_tokens: 100000
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to medium, doesn't support none
+
+    # Pricing
+    input_per_1m: 15.00
+    output_per_1m: 60.00
+    cached_input_per_1m: 7.50
+    supports_caching: true
+
+  o1-mini:
+    # Model metadata
+    description: "Deprecated - A small model alternative to o1"
+    capabilities: "⚡ Best for: Quick reasoning tasks, cost-sensitive analysis (deprecated)"
+    tags: ["reasoning", "cost-effective", "legacy"]
+    context_window: "128,000 tokens"
+    output_tokens: 65536
+    param: "max_output_tokens"
+    supports_temperature: false
+    supports_reasoning: true  # Defaults to medium, doesn't support none
+
+    # Pricing
+    input_per_1m: 1.10
+    output_per_1m: 4.40
+    cached_input_per_1m: 0.55
+    supports_caching: true
+
+  gpt-4.1:
+    # Model metadata
+    description: "Smartest model for complex tasks"
+    capabilities: "🎯 Best for: Complex analysis, advanced reasoning, difficult problems"
+    tags: ["latest", "general", "premium"]
+    context_window: "128,000 tokens"
+    output_tokens: 16384
+    param: "max_output_tokens"
+    supports_temperature: true
+
+    # Pricing
+    input_per_1m: 2.00
+    output_per_1m: 8.00
+    cached_input_per_1m: 0.50
+    supports_caching: true
+
+  gpt-4.1-mini:
+    # Model metadata
+    description: "Affordable model balancing speed and intelligence"
+    capabilities: "⚖️ Best for: Most general tasks, balanced performance"
+    tags: ["latest", "general", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 16384
+    param: "max_output_tokens"
+    supports_temperature: true
+
+    # Pricing
+    input_per_1m: 0.40
+    output_per_1m: 1.60
+    cached_input_per_1m: 0.10
+    supports_caching: true
+
+  gpt-4.1-nano:
+    # Model metadata
+    description: "Fastest, most cost-effective model for low-latency tasks"
+    capabilities: "⚡ Best for: Quick tasks, high-volume processing, cost optimization"
+    tags: ["latest", "general", "fast", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 16384
+    param: "max_output_tokens"
+    supports_temperature: true
+
+    # Pricing
+    input_per_1m: 0.10
+    output_per_1m: 0.40
+    cached_input_per_1m: 0.025
+    supports_caching: true
+
+  gpt-4o:
+    # Model metadata
+    description: "Advanced multimodal model with vision and text capabilities"
+    capabilities: "🎯 Best for: Image analysis, document processing, multimodal tasks"
+    tags: ["multimodal", "vision", "general"]
+    context_window: "128,000 tokens"
+    output_tokens: 16384
+    param: "max_output_tokens"
+    supports_temperature: true
+
+    # Pricing
+    input_per_1m: 2.50
+    output_per_1m: 10.00
+    cached_input_per_1m: 1.25
+    supports_caching: true
+
+  gpt-4o-mini:
+    # Model metadata
+    description: "Faster, cost-effective multimodal model"
+    capabilities: "⚡ Best for: Quick image analysis, everyday multimodal tasks"
+    tags: ["multimodal", "vision", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 16384
+    param: "max_output_tokens"
+    supports_temperature: true
+
+    # Pricing
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+    cached_input_per_1m: 0.075
+    supports_caching: true
+
+  gpt-image-1.5:
+    # Model metadata
+    description: "Latest multimodal image generation model with improved quality and speed"
+    capabilities: "🎨 Best for: High-quality image creation, artistic generation, image editing"
+    tags: ["image-generation", "latest", "multimodal"]
+    context_window: "N/A (Image generation)"
+    output_tokens: 16384
+    param: "max_tokens"
+    supports_temperature: true
+
+    # Complex pricing (per modality and per image)
+    text_input_per_1m: 5.00
+    image_input_per_1m: 8.00
+    cached_text_input_per_1m: 1.25
+    cached_image_input_per_1m: 2.00
+    text_output_per_1m: 10.00
+    image_output_per_1m: 32.00
+    image_output_pricing:
+      low: 0.009
+      medium: 0.034
+      high: 0.133
+    supports_caching: true
+    pricing_type: "complex"
+
+  gpt-image-1:
+    # Model metadata
+    description: "Multimodal model for precise, high-fidelity image generation"
+    capabilities: "🎨 Best for: High-quality image creation, artistic generation"
+    tags: ["image-generation", "multimodal"]
+    context_window: "N/A (Image generation)"
+    output_tokens: 16384
+    param: "max_tokens"
+    supports_temperature: true
+
+    # Complex pricing (per modality and per image)
+    text_input_per_1m: 5.00
+    image_input_per_1m: 10.00
+    cached_text_input_per_1m: 1.25
+    cached_image_input_per_1m: 2.50
+    image_output_per_1m: 40.00
+    image_output_pricing:
+      low: 0.011
+      medium: 0.042
+      high: 0.167
+    supports_caching: true
+    pricing_type: "complex"
+
+  gpt-image-1-mini:
+    # Model metadata
+    description: "Cost-effective image generation model for everyday use"
+    capabilities: "🎨 Best for: Quick image generation, cost-sensitive workflows"
+    tags: ["image-generation", "cost-effective", "multimodal"]
+    context_window: "N/A (Image generation)"
+    output_tokens: 16384
+    param: "max_tokens"
+    supports_temperature: true
+
+    # Complex pricing (per modality and per image)
+    text_input_per_1m: 2.00
+    image_input_per_1m: 2.50
+    cached_text_input_per_1m: 0.20
+    cached_image_input_per_1m: 0.25
+    image_output_per_1m: 8.00
+    image_output_pricing:
+      low: 0.005
+      medium: 0.011
+      high: 0.036
+    supports_caching: true
+    pricing_type: "complex"
+
+  dall-e-3:
+    # Model metadata
+    description: "High-quality image generation with prompt adherence"
+    capabilities: "🎨 Best for: Creative image generation, artistic tasks"
+    tags: ["image-generation", "legacy"]
+    context_window: "N/A (Image generation)"
+
+    # Pricing
+    price_per_image: 0.040
+    pricing_type: "per_image"
+
+  # Audio Models - Speech Recognition (ASR)
+  whisper-1:
+    # Model metadata
+    description: "Whisper large-v2 model for speech-to-text transcription"
+    capabilities: "🎧 Best for: Audio transcription, multilingual speech recognition"
+    tags: ["asr", "audio", "transcription"]
+    context_window: "N/A (ASR)"
+    output_tokens: 0  # ASR outputs text, not tokens
+    param: "max_output_tokens"  # Not used for ASR
+
+    # Pricing: $0.006 per minute
+    price_per_minute: 0.006
+    pricing_type: "per_minute"
+    # NOTE: Audio input handling not fully implemented
+
+  # Audio Models - Text-to-Speech (TTS)
+  tts-1:
+    # Model metadata
+    description: "Standard text-to-speech model optimized for speed"
+    capabilities: "🎤 Best for: Real-time speech synthesis, fast audio generation"
+    tags: ["tts", "audio", "speech"]
+    context_window: "N/A (TTS)"
+    output_tokens: 0  # TTS outputs audio, not tokens
+    param: "max_output_tokens"  # Not used for TTS
+
+    # Pricing: $15.00 per million characters
+    price_per_1m_chars: 15.00
+    pricing_type: "per_character"
+    # NOTE: Audio output handling not fully implemented
+
+  tts-1-hd:
+    # Model metadata
+    description: "High-definition text-to-speech model for quality audio"
+    capabilities: "🎤 Best for: High-quality speech synthesis, professional audio"
+    tags: ["tts", "audio", "speech", "premium"]
+    context_window: "N/A (TTS)"
+    output_tokens: 0  # TTS outputs audio, not tokens
+    param: "max_output_tokens"  # Not used for TTS
+
+    # Pricing: $30.00 per million characters
+    price_per_1m_chars: 30.00
+    pricing_type: "per_character"
+    # NOTE: Audio output handling not fully implemented
+
+  # Realtime API Models
+  gpt-4o-realtime-preview:
+    # Model metadata
+    description: "Realtime API model for low-latency multimodal experiences"
+    capabilities: "🔴 Best for: Voice assistants, real-time audio/text interaction"
+    tags: ["realtime", "audio", "multimodal"]
+    context_window: "128,000 tokens"
+    output_tokens: 4096
+    param: "max_output_tokens"
+    supports_temperature: true
+    supports_vision: true
+
+    # Pricing (per token)
+    text_input_per_1m: 5.00
+    text_output_per_1m: 20.00
+    audio_input_per_1m: 40.00
+    audio_output_per_1m: 80.00
+    cached_text_input_per_1m: 2.50
+    cached_audio_input_per_1m: 20.00
+    pricing_type: "realtime"
+    # NOTE: Realtime API handling not fully implemented
+
+  gpt-4o-mini-realtime-preview:
+    # Model metadata
+    description: "Cost-effective realtime model for voice applications"
+    capabilities: "🔴 Best for: Budget voice assistants, real-time audio"
+    tags: ["realtime", "audio", "multimodal", "cost-effective"]
+    context_window: "128,000 tokens"
+    output_tokens: 4096
+    param: "max_output_tokens"
+    supports_temperature: true
+    supports_vision: true
+
+    # Pricing (per token)
+    text_input_per_1m: 0.60
+    text_output_per_1m: 2.40
+    audio_input_per_1m: 10.00
+    audio_output_per_1m: 20.00
+    cached_text_input_per_1m: 0.30
+    cached_audio_input_per_1m: 5.00
+    pricing_type: "realtime"
+    # NOTE: Realtime API handling not fully implemented
+
+# Fine-tuning models
+fine_tuning:
+  gpt-4.1:
+    input_per_1m: 3.00
+    output_per_1m: 12.00
+    cached_input_per_1m: 0.75
+    training_per_1m: 25.00
+
+  gpt-4.1-mini:
+    input_per_1m: 0.80
+    output_per_1m: 3.20
+    cached_input_per_1m: 0.20
+    training_per_1m: 5.00
+
+  gpt-4.1-nano:
+    input_per_1m: 0.20
+    output_per_1m: 0.80
+    cached_input_per_1m: 0.05
+    training_per_1m: 1.50
+
+  o4-mini:
+    input_per_1m: 4.00
+    output_per_1m: 16.00
+    cached_input_per_1m: 1.00
+    training_per_hour: 100.00
+
+# Built-in tools pricing
+tools:
+  code_interpreter: 0.03  # per session
+  file_search_storage: 0.10  # per GB per day (first GB free)
+  file_search_tool_call: 2.50  # per 1k calls (Responses API only)
+  web_search_tool_call:
+    gpt_4o_4_1_preview: 25.00  # per 1k calls
+    gpt_5_o_series: 10.00  # per 1k calls
+    all_models: 10.00  # per 1k calls (standard web search)
+
+# Batch API discount
+batch_discount: 0.50  # 50% off inputs and outputs
+
+# Display categories (how to group models by tags for presentation)
+display_categories:
+  - name: "🚀 Flagship Models"
+    tags: ["flagship"]
+    description: "OpenAI's frontier models designed for complex, multi-step problems"
+  - name: "🧠 Reasoning Models"
+    tags: ["reasoning"]
+    exclude_tags: ["flagship"]
+    description: "Advanced models for complex problem solving and analysis"
+  - name: "💭 Latest Language Models"
+    tags: ["latest", "general"]
+    exclude_tags: ["reasoning", "multimodal", "flagship"]
+    description: "Newest general-purpose language models"
+  - name: "👁️ Multimodal Models"
+    tags: ["multimodal", "vision"]
+    exclude_tags: ["image-generation", "flagship", "realtime"]
+    description: "Models with vision and text capabilities"
+  - name: "🎨 Image Generation"
+    tags: ["image-generation"]
+    description: "Models for creating images from text"
+  - name: "🎤 Text-to-Speech"
+    tags: ["tts"]
+    description: "Speech synthesis models (output handling not fully implemented)"
+  - name: "🎧 Speech Recognition"
+    tags: ["asr"]
+    description: "Whisper transcription models (input handling not fully implemented)"
+  - name: "🔴 Realtime API"
+    tags: ["realtime"]
+    description: "Low-latency voice/audio models (not fully implemented)"
+  - name: "📜 Legacy Models"
+    tags: ["legacy"]
+    exclude_tags: ["reasoning"]
+    description: "Previous generation models for established workflows"
+
+# Default model
+default_model: "gpt-5.2"
+
+# Usage notes
+usage_notes:
+  - "GPT-5.2 is the flagship model with improved reasoning, instruction following, and coding capabilities"
+  - "GPT-5.2 supports reasoning effort levels: none (default), low, medium, high, xhigh"
+  - "GPT-5.1+ models support verbosity control: low (concise), medium (default), high (thorough)"
+  - "GPT-5 flagship models have 400K context window and support vision (image analysis)"
+  - "GPT-5 models support cached input pricing for cost optimization (90% discount)"
+  - "Flagship models (GPT-5 series) support temperature only when reasoning_effort='none'"
+  - "Reasoning models (o1, o3, o4) don't support temperature parameter"
+  - "Vision models (gpt-4o series, gpt-5 series) support image analysis"
+  - "Image generation models charge per image quality tier, not per token"
+  - "Use snapshots for reproducible behavior across deployments"
+  - "Batch API provides 50% discount on inputs and outputs"
+  - "Cached input pricing available via Responses API"
+  - "Fine-tuning models have separate training costs"
+  - "Built-in tools have additional per-use charges"
+  - "Realtime API available for low-latency, multimodal experiences"
+  - "Priority processing offers reliable, high-speed performance with pay-as-you-go"
+  - "Web search content tokens: free for gpt-4o/4.1 preview, fixed 8K block for mini models"
+  - "TTS models: tts-1 ($15/M chars), tts-1-hd ($30/M chars)"
+  - "ASR: whisper-1 ($0.006/min)"
+  - "⚠️ Audio I/O handling not fully implemented - models listed for completeness"

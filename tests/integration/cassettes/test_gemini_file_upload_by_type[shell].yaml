@@ -1,110 +1,80 @@
 interactions:
 - request:
     body: '{"contents": [{"parts": [{"text": "What does this shell script do? What
-      are the main steps?"}, {"text": "[File: tmpvg355x0p.sh]\n#!/bin/bash\n# Build
+      are the main steps?"}, {"text": "[File: tmpek2slf7i.sh]\n#!/bin/bash\n# Build
       and deploy script\nset -e\n\necho \"Starting build process...\"\nnpm install\nnpm
       run build\nnpm test\n\necho \"Deploying to production...\"\nrsync -av dist/
       user@server:/var/www/\necho \"Deployment complete!\"\n"}], "role": "user"}],
       "generationConfig": {"temperature": 1.0, "maxOutputTokens": 65536}}'
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
+      Content-Length:
       - '452'
-      content-type:
+      Content-Type:
       - application/json
-      host:
+      Host:
       - generativelanguage.googleapis.com
       user-agent:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
       x-goog-api-client:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
     method: POST
     uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
   response:
     body:
-      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
-        [\n          {\n            \"text\": \"This shell script automates the **build,
-        test, and deployment process** for a project, very commonly a Node.js-based
-        application or a front-end web application.\\n\\nHere's a breakdown of what
-        it does and its main steps:\\n\\n### What the Script Does\\n\\nThe script
-        first ensures that any command failure will immediately stop the execution
-        (`set -e`). Then, it proceeds with a multi-step process:\\n\\n1.  **Build
-        Phase:** It installs project dependencies, runs the build command to compile/package
-        the application, and then executes automated tests to ensure quality.\\n2.
-        \ **Deployment Phase:** If all build and test steps are successful, it copies
-        the compiled application files to a remote production server.\\n\\n### Main
-        Steps\\n\\nLet's break down the script line by line and identify the main
-        steps:\\n\\n1.  **Shebang and Script Header:**\\n    *   `#!/bin/bash`: Specifies
-        that the script should be executed with Bash.\\n    *   `# Build and deploy
-        script`: A comment indicating the script's purpose.\\n\\n2.  **Error Handling
-        Configuration:**\\n    *   `set -e`: This is a crucial command. It means that
-        the script will **exit immediately** if any command fails (returns a non-zero
-        exit status). This is vital for build and deploy scripts, as you typically
-        don't want to deploy a broken build or continue if a critical step (like testing)
-        fails.\\n\\n3.  **Build Process:**\\n    *   `echo \\\"Starting build process...\\\"`:
-        Prints a message to the console indicating the start of the build phase.\\n
-        \   *   `npm install`: This command uses the Node Package Manager (npm) to
-        install all project dependencies listed in the `package.json` file (and locked
-        by `package-lock.json`). This is typically the first step to ensure all necessary
-        libraries and tools are available.\\n    *   `npm run build`: This command
-        executes a custom script named `build` defined in the `scripts` section of
-        your `package.json` file. For web applications, this usually involves:\\n
-        \       *   Transpiling code (e.g., TypeScript to JavaScript, ES6+ to ES5).\\n
-        \       *   Bundling modules (e.g., using Webpack, Rollup, Parcel).\\n        *
-        \  Minifying code (JavaScript, CSS, HTML).\\n        *   Optimizing assets
-        (images, fonts).\\n        *   The output of this step is typically placed
-        in a directory named `dist/` (short for \\\"distribution\\\") or `build/`.\\n
-        \   *   `npm test`: This command executes the test suite defined in your `package.json`.
-        It runs automated tests (unit tests, integration tests, etc.) to verify the
-        functionality and correctness of the application. If any tests fail, `set
-        -e` will cause the script to stop here, preventing deployment of a potentially
-        broken application.\\n\\n4.  **Deployment Process:**\\n    *   `echo \\\"Deploying
-        to production...\\\"`: Prints a message indicating the start of the deployment
-        phase.\\n    *   `rsync -av dist/ user@server:/var/www/`: This is the core
-        deployment command:\\n        *   `rsync`: A powerful utility for synchronizing
-        files and directories, highly efficient as it only copies changed parts of
-        files.\\n        *   `-a`: Archive mode, which is equivalent to `-rlptgoD`.
-        This means it recursively copies directories, preserves symlinks, permissions,
-        modification times, group, owner, and device files. This is essential for
-        maintaining the integrity of the deployed application.\\n        *   `-v`:
-        Verbose output, which means `rsync` will show which files are being transferred.\\n
-        \       *   `dist/`: This is the source directory. It's the folder generated
-        by `npm run build` containing the compiled and ready-to-deploy application
-        files. The trailing slash `/` is important: it tells `rsync` to copy the *contents*
-        of `dist/` into the destination, rather than creating a `dist/` subdirectory
-        *inside* the destination.\\n        *   `user@server:/var/www/`: This is the
-        destination.\\n            *   `user@server`: Specifies the username (`user`)
-        and the hostname/IP address (`server`) of the remote machine where the application
-        will be deployed.\\n            *   `/var/www/`: This is the target directory
-        on the remote server. For web applications, `/var/www/` (or `/var/www/html/`)
-        is a common location for web server roots (e.g., for Apache or Nginx).\\n\\n5.
-        \ **Completion Message:**\\n    *   `echo \\\"Deployment complete!\\\"`: Prints
-        a final message indicating that the entire process has finished successfully.\\n\\nIn
-        summary, this script automates a robust **Continuous Integration/Continuous
-        Deployment (CI/CD)**-like workflow right from a local machine, ensuring that
-        only successfully built and tested code makes it to the production server.\"\n
-        \         }\n        ],\n        \"role\": \"model\"\n      },\n      \"finishReason\":
-        \"STOP\",\n      \"index\": 0\n    }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\":
-        90,\n    \"candidatesTokenCount\": 1051,\n    \"totalTokenCount\": 2392,\n
-        \   \"promptTokensDetails\": [\n      {\n        \"modality\": \"TEXT\",\n
-        \       \"tokenCount\": 90\n      }\n    ],\n    \"thoughtsTokenCount\": 1251\n
-        \ },\n  \"modelVersion\": \"gemini-2.5-flash\",\n  \"responseId\": \"sd-daLqbKbGEkdUP9te3mQQ\"\n}\n"
+      string: !!binary |
+        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
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 14 Aug 2025 13:08:01 GMT
+      - Sat, 20 Dec 2025 18:45:37 GMT
       Server:
       - scaffolding on HTTPServer2
       Server-Timing:
-      - gfet4t7; dur=12561
+      - gfet4t7; dur=11229
       Transfer-Encoding:
       - chunked
       Vary:
@@ -117,8 +87,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '5117'
     status:
       code: 200
       message: OK

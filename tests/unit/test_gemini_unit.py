@@ -1,10 +1,11 @@
-"""Unit tests for Gemini LLM tool functionality."""
+"""Unit tests for Gemini LLM provider adapter."""
 
 import pytest
 
-from mcp_handley_lab.llm.gemini.tool import (
+from mcp_handley_lab.llm.providers.gemini.adapter import (
     MODEL_CONFIGS,
-    _get_model_config,
+    get_model_config,
+    resolve_files,
 )
 
 
@@ -30,6 +31,8 @@ class TestModelConfiguration:
         """Test that all expected models are in MODEL_CONFIGS."""
         expected_models = {
             "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
+            "gemini-3-pro-image-preview",
             "gemini-2.5-pro",
             "gemini-2.5-flash",
             "gemini-2.5-flash-lite",
@@ -37,7 +40,6 @@ class TestModelConfiguration:
             "imagen-4.0-fast-generate-001",
             "imagen-4.0-ultra-generate-001",
             "imagen-4.0-generate-preview-06-06",
-            "imagen-3.0-generate-002",
             "veo-2.0-generate-001",
         }
         assert set(MODEL_CONFIGS.keys()) == expected_models
@@ -50,13 +52,13 @@ class TestModelConfiguration:
         ],
     )
     def test_get_model_config_parameterized(self, model_name, expected_output_tokens):
-        """Test _get_model_config with various known models."""
-        config = _get_model_config(model_name)
+        """Test get_model_config with various known models."""
+        config = get_model_config(model_name)
         assert config["output_tokens"] == expected_output_tokens
 
     def test_get_model_config_unknown_model(self):
-        """Test _get_model_config falls back to default for unknown models."""
-        config = _get_model_config("unknown-model")
+        """Test get_model_config falls back to default for unknown models."""
+        config = get_model_config("unknown-model")
         # Should default to gemini-3-pro-preview
         assert config["output_tokens"] == 64000
 
@@ -65,12 +67,10 @@ class TestGeminiHelpers:
     """Test Gemini internal helper functions."""
 
     def test_resolve_files_processing_error(self):
-        """Test file processing error in _resolve_files - should fail fast."""
-        from mcp_handley_lab.llm.gemini.tool import _resolve_files
-
+        """Test file processing error in resolve_files - should fail fast."""
         # Use invalid path that will cause stat() to fail
         files = ["/invalid/nonexistent/path"]
 
         # Should raise FileNotFoundError instead of adding error text
         with pytest.raises(FileNotFoundError):
-            _resolve_files(files)
+            resolve_files(files)

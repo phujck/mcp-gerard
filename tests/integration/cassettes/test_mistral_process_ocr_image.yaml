@@ -22,13 +22,13 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAAyyPQWuEMBSE/4rMOUK09dBce+mtsPRWFknNqz6avCcmsrsV/3tRepyBj29mw+xH
-        ynCfG1gC3eGsQfLLT9CbwOGNYtTq/fVSfVAuVdM+wYDTP3Q1CJxIMqtkuA1hZrjWWoOJeJwKXHOE
-        G4cywT1bu+9Xg6SBIhwS57L4WOuw1G1nu3rQNEcqrAKDoMOaSErvRbT4s3WyxmiwZj9Sz/Kth/S8
-        0M+LDpQzBbjmhPvMv9R/Pcoxtele7L7/AQAA//8DAOi0JaLvAAAA
+        H4sIAAAAAAAAA0SPsWrDMBRFfyXcWQE5bYdq7dKtELqVYBTrxX5E0jPSM2lq/O/FoabbPcPhcGeM
+        vqcK9zWDc6BvOGuQfLkGuWU4vFOM8vF23H1S1V1zeIIBpz/nZKD+HLc93EcqkfN1Y/KBClyeYjS4
+        iOg/BU6UK0uucDPCyHAHa1eH+0HhmhVuHHSAe7Z2WU4GSQJFOCSuWnzcS1f20StVhUGQbkqUtfU5
+        i3plyVtrqr6nlvNF1tbjcDsW6ahWCnDNQ24r/1B7vuv6pnl5tcvyCwAA//8DAB3QfTcdAQAA
     headers:
       CF-RAY:
-      - 9aa357634be14170-LHR
+      - 9b111a211bc9ede3-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -36,15 +36,9 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 10:29:21 GMT
+      - Sat, 20 Dec 2025 18:11:25 GMT
       Server:
       - cloudflare
-      Set-Cookie:
-      - __cf_bm=bN1tjKWxFWeMxFU4I4nL88INMd6gKXGyl40azdMN.XI-1765103361-1.0.1.1-SWweHeojl_xu748o3ifENlFB3fp1pgdBWcQwD4_xlvFWX2CIsunpYycqjpX.DVHohXrShFIaB_6AmvhjZcaBKQndZqyBOUUqpgzifC6wpj0;
-        path=/; expires=Sun, 07-Dec-25 10:59:21 GMT; domain=.mistral.ai; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=oe91QEv5o.pSHxRUXi4dfgceLALdfVuugVm_UwMdweo-1765103361882-0.0.1.1-604800000;
-        path=/; domain=.mistral.ai; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=15552000; includeSubDomains; preload
       Transfer-Encoding:
@@ -58,15 +52,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af85b-da29-7d73-ab55-98d169484797
+      - 019b3cf5-90d6-7978-be08-e021c270532f
       x-envoy-upstream-service-time:
-      - '1306'
+      - '159'
       x-kong-proxy-latency:
-      - '9'
+      - '8'
       x-kong-request-id:
-      - 019af85b-da29-7d73-ab55-98d169484797
+      - 019b3cf5-90d6-7978-be08-e021c270532f
       x-kong-upstream-latency:
-      - '1306'
+      - '161'
     status:
       code: 200
       message: OK

@@ -23,14 +23,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0TOS2rDQBCE4bvUehwkWw97rhKCaI1a8SStaaFuQ8Do7kGLxNufgvqeyBMibjzV
-        fZOufduMTboQUT8npvN8SSN3twoBaWNynhDrvmvrqu3rJmDRiQURSzbfSE62kMhJyNkcAQ+jT0Z8
-        Yt10WX1w/eZiiHUX4Ookr3INSLqswp61/OfzHqDjFydHRLqTv71Gh+muObEhvj+Ry8Q/iFXAnEu2
-        +7AxmRZEmOuKgIXtj7OpMCLILJtTOaiuKkMiEUMsD5GDU5zLcdxg3z/2XwAAAP//AwCFh3ehKwEA
+        H4sIAAAAAAAAA0TO0WqDQBCF4Xc515ti1BrdVwklTNaxbjvuiDOBQvDdixdtbn8OnO+JPCKCearu
+        DVd1Wzft0A49TV3dXc7jQNNQ3QkBaWNyHhHPl66r39u6bwIWHVkQsWTzjeRkC4mchJzNEfAw+mTE
+        J9ZNl9Vvrt9cDPHcBbg6yav0AUmXVdizlv9c7wF6/+LkiEgz+dtrdJhmzYkN8fpELiP/IFYBUy7Z
+        5tvGZFoQYa4rAha2P86mwoggs2xO5aC6qtwSiRhieYgcnOJcjuMW+/6x/wIAAP//AwBuHm8PKwEA
         AA==
     headers:
       CF-RAY:
-      - 9aa390dc0ca4129d-LHR
+      - 9b111a185c4bf65e-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -38,14 +38,14 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 11:08:34 GMT
+      - Sat, 20 Dec 2025 18:11:23 GMT
       Server:
       - cloudflare
       Set-Cookie:
-      - __cf_bm=s5QbqWlVAzHWpkQnZh2oIHRl_huQKtVwKIjJjU8DxLQ-1765105714-1.0.1.1-C.emSvOFsIqTWjzxAvsIurNDsLzPanSEp9hfAwZ7fsobtZELP_AiCYpi_2P6rzxdOs0ZNYAGPcUOcVhN.PNdfhFHU_ojXVYCdlURu2raaLw;
-        path=/; expires=Sun, 07-Dec-25 11:38:34 GMT; domain=.mistral.ai; HttpOnly;
+      - __cf_bm=NesgASTwgUp2N_hL_lj9OJZGQTbXdh61NXmUa_VZu5I-1766254283-1.0.1.1-mKwx7X25pOuH0YbeGyJWTg9dyNjUlQtF0HyWaKRQQ4T67lCa5dI3pjKy0ZxHC6EGKx9tON5bysefDXxjgQ5L0y3R9ulMiheGVxh9aTw9Yxw;
+        path=/; expires=Sat, 20-Dec-25 18:41:23 GMT; domain=.mistral.ai; HttpOnly;
         Secure; SameSite=None
-      - _cfuvid=F.3wzCW2sfpSL6pCUZnIxOWurI8eXydLdAPINp_HYRg-1765105714705-0.0.1.1-604800000;
+      - _cfuvid=ZsTDeJL2gmauX7t5M_R9.U55NF13_BR41QvxTlrN5Ho-1766254283745-0.0.1.1-604800000;
         path=/; domain=.mistral.ai; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=15552000; includeSubDomains; preload
@@ -60,15 +60,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af87f-c5b4-70d8-91fb-4d3f172e999f
+      - 019b3cf5-8b69-7a07-9970-f6fbfa81ddce
       x-envoy-upstream-service-time:
-      - '67'
+      - '61'
       x-kong-proxy-latency:
-      - '8'
+      - '9'
       x-kong-request-id:
-      - 019af87f-c5b4-70d8-91fb-4d3f172e999f
+      - 019b3cf5-8b69-7a07-9970-f6fbfa81ddce
       x-kong-upstream-latency:
-      - '68'
+      - '62'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -80,7 +80,7 @@ interactions:
       x-ratelimit-remaining-tokens-minute:
       - '499982'
       x-ratelimit-remaining-tokens-month:
-      - '999999452'
+      - '999993034'
       x-ratelimit-tokens-query-cost:
       - '18'
     status:

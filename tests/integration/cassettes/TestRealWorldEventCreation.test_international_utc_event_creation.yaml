@@ -11,25 +11,27 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: GET
     uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
   response:
     body:
-      string: "{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"Request had
-        invalid authentication credentials. Expected OAuth 2 access token, login cookie
-        or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.\",\n
-        \   \"errors\": [\n      {\n        \"message\": \"Invalid Credentials\",\n
-        \       \"domain\": \"global\",\n        \"reason\": \"authError\",\n        \"location\":
-        \"Authorization\",\n        \"locationType\": \"header\"\n      }\n    ],\n
-        \   \"status\": \"UNAUTHENTICATED\"\n  }\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:00 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       Server:
       - ESF
       Transfer-Encoding:
@@ -46,8 +48,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '507'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -61,25 +61,31 @@ interactions:
       content-type:
       - application/x-www-form-urlencoded
       user-agent:
-      - Python-httplib2/0.22.0 (gzip)
+      - Python-httplib2/0.31.0 (gzip)
       x-goog-api-client:
-      - gl-python/3.13.5 auth/2.40.3 cred-type/u
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
     method: POST
     uri: https://oauth2.googleapis.com/token
   response:
     body:
-      string: "{\n  \"access_token\": \"REDACTED_OAUTH_TOKEN\",\n
-        \ \"expires_in\": 3599,\n  \"scope\": \"https://www.googleapis.com/auth/calendar\",\n
-        \ \"token_type\": \"Bearer\"\n}"
+      string: !!binary |
+        H4sIAAAAAAAC/yXQu3KCQACF4d6ncKijIHK1A7klIoooCA2zWZabyCKLgmby7onanpn/FN/PaDym
+        AISIkLjDJ1RTizF1B6w8BYwCxGapTLLk4OtA2pjz26nAR0OVXYe/WFvhuAd8Q8h2ppushWztEvN6
+        jc9fXMmEaVwjjDwu2tkCeuCak4MNOSPQSkzr6dKpDNVUi6XM1t3r/F42Qd8l+cqsotLdyoVo8+KQ
+        +IqYXYjtOpkEjOp7AgYDMly+W8/sfRLFCdoEtQ/rm+qsi70hRUaQabC8Dr2FVpImhIBL+WCw9cAF
+        yyxcKUjylB30DNcyj+y6yFlbkIcmfVTmwTcc9TPgO1FhWEamPp4qaGiKFpG4eJrMeVl+rQTiBj2R
+        8q5ryIKm+76fZhhnFQJNQaYQn2lw7XIaggrVCWjfZy/buLu/W/UfArXU6PcPEl43yX8BAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 13 Aug 2025 10:26:00 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       Expires:
       - Mon, 01 Jan 1990 00:00:00 GMT
       Pragma:
@@ -98,8 +104,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '383'
     status:
       code: 200
       message: OK
@@ -115,28 +119,31 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: GET
     uri: https://www.googleapis.com/calendar/v3/calendars/primary?alt=json
   response:
     body:
-      string: "{\n \"kind\": \"calendar#calendar\",\n \"etag\": \"\\\"yBYytaCkItN-Z7wk25cvBHCrK3k\\\"\",\n
-        \"id\": \"williamjameshandley.arxiv@gmail.com\",\n \"summary\": \"williamjameshandley.arxiv@gmail.com\",\n
-        \"timeZone\": \"Europe/London\",\n \"conferenceProperties\": {\n  \"allowedConferenceSolutionTypes\":
-        [\n   \"hangoutsMeet\"\n  ]\n }\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/5WNQUsDMRCF7/kVIV61gkUET9KloGhF0Iu1HoZkXMdNZko22zWU/nezgfbubXjf
+        997slTYdsTO32ljwyA7i2fEw54VignaiG5MX7zlB0z2k54v1zdhdXdvd4r6Jj/NuY6pLdWck7wnC
+        DwTsv4GdxzyD+Eu7uzYA+ZmVUO1+CAFi/k8lUcC1ME6d5RBli5dPwk64Uiv8hRHZ4suEYiLsi7lX
+        WhvwXkZ0zUl5FT8kEn7L22p9FEub8ryVIfUrxGRK8qn0QR3UHxaF+UonAQAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:00 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       ETag:
       - '"yBYytaCkItN-Z7wk25cvBHCrK3k"'
       Expires:
-      - Wed, 13 Aug 2025 10:26:00 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       Server:
       - ESF
       Transfer-Encoding:
@@ -151,8 +158,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '295'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -160,8 +165,8 @@ interactions:
       message: OK
 - request:
     body: '{"summary": "Global Webinar", "description": "International webinar in
-      UTC", "location": "Online", "start": {"dateTime": "2025-08-14T15:00:00+01:00",
-      "timeZone": "Europe/London"}, "end": {"dateTime": "2025-08-14T16:00:00+01:00",
+      UTC", "location": "Online", "start": {"dateTime": "2025-12-21T14:00:00+00:00",
+      "timeZone": "Europe/London"}, "end": {"dateTime": "2025-12-21T15:00:00+00:00",
       "timeZone": "Europe/London"}}'
     headers:
       accept:
@@ -175,34 +180,34 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: POST
     uri: https://www.googleapis.com/calendar/v3/calendars/primary/events?alt=json
   response:
     body:
-      string: "{\n \"kind\": \"calendar#event\",\n \"etag\": \"\\\"3510161522249118\\\"\",\n
-        \"id\": \"p4g7g12loig6u67vdm400tlo3o\",\n \"status\": \"confirmed\",\n \"htmlLink\":
-        \"https://www.google.com/calendar/event?eid=cDRnN2cxMmxvaWc2dTY3dmRtNDAwdGxvM28gd2lsbGlhbWphbWVzaGFuZGxleS5hcnhpdkBt\",\n
-        \"created\": \"2025-08-13T10:26:00.000Z\",\n \"updated\": \"2025-08-13T10:26:01.124Z\",\n
-        \"summary\": \"Global Webinar\",\n \"description\": \"International webinar
-        in UTC\",\n \"location\": \"Online\",\n \"creator\": {\n  \"email\": \"williamjameshandley.arxiv@gmail.com\",\n
-        \ \"self\": true\n },\n \"organizer\": {\n  \"email\": \"williamjameshandley.arxiv@gmail.com\",\n
-        \ \"self\": true\n },\n \"start\": {\n  \"dateTime\": \"2025-08-14T15:00:00+01:00\",\n
-        \ \"timeZone\": \"Europe/London\"\n },\n \"end\": {\n  \"dateTime\": \"2025-08-14T16:00:00+01:00\",\n
-        \ \"timeZone\": \"Europe/London\"\n },\n \"iCalUID\": \"p4g7g12loig6u67vdm400tlo3o@google.com\",\n
-        \"sequence\": 0,\n \"reminders\": {\n  \"useDefault\": true\n },\n \"eventType\":
-        \"default\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/62Ty27bMBBF9/4KQd02tkRbiSugaNCkMVJEKZA6dWtkMxLHEmU+ZJLyI0H+vSJt
+        I8jGQIEutCDn8PLyzuilF4RLJmmYBmEBHCUF/QHXKG34sSuhhdKVnsJhMiRJTMj4YjiK4mT8FHqA
+        +ZOkLtaGkeE5sRVCLUc2VyueAzMeMhZsa/wVSi6YFkj9fmUFv2Ny6SqVtY1JB4PNZtMvlSo59gsl
+        BkdPA+/pCzL6ORNNTeV9k9UZyeSDms9uVnn9EP0Rn7b55HsFv7OSEm7yCa/yWdN9v55hctPOJ1uO
+        P5OqkFVDl1/3Dyw0gsX9IyKSnMXkjETTeJyOSEqG/SiK5p5rG3qKO784cKYVAvTOcROucuDBDHMm
+        QfsqRVNo1limpCNupUUtwS07cLMHAyaDx+mV57kq4Aj/kJxJfDOtdLf70gu6Jglg3CEbxjkDUYNA
+        U4GkHHd90Fu2viwd4gJ15zuXyBfdAatb7AWvTlLpEiR7xv8q2vVd26Ogy2/KBL6LMJ7GozSK0kPM
+        QWg7Yq6kp761WjU4uFOSdhEcNNHP6knF5N8U2RXwx9vr03N8+TaT+z7jqkVZONXIrTWK7i9CbY7m
+        WoPXuICW2/eZ+Dme7hrvhx6I3mvvL542FjKJAwAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       ETag:
-      - '"3510161522249118"'
+      - '"3532512287340158"'
       Expires:
       - Mon, 01 Jan 1990 00:00:00 GMT
       Pragma:
@@ -221,8 +226,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '915'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -240,25 +243,27 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: GET
-    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/p4g7g12loig6u67vdm400tlo3o?alt=json
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/2jcvsi2362theajn4tboqlbais?alt=json
   response:
     body:
-      string: "{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"Request had
-        invalid authentication credentials. Expected OAuth 2 access token, login cookie
-        or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.\",\n
-        \   \"errors\": [\n      {\n        \"message\": \"Invalid Credentials\",\n
-        \       \"domain\": \"global\",\n        \"reason\": \"authError\",\n        \"location\":
-        \"Authorization\",\n        \"locationType\": \"header\"\n      }\n    ],\n
-        \   \"status\": \"UNAUTHENTICATED\"\n  }\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       Server:
       - ESF
       Transfer-Encoding:
@@ -275,8 +280,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '507'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -290,25 +293,31 @@ interactions:
       content-type:
       - application/x-www-form-urlencoded
       user-agent:
-      - Python-httplib2/0.22.0 (gzip)
+      - Python-httplib2/0.31.0 (gzip)
       x-goog-api-client:
-      - gl-python/3.13.5 auth/2.40.3 cred-type/u
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
     method: POST
     uri: https://oauth2.googleapis.com/token
   response:
     body:
-      string: "{\n  \"access_token\": \"REDACTED_OAUTH_TOKEN\",\n
-        \ \"expires_in\": 3599,\n  \"scope\": \"https://www.googleapis.com/auth/calendar\",\n
-        \ \"token_type\": \"Bearer\"\n}"
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy26CQACF4b1PYVhXQS4F3SFgRUG5VCNsyDiO3JmBAYQ2ffdG3Z7kP4vvdzKd
+        MgBCRGnU4hxVzGrKjIBfzgGnAploquIJPc6VUqgdOTM9UTau33bh80qMg1Cie0tZ9+RYmrk7WAE6
+        3rK0yO+iLZRVhwTzZHDZLE6gc7DCxQ5Fp1FZeIbEB9eq7Ely8vlI9/Ess6Ry48k+SoxRpYBeG9Po
+        j1b3Uy/adQRwmDTBbXYpzmKkd7ApJFe6t8FJM+RAdM16UW9r3QXg7Jl9e1CHHdCskfryDQ48EbsH
+        0OJgr15yX/Wgv3G3XxfeTkHmf4Y2zHvo5DrRU+RWrqNyPLdkPp4qaCBpg2iUPk0Eabl8rRRigp5I
+        SdsSumLZx+MxjzGOCwRISucQlyzo2oSFoEDVDTTvs5dt1I7vdo1Agxpm8vcPs+dy2n8BAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:23 GMT
       Expires:
       - Mon, 01 Jan 1990 00:00:00 GMT
       Pragma:
@@ -327,8 +336,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '383'
     status:
       code: 200
       message: OK
@@ -344,36 +351,36 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: GET
-    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/p4g7g12loig6u67vdm400tlo3o?alt=json
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/2jcvsi2362theajn4tboqlbais?alt=json
   response:
     body:
-      string: "{\n \"kind\": \"calendar#event\",\n \"etag\": \"\\\"3510161522249118\\\"\",\n
-        \"id\": \"p4g7g12loig6u67vdm400tlo3o\",\n \"status\": \"confirmed\",\n \"htmlLink\":
-        \"https://www.google.com/calendar/event?eid=cDRnN2cxMmxvaWc2dTY3dmRtNDAwdGxvM28gd2lsbGlhbWphbWVzaGFuZGxleS5hcnhpdkBt\",\n
-        \"created\": \"2025-08-13T10:26:00.000Z\",\n \"updated\": \"2025-08-13T10:26:01.124Z\",\n
-        \"summary\": \"Global Webinar\",\n \"description\": \"International webinar
-        in UTC\",\n \"location\": \"Online\",\n \"creator\": {\n  \"email\": \"williamjameshandley.arxiv@gmail.com\",\n
-        \ \"self\": true\n },\n \"organizer\": {\n  \"email\": \"williamjameshandley.arxiv@gmail.com\",\n
-        \ \"self\": true\n },\n \"start\": {\n  \"dateTime\": \"2025-08-14T15:00:00+01:00\",\n
-        \ \"timeZone\": \"Europe/London\"\n },\n \"end\": {\n  \"dateTime\": \"2025-08-14T16:00:00+01:00\",\n
-        \ \"timeZone\": \"Europe/London\"\n },\n \"iCalUID\": \"p4g7g12loig6u67vdm400tlo3o@google.com\",\n
-        \"sequence\": 0,\n \"reminders\": {\n  \"useDefault\": true\n },\n \"eventType\":
-        \"default\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/62Ty27bMBBF9/4KQd02tkRbiSugaNCkMVJEKZA6dWtkMxLHEmU+ZJLyI0H+vSJt
+        I8jGQIEutCDn8PLyzuilF4RLJmmYBmEBHCUF/QHXKG34sSuhhdKVnsJhMiRJTMj4YjiK4mT8FHqA
+        +ZOkLtaGkeE5sRVCLUc2VyueAzMeMhZsa/wVSi6YFkj9fmUFv2Ny6SqVtY1JB4PNZtMvlSo59gsl
+        BkdPA+/pCzL6ORNNTeV9k9UZyeSDms9uVnn9EP0Rn7b55HsFv7OSEm7yCa/yWdN9v55hctPOJ1uO
+        P5OqkFVDl1/3Dyw0gsX9IyKSnMXkjETTeJyOSEqG/SiK5p5rG3qKO784cKYVAvTOcROucuDBDHMm
+        QfsqRVNo1limpCNupUUtwS07cLMHAyaDx+mV57kq4Aj/kJxJfDOtdLf70gu6Jglg3CEbxjkDUYNA
+        U4GkHHd90Fu2viwd4gJ15zuXyBfdAatb7AWvTlLpEiR7xv8q2vVd26Ogy2/KBL6LMJ7GozSK0kPM
+        QWg7Yq6kp761WjU4uFOSdhEcNNHP6knF5N8U2RXwx9vr03N8+TaT+z7jqkVZONXIrTWK7i9CbY7m
+        WoPXuICW2/eZ+Dme7hrvhx6I3mvvL542FjKJAwAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - private, max-age=0, must-revalidate, no-transform
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:24 GMT
       ETag:
-      - '"3510161522249118"'
+      - '"3532512287340158"'
       Expires:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:24 GMT
       Server:
       - ESF
       Transfer-Encoding:
@@ -388,8 +395,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '915'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -407,25 +412,27 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: DELETE
-    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/p4g7g12loig6u67vdm400tlo3o
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/2jcvsi2362theajn4tboqlbais
   response:
     body:
-      string: "{\n  \"error\": {\n    \"code\": 401,\n    \"message\": \"Request had
-        invalid authentication credentials. Expected OAuth 2 access token, login cookie
-        or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.\",\n
-        \   \"errors\": [\n      {\n        \"message\": \"Invalid Credentials\",\n
-        \       \"domain\": \"global\",\n        \"reason\": \"authError\",\n        \"location\":
-        \"Authorization\",\n        \"locationType\": \"header\"\n      }\n    ],\n
-        \   \"status\": \"UNAUTHENTICATED\"\n  }\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/4WQwU7DMAyG730Kq+etBcRpt2pUYpchQXdCHLLESsPSuCTpYEx9d5K0EhNC2in6
+        7S+WP58zgBytJZuv4BxCiJwEhnR/c7uYCh06x2Ss5c/4MaDz0DIByhyZVgLY4Fs0XnHmFRngFkWM
+        TLsC6q8euUcBT1Wg4A4Y52EaeDqgWYAmqcIPooNCIAsUJlm4MraAF0Rove/dqiwFHlFTj9YVkkhq
+        LDh1pUqsP5VOSbNUpvzEfUQ5GUcal72l97BYkc+K6QQuGL6mDPMt/upvZuX1r+M8IZGCOqZMBKWm
+        PdOXPYvMUepFsTqd/KKtafKMQDwVWfU9Ff6BmlOf1mmRCbT5DIzpfZuNnGd+iEb5blvtmsd622zW
+        VVM/RHzMxuwH1VrBt/sBAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:24 GMT
       Server:
       - ESF
       Transfer-Encoding:
@@ -442,8 +449,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '507'
       x-l2-request-path:
       - l2-managed-14
     status:
@@ -457,25 +462,31 @@ interactions:
       content-type:
       - application/x-www-form-urlencoded
       user-agent:
-      - Python-httplib2/0.22.0 (gzip)
+      - Python-httplib2/0.31.0 (gzip)
       x-goog-api-client:
-      - gl-python/3.13.5 auth/2.40.3 cred-type/u
+      - gl-python/3.13.7 auth/2.41.1 cred-type/u
     method: POST
     uri: https://oauth2.googleapis.com/token
   response:
     body:
-      string: "{\n  \"access_token\": \"REDACTED_OAUTH_TOKEN\",\n
-        \ \"expires_in\": 3599,\n  \"scope\": \"https://www.googleapis.com/auth/calendar\",\n
-        \ \"token_type\": \"Bearer\"\n}"
+      string: !!binary |
+        H4sIAAAAAAAC/yXQy3KCMACF4X2fwmHdSoxYxR2igIIV8YKwYWKMgAQTCILY6bt31O2Z+c/i+/3o
+        dCSEMREiqlhGrtK4I7UIql0ENDTkuqZerRvcV7EzUc87Q4fWbu3qSXmbKcDcuuUlj6eE8iCLBcpy
+        oQ6M3EfMF0nvwfZ2uyg0xxkWaR9kihmuDlOAXT3lm3rpTprAME2mR1p16ttwYK90CBf3IXBqB1M4
+        smZ0T1PQFIGrxKcRL23hZ9v6coPlbrNobNepEQWW9WjrHyU20AonnpbOesaDYo+yuZ/Mit0Z3Vuy
+        Rnoc2FqIN5qHN8baMg9wmX4tj9+J4uXhXHWZCIOjZ/pZAyBQpc+nCrnztCQiSp8m/YGqvlaBGSdP
+        pKSquBjLctM03ZixmBLEU9HFLJfRrUpkjCi5nlD5PnvZRlX7bicElaSUPv7+AV3X6fB/AQAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
       Cache-Control:
       - no-cache, no-store, max-age=0, must-revalidate
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 13 Aug 2025 10:26:01 GMT
+      - Sat, 20 Dec 2025 18:42:24 GMT
       Expires:
       - Mon, 01 Jan 1990 00:00:00 GMT
       Pragma:
@@ -494,8 +505,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '383'
     status:
       code: 200
       message: OK
@@ -511,9 +520,9 @@ interactions:
       user-agent:
       - (gzip)
       x-goog-api-client:
-      - gdcl/2.177.0 gl-python/3.13.5 cred-type/u
+      - gdcl/2.187.0 gl-python/3.13.7 cred-type/u
     method: DELETE
-    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/p4g7g12loig6u67vdm400tlo3o
+    uri: https://www.googleapis.com/calendar/v3/calendars/primary/events/2jcvsi2362theajn4tboqlbais
   response:
     body:
       string: ''
@@ -527,7 +536,7 @@ interactions:
       Content-Type:
       - text/html
       Date:
-      - Wed, 13 Aug 2025 10:26:02 GMT
+      - Sat, 20 Dec 2025 18:42:24 GMT
       Expires:
       - Mon, 01 Jan 1990 00:00:00 GMT
       Pragma:

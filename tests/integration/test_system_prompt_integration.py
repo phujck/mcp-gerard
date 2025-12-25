@@ -7,11 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from mcp_handley_lab.llm.claude.tool import mcp as claude_mcp
-from mcp_handley_lab.llm.gemini.tool import mcp as gemini_mcp
-from mcp_handley_lab.llm.grok.tool import mcp as grok_mcp
-from mcp_handley_lab.llm.memory import memory_manager
-from mcp_handley_lab.llm.openai.tool import mcp as openai_mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
 # Skip all API-requiring tests if API keys not available
 gemini_available = bool(os.getenv("GEMINI_API_KEY"))
@@ -19,10 +15,9 @@ openai_available = bool(os.getenv("OPENAI_API_KEY"))
 claude_available = bool(os.getenv("ANTHROPIC_API_KEY"))
 grok_available = bool(os.getenv("XAI_API_KEY"))
 
-# Provider configurations for testing
+# Provider configurations for testing (unified MCP, model determines provider)
 system_prompt_providers = [
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-flash",
@@ -32,7 +27,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o-mini",
@@ -42,7 +36,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-haiku-4-5-20251001",
@@ -52,7 +45,6 @@ system_prompt_providers = [
         ),
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-3-mini",
@@ -63,7 +55,6 @@ system_prompt_providers = [
 
 image_analysis_providers = [
     pytest.param(
-        gemini_mcp,
         "gemini",
         "GEMINI_API_KEY",
         "gemini-2.5-pro",
@@ -73,7 +64,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        openai_mcp,
         "openai",
         "OPENAI_API_KEY",
         "gpt-4o",
@@ -83,7 +73,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        claude_mcp,
         "claude",
         "ANTHROPIC_API_KEY",
         "claude-sonnet-4-5-20250929",
@@ -93,7 +82,6 @@ image_analysis_providers = [
         ),
     ),
     pytest.param(
-        grok_mcp,
         "grok",
         "XAI_API_KEY",
         "grok-2-vision-1212",
@@ -117,8 +105,8 @@ class TestSystemPromptBasic:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_parameter_exists(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_parameter_exists(self, provider, api_key, model):
         """Test that system_prompt parameter is accepted by all providers."""
         # Test with a simple math question and specific system prompt
 
@@ -164,9 +152,9 @@ class TestSystemPromptBasic:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", image_analysis_providers)
+    @pytest.mark.parametrize("provider,api_key,model", image_analysis_providers)
     async def test_system_prompt_image_analysis(
-        self, mcp, provider, api_key, model, sample_image_path
+        self, provider, api_key, model, sample_image_path
     ):
         """Test system_prompt works with image analysis tools."""
 
@@ -176,7 +164,7 @@ class TestSystemPromptBasic:
             "output_file": "/tmp/test_image_system_prompt.txt",
             "agent_name": "test_image_system_prompt",
             "model": model,
-            "files": [str(sample_image_path)],
+            "images": [str(sample_image_path)],
             "system_prompt": "You are a professional art critic. Provide detailed, sophisticated analysis.",
         }
 
@@ -196,8 +184,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_persistence(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_persistence(self, provider, api_key, model):
         """Test that system prompt is remembered across multiple calls."""
         agent_name = f"test_persistence_{model.replace('-', '_')}"
 
@@ -266,8 +254,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_system_prompt_update(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_system_prompt_update(self, provider, api_key, model):
         """Test that system prompt can be updated and new one is remembered."""
         agent_name = f"test_update_{model.replace('-', '_')}"
 
@@ -344,10 +332,8 @@ class TestSystemPromptPersistence:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_different_agents_different_prompts(
-        self, mcp, provider, api_key, model
-    ):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_different_agents_different_prompts(self, provider, api_key, model):
         """Test that different agents can have different system prompts."""
 
         # Provider-specific parameters for Agent 1
@@ -420,77 +406,43 @@ class TestSystemPromptMemoryIntegration:
 
     def test_agent_creation_with_system_prompt(self):
         """Test that agents are created with system prompts in memory."""
+        from mcp_handley_lab.llm.memory import GlobalMemoryManager
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            original_storage_dir = memory_manager.storage_dir
+            # Create fresh memory manager with temp directory
+            mgr = GlobalMemoryManager(cwd=Path(temp_dir))
 
-            try:
-                # Temporarily change storage directory
-                memory_manager.storage_dir = Path(temp_dir)
-                memory_manager.agents_dir = Path(temp_dir) / "agents"
-                memory_manager.agents_dir.mkdir(parents=True, exist_ok=True)
-                memory_manager._agents = {}
+            # Create agent with system prompt
+            agent = mgr.create_agent("test_agent", "You are helpful")
 
-                # Create agent with system prompt
-                agent = memory_manager.create_agent("test_agent", "You are helpful")
+            assert agent.system_prompt == "You are helpful"
+            assert mgr.get_agent("test_agent").system_prompt == "You are helpful"
 
-                assert agent.system_prompt == "You are helpful"
-                assert (
-                    memory_manager.get_agent("test_agent").system_prompt
-                    == "You are helpful"
-                )
-
-                # Check file persistence
-                agent_file = memory_manager.agents_dir / "test_agent.json"
-                assert agent_file.exists()
-
-                # Verify file content
-                import json
-
-                agent_data = json.loads(agent_file.read_text())
-                assert agent_data["system_prompt"] == "You are helpful"
-
-            finally:
-                # Restore original storage
-                memory_manager.storage_dir = original_storage_dir
-                memory_manager.agents_dir = original_storage_dir / "agents"
-                memory_manager._load_agents()
+            # Check file persistence
+            agent_file = mgr._agents_dir / "test_agent.jsonl"
+            assert agent_file.exists()
 
     def test_system_prompt_update_in_memory(self):
         """Test that system prompt updates are persisted in memory."""
+        from mcp_handley_lab.llm.memory import GlobalMemoryManager
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            original_storage_dir = memory_manager.storage_dir
+            # Create fresh memory manager with temp directory
+            mgr = GlobalMemoryManager(cwd=Path(temp_dir))
 
-            try:
-                # Setup temporary storage
-                memory_manager.storage_dir = Path(temp_dir)
-                memory_manager.agents_dir = Path(temp_dir) / "agents"
-                memory_manager.agents_dir.mkdir(parents=True, exist_ok=True)
-                memory_manager._agents = {}
+            # Create agent
+            agent = mgr.create_agent("test_agent", "Original prompt")
+            assert agent.system_prompt == "Original prompt"
 
-                # Create agent
-                agent = memory_manager.create_agent("test_agent", "Original prompt")
-                assert agent.system_prompt == "Original prompt"
+            # Update system prompt (AgentMemory auto-saves on property set)
+            agent.system_prompt = "Updated prompt"
 
-                # Update system prompt
-                agent.system_prompt = "Updated prompt"
-                memory_manager._save_agent(agent)
+            # Create new manager to test persistence
+            mgr2 = GlobalMemoryManager(cwd=Path(temp_dir))
+            reloaded_agent = mgr2.get_agent("test_agent")
 
-                # Verify update
-                updated_agent = memory_manager.get_agent("test_agent")
-                assert updated_agent.system_prompt == "Updated prompt"
-
-                # Check file persistence
-                agent_file = memory_manager.agents_dir / "test_agent.json"
-                import json
-
-                agent_data = json.loads(agent_file.read_text())
-                assert agent_data["system_prompt"] == "Updated prompt"
-
-            finally:
-                # Restore original storage
-                memory_manager.storage_dir = original_storage_dir
-                memory_manager.agents_dir = original_storage_dir / "agents"
-                memory_manager._load_agents()
+            assert reloaded_agent is not None
+            assert reloaded_agent.system_prompt == "Updated prompt"
 
 
 class TestSystemPromptEdgeCases:
@@ -498,8 +450,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_empty_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_empty_system_prompt(self, provider, api_key, model):
         """Test behavior with empty system prompt."""
 
         # Provider-specific parameters
@@ -539,8 +491,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_none_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_none_system_prompt(self, provider, api_key, model):
         """Test behavior with None system prompt."""
 
         # Provider-specific parameters
@@ -579,8 +531,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_very_long_system_prompt(self, mcp, provider, api_key, model):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_very_long_system_prompt(self, provider, api_key, model):
         """Test behavior with very long system prompt."""
         long_prompt = "You are a helpful assistant. " * 100  # Very long prompt
 
@@ -621,10 +573,8 @@ class TestSystemPromptEdgeCases:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("mcp,provider,api_key,model", system_prompt_providers)
-    async def test_special_characters_system_prompt(
-        self, mcp, provider, api_key, model
-    ):
+    @pytest.mark.parametrize("provider,api_key,model", system_prompt_providers)
+    async def test_special_characters_system_prompt(self, provider, api_key, model):
         """Test system prompt with special characters and Unicode."""
         special_prompt = (
             "You are a helpful assistant 🤖. Use emojis: ∑, ∏, ∆, ∇, ∈, ∉, ∀, ∃"

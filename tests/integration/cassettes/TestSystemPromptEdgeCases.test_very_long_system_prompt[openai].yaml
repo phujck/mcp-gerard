@@ -11,6 +11,26 @@ interactions:
       "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
       "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
       equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
       "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"}],
       "instructions": "You are a helpful assistant. You are a helpful assistant. You
       are a helpful assistant. You are a helpful assistant. You are a helpful assistant.
@@ -59,13 +79,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '3855'
+      - '5311'
       Content-Type:
       - application/json
       Host:
       - api.openai.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -75,7 +95,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -89,21 +109,22 @@ interactions:
   response:
     body:
       string: !!binary |
-        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
+        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
+        AA==
     headers:
       CF-RAY:
-      - 9aa358517d9cc18a-LHR
+      - 9b11199ef82426c6-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -111,7 +132,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 10:30:00 GMT
+      - Sat, 20 Dec 2025 18:11:04 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -127,13 +148,13 @@ interactions:
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '2201'
+      - '692'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '2204'
+      - '700'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -141,13 +162,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999155'
+      - '149998787'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_1a92c4f221f945829e63bdb594e97a31
+      - req_55a9eabf98fa475baccf480cde5f4ff6
     status:
       code: 200
       message: OK

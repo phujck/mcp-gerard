@@ -16,7 +16,7 @@ interactions:
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -26,7 +26,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -40,16 +40,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/1VRQY7jIBC87zP6bEeAjbH9gv3DamWBaSdsMDhAMllF/vvAKMloTojqrlJV1wOM
-        hhHmk0zzutm6pWxoNO1r7CSr26VfasUbUms99HxRgrBOQQVe/cM5PYmH2WcqJuNdHs0BZcIsSkXH
-        KWsoJxWsXqPN69bKVdbNgda9qo2LSbpUOCdvZoww/nmAcRrvMBYSxiiPCOMDgrf5BRmjeXO8S+iK
-        h99orT/AXoH1xy14lYXc1doKFuNMPE3ZUczeRojJb7D/reD6Er5c8YpTMmv+kQOlvOsZHfoKss66
-        pSn5M7qs1zbf0HOZEEa5aJkoXl4HeBOan+iLQwltBW+HCpJP0n7rd2/kvcoa0g6i2592J5VznLX/
-        cK948X9MuE455RHDFszXNZZtapte6Aa1KlXdp2Pwl5L1q+mAl4nQs/oI5zX1eMeAp8jl7b6qcCt3
-        jVjKY5QJwXtB+F6gcMv9ZGsYskTOo3GVTsP+6xMn8Xw7QAIAAA==
+        H4sIAAAAAAAAA1SRXY7jIBCE3/cY/YwjfhwCnGDusFpZGLcTNhhsIDvxRrn7ytE4o30t9VddXf0A
+        P4ABd7HVTXNotFP9wE9tY/WomlZp3ihpXSMZRStOmouRAoHU/0ZXv8CDS9McsPoUgYDLaCsOYNhJ
+        Sn5s9VETmNKAAQyEYCfbiANrVN/4WKqNdWMuyTssYH4+wMcB72AogQlLsWcE84CcAoIBW4p/MylW
+        jFuGDwwhHeBJIKTznFNfwMRbCARGH325dBltSREMlJpmeP4icNuNlxvesKt+QjD0QJXSVEiuCMw5
+        TXPtarpiLGBa8S3tw5RToYTkW5a9gDcg/lffjGK0VVITqKna8O0v38o+yihrBRfs+RW36zPa65A+
+        435eWUvFqRt9PGOes3+1Mc4dY0c2tCMXDgjcu3NOy3br69MZl46yq1vHv4vUY/wsfFnWuN77s5Ir
+        ECj4et5RMap1q7b1BfMf77aaMIOBFLsBJxsHeP74BwAA//8DAMDIKBxAAgAA
     headers:
       CF-RAY:
-      - 9aa53a8b8e616cef-LHR
+      - 9b112a9aa820d180-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -59,21 +59,17 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 15:59:10 GMT
+      - Sat, 20 Dec 2025 18:22:39 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
-      - max-age=2592000
+      - max-age=15552000
       Transfer-Encoding:
       - chunked
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      set-cookie:
-      - __cf_bm=FpP13LmrS6fwDgCdCroEoi_QUCS5LhfuKFWNyD0PWao-1765123150.6483212-1.0.1.1-fGX1DCKEQXZKjJpuB2URHkmE.AjwxRHyk8PJTQp_ZXvuepX2xilGlbxPqpJ7gpF8m_zV1xa8CzCO_R6apn2mrBbKAvI6Hd30ujrpUqb1UnjuSmWkZ5nGQPZQnWMlOMx1;
-        HttpOnly; Secure; Path=/; Domain=groq.com; Expires=Sun, 07 Dec 2025 16:29:10
-        GMT
       vary:
       - Origin
       via:
@@ -85,15 +81,15 @@ interactions:
       x-ratelimit-limit-tokens:
       - '6000'
       x-ratelimit-remaining-requests:
-      - '14395'
+      - '14398'
       x-ratelimit-remaining-tokens:
-      - '3569'
+      - '4'
       x-ratelimit-reset-requests:
-      - 30s
+      - 12s
       x-ratelimit-reset-tokens:
-      - 24.31s
+      - 59.96s
       x-request-id:
-      - req_01kbwrkmt8exerehs5avxmbrvt
+      - req_01kcyfzq69fnws2qqynyxbg86y
     status:
       code: 200
       message: OK
@@ -114,7 +110,7 @@ interactions:
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.8.1
+      - OpenAI/Python 2.7.2
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -124,7 +120,7 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.8.1
+      - 2.7.2
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
@@ -138,16 +134,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/1VRUW6rMBD8f8fYb4hsDBg4wbtDVSGDl8TF2MR22kYRd+9SlVT99HhmNDP7AKOh
-        g/Gi0risNtfN2FTtIHIlmczLWuq8abXIEVUhlGqlEiNk4Ic3HNOP8DR6kmIy3tHXGFAlJFMu64oX
-        glcsg8VrtES3Vi0qFyeRSzbk7xiiSsbiLrt4M2KE7uUBxmn8hG7XYYzqjNA9IHjidaBiNDEpl3aN
-        dwndHuM/WutPsGVg/XkNfiAjd7M2g8k4Ey89hYoUr4OY/Arbawa3w/h6wxv2ySz0YidWFnVVFTwD
-        slnW1Cc/oyO7UvxCB5fxgnPO+B7lmOApEH/RQ0N7yJKxJoPkk7K//vUTeVLroqk4a7eftP1ANWbt
-        P9zRLt5jwqWnkmcMazDfY0xrPzVDyUvJ+D7tZ38O/rpX/b51wGvP+Dx8hNmxebpMadJ3WU8V3mtR
-        ET/ifj5RiUK0RSu3HQnvdB1KhoEcqI7GRTkN278v4rEHT0ECAAA=
+        H4sIAAAAAAAAA1SR226jMBCG7/sYc20iDD6An6DvsFohY4bEjQ9gO9m2Ee++IkpS9fbXfKP/cAM7
+        gQJz0sX4xVUzm+uJSV31Xd9VTKCoNLZzxaXRjHY4UaaBQBw/0JQHeDDRLw6LjQEImIS64ASKSiEa
+        znpRE/BxQgcKnNNeV+2hrWQ9VldMWRfrcMdO0RrMoP7cwIYJP0HtHOasjwjqBik6BAU6Z5uLDmVn
+        YigYdhvv6FyEjYCLxyXFMYMKF+cIzDbYfBoS6hwDKMglLrD9JXB5/l0veMGhWI+g6gNlQkpRt4zA
+        kqJfylDiGUMGxdof6XFc17RpO16L3cqzghfQ/FafDOWUd03TEiixaPfzn7+U16loeyGbfnvYHcaE
+        +jzFf+EZL3/lgn6YbThiWpK9lzEvQ9+OfO6RCwYEPodjiuue9b51wnWo6dl8zd+r+cAz7cW4fi+U
+        JfQjBwIZ7/MxySXlXLJtl9LVmr0mTKAghmFCr8ME29t/AAAA//8DACYvxL9CAgAA
     headers:
       CF-RAY:
-      - 9aa53a8cdefe24ec-LHR
+      - 9b112a9beede386b-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -157,21 +153,17 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 15:59:10 GMT
+      - Sat, 20 Dec 2025 18:22:40 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
-      - max-age=2592000
+      - max-age=15552000
       Transfer-Encoding:
       - chunked
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      set-cookie:
-      - __cf_bm=blMjNrmFs040Gbi2mw.bsiyWiQSJCM4VDxzMm0Bd0VU-1765123150.851871-1.0.1.1-OjPamlk5u0go0J3p3TkY2cpufuXV.BcqYwJLLPHcUrHZ8JmdcjjAOmvbJoD.omypKZBfpfG_OfyUOs2FqSmkERw9FvokI1PVImNamyXKYwkWxaAPRCoeUW3FDZ5OFf.9;
-        HttpOnly; Secure; Path=/; Domain=groq.com; Expires=Sun, 07 Dec 2025 16:29:10
-        GMT
       vary:
       - Origin
       via:
@@ -191,7 +183,7 @@ interactions:
       x-ratelimit-reset-tokens:
       - 220ms
       x-request-id:
-      - req_01kbwrkn0kfhftfdy76f5ey635
+      - req_01kcyfzqcjek196bqzp14remb5
     status:
       code: 200
       message: OK

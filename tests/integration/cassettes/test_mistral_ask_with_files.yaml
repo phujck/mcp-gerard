@@ -1,7 +1,7 @@
 interactions:
 - request:
     body: '{"model": "mistral-small-latest", "messages": [{"content": [{"text": "What
-      number is mentioned in the file?", "type": "text"}, {"text": "[File: tmp_03m3zn6.txt]\nTest
+      number is mentioned in the file?", "type": "text"}, {"text": "[File: tmp2ij3l9iq.txt]\nTest
       document content: The answer is 42", "type": "text"}], "role": "user"}], "temperature":
       1.0, "max_tokens": 8192, "stream": false}'
     headers:
@@ -24,16 +24,15 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0yR3W7CMAyFXyXyJQoVhZafPAd3Y6KhddZsiVPVrsaGePcpDNhuj47P90m+gO/A
-        wNbVrltX5WJVnSq33tktOmfdpt65ras7BA3tiFawA1Nu1nW5qDdlpSGmDgMYiJ5ltGHO0YYwD1aQ
-        BTRMbN8QzAWGMcVBjpI+kBjMqtIgSWx4JrtSQ5viEFB8omdcb64a0ukdWwEDbW+l+GtlqT75FhnM
-        ywU8dXgGs9DgPHnujyNaTgQGWNIAGiLyw2dMAcGAZfYslrKrpBSOrQ2BwdAUQvYhQcrgfY+KpnjC
-        UUWkzMZOeVLSo3I+oGokDsfFKq6+aV3IWRrlWc1m1XI2Kw50oP2jmDetJ76dCp7FHKhpmgPtkUV1
-        qZ0yQN3RRuVDS/yJY16slvd2XpxY31buYr+03MLzEHzrJXwplvyz/6oFXK+v1x8AAAD//wMApp8Z
-        Y/cBAAA=
+        H4sIAAAAAAAAA0SO226DMAxAfyXyyyREq3ItzRfsA/o2pjYEM7IFB8VGm1Tx7xPVur7axz7nBq4H
+        DZiVTWay7GSGujw1xwYri3VX5UXXHQ9VCSnYiEawB50d6zqvyrwpUphCjx40TI4lGr/jyXi/80aQ
+        BVJY2Hwg6BvMMUyzXCR8ITHookhBghj/P6mbFGyYZo/iAj3Bak0hdJ9oBTTY0cj+SW1RY3AWGfTb
+        DRz1+AP6kMLgyPF4iWg4EGhgCTOkMCE/emLwCBoMs2MxtLVKCP5ijfcMmhbvtx4SpE18HlHRMnUY
+        1YS0ubFXjpSMqAbnUTlWSVLmSbJvqaVXjPjC9+3fDxWGJzyEqCIOGJEs6pau12tLZ2RRfbDLJnic
+        abWZDfE3xs1R5nca1vV9/QUAAP//AwDIqCVLugEAAA==
     headers:
       CF-RAY:
-      - 9aa390dd7e57f746-LHR
+      - 9b111a19ef52413a-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -41,7 +40,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 11:08:35 GMT
+      - Sat, 20 Dec 2025 18:11:24 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -57,15 +56,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019af87f-c688-7f77-9d13-96ec7fdc215e
+      - 019b3cf5-8c50-7172-914a-eba45de8eff5
       x-envoy-upstream-service-time:
-      - '400'
+      - '414'
       x-kong-proxy-latency:
-      - '6'
+      - '9'
       x-kong-request-id:
-      - 019af87f-c688-7f77-9d13-96ec7fdc215e
+      - 019b3cf5-8c50-7172-914a-eba45de8eff5
       x-kong-upstream-latency:
-      - '402'
+      - '415'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -75,11 +74,11 @@ interactions:
       x-ratelimit-remaining-req-minute:
       - '58'
       x-ratelimit-remaining-tokens-minute:
-      - '499891'
+      - '499914'
       x-ratelimit-remaining-tokens-month:
-      - '999999361'
+      - '999992966'
       x-ratelimit-tokens-query-cost:
-      - '91'
+      - '68'
     status:
       code: 200
       message: OK

@@ -31,6 +31,71 @@ interactions:
       "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
       "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
       "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
+      "5+5"}, {"role": "assistant", "content": "5 + 5 = 10"}, {"role": "user", "content":
+      "3+3"}, {"role": "assistant", "content": "3 + 3 = 6"}, {"role": "user", "content":
+      "2+2"}, {"role": "assistant", "content": "2 + 2 = 4"}, {"role": "user", "content":
       "5+5"}], "model": "claude-haiku-4-5-20251001", "temperature": 1.0}'
     headers:
       Accept:
@@ -40,7 +105,7 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '2379'
+      - '7276'
       Content-Type:
       - application/json
       Host:
@@ -74,14 +139,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAAwAAAP//dJBNS8QwFEX/SrlbU2hGO2DAxezEwZ0bFQkheU5D26STvMjI0P8uHRz8
-        wtWDe87lwjtijI4GKNjBFEd1Z3xf6qu6rVfNqpVNIyHgHRTGvNONfFi/3j8ZOR42d9M67x/99XZ7
-        20OA3ydaLMrZ7AgCKQ5LYHL2mU1gCNgYmAJDPR/PPtNhIaej0FYXVVvdVLLB/CKQOU46kckxQIGC
-        01xSwCfItC8ULEGFMgwC5TSsjvBhKqw59hQy1FpKAWtsR9omMuxj0D+N5swTGfcfO3eXAZo6GimZ
-        QbfjX/+Lyu43nQVi4e+RvBTIlN68Jc2eEhSWdzmTHOb5AwAA//8DAH5XPESgAQAA
+        H4sIAAAAAAAA/3WQwUrEMBCGX6XM1RaaXYtY8CIKXvTgZQWREJJxGzZNajIpK6Xv7nSxyCqeEub7
+        Mn9mJuiDQQctaKeywapT9pCry6qpNvWmEXUtoARrWOjTXtbi+f3u8aE/Dur+5Wnc5atbG8bdlh36
+        HHCxMCW1Ry7E4JaCSskmUp64pIMn5Fv7Oq0+4XEhp6OFprgomuKmEDXMbyUkCoOMqFLwDNEbSTl6
+        +AYJPzJ6zV18dq6EfApuJ7B+yCQpHNAnaMW1EBytdIdSczOywctzpV45Y/MfW98uCTh02GNUTjb9
+        X/+Hiu43nUsImc7+t+V5MI5WoySLkSdd9mVUNDDPX36NWNChAQAA
     headers:
       CF-RAY:
-      - 9aa352d9999aae83-LHR
+      - 9b111572ecd1ce7b-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -89,7 +154,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sun, 07 Dec 2025 10:26:15 GMT
+      - Sat, 20 Dec 2025 18:08:13 GMT
       Server:
       - cloudflare
       Transfer-Encoding:
@@ -101,37 +166,35 @@ interactions:
       anthropic-ratelimit-input-tokens-limit:
       - '4000000'
       anthropic-ratelimit-input-tokens-remaining:
-      - '4000000'
+      - '3999000'
       anthropic-ratelimit-input-tokens-reset:
-      - '2025-12-07T10:26:15Z'
+      - '2025-12-20T18:08:13Z'
       anthropic-ratelimit-output-tokens-limit:
       - '800000'
       anthropic-ratelimit-output-tokens-remaining:
       - '800000'
       anthropic-ratelimit-output-tokens-reset:
-      - '2025-12-07T10:26:15Z'
+      - '2025-12-20T18:08:13Z'
       anthropic-ratelimit-requests-limit:
       - '4000'
       anthropic-ratelimit-requests-remaining:
       - '3999'
       anthropic-ratelimit-requests-reset:
-      - '2025-12-07T10:26:14Z'
+      - '2025-12-20T18:08:13Z'
       anthropic-ratelimit-tokens-limit:
       - '4800000'
       anthropic-ratelimit-tokens-remaining:
-      - '4800000'
+      - '4799000'
       anthropic-ratelimit-tokens-reset:
-      - '2025-12-07T10:26:15Z'
+      - '2025-12-20T18:08:13Z'
       cf-cache-status:
       - DYNAMIC
       request-id:
-      - req_011CVsAb3mnvC7767kP7XY9x
-      retry-after:
-      - '48'
+      - req_011CWJPLD6KESV7mQAdUw6Dd
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       x-envoy-upstream-service-time:
-      - '518'
+      - '578'
     status:
       code: 200
       message: OK

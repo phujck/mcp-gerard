@@ -79,8 +79,12 @@ def scrub_oauth_tokens(response):
 
 @pytest.fixture(scope="session")
 def vcr_config():
+    # Use VCR_RECORD_MODE env var to control recording.
+    # Default to "none" for CI safety (fails if cassette missing).
+    # Set to "new_episodes" locally to record new cassettes.
+    record_mode = os.getenv("VCR_RECORD_MODE", "none")
     return {
-        "record_mode": "new_episodes",
+        "record_mode": record_mode,
         "match_on": ["uri", "method"],
         "filter_headers": [
             "authorization",
@@ -143,10 +147,45 @@ def set_dummy_api_keys_for_vcr(monkeypatch):
 
     VCR intercepts HTTP requests, but API key validation happens before the request.
     Setting dummy keys allows the code to proceed to the HTTP call where VCR intercepts.
+    Only set if not already set (don't override real keys during recording).
     """
-    # Only set if not already set (don't override real keys during recording)
-    if not os.getenv("GROQ_API_KEY"):
-        monkeypatch.setenv("GROQ_API_KEY", "gsk_test_vcr_dummy_key")
+    dummy_keys = {
+        "GROQ_API_KEY": "gsk_test_vcr_dummy_key",
+        "OPENAI_API_KEY": "sk-test-vcr-dummy-key",
+        "GEMINI_API_KEY": "AIza-test-vcr-dummy-key",
+        "ANTHROPIC_API_KEY": "sk-ant-test-vcr-dummy-key",
+        "XAI_API_KEY": "xai-test-vcr-dummy-key",
+        "MISTRAL_API_KEY": "test-vcr-dummy-key",
+    }
+    for key, value in dummy_keys.items():
+        if not os.getenv(key):
+            monkeypatch.setenv(key, value)
+
+
+@pytest.fixture(autouse=True)
+def reset_llm_client_singletons():
+    """Reset LLM client singletons to ensure VCR can intercept HTTP requests.
+
+    Global cached clients can be created outside VCR's patching context.
+    Resetting them forces new clients to be created inside the patched context.
+    """
+    # Reset before the test
+    try:
+        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+
+        reset_client()
+    except ImportError:
+        pass  # Module not available
+
+    yield
+
+    # Reset after the test to clean up
+    try:
+        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+
+        reset_client()
+    except ImportError:
+        pass
 
 
 @pytest.fixture(scope="session")
