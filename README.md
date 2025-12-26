@@ -13,7 +13,6 @@ A toolkit that bridges AI assistants with command-line tools and services. Built
 ### System Dependencies (Optional)
 Some tools require additional system packages:
 - **code2prompt tool**: `cargo install code2prompt`
-- **word tool**: `pandoc` for document conversion
 - **email tools**: `msmtp`, `mutt`, `notmuch` for email management
 
 ## Quick Start
@@ -56,7 +55,6 @@ claude mcp add llm-models --scope user mcp-llm-models  # List available models
 # Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
-claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
 # claude mcp add llm-embeddings --scope user mcp-llm-embeddings  # Semantic embeddings
@@ -112,7 +110,6 @@ claude mcp add llm-models --scope user mcp-llm-models  # List available models
 # Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
-claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
 # claude mcp add llm-embeddings --scope user mcp-llm-embeddings
@@ -180,15 +177,6 @@ Get directions and routing information
 
 
 
-### 📄 **Word Documents** (`word`)
-Process Word documents for analysis and conversion
-  - Extract comments with referenced text context
-  - Analyze tracked changes and revision history
-  - Convert between DOCX ↔ Markdown, HTML, plain text
-  - Document metadata and structure analysis
-  - _Claude example_: `> extract all the comments from this feedback document and show me the author breakdown`
-  - **Requires**: [pandoc](https://pandoc.org/installing.html) for document conversion
-
 ### 🧮 **Mathematica** (`mathematica`)
 Execute Mathematica code and computations
   - Run WolframScript commands and notebooks
@@ -214,7 +202,16 @@ Comprehensive email workflow integration
   - **Requires**: `msmtp`, `mutt`, `notmuch`, and `offlineimap` installed and configured
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
+## Recommended External MCPs
 
+These MCP servers from other projects complement this toolkit:
+
+| MCP | Description | Installation |
+|-----|-------------|--------------|
+| [Playwright](https://github.com/microsoft/playwright-mcp) | Browser automation for web scraping and testing | `npx @playwright/mcp@latest` |
+| [Office Word](https://github.com/GongRzhe/Office-Word-MCP-Server) | Word document creation and editing | `npx office-word-mcp-server` |
+
+See [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) for a comprehensive list of available MCP servers.
 
 ## Using AI Tools Together
 
