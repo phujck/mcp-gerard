@@ -4,17 +4,16 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.shared.models import ServerInfo
-
-from . import converter
-from .models import (
+from mcp_handley_lab.word import converter
+from mcp_handley_lab.word.models import (
     CommentExtractionResult,
     ConversionResult,
     DocumentAnalysisResult,
     FormatDetectionResult,
     TrackedChangesResult,
 )
-from .parser import WordDocumentParser
-from .utils import detect_word_format
+from mcp_handley_lab.word.parser import WordDocumentParser
+from mcp_handley_lab.word.utils import detect_word_format
 
 mcp = FastMCP("Word Documents Tool")
 
@@ -219,24 +218,7 @@ def server_info() -> ServerInfo:
     )
 
 
-@mcp.tool(
-    description="Actively checks Word tool dependencies by running version commands."
-)
+@mcp.tool(description="Lists Word tool dependencies.")
 def check_dependencies() -> str:
-    """Actively tests Word tool dependencies by running external commands."""
-    results = []
-
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            ["pandoc", "--version"], capture_output=True, text=True, check=True
-        )
-        pandoc_version = (
-            result.stdout.split("\n")[0].strip() if result.stdout else "Available"
-        )
-        results.append(f"✅ pandoc: {pandoc_version}")
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        results.append(f"❌ pandoc: {e}")
-
-    return "\n".join(results)
+    """Lists required dependencies for Word tool operations."""
+    return "Required dependencies:\n- pandoc: for document format conversions"

@@ -5,7 +5,7 @@ import pytest
 from mcp_handley_lab.google_calendar.tool import calendar_list, mcp
 
 
-@pytest.mark.live
+@pytest.mark.vcr
 def test_google_calendar_list_calendars_resource(google_calendar_test_config):
     """Test the calendar://list resource."""
     result = calendar_list()

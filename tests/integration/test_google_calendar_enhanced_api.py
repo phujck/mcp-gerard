@@ -8,7 +8,7 @@ from mcp_handley_lab.google_calendar.tool import mcp
 
 
 class TestEnhancedCreateEvent:
-    """Test enhanced create_event functionality with natural language and mixed timezones."""
+    """Test enhanced create functionality with natural language and mixed timezones."""
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
@@ -16,7 +16,7 @@ class TestEnhancedCreateEvent:
         """Test creating events with natural language datetime input."""
         # Create event with natural language
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Natural Language Meeting",
                 "start_datetime": "tomorrow at 2pm",
@@ -41,10 +41,10 @@ class TestEnhancedCreateEvent:
 
             # Get the event to verify details
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
 
             assert event["summary"] == "Natural Language Meeting"
             assert event["description"] == "Created with natural language input"
@@ -56,7 +56,7 @@ class TestEnhancedCreateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -67,7 +67,7 @@ class TestEnhancedCreateEvent:
 
         # Create flight event with mixed timezones
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Flight LAX → JFK",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -92,10 +92,10 @@ class TestEnhancedCreateEvent:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
 
             assert event["summary"] == "Flight LAX → JFK"
             assert (
@@ -109,7 +109,7 @@ class TestEnhancedCreateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -120,7 +120,7 @@ class TestEnhancedCreateEvent:
 
         # Create cross-timezone meeting
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Global Team Sync",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",
@@ -145,10 +145,10 @@ class TestEnhancedCreateEvent:
 
             # Get the event to verify details
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
 
             assert event["summary"] == "Global Team Sync"
             assert "London time" in event["description"]
@@ -160,7 +160,7 @@ class TestEnhancedCreateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -171,7 +171,7 @@ class TestEnhancedCreateEvent:
 
         # Create event with ISO datetime including timezone offset
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "ISO Timezone Test",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T14:00:00-08:00",  # PST
@@ -196,10 +196,10 @@ class TestEnhancedCreateEvent:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
 
             assert event["summary"] == "ISO Timezone Test"
             assert event["description"] == "Testing ISO datetime with timezone offset"
@@ -210,12 +210,12 @@ class TestEnhancedCreateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
 
 class TestEnhancedUpdateEvent:
-    """Test enhanced update_event functionality with natural language and mixed timezones."""
+    """Test enhanced update functionality with natural language and mixed timezones."""
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
@@ -225,7 +225,7 @@ class TestEnhancedUpdateEvent:
 
         # Create initial event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Meeting to Update",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -246,7 +246,7 @@ class TestEnhancedUpdateEvent:
         try:
             # Update with natural language
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": "tomorrow at 2pm",
@@ -263,7 +263,7 @@ class TestEnhancedUpdateEvent:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -273,10 +273,10 @@ class TestEnhancedUpdateEvent:
 
             # Verify the update was applied
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
 
             assert updated_event["description"] == "Updated with natural language"
 
@@ -286,7 +286,7 @@ class TestEnhancedUpdateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -297,7 +297,7 @@ class TestEnhancedUpdateEvent:
 
         # Create initial event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Global Meeting Update",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -318,7 +318,7 @@ class TestEnhancedUpdateEvent:
         try:
             # Update with mixed timezones
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",
@@ -335,7 +335,7 @@ class TestEnhancedUpdateEvent:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -345,10 +345,10 @@ class TestEnhancedUpdateEvent:
 
             # Verify the update was applied
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
 
             assert updated_event["description"] == "Updated with mixed timezones"
 
@@ -358,7 +358,7 @@ class TestEnhancedUpdateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -369,7 +369,7 @@ class TestEnhancedUpdateEvent:
 
         # Create initial event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Partial Update Test",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -390,7 +390,7 @@ class TestEnhancedUpdateEvent:
         try:
             # Update only description (no time change to avoid API issues)
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "description": "Updated description only",
@@ -414,10 +414,10 @@ class TestEnhancedUpdateEvent:
 
             # Verify the update was applied
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
 
             assert updated_event["description"] == "Updated description only"
 
@@ -427,7 +427,7 @@ class TestEnhancedUpdateEvent:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
 
@@ -442,7 +442,7 @@ class TestEnhancedRealWorldWorkflows:
 
         # Create outbound flight
         _, outbound_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Outbound Flight LAX → JFK",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T08:00:00",
@@ -463,7 +463,7 @@ class TestEnhancedRealWorldWorkflows:
         # Create return flight
         return_date = tomorrow + timedelta(days=3)
         _, return_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Return Flight JFK → LAX",
                 "start_datetime": f"{return_date.strftime('%Y-%m-%d')}T18:00:00",
@@ -488,20 +488,20 @@ class TestEnhancedRealWorldWorkflows:
 
             # Get both events to verify details
             _, outbound_event_response = await mcp.call_tool(
-                "get_event", {"event_id": outbound_id, "calendar_id": "primary"}
+                "read", {"event_id": outbound_id, "calendar_id": "primary"}
             )
             assert "error" not in outbound_event_response, outbound_event_response.get(
                 "error"
             )
-            outbound_event = outbound_event_response
+            outbound_event = outbound_event_response["result"][0]
 
             _, return_event_response = await mcp.call_tool(
-                "get_event", {"event_id": return_id, "calendar_id": "primary"}
+                "read", {"event_id": return_id, "calendar_id": "primary"}
             )
             assert "error" not in return_event_response, return_event_response.get(
                 "error"
             )
-            return_event = return_event_response
+            return_event = return_event_response["result"][0]
 
             # Verify outbound flight details
             assert outbound_event["summary"] == "Outbound Flight LAX → JFK"
@@ -521,10 +521,10 @@ class TestEnhancedRealWorldWorkflows:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": outbound_id, "calendar_id": "primary"}
+                "delete", {"event_id": outbound_id, "calendar_id": "primary"}
             )
             await mcp.call_tool(
-                "delete_event", {"event_id": return_id, "calendar_id": "primary"}
+                "delete", {"event_id": return_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -535,7 +535,7 @@ class TestEnhancedRealWorldWorkflows:
         """Test creating a series of international meetings with natural language."""
         # Create initial planning meeting
         _, planning_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Project Planning Meeting",
                 "start_datetime": "tomorrow at 9am",
@@ -556,7 +556,7 @@ class TestEnhancedRealWorldWorkflows:
         # Create follow-up meeting (simplified to avoid timezone complexity)
         tomorrow = datetime.now() + timedelta(days=1)
         _, followup_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Follow-up with US Team",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T17:00:00",
@@ -581,20 +581,20 @@ class TestEnhancedRealWorldWorkflows:
 
             # Get both events to verify details
             _, planning_event_response = await mcp.call_tool(
-                "get_event", {"event_id": planning_id, "calendar_id": "primary"}
+                "read", {"event_id": planning_id, "calendar_id": "primary"}
             )
             assert "error" not in planning_event_response, planning_event_response.get(
                 "error"
             )
-            planning_event = planning_event_response
+            planning_event = planning_event_response["result"][0]
 
             _, followup_event_response = await mcp.call_tool(
-                "get_event", {"event_id": followup_id, "calendar_id": "primary"}
+                "read", {"event_id": followup_id, "calendar_id": "primary"}
             )
             assert "error" not in followup_event_response, followup_event_response.get(
                 "error"
             )
-            followup_event = followup_event_response
+            followup_event = followup_event_response["result"][0]
 
             # Verify planning meeting details
             assert planning_event["summary"] == "Project Planning Meeting"
@@ -612,7 +612,7 @@ class TestEnhancedRealWorldWorkflows:
 
             # Update the planning meeting with natural language
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": planning_id,
                     "start_datetime": "tomorrow at 10am",
@@ -629,7 +629,7 @@ class TestEnhancedRealWorldWorkflows:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -639,21 +639,21 @@ class TestEnhancedRealWorldWorkflows:
 
             # Verify the update
             _, updated_planning_response = await mcp.call_tool(
-                "get_event", {"event_id": planning_id, "calendar_id": "primary"}
+                "read", {"event_id": planning_id, "calendar_id": "primary"}
             )
             assert "error" not in updated_planning_response, (
                 updated_planning_response.get("error")
             )
-            updated_planning = updated_planning_response
+            updated_planning = updated_planning_response["result"][0]
 
             assert "moved to 10am" in updated_planning["description"]
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": planning_id, "calendar_id": "primary"}
+                "delete", {"event_id": planning_id, "calendar_id": "primary"}
             )
             await mcp.call_tool(
-                "delete_event", {"event_id": followup_id, "calendar_id": "primary"}
+                "delete", {"event_id": followup_id, "calendar_id": "primary"}
             )
 
 
@@ -671,7 +671,7 @@ class TestEnhancedErrorHandling:
 
         with pytest.raises(ToolError, match="Could not parse datetime string"):
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "Invalid Time Test",
                     "start_datetime": "not a valid time",
@@ -699,7 +699,7 @@ class TestEnhancedErrorHandling:
             match="Could not parse datetime string|Invalid timezone|timezone|TIMEZONE",
         ):
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "Invalid Timezone Test",
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",

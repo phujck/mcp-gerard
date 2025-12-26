@@ -31,10 +31,12 @@ def _get_account_folders(maildir_root: Path, account_name: str) -> dict[str, Pat
     account_path = maildir_root / account_name
     folders: dict[str, Path] = {}
 
-    if not account_path.is_dir():
+    try:
+        children = list(account_path.iterdir())
+    except (FileNotFoundError, NotADirectoryError):
         return folders
 
-    for child in account_path.iterdir():
+    for child in children:
         if child.is_dir() and child.name not in MAILDIR_LEAFS:
             folders[child.name] = child
 
@@ -155,10 +157,13 @@ class SearchResult(BaseModel):
     id: str = Field(..., description="The unique message ID of the email.")
     subject: str = Field(..., description="The subject line of the email.")
     from_address: str = Field(..., description="The sender's email address and name.")
-    to_address: str | None = Field(
-        default=None, description="The primary recipient's email address."
+    to_address: str = Field(
+        default="",
+        description="The primary recipient's email address (empty if not available).",
     )
-    date: str | None = Field(default=None, description="The date the email was sent.")
+    date: str = Field(
+        default="", description="The date the email was sent (empty if not available)."
+    )
     tags: list[str] = Field(
         default_factory=list, description="Tags associated with this email."
     )
@@ -222,8 +227,8 @@ def search(
                 id=message_id,
                 subject=msg.get("Subject", "") or "[No Subject]",
                 from_address=msg.get("From", "") or "[Unknown Sender]",
-                to_address=msg.get("To", "") or None,
-                date=msg.get("Date", "") or None,
+                to_address=msg.get("To", ""),
+                date=msg.get("Date", ""),
                 tags=tags,
             )
         )
@@ -341,65 +346,58 @@ def process_html_content(html_content: str) -> str:
     if not html_content:
         return ""
 
-    try:
-        # Parse with selectolax (faster than BeautifulSoup)
-        tree = HTMLParser(html_content)
+    # Parse with selectolax (faster than BeautifulSoup)
+    tree = HTMLParser(html_content)
 
-        # Remove common email cruft
-        selectors_to_remove = [
-            "script",
-            "style",
-            "meta",
-            "link",
-            "head",
-            "noscript",
-            "iframe",
-            # Hidden content
-            '[style*="display:none"]',
-            '[style*="visibility:hidden"]',
-            '[style*="opacity:0"]',
-            '[style*="font-size:0"]',
-            "[hidden]",
-            '[aria-hidden="true"]',
-            # Tracking and marketing
-            'img[width="1"]',
-            'img[height="1"]',
-            'img[src*="tracking"]',
-            'img[src*="open"]',
-            'img[src*="fls.doubleclick.net"]',
-            'img[src*="googletagmanager"]',
-            # Email client quote blocks
-            ".gmail_quote",
-            ".OutlookMessageHeader",
-            ".yahoo_quoted",
-            'blockquote[type="cite"]',
-            'div[style*="border-left:1px #ccc solid"]',
-            # Unsubscribe and footer content
-            ".unsubscribe",
-            ".unsubscribe-link",
-            'a[href*="unsubscribe"]',
-            'a[href*="optout"]',
-            ".disclaimer",
-            ".legal",
-            "footer",
-            "nav",
-        ]
+    # Remove common email cruft
+    selectors_to_remove = [
+        "script",
+        "style",
+        "meta",
+        "link",
+        "head",
+        "noscript",
+        "iframe",
+        # Hidden content
+        '[style*="display:none"]',
+        '[style*="visibility:hidden"]',
+        '[style*="opacity:0"]',
+        '[style*="font-size:0"]',
+        "[hidden]",
+        '[aria-hidden="true"]',
+        # Tracking and marketing
+        'img[width="1"]',
+        'img[height="1"]',
+        'img[src*="tracking"]',
+        'img[src*="open"]',
+        'img[src*="fls.doubleclick.net"]',
+        'img[src*="googletagmanager"]',
+        # Email client quote blocks
+        ".gmail_quote",
+        ".OutlookMessageHeader",
+        ".yahoo_quoted",
+        'blockquote[type="cite"]',
+        'div[style*="border-left:1px #ccc solid"]',
+        # Unsubscribe and footer content
+        ".unsubscribe",
+        ".unsubscribe-link",
+        'a[href*="unsubscribe"]',
+        'a[href*="optout"]',
+        ".disclaimer",
+        ".legal",
+        "footer",
+        "nav",
+    ]
 
-        for selector in selectors_to_remove:
-            for node in tree.css(selector):
-                node.decompose()
+    for selector in selectors_to_remove:
+        for node in tree.css(selector):
+            node.decompose()
 
-        # Get cleaned HTML
-        cleaned_html = tree.body.html if tree.body else tree.html
+    # Get cleaned HTML
+    cleaned_html = tree.body.html if tree.body else tree.html
 
-        # Convert to clean text with inscriptis
-        text_content = get_text(cleaned_html)
-
-        return text_content
-
-    except Exception:
-        # Fallback to basic text extraction
-        return html_content
+    # Convert to clean text with inscriptis
+    return get_text(cleaned_html)
 
 
 def _save_email_files(

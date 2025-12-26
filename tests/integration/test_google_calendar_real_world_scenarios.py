@@ -18,7 +18,7 @@ class TestRealWorldEventCreation:
 
         # Simulate user copying "2:00 PM PST" from US website
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "US Conference Session",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T14:00:00-08:00",  # PST
@@ -43,10 +43,10 @@ class TestRealWorldEventCreation:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
 
             assert event["summary"] == "US Conference Session"
             assert event["description"] == "Copied from US conference website"
@@ -58,7 +58,7 @@ class TestRealWorldEventCreation:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -69,7 +69,7 @@ class TestRealWorldEventCreation:
 
         # Simulate user copying UTC time from international webinar
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Global Webinar",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T14:00:00Z",  # UTC
@@ -94,10 +94,10 @@ class TestRealWorldEventCreation:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
             assert event["summary"] == "Global Webinar"
             assert event["description"] == "International webinar in UTC"
 
@@ -107,7 +107,7 @@ class TestRealWorldEventCreation:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -118,7 +118,7 @@ class TestRealWorldEventCreation:
 
         # Simulate user typing local time for meeting
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Local Team Meeting",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",  # Naive time
@@ -143,10 +143,10 @@ class TestRealWorldEventCreation:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
             assert event["summary"] == "Local Team Meeting"
             assert event["description"] == "Regular team standup"
 
@@ -156,7 +156,7 @@ class TestRealWorldEventCreation:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -167,7 +167,7 @@ class TestRealWorldEventCreation:
 
         # Simulate user copying from European conference site
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "European Workshop",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T15:00:00+01:00",  # CET
@@ -192,10 +192,10 @@ class TestRealWorldEventCreation:
 
             # Get the event to verify timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
             assert event["summary"] == "European Workshop"
             assert event["description"] == "Workshop in Central European Time"
 
@@ -205,7 +205,7 @@ class TestRealWorldEventCreation:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -216,7 +216,7 @@ class TestRealWorldEventCreation:
 
         # Simulate user creating holiday/all-day event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Company Holiday",
                 "start_datetime": tomorrow.strftime("%Y-%m-%d"),  # Date only
@@ -241,10 +241,10 @@ class TestRealWorldEventCreation:
 
             # Get the event to verify all-day handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            event = event_response
+            event = event_response["result"][0]
             assert event["summary"] == "Company Holiday"
             assert event["description"] == "National holiday - office closed"
 
@@ -254,7 +254,7 @@ class TestRealWorldEventCreation:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
 
@@ -263,15 +263,13 @@ class TestRealWorldEventUpdates:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    async def test_update_event_with_timezone_conversion(
-        self, google_calendar_test_config
-    ):
+    async def test_update_with_timezone_conversion(self, google_calendar_test_config):
         """Test updating event time with automatic timezone conversion."""
         tomorrow = datetime.now() + timedelta(days=1)
 
         # Create initial event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Meeting to Reschedule",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -292,7 +290,7 @@ class TestRealWorldEventUpdates:
         try:
             # Update with time from different timezone (e.g., copied from website)
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T14:00:00-07:00",  # PDT
@@ -309,7 +307,7 @@ class TestRealWorldEventUpdates:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -319,10 +317,10 @@ class TestRealWorldEventUpdates:
 
             # Verify the update was applied with correct timezone conversion
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
             assert (
                 updated_event["description"]
                 == "Updated with time from West Coast website"
@@ -334,18 +332,18 @@ class TestRealWorldEventUpdates:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    async def test_update_event_with_naive_time(self, google_calendar_test_config):
+    async def test_update_with_naive_time(self, google_calendar_test_config):
         """Test updating event with naive datetime (no timezone info)."""
         tomorrow = datetime.now() + timedelta(days=1)
 
         # Create initial event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Local Meeting Update",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",
@@ -366,7 +364,7 @@ class TestRealWorldEventUpdates:
         try:
             # Update with naive time (user types new local time)
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T11:00:00",  # Naive time
@@ -383,7 +381,7 @@ class TestRealWorldEventUpdates:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -393,10 +391,10 @@ class TestRealWorldEventUpdates:
 
             # Verify the update was applied correctly
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
             assert updated_event["description"] == "Updated to new local time"
 
             # Should be treated as local time in existing event's timezone
@@ -405,18 +403,18 @@ class TestRealWorldEventUpdates:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    async def test_update_event_description_only(self, google_calendar_test_config):
+    async def test_update_description_only(self, google_calendar_test_config):
         """Test updating event description without changing times."""
         tomorrow = datetime.now() + timedelta(days=1)
 
         # Create initial timed event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Simple Update Test",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",
@@ -437,7 +435,7 @@ class TestRealWorldEventUpdates:
         try:
             # Update description only
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "description": "Updated description without time changes",
@@ -454,7 +452,7 @@ class TestRealWorldEventUpdates:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -464,10 +462,10 @@ class TestRealWorldEventUpdates:
 
             # Verify the update was applied correctly
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            updated_event = event_response
+            updated_event = event_response["result"][0]
             assert (
                 updated_event["description"]
                 == "Updated description without time changes"
@@ -478,7 +476,7 @@ class TestRealWorldEventUpdates:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
 
@@ -493,7 +491,7 @@ class TestComplexScenarios:
 
         # 1. Create event with US timezone (from website)
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Global Team Sync",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00-08:00",  # PST
@@ -514,24 +512,18 @@ class TestComplexScenarios:
         try:
             # 2. Update with European timezone (from another website)
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T16:00:00+01:00",  # CET
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T17:00:00+01:00",
                     "description": "Rescheduled to better time for European team",
-                    "calendar_id": "primary",
-                    "summary": "",
-                    "location": "",
-                    "start_timezone": "",
-                    "end_timezone": "",
-                    "normalize_timezone": False,
                 },
             )
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -541,18 +533,12 @@ class TestComplexScenarios:
 
             # 3. Final update with UTC time (from international platform)
             _, final_update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T14:00:00Z",  # UTC
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T15:00:00Z",
                     "description": "Final time in UTC for global accessibility",
-                    "calendar_id": "primary",
-                    "summary": "",
-                    "location": "",
-                    "start_timezone": "",
-                    "end_timezone": "",
-                    "normalize_timezone": False,
                 },
             )
             assert "error" not in final_update_response, final_update_response.get(
@@ -560,7 +546,7 @@ class TestComplexScenarios:
             )
             final_update = final_update_response
 
-            # final_update is the string returned by update_event
+            # final_update is the string returned by update
             if isinstance(final_update, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = final_update.get("message", str(final_update))
@@ -570,10 +556,10 @@ class TestComplexScenarios:
 
             # 4. Verify final event has correct timezone handling
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            final_event = event_response
+            final_event = event_response["result"][0]
             assert final_event["summary"] == "Global Team Sync"
             assert (
                 final_event["description"]
@@ -586,7 +572,7 @@ class TestComplexScenarios:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -599,7 +585,7 @@ class TestComplexScenarios:
 
         # Create event with complex timezone scenario
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Cross-Timezone Consistency Test",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T15:30:00+02:00",  # CEST
@@ -620,16 +606,16 @@ class TestComplexScenarios:
         try:
             # Get event immediately after creation
             _, event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in event_response, event_response.get("error")
-            created_event = event_response
+            created_event = event_response["result"][0]
             original_start_time = created_event["start"]["dateTime"]
             original_timezone = created_event["start"]["timeZone"]
 
             # Update only description (no time change)
             _, update_response = await mcp.call_tool(
-                "update_event",
+                "update",
                 {
                     "event_id": event_id,
                     "description": "Updated description without time change",
@@ -646,7 +632,7 @@ class TestComplexScenarios:
             assert "error" not in update_response, update_response.get("error")
             update_result = update_response
 
-            # update_result is the string returned by update_event
+            # update_result is the string returned by update
             if isinstance(update_result, dict):
                 # If the result is wrapped in a dict, extract the message
                 message = update_result.get("message", str(update_result))
@@ -656,12 +642,12 @@ class TestComplexScenarios:
 
             # Verify time remained unchanged
             _, updated_event_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
             assert "error" not in updated_event_response, updated_event_response.get(
                 "error"
             )
-            updated_event = updated_event_response
+            updated_event = updated_event_response["result"][0]
             assert updated_event["start"]["dateTime"] == original_start_time
             assert updated_event["start"]["timeZone"] == original_timezone
             assert (
@@ -671,7 +657,7 @@ class TestComplexScenarios:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -684,7 +670,7 @@ class TestComplexScenarios:
 
         # Create winter event with EST timezone
         _, winter_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Winter Event",
                 "start_datetime": f"{winter_date}T14:00:00-05:00",  # EST
@@ -704,7 +690,7 @@ class TestComplexScenarios:
 
         # Create summer event with EDT timezone
         _, summer_response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Summer Event",
                 "start_datetime": f"{summer_date}T14:00:00-04:00",  # EDT
@@ -725,20 +711,20 @@ class TestComplexScenarios:
         try:
             # Verify both events were created successfully
             _, winter_event_response = await mcp.call_tool(
-                "get_event", {"event_id": winter_event_id, "calendar_id": "primary"}
+                "read", {"event_id": winter_event_id, "calendar_id": "primary"}
             )
             assert "error" not in winter_event_response, winter_event_response.get(
                 "error"
             )
-            winter_event = winter_event_response
+            winter_event = winter_event_response["result"][0]
 
             _, summer_event_response = await mcp.call_tool(
-                "get_event", {"event_id": summer_event_id, "calendar_id": "primary"}
+                "read", {"event_id": summer_event_id, "calendar_id": "primary"}
             )
             assert "error" not in summer_event_response, summer_event_response.get(
                 "error"
             )
-            summer_event = summer_event_response
+            summer_event = summer_event_response["result"][0]
 
             assert winter_event["summary"] == "Winter Event"
             assert summer_event["summary"] == "Summer Event"
@@ -749,8 +735,8 @@ class TestComplexScenarios:
 
         finally:
             await mcp.call_tool(
-                "delete_event", {"event_id": winter_event_id, "calendar_id": "primary"}
+                "delete", {"event_id": winter_event_id, "calendar_id": "primary"}
             )
             await mcp.call_tool(
-                "delete_event", {"event_id": summer_event_id, "calendar_id": "primary"}
+                "delete", {"event_id": summer_event_id, "calendar_id": "primary"}
             )

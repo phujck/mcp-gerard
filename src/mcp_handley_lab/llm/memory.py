@@ -4,6 +4,7 @@ Stores conversation history in global ~/.mcp-handley-lab/projects/<encoded-path>
 with JSONL format for append-only durability.
 """
 
+import contextlib
 import fcntl
 import json
 import logging
@@ -128,32 +129,45 @@ class AgentMemory:
         Uses classic append-only crash recovery: stop at first JSON decode error.
         This handles the common case of a partial/corrupted trailing line from a crash.
         """
-        if not self._file_path.exists():
+        events: list[dict[str, Any]] = []
+
+        try:
+            with open(self._file_path, encoding="utf-8") as f:
+                self._load_from_file(f, events)
+        except FileNotFoundError:
             return
 
-        last_clear_idx = -1
-        events = []
+        self._process_events(events)
 
-        with open(self._file_path, encoding="utf-8") as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                    events.append(event)
-                    # Track clear boundary using parsed-event index
-                    if event.get("type") == "agent_cleared":
-                        last_clear_idx = len(events) - 1
-                except json.JSONDecodeError as e:
-                    # Crash recovery: log and stop at first corrupted line
-                    logger.warning(
-                        "JSONL truncation at line %s in %s: %s. History truncated (crash recovery).",
-                        line_num,
-                        self._file_path,
-                        e,
-                    )
-                    break
+    def _load_from_file(self, f, events: list) -> int:
+        """Load events from file, returns index of last clear event."""
+        last_clear_idx = -1
+        for line_num, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+                events.append(event)
+                if event.get("type") == "agent_cleared":
+                    last_clear_idx = len(events) - 1
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    "JSONL truncation at line %s in %s: %s. History truncated (crash recovery).",
+                    line_num,
+                    self._file_path,
+                    e,
+                )
+                break
+        return last_clear_idx
+
+    def _process_events(self, events: list):
+        """Process loaded events to reconstruct state."""
+        # Find last clear boundary
+        last_clear_idx = -1
+        for i, event in enumerate(events):
+            if event.get("type") == "agent_cleared":
+                last_clear_idx = i
 
         for i, event in enumerate(events):
             if i <= last_clear_idx:
@@ -285,11 +299,12 @@ class AgentMemory:
         created_at = None
         if self._messages:
             created_at = self._messages[0].get("timestamp")
-        elif self._file_path.exists():
-            mtime = self._file_path.stat().st_mtime
-            created_at = datetime.fromtimestamp(mtime).isoformat()
         else:
-            created_at = datetime.now().isoformat()
+            try:
+                mtime = self._file_path.stat().st_mtime
+                created_at = datetime.fromtimestamp(mtime).isoformat()
+            except FileNotFoundError:
+                created_at = datetime.now().isoformat()
 
         return {
             "name": self.name,
@@ -435,13 +450,13 @@ class GlobalMemoryManager:
 
         now = datetime.now().isoformat()
 
-        # Read existing metadata if present
+        # Read existing metadata if present (first run = no file)
         data = None
         try:
             with open(metadata_file, encoding="utf-8") as f:
                 data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError, KeyError):
-            pass
+        except FileNotFoundError:
+            pass  # First run - expected
 
         # Build metadata
         if data:
@@ -481,30 +496,34 @@ class GlobalMemoryManager:
         validate_agent_name(name)
         if name not in self._agents:
             agent_file = self._agents_dir / f"{name}.jsonl"
-            if agent_file.exists():
+            try:
+                agent_file.stat()  # Check if file exists
                 agent = AgentMemory(name, self._agents_dir, self.cwd)
                 self._agents[name] = agent
                 return agent
-            return None
+            except FileNotFoundError:
+                return None
         return self._agents[name]
 
     def list_agents(self) -> list[AgentMemory]:
         """List all agents for this project (both in-memory and on disk)."""
         # Load agents from disk that aren't already in memory
-        if self._agents_dir.exists():
-            for agent_file in self._agents_dir.glob("*.jsonl"):
-                name = agent_file.stem
-                if name not in self._agents:
-                    try:
-                        validate_agent_name(name)
-                        self._agents[name] = AgentMemory(
-                            name, self._agents_dir, self.cwd
-                        )
-                    except ValueError as e:
-                        # Log skipped invalid agent files for visibility
-                        logger.debug(
-                            "Skipping invalid agent file '%s': %s", agent_file.name, e
-                        )
+        try:
+            agent_files = list(self._agents_dir.glob("*.jsonl"))
+        except FileNotFoundError:
+            agent_files = []
+
+        for agent_file in agent_files:
+            name = agent_file.stem
+            if name not in self._agents:
+                try:
+                    validate_agent_name(name)
+                    self._agents[name] = AgentMemory(name, self._agents_dir, self.cwd)
+                except ValueError as e:
+                    # Log skipped invalid agent files for visibility
+                    logger.debug(
+                        "Skipping invalid agent file '%s': %s", agent_file.name, e
+                    )
 
         return list(self._agents.values())
 
@@ -514,7 +533,7 @@ class GlobalMemoryManager:
         if name in self._agents:
             del self._agents[name]
         agent_file = self._agents_dir / f"{name}.jsonl"
-        if agent_file.exists():
+        with contextlib.suppress(FileNotFoundError):
             agent_file.unlink()
 
     def add_message(

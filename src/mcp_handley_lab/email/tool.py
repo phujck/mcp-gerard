@@ -1,6 +1,5 @@
 """Unified email client MCP tool integrating all email providers."""
 
-import importlib
 from pathlib import Path
 
 from pydantic import Field
@@ -10,25 +9,12 @@ from mcp_handley_lab.common.process import run_command
 # Import the shared mcp instance
 from mcp_handley_lab.email.common import mcp
 
-
-def discover_and_register_tools():
-    """
-    Automatically discovers and imports tool modules from subdirectories
-    to trigger their @mcp.tool decorators for registration.
-    """
-    package_dir = Path(__file__).parent
-    package_name = package_dir.name
-
-    for sub_dir in package_dir.iterdir():
-        if sub_dir.is_dir() and (sub_dir / "__init__.py").exists():
-            tool_module_path = sub_dir / "tool.py"
-            if tool_module_path.exists():
-                module_name = f"mcp_handley_lab.{package_name}.{sub_dir.name}.tool"
-                importlib.import_module(module_name)
-
-
-# Run the discovery process when this module is loaded
-discover_and_register_tools()
+# Import tool modules to register their @mcp.tool decorators
+from mcp_handley_lab.email.msmtp import tool as _msmtp  # noqa: F401
+from mcp_handley_lab.email.mutt import tool as _mutt  # noqa: F401
+from mcp_handley_lab.email.mutt_aliases import tool as _mutt_aliases  # noqa: F401
+from mcp_handley_lab.email.notmuch import tool as _notmuch  # noqa: F401
+from mcp_handley_lab.email.offlineimap import tool as _offlineimap  # noqa: F401
 
 
 def _list_tags() -> list[str]:
@@ -48,23 +34,24 @@ def _list_folders() -> list[str]:
 
     folders: set[str] = set()
     for account in maildir_root.iterdir():
-        if not account.is_dir():
+        try:
+            children = list(account.iterdir())
+        except NotADirectoryError:
             continue
-        for child in account.iterdir():
-            if (
-                child.is_dir()
-                and child.name not in MAILDIR_LEAFS
-                and (child / "cur").is_dir()
-            ):
+        for child in children:
+            if child.name in MAILDIR_LEAFS:
+                continue
+            try:
+                list((child / "cur").iterdir())
                 folders.add(f"{account.name}/{child.name}")
+            except (NotADirectoryError, FileNotFoundError):
+                continue
     return sorted(folders)
 
 
 def _list_accounts(config_file: str = "") -> list[str]:
     """List available msmtp accounts by parsing msmtp config."""
     msmtprc_path = Path(config_file) if config_file else Path.home() / ".msmtprc"
-    if not msmtprc_path.exists():
-        raise FileNotFoundError(f"msmtp configuration not found at {msmtprc_path}")
 
     accounts = []
     with open(msmtprc_path) as f:
