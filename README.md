@@ -65,6 +65,7 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add google-calendar --scope user mcp-google-calendar
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
+# claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
 
 # 6. Verify tools are working
@@ -120,6 +121,7 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add google-calendar --scope user mcp-google-calendar
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
+# claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
 
 # 6. Verify tools are working
@@ -202,6 +204,15 @@ Comprehensive email workflow integration
   - **Requires**: `msmtp`, `mutt`, `notmuch`, and `offlineimap` installed and configured
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
+### 📄 **Word Documents** (`word`)
+Read and edit Microsoft Word (.docx) files
+  - Progressive disclosure: outline → blocks → full content
+  - DOM-style editing: create, insert, append, delete, replace, style
+  - Version-based concurrency to prevent conflicting edits
+  - Table markdown previews with row/column counts
+  - _Claude example_: `> read the outline of my thesis and add a new section after the introduction`
+  - **Requires**: `python-docx` (installed with package)
+
 ## Recommended External MCPs
 
 These MCP servers from other projects complement this toolkit:
@@ -209,7 +220,6 @@ These MCP servers from other projects complement this toolkit:
 | MCP | Description | Installation |
 |-----|-------------|--------------|
 | [Playwright](https://github.com/microsoft/playwright-mcp) | Browser automation for web scraping and testing | `npx @playwright/mcp@latest` |
-| [Office Word](https://github.com/GongRzhe/Office-Word-MCP-Server) | Word document creation and editing | `npx office-word-mcp-server` |
 
 See [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) for a comprehensive list of available MCP servers.
 
