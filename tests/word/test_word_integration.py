@@ -912,3 +912,77 @@ async def test_set_margins_missing_formatting(sample_docx):
     )
     assert not edit_result["success"]
     assert "formatting" in edit_result["message"]
+
+
+# --- File error handling tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_missing_file():
+    """Test that reading a missing file returns structured error."""
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": "/nonexistent/path/to/file.docx",
+            "scope": "blocks",
+        },
+    )
+    assert result["block_count"] == 0
+    assert len(result["warnings"]) > 0
+    assert "not found" in result["warnings"][0].lower()
+
+
+@pytest.mark.asyncio
+async def test_edit_missing_file():
+    """Test that editing a missing file returns structured error."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": "/nonexistent/path/to/file.docx",
+            "operation": "append",
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "not found" in edit_result["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_read_corrupt_file():
+    """Test that reading a corrupt file returns structured error."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        f.write(b"not a valid docx file")
+        corrupt_path = f.name
+    try:
+        _, result = await mcp.call_tool(
+            "read",
+            {
+                "file_path": corrupt_path,
+                "scope": "blocks",
+            },
+        )
+        assert result["block_count"] == 0
+        assert len(result["warnings"]) > 0
+        # python-docx may raise PackageNotFoundError for corrupt files too
+        warning_lower = result["warnings"][0].lower()
+        assert any(msg in warning_lower for msg in ["corrupt", "invalid", "not found"])
+    finally:
+        Path(corrupt_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_create_in_new_directory():
+    """Test creating a document in a new (non-existent) directory."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create path with nested non-existent directory
+        new_file = Path(tmpdir) / "subdir" / "nested" / "test.docx"
+        _, result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(new_file),
+                "operation": "create",
+                "content_data": "Test content",
+            },
+        )
+        assert result["success"]
+        assert new_file.exists()

@@ -7,7 +7,7 @@ class Block(BaseModel):
     """A block-level element in a Word document (paragraph, heading, or table)."""
 
     id: str
-    type: str  # "paragraph", "heading", "table"
+    type: str  # "paragraph", "heading1".."heading9", or "table"
     text: str  # Content (for tables: markdown preview)
     style: str  # Word style name
     level: int = 0  # Heading level (1-9) or 0 for non-headings

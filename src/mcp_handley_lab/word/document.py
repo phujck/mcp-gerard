@@ -187,7 +187,8 @@ def build_blocks(
 
             if heading_only:
                 continue
-            if query_lower and query_lower not in md.lower():
+            # Search full table content, not truncated markdown preview
+            if query_lower and query_lower not in table_content.lower():
                 continue
 
             if matched >= offset and len(blocks) < limit:
@@ -209,8 +210,12 @@ def build_blocks(
 def collect_warnings(file_path: str) -> list[str]:
     """Collect warnings about document features that may affect editing."""
     # Simple check for complex features that may not round-trip
-    with zipfile.ZipFile(file_path, "r") as zf:
-        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    try:
+        with zipfile.ZipFile(file_path, "r") as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    except KeyError:
+        # Missing word/document.xml (corrupt or non-docx zip)
+        return ["Could not analyze file for complex features"]
     has_complex = (
         "w:fldSimple" in xml
         or "w:instrText" in xml
@@ -264,6 +269,8 @@ def count_occurrence(
 
     Used after edits to compute the correct occurrence index for returned ID.
     For tables, 'text' should be the full table content (from table_content_for_hash).
+
+    Raises RuntimeError if target_el is not found (indicates programming error).
     """
     target_hash = content_hash(text)
     occurrence = 0
@@ -283,7 +290,9 @@ def count_occurrence(
                     if el is target_el:
                         return occurrence
                     occurrence += 1
-    return occurrence  # fallback
+    raise RuntimeError(
+        f"Target element not found while counting occurrence for {block_type}"
+    )
 
 
 def insert_paragraph_relative(
@@ -394,7 +403,7 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
             p.alignment = alignment_map[align.lower()]
 
     if not p.runs:
-        p.add_run(p.text or "")
+        p.add_run("")  # Empty run as anchor, don't copy p.text to avoid duplication
 
     for run in p.runs:
         if "bold" in fmt:
@@ -664,13 +673,10 @@ def set_header_text(doc: Document, section_index: int, text: str) -> None:
         )
     section = doc.sections[section_index]
     header = section.header
-    # Clear existing content and add new paragraph
+    # Clear existing paragraphs using element removal (Paragraph.clear() not portable)
     for p in list(header.paragraphs):
-        p.clear()
-    if header.paragraphs:
-        header.paragraphs[0].text = text
-    else:
-        header.add_paragraph(text)
+        p._element.getparent().remove(p._element)
+    header.add_paragraph(text)
 
 
 def set_footer_text(doc: Document, section_index: int, text: str) -> None:
@@ -681,13 +687,10 @@ def set_footer_text(doc: Document, section_index: int, text: str) -> None:
         )
     section = doc.sections[section_index]
     footer = section.footer
-    # Clear existing content and add new paragraph
+    # Clear existing paragraphs using element removal (Paragraph.clear() not portable)
     for p in list(footer.paragraphs):
-        p.clear()
-    if footer.paragraphs:
-        footer.paragraphs[0].text = text
-    else:
-        footer.add_paragraph(text)
+        p._element.getparent().remove(p._element)
+    footer.add_paragraph(text)
 
 
 def _emu_to_inches(emu) -> float:

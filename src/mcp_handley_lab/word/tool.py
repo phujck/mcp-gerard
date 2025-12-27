@@ -2,8 +2,10 @@
 
 import json
 import os
+import zipfile
 
 from docx import Document
+from docx.opc.exceptions import PackageNotFoundError
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
@@ -43,6 +45,21 @@ from mcp_handley_lab.word.models import DocumentReadResult, EditResult
 mcp = FastMCP("Word Document Tool")
 
 
+def _safe_save(doc: Document, file_path: str) -> str | None:
+    """Save document, returning error message on failure or None on success."""
+    try:
+        # Ensure parent directory exists
+        parent_dir = os.path.dirname(file_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+        doc.save(file_path)
+        return None
+    except PermissionError:
+        return f"Permission denied: {file_path}"
+    except OSError as e:
+        return f"Failed to save file: {e}"
+
+
 @mcp.tool(
     description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
@@ -62,8 +79,22 @@ def read(
     offset: int = Field(0, description="Pagination offset"),
 ) -> DocumentReadResult:
     """Read Word document content with progressive disclosure."""
-    doc = Document(file_path)
-    warnings = collect_warnings(file_path)
+    try:
+        doc = Document(file_path)
+    except PackageNotFoundError:
+        return DocumentReadResult(
+            block_count=0,
+            warnings=[f"File not found: {file_path}"],
+        )
+    except zipfile.BadZipFile:
+        return DocumentReadResult(
+            block_count=0,
+            warnings=[f"Invalid or corrupt .docx file: {file_path}"],
+        )
+    try:
+        warnings = collect_warnings(file_path)
+    except (zipfile.BadZipFile, OSError):
+        warnings = ["Could not analyze file for complex features"]
 
     if scope == "meta":
         meta = get_document_meta(doc)
@@ -268,14 +299,23 @@ def edit(
             occurrence = count_occurrence(doc, block_type, text, el)
             element_id = make_block_id(block_type, text, occurrence)
 
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
             message=f"Created: {file_path}",
         )
 
-    doc = Document(file_path)
+    try:
+        doc = Document(file_path)
+    except PackageNotFoundError:
+        return EditResult(success=False, message=f"File not found: {file_path}")
+    except zipfile.BadZipFile:
+        return EditResult(
+            success=False, message=f"Invalid or corrupt .docx file: {file_path}"
+        )
     element_id = ""
 
     if operation in ("insert_before", "insert_after"):
@@ -325,7 +365,9 @@ def edit(
                 success=False, message=f"Unsupported content_type: {content_type}"
             )
 
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -358,7 +400,9 @@ def edit(
         occurrence = count_occurrence(doc, block_type, text, el)
         element_id = make_block_id(block_type, text, occurrence)
 
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -374,7 +418,9 @@ def edit(
             return EditResult(success=False, message=str(e))
 
         delete_block(block_type, obj)
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=target_id,
@@ -417,7 +463,9 @@ def edit(
                 success=False, message=f"Cannot replace block of type {block_type}"
             )
 
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -461,7 +509,9 @@ def edit(
             occurrence = count_occurrence(doc, block_type, text, target_el)
             element_id = make_block_id(block_type, text, occurrence)
 
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -494,7 +544,9 @@ def edit(
         table_content = table_content_for_hash(obj)
         occurrence = count_occurrence(doc, "table", table_content, target_el)
         element_id = make_block_id("table", table_content, occurrence)
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -547,7 +599,9 @@ def edit(
         text = obj.text or ""
         occurrence = count_occurrence(doc, block_type, text, target_el)
         element_id = make_block_id(block_type, text, occurrence)
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             element_id=element_id,
@@ -582,7 +636,9 @@ def edit(
                 success=False,
                 message="Comments API not available in this python-docx version",
             )
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             comment_id=comment_id,
@@ -594,7 +650,9 @@ def edit(
             set_header_text(doc, section_index, content_data)
         except ValueError as e:
             return EditResult(success=False, message=str(e))
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             message=f"Set header for section {section_index}",
@@ -605,7 +663,9 @@ def edit(
             set_footer_text(doc, section_index, content_data)
         except ValueError as e:
             return EditResult(success=False, message=str(e))
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             message=f"Set footer for section {section_index}",
@@ -632,7 +692,9 @@ def edit(
             )
         except ValueError as e:
             return EditResult(success=False, message=str(e))
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             message=f"Set margins for section {section_index}",
@@ -648,7 +710,9 @@ def edit(
             set_page_orientation(doc, section_index, content_data)
         except ValueError as e:
             return EditResult(success=False, message=str(e))
-        doc.save(file_path)
+        save_err = _safe_save(doc, file_path)
+        if save_err:
+            return EditResult(success=False, message=save_err)
         return EditResult(
             success=True,
             message=f"Set orientation to {content_data} for section {section_index}",
