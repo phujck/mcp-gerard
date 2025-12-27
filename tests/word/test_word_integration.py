@@ -397,3 +397,218 @@ async def test_edit_cell_on_non_table(sample_docx):
     )
     assert not edit_result["success"]
     assert "table" in edit_result["message"]
+
+
+@pytest.fixture
+def formatted_docx():
+    """Create a Word document with formatted runs for testing."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        # Create a paragraph with multiple runs with different formatting
+        p = doc.add_paragraph()
+        p.add_run("Normal text, ")  # default formatting
+        run2 = p.add_run("bold text, ")
+        run2.bold = True
+        run3 = p.add_run("italic text.")
+        run3.italic = True
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_runs(formatted_docx):
+    """Test reading runs from a paragraph."""
+    # First get the paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Now read the runs
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(formatted_docx),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+    assert runs_result["block_count"] == 3  # Three runs
+    assert len(runs_result["runs"]) == 3
+
+    # Check run properties
+    assert runs_result["runs"][0]["text"] == "Normal text, "
+    assert runs_result["runs"][0]["bold"] is None  # Not set (inherits)
+
+    assert runs_result["runs"][1]["text"] == "bold text, "
+    assert runs_result["runs"][1]["bold"] is True
+
+    assert runs_result["runs"][2]["text"] == "italic text."
+    assert runs_result["runs"][2]["italic"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_run_text(formatted_docx):
+    """Test editing run text."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Edit the bold run (index 1) - use different text (not just case change, as hash normalizes)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(formatted_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 1,
+            "content_data": "strongly emphasized, ",
+        },
+    )
+    assert edit_result["success"]
+    # Hash changes because paragraph text changed
+    assert edit_result["element_id"].startswith("paragraph_")
+    assert edit_result["element_id"] != para_block["id"]
+
+    # Verify the change - need new paragraph ID
+    _, blocks_result2 = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    new_para = next(b for b in blocks_result2["blocks"] if b["type"] == "paragraph")
+
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(formatted_docx),
+            "scope": "runs",
+            "target_id": new_para["id"],
+        },
+    )
+    assert runs_result["runs"][1]["text"] == "strongly emphasized, "
+    assert runs_result["runs"][1]["bold"] is True  # Formatting preserved
+
+
+@pytest.mark.asyncio
+async def test_edit_run_formatting(formatted_docx):
+    """Test editing run formatting."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Make the first run (Normal text) bold and underlined
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(formatted_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": '{"bold": true, "underline": true}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify formatting (text unchanged, so ID unchanged)
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(formatted_docx),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+    assert runs_result["runs"][0]["text"] == "Normal text, "
+    assert runs_result["runs"][0]["bold"] is True
+    assert runs_result["runs"][0]["underline"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_run_out_of_range(formatted_docx):
+    """Test that editing out-of-range run fails."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Try to edit run 99 - out of range
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(formatted_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 99,
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "out of range" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_read_runs_on_table_fails(sample_docx):
+    """Test that reading runs on a table fails."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": table_block["id"],
+        },
+    )
+    assert runs_result["block_count"] == 0
+    assert "paragraph or heading" in runs_result["warnings"][0]
+
+
+@pytest.mark.asyncio
+async def test_edit_run_on_table_fails(sample_docx):
+    """Test that editing run on a table fails."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": table_block["id"],
+            "run_index": 0,
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "paragraph or heading" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_edit_run_missing_run_index(formatted_docx):
+    """Test that edit_run without run_index fails."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(formatted_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "run_index" in edit_result["message"]

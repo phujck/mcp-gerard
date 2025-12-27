@@ -34,6 +34,20 @@ class CellInfo(BaseModel):
     text: str  # Cell text content
 
 
+class RunInfo(BaseModel):
+    """A run (text segment with uniform formatting) within a paragraph."""
+
+    index: int  # 0-based position in paragraph
+    text: str
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    font_name: str | None = None
+    font_size: float | None = None  # in points
+    color: str | None = None  # hex color (e.g., "FF0000")
+    has_complex_content: bool = False  # True if run contains drawings/page breaks
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -43,6 +57,7 @@ class DocumentReadResult(BaseModel):
     cells: list[CellInfo] = Field(default_factory=list)  # For scope='table_cells'
     table_rows: int = 0  # For scope='table_cells'
     table_cols: int = 0  # For scope='table_cells'
+    runs: list[RunInfo] = Field(default_factory=list)  # For scope='runs'
     warnings: list[str] = Field(default_factory=list)
 
 

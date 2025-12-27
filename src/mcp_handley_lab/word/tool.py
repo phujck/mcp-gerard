@@ -11,11 +11,14 @@ from mcp_handley_lab.word.document import (
     apply_paragraph_formatting,
     apply_paragraph_style,
     build_blocks,
+    build_runs,
     build_table_cells,
     collect_warnings,
     count_occurrence,
     create_block,
     delete_block,
+    edit_run_formatting,
+    edit_run_text,
     get_document_meta,
     insert_heading_relative,
     insert_paragraph_relative,
@@ -33,16 +36,16 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table, requires target_id). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits. After editing content, the hash changes and new ID is returned."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs'",
     ),
     target_id: str = Field(
-        "", description="Block ID (required for scope='table_cells')"
+        "", description="Block ID (required for scope='table_cells' or 'runs')"
     ),
     search_query: str = Field(
         "", description="Text to search for (required if scope='search')"
@@ -101,7 +104,7 @@ def read(
                 warnings=["target_id is required for scope='table_cells'"],
             )
         try:
-            block_type, obj, target_el, body_idx = resolve_target(doc, target_id)
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
         except ValueError as e:
             return DocumentReadResult(
                 block_count=0,
@@ -120,28 +123,53 @@ def read(
             table_cols=len(obj.columns),
             warnings=warnings,
         )
+    elif scope == "runs":
+        if not target_id:
+            return DocumentReadResult(
+                block_count=0,
+                warnings=["target_id is required for scope='runs'"],
+            )
+        try:
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
+        except ValueError as e:
+            return DocumentReadResult(
+                block_count=0,
+                warnings=[str(e)],
+            )
+        if block_type == "table":
+            return DocumentReadResult(
+                block_count=0,
+                warnings=["scope='runs' requires a paragraph or heading, not a table"],
+            )
+        runs, run_warnings = build_runs(obj)
+        warnings.extend(run_warnings)
+        return DocumentReadResult(
+            block_count=len(runs),
+            runs=runs,
+            warnings=warnings,
+        )
     else:
         return DocumentReadResult(
             block_count=0,
             blocks=[],
             warnings=[
-                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', or 'table_cells'."
+                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', or 'runs'."
             ],
         )
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes (chain operations without re-reading)."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style/edit_cell",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run",
     ),
     content_type: str = Field(
         "paragraph",
@@ -160,6 +188,10 @@ def edit(
     ),
     row: int = Field(0, description="Row number (1-based, for edit_cell operation)"),
     col: int = Field(0, description="Column number (1-based, for edit_cell operation)"),
+    run_index: int = Field(
+        -1,
+        description="Run index (0-based, for edit_run operation). Use read() with scope='runs' to find indices.",
+    ),
 ) -> EditResult:
     """Edit Word document."""
     if operation == "create":
@@ -229,6 +261,10 @@ def edit(
             occurrence = count_occurrence(doc, block_type, text, new_p._element)
             element_id = make_block_id(block_type, text, occurrence)
         elif content_type == "table":
+            if not content_data:
+                return EditResult(
+                    success=False, message="content_data is required for table"
+                )
             try:
                 table_data = json.loads(content_data)
             except json.JSONDecodeError as e:
@@ -252,6 +288,10 @@ def edit(
         )
 
     elif operation == "append":
+        if content_type == "table" and not content_data:
+            return EditResult(
+                success=False, message="content_data is required for table"
+            )
         try:
             block_type, obj, el = create_block(
                 doc, content_type, content_data, heading_level, style_name
@@ -284,7 +324,7 @@ def edit(
         if not target_id:
             return EditResult(success=False, message="target_id is required for delete")
         try:
-            block_type, obj, target_el, body_idx = resolve_target(doc, target_id)
+            block_type, obj, _, _ = resolve_target(doc, target_id)
         except ValueError as e:
             return EditResult(success=False, message=str(e))
 
@@ -312,6 +352,10 @@ def edit(
             occurrence = count_occurrence(doc, block_type, text, target_el)
             element_id = make_block_id(block_type, text, occurrence)
         elif block_type == "table":
+            if not content_data:
+                return EditResult(
+                    success=False, message="content_data is required for table"
+                )
             try:
                 table_data = json.loads(content_data)
             except json.JSONDecodeError as e:
@@ -412,10 +456,64 @@ def edit(
             message=f"Updated cell r{row}c{col}",
         )
 
+    elif operation == "edit_run":
+        if not target_id:
+            return EditResult(
+                success=False, message="target_id is required for edit_run"
+            )
+        if run_index < 0:
+            return EditResult(
+                success=False,
+                message="run_index is required for edit_run (0-based). Use read() with scope='runs' to find indices.",
+            )
+        try:
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        if block_type == "table":
+            return EditResult(
+                success=False,
+                message="edit_run requires a paragraph or heading, not a table",
+            )
+
+        warnings = []
+        # Edit run text if content_data provided
+        if content_data:
+            try:
+                text_warnings = edit_run_text(obj, run_index, content_data)
+                warnings.extend(text_warnings)
+            except ValueError as e:
+                return EditResult(success=False, message=str(e))
+
+        # Apply formatting if provided
+        if formatting:
+            try:
+                fmt = json.loads(formatting)
+            except json.JSONDecodeError as e:
+                return EditResult(
+                    success=False, message=f"Invalid JSON for formatting: {e}"
+                )
+            try:
+                edit_run_formatting(obj, run_index, fmt)
+            except ValueError as e:
+                return EditResult(success=False, message=str(e))
+
+        # Return updated block ID (text hash changes after run edit)
+        text = obj.text or ""
+        occurrence = count_occurrence(doc, block_type, text, target_el)
+        element_id = make_block_id(block_type, text, occurrence)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            element_id=element_id,
+            message=f"Updated run {run_index}",
+            warnings=warnings,
+        )
+
     else:
         return EditResult(
             success=False,
-            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', or 'edit_cell'.",
+            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', or 'edit_run'.",
         )
 
 

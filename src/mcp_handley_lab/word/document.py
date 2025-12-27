@@ -14,7 +14,7 @@ from docx.shared import Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from mcp_handley_lab.word.models import Block, CellInfo, DocumentMeta
+from mcp_handley_lab.word.models import Block, CellInfo, DocumentMeta, RunInfo
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
 _ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
@@ -474,3 +474,111 @@ def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
             f"Column {col} out of range (table has {len(table.columns)} columns)"
         )
     table.cell(r_idx, c_idx).text = text
+
+
+def has_hyperlinks(paragraph: Paragraph) -> bool:
+    """Check if paragraph contains hyperlinks (runs inside hyperlinks not in Paragraph.runs)."""
+    return len(paragraph._p.hyperlink_lst) > 0
+
+
+def has_complex_content(run) -> bool:
+    """Check if run contains non-text elements that would be deleted on text edit."""
+    r = run._r
+    for child in r:
+        tag = child.tag
+        if (
+            tag.endswith("}drawing")
+            or tag.endswith("}lastRenderedPageBreak")
+            or tag.endswith("}object")
+        ):
+            return True
+    return False
+
+
+def build_runs(paragraph: Paragraph) -> tuple[list[RunInfo], list[str]]:
+    """Build list of RunInfo for all runs in a paragraph.
+
+    Returns (runs, warnings). Only includes direct runs, not runs inside hyperlinks.
+    """
+    runs = []
+    warnings = []
+
+    if has_hyperlinks(paragraph):
+        warnings.append(
+            "Paragraph contains hyperlinks; runs scope shows direct runs only"
+        )
+
+    for idx, run in enumerate(paragraph.runs):
+        # Extract formatting properties
+        font = run.font
+        color_hex = None
+        if font.color and font.color.rgb:
+            color_hex = str(font.color.rgb)
+
+        font_size = None
+        if font.size:
+            font_size = font.size.pt
+
+        complex_content = has_complex_content(run)
+        if complex_content:
+            warnings.append(
+                f"Run {idx} contains non-text content; editing text will remove it"
+            )
+
+        runs.append(
+            RunInfo(
+                index=idx,
+                text=run.text or "",
+                bold=run.bold,
+                italic=run.italic,
+                underline=run.underline,
+                font_name=font.name,
+                font_size=font_size,
+                color=color_hex,
+                has_complex_content=complex_content,
+            )
+        )
+
+    return runs, warnings
+
+
+def edit_run_text(paragraph: Paragraph, run_index: int, text: str) -> list[str]:
+    """Edit run text. Returns warnings if run had complex content."""
+    warnings = []
+    if run_index < 0 or run_index >= len(paragraph.runs):
+        raise ValueError(
+            f"Run index {run_index} out of range (paragraph has {len(paragraph.runs)} runs)"
+        )
+
+    run = paragraph.runs[run_index]
+    if has_complex_content(run):
+        warnings.append(
+            f"Run {run_index} contained non-text content that was removed by text edit"
+        )
+
+    run.text = text
+    return warnings
+
+
+def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None:
+    """Apply formatting to a specific run."""
+    if run_index < 0 or run_index >= len(paragraph.runs):
+        raise ValueError(
+            f"Run index {run_index} out of range (paragraph has {len(paragraph.runs)} runs)"
+        )
+
+    run = paragraph.runs[run_index]
+
+    if "bold" in fmt:
+        run.bold = bool(fmt["bold"])
+    if "italic" in fmt:
+        run.italic = bool(fmt["italic"])
+    if "underline" in fmt:
+        run.underline = bool(fmt["underline"])
+    if "font_name" in fmt:
+        run.font.name = fmt["font_name"]
+    if "font_size" in fmt:
+        run.font.size = Pt(float(fmt["font_size"]))
+    if "color" in fmt:
+        color = fmt["color"].lstrip("#")
+        run.font.color.rgb = RGBColor.from_string(color)
