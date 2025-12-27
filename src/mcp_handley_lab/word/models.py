@@ -45,7 +45,6 @@ class RunInfo(BaseModel):
     font_name: str | None = None
     font_size: float | None = None  # in points
     color: str | None = None  # hex color (e.g., "FF0000")
-    has_complex_content: bool = False  # True if run contains drawings/page breaks
 
 
 class CommentInfo(BaseModel):
@@ -87,28 +86,22 @@ class PageSetupInfo(BaseModel):
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
-    block_count: int  # Count of matched blocks
+    block_count: int
     blocks: list[Block] = Field(default_factory=list)
-    meta: DocumentMeta | None = None  # Only populated for scope='meta'
-    cells: list[CellInfo] = Field(default_factory=list)  # For scope='table_cells'
-    table_rows: int = 0  # For scope='table_cells'
-    table_cols: int = 0  # For scope='table_cells'
-    runs: list[RunInfo] = Field(default_factory=list)  # For scope='runs'
-    comments: list[CommentInfo] = Field(default_factory=list)  # For scope='comments'
-    headers_footers: list[HeaderFooterInfo] = Field(
-        default_factory=list
-    )  # For scope='headers_footers'
-    page_setup: list[PageSetupInfo] = Field(
-        default_factory=list
-    )  # For scope='page_setup'
-    warnings: list[str] = Field(default_factory=list)
+    meta: DocumentMeta | None = None
+    cells: list[CellInfo] = Field(default_factory=list)
+    table_rows: int = 0
+    table_cols: int = 0
+    runs: list[RunInfo] = Field(default_factory=list)
+    comments: list[CommentInfo] = Field(default_factory=list)
+    headers_footers: list[HeaderFooterInfo] = Field(default_factory=list)
+    page_setup: list[PageSetupInfo] = Field(default_factory=list)
 
 
 class EditResult(BaseModel):
     """Result from edit() tool."""
 
     success: bool
-    element_id: str = ""  # ID of created/modified block
-    comment_id: int | None = None  # ID of created comment (for add_comment)
-    message: str  # Human-readable status
-    warnings: list[str] = Field(default_factory=list)
+    element_id: str = ""
+    comment_id: int | None = None
+    message: str

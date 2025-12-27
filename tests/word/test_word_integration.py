@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from docx import Document
+from mcp.server.fastmcp.exceptions import ToolError
 
 from mcp_handley_lab.word.tool import mcp
 
@@ -208,11 +209,12 @@ async def test_edit_create_empty():
         assert edit_result["success"]
         assert new_path.exists()
 
-        # Verify it's readable
+        # Verify it's readable (creates default empty paragraph)
         _, read_result = await mcp.call_tool(
             "read", {"file_path": str(new_path), "scope": "blocks"}
         )
-        assert read_result["block_count"] == 0
+        assert read_result["block_count"] == 1
+        assert read_result["blocks"][0]["text"] == ""
     finally:
         new_path.unlink(missing_ok=True)
 
@@ -251,17 +253,23 @@ async def test_edit_create_with_content():
 
 
 @pytest.mark.asyncio
-async def test_edit_create_fails_if_exists(sample_docx):
-    """Test that create fails if file already exists."""
+async def test_edit_create_overwrites_existing(sample_docx):
+    """Test that create overwrites an existing file (no defensive check)."""
     _, edit_result = await mcp.call_tool(
         "edit",
         {
             "file_path": str(sample_docx),
             "operation": "create",
+            "content_data": "New content",
         },
     )
-    assert not edit_result["success"]
-    assert "already exists" in edit_result["message"]
+    assert edit_result["success"]
+    # Verify new content
+    _, read_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    assert read_result["block_count"] == 1
+    assert "New content" in read_result["blocks"][0]["text"]
 
 
 @pytest.mark.asyncio
@@ -351,52 +359,45 @@ async def test_edit_cell(sample_docx):
 @pytest.mark.asyncio
 async def test_edit_cell_out_of_range(sample_docx):
     """Test that editing out-of-range cell fails."""
-    # Find the table
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(sample_docx), "scope": "blocks"}
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
-    table_id = table_block["id"]
 
-    # Try to edit cell (99,1) - out of range
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "edit_cell",
-            "target_id": table_id,
-            "row": 99,
-            "col": 1,
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "out of range" in edit_result["message"]
+    with pytest.raises(ToolError, match="out of range"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "edit_cell",
+                "target_id": table_block["id"],
+                "row": 99,
+                "col": 1,
+                "content_data": "Should fail",
+            },
+        )
 
 
 @pytest.mark.asyncio
 async def test_edit_cell_on_non_table(sample_docx):
-    """Test that editing cell on non-table block fails."""
-    # Find a paragraph
+    """Test that editing cell on non-table block fails (underlying library error)."""
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(sample_docx), "scope": "blocks"}
     )
     para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
 
-    # Try to edit cell on paragraph
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "edit_cell",
-            "target_id": para_block["id"],
-            "row": 1,
-            "col": 1,
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "table" in edit_result["message"]
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "edit_cell",
+                "target_id": para_block["id"],
+                "row": 1,
+                "col": 1,
+                "content_data": "Should fail",
+            },
+        )
 
 
 @pytest.fixture
@@ -530,25 +531,22 @@ async def test_edit_run_formatting(formatted_docx):
 @pytest.mark.asyncio
 async def test_edit_run_out_of_range(formatted_docx):
     """Test that editing out-of-range run fails."""
-    # Get paragraph ID
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(formatted_docx), "scope": "blocks"}
     )
     para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
 
-    # Try to edit run 99 - out of range
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(formatted_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 99,
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "out of range" in edit_result["message"]
+    with pytest.raises(ToolError, match="index out of range"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(formatted_docx),
+                "operation": "edit_run",
+                "target_id": para_block["id"],
+                "run_index": 99,
+                "content_data": "Should fail",
+            },
+        )
 
 
 @pytest.mark.asyncio
@@ -559,59 +557,36 @@ async def test_read_runs_on_table_fails(sample_docx):
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    _, runs_result = await mcp.call_tool(
-        "read",
-        {
-            "file_path": str(sample_docx),
-            "scope": "runs",
-            "target_id": table_block["id"],
-        },
-    )
-    assert runs_result["block_count"] == 0
-    assert "paragraph or heading" in runs_result["warnings"][0]
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": str(sample_docx),
+                "scope": "runs",
+                "target_id": table_block["id"],
+            },
+        )
 
 
 @pytest.mark.asyncio
 async def test_edit_run_on_table_fails(sample_docx):
-    """Test that editing run on a table fails."""
+    """Test that editing run on a table fails (underlying library error)."""
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(sample_docx), "scope": "blocks"}
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": table_block["id"],
-            "run_index": 0,
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "paragraph or heading" in edit_result["message"]
-
-
-@pytest.mark.asyncio
-async def test_edit_run_missing_run_index(formatted_docx):
-    """Test that edit_run without run_index fails."""
-    _, blocks_result = await mcp.call_tool(
-        "read", {"file_path": str(formatted_docx), "scope": "blocks"}
-    )
-    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
-
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(formatted_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "run_index" in edit_result["message"]
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "edit_run",
+                "target_id": table_block["id"],
+                "run_index": 0,
+                "content_data": "Should fail",
+            },
+        )
 
 
 # --- Comment tests ---
@@ -690,43 +665,22 @@ async def test_add_comment_with_author(sample_docx):
 
 @pytest.mark.asyncio
 async def test_add_comment_to_table_fails(sample_docx):
-    """Test that adding a comment to a table fails."""
+    """Test that adding a comment to a table fails (underlying library error)."""
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(sample_docx), "scope": "blocks"}
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": table_block["id"],
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "paragraph or heading" in edit_result["message"]
-
-
-@pytest.mark.asyncio
-async def test_add_comment_missing_content(sample_docx):
-    """Test that add_comment without content fails."""
-    _, blocks_result = await mcp.call_tool(
-        "read", {"file_path": str(sample_docx), "scope": "blocks"}
-    )
-    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
-
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": para_block["id"],
-        },
-    )
-    assert not edit_result["success"]
-    assert "content_data" in edit_result["message"]
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "add_comment",
+                "target_id": table_block["id"],
+                "content_data": "Should fail",
+            },
+        )
 
 
 # --- Headers/Footers tests ---
@@ -792,17 +746,16 @@ async def test_set_footer(sample_docx):
 @pytest.mark.asyncio
 async def test_set_header_invalid_section(sample_docx):
     """Test that setting header on invalid section fails."""
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "set_header",
-            "section_index": 99,
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "out of range" in edit_result["message"]
+    with pytest.raises(ToolError, match="out of range"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "set_header",
+                "section_index": 99,
+                "content_data": "Should fail",
+            },
+        )
 
 
 # --- Page Setup tests ---
@@ -885,8 +838,8 @@ async def test_set_orientation_landscape(sample_docx):
 
 @pytest.mark.asyncio
 async def test_set_orientation_invalid(sample_docx):
-    """Test that invalid orientation fails."""
-    _, edit_result = await mcp.call_tool(
+    """Test that invalid orientation defaults to portrait."""
+    _, result = await mcp.call_tool(
         "edit",
         {
             "file_path": str(sample_docx),
@@ -895,23 +848,26 @@ async def test_set_orientation_invalid(sample_docx):
             "content_data": "diagonal",
         },
     )
-    assert not edit_result["success"]
-    assert "Invalid orientation" in edit_result["message"]
+    assert result["success"]
+    # Invalid value defaults to portrait
+    _, read_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    assert read_result["page_setup"][0]["orientation"] == "portrait"
 
 
 @pytest.mark.asyncio
 async def test_set_margins_missing_formatting(sample_docx):
     """Test that set_margins without formatting fails."""
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "set_margins",
-            "section_index": 0,
-        },
-    )
-    assert not edit_result["success"]
-    assert "formatting" in edit_result["message"]
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "set_margins",
+                "section_index": 0,
+            },
+        )
 
 
 # --- File error handling tests ---
@@ -919,70 +875,63 @@ async def test_set_margins_missing_formatting(sample_docx):
 
 @pytest.mark.asyncio
 async def test_read_missing_file():
-    """Test that reading a missing file returns structured error."""
-    _, result = await mcp.call_tool(
-        "read",
-        {
-            "file_path": "/nonexistent/path/to/file.docx",
-            "scope": "blocks",
-        },
-    )
-    assert result["block_count"] == 0
-    assert len(result["warnings"]) > 0
-    assert "not found" in result["warnings"][0].lower()
+    """Test that reading a missing file raises error."""
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": "/nonexistent/path/to/file.docx",
+                "scope": "blocks",
+            },
+        )
 
 
 @pytest.mark.asyncio
 async def test_edit_missing_file():
-    """Test that editing a missing file returns structured error."""
-    _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": "/nonexistent/path/to/file.docx",
-            "operation": "append",
-            "content_data": "Should fail",
-        },
-    )
-    assert not edit_result["success"]
-    assert "not found" in edit_result["message"].lower()
+    """Test that editing a missing file raises error."""
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": "/nonexistent/path/to/file.docx",
+                "operation": "append",
+                "content_data": "Should fail",
+            },
+        )
 
 
 @pytest.mark.asyncio
 async def test_read_corrupt_file():
-    """Test that reading a corrupt file returns structured error."""
+    """Test that reading a corrupt file raises error."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         f.write(b"not a valid docx file")
         corrupt_path = f.name
     try:
-        _, result = await mcp.call_tool(
-            "read",
-            {
-                "file_path": corrupt_path,
-                "scope": "blocks",
-            },
-        )
-        assert result["block_count"] == 0
-        assert len(result["warnings"]) > 0
-        # python-docx may raise PackageNotFoundError for corrupt files too
-        warning_lower = result["warnings"][0].lower()
-        assert any(msg in warning_lower for msg in ["corrupt", "invalid", "not found"])
+        with pytest.raises(ToolError):
+            await mcp.call_tool(
+                "read",
+                {
+                    "file_path": corrupt_path,
+                    "scope": "blocks",
+                },
+            )
     finally:
         Path(corrupt_path).unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
 async def test_create_in_new_directory():
-    """Test creating a document in a new (non-existent) directory."""
+    """Test creating a document in a new (non-existent) directory raises error."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create path with nested non-existent directory
         new_file = Path(tmpdir) / "subdir" / "nested" / "test.docx"
-        _, result = await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(new_file),
-                "operation": "create",
-                "content_data": "Test content",
-            },
-        )
-        assert result["success"]
-        assert new_file.exists()
+        # Now fails because we don't create parent directories
+        with pytest.raises(ToolError):
+            await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(new_file),
+                    "operation": "create",
+                    "content_data": "Test content",
+                },
+            )
