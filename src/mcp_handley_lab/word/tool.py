@@ -8,9 +8,11 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.word.document import (
+    add_comment_to_block,
     apply_paragraph_formatting,
     apply_paragraph_style,
     build_blocks,
+    build_comments,
     build_runs,
     build_table_cells,
     collect_warnings,
@@ -36,13 +38,13 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments'",
     ),
     target_id: str = Field(
         "", description="Block ID (required for scope='table_cells' or 'runs')"
@@ -148,34 +150,51 @@ def read(
             runs=runs,
             warnings=warnings,
         )
+    elif scope == "comments":
+        try:
+            comments = build_comments(doc)
+        except AttributeError:
+            return DocumentReadResult(
+                block_count=0,
+                warnings=warnings
+                + ["Comments API not available in this python-docx version"],
+            )
+        return DocumentReadResult(
+            block_count=len(comments),
+            comments=comments,
+            warnings=warnings,
+        )
     else:
         return DocumentReadResult(
             block_count=0,
             blocks=[],
             warnings=[
-                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', or 'runs'."
+                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', or 'comments'."
             ],
         )
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment",
     ),
     content_type: str = Field(
         "paragraph",
         description="Type: 'paragraph', 'heading', 'table'",
     ),
-    content_data: str = Field("", description="Content: text or JSON (for tables)"),
+    content_data: str = Field(
+        "",
+        description="Content: text or JSON (for tables). For add_comment: the comment text.",
+    ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
     ),
@@ -192,6 +211,8 @@ def edit(
         -1,
         description="Run index (0-based, for edit_run operation). Use read() with scope='runs' to find indices.",
     ),
+    author: str = Field("", description="Comment author name (for add_comment)"),
+    initials: str = Field("", description="Comment author initials (for add_comment)"),
 ) -> EditResult:
     """Edit Word document."""
     if operation == "create":
@@ -510,10 +531,44 @@ def edit(
             warnings=warnings,
         )
 
+    elif operation == "add_comment":
+        if not target_id:
+            return EditResult(
+                success=False, message="target_id is required for add_comment"
+            )
+        if not content_data:
+            return EditResult(
+                success=False,
+                message="content_data (comment text) is required for add_comment",
+            )
+        try:
+            block_type, obj, _, _ = resolve_target(doc, target_id)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        if block_type == "table":
+            return EditResult(
+                success=False,
+                message="add_comment requires a paragraph or heading, not a table. Comments must anchor to text runs.",
+            )
+
+        try:
+            comment_id = add_comment_to_block(doc, obj, content_data, author, initials)
+        except AttributeError:
+            return EditResult(
+                success=False,
+                message="Comments API not available in this python-docx version",
+            )
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            comment_id=comment_id,
+            message=f"Added comment {comment_id} to {target_id}",
+        )
+
     else:
         return EditResult(
             success=False,
-            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', or 'edit_run'.",
+            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', or 'add_comment'.",
         )
 
 

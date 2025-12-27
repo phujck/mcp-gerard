@@ -14,7 +14,13 @@ from docx.shared import Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from mcp_handley_lab.word.models import Block, CellInfo, DocumentMeta, RunInfo
+from mcp_handley_lab.word.models import (
+    Block,
+    CellInfo,
+    CommentInfo,
+    DocumentMeta,
+    RunInfo,
+)
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
 _ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
@@ -582,3 +588,37 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
     if "color" in fmt:
         color = fmt["color"].lstrip("#")
         run.font.color.rgb = RGBColor.from_string(color)
+
+
+def build_comments(doc: Document) -> list[CommentInfo]:
+    """Build list of CommentInfo from document comments."""
+    comments = []
+    for comment in doc.comments:
+        comments.append(
+            CommentInfo(
+                id=comment.comment_id,
+                author=comment.author,
+                initials=comment.initials,
+                timestamp=comment.timestamp.isoformat() if comment.timestamp else None,
+                text=comment.text,
+            )
+        )
+    return comments
+
+
+def add_comment_to_block(
+    doc: Document,
+    paragraph: Paragraph,
+    text: str,
+    author: str = "",
+    initials: str = "",
+) -> int:
+    """Add a comment anchored to all runs in a paragraph. Returns comment_id."""
+    runs = paragraph.runs
+    if not runs:
+        # Create empty run as anchor (don't copy paragraph.text to avoid duplication)
+        paragraph.add_run("")
+        runs = paragraph.runs
+
+    comment = doc.add_comment(runs=runs, text=text, author=author, initials=initials)
+    return comment.comment_id

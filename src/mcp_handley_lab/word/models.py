@@ -48,6 +48,16 @@ class RunInfo(BaseModel):
     has_complex_content: bool = False  # True if run contains drawings/page breaks
 
 
+class CommentInfo(BaseModel):
+    """A comment in the document."""
+
+    id: int  # python-docx comment_id
+    author: str
+    initials: str | None = None
+    timestamp: str | None = None  # ISO format
+    text: str
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -58,6 +68,7 @@ class DocumentReadResult(BaseModel):
     table_rows: int = 0  # For scope='table_cells'
     table_cols: int = 0  # For scope='table_cells'
     runs: list[RunInfo] = Field(default_factory=list)  # For scope='runs'
+    comments: list[CommentInfo] = Field(default_factory=list)  # For scope='comments'
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -66,5 +77,6 @@ class EditResult(BaseModel):
 
     success: bool
     element_id: str = ""  # ID of created/modified block
+    comment_id: int | None = None  # ID of created comment (for add_comment)
     message: str  # Human-readable status
     warnings: list[str] = Field(default_factory=list)

@@ -612,3 +612,118 @@ async def test_edit_run_missing_run_index(formatted_docx):
     )
     assert not edit_result["success"]
     assert "run_index" in edit_result["message"]
+
+
+# --- Comment tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_comments_empty(sample_docx):
+    """Test reading comments from a document with no comments."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "comments"}
+    )
+    assert result["block_count"] == 0
+    assert result["comments"] == []
+
+
+@pytest.mark.asyncio
+async def test_add_comment_to_paragraph(sample_docx):
+    """Test adding a comment to a paragraph."""
+    # First get a paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add a comment
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": para_block["id"],
+            "content_data": "This is a test comment",
+        },
+    )
+    assert edit_result["success"]
+    assert edit_result["comment_id"] is not None
+
+    # Verify comment was added
+    _, comments_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "comments"}
+    )
+    assert comments_result["block_count"] == 1
+    assert len(comments_result["comments"]) == 1
+    assert comments_result["comments"][0]["text"] == "This is a test comment"
+
+
+@pytest.mark.asyncio
+async def test_add_comment_with_author(sample_docx):
+    """Test adding a comment with author and initials."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add a comment with author
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": para_block["id"],
+            "content_data": "Review needed",
+            "author": "Test Author",
+            "initials": "TA",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify author info
+    _, comments_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "comments"}
+    )
+    assert comments_result["comments"][0]["author"] == "Test Author"
+    assert comments_result["comments"][0]["initials"] == "TA"
+
+
+@pytest.mark.asyncio
+async def test_add_comment_to_table_fails(sample_docx):
+    """Test that adding a comment to a table fails."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": table_block["id"],
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "paragraph or heading" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_add_comment_missing_content(sample_docx):
+    """Test that add_comment without content fails."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": para_block["id"],
+        },
+    )
+    assert not edit_result["success"]
+    assert "content_data" in edit_result["message"]
