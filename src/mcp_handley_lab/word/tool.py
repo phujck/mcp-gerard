@@ -11,21 +11,21 @@ from mcp_handley_lab.word.document import (
     apply_paragraph_formatting,
     apply_paragraph_style,
     build_blocks,
+    build_table_cells,
     collect_warnings,
-    compute_version,
+    count_occurrence,
     create_block,
     delete_block,
-    find_body_index_of_element,
     get_document_meta,
     insert_heading_relative,
     insert_paragraph_relative,
     insert_table_relative,
     make_block_id,
-    paragraph_kind_and_level,
     replace_paragraph_text,
     replace_table,
+    replace_table_cell,
     resolve_target,
-    table_to_markdown,
+    table_content_for_hash,
 )
 from mcp_handley_lab.word.models import DocumentReadResult, EditResult
 
@@ -33,12 +33,16 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text)."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table, requires target_id). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits. After editing content, the hash changes and new ID is returned."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
-        "outline", description="What to read: 'meta', 'outline', 'blocks', 'search'"
+        "outline",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells'",
+    ),
+    target_id: str = Field(
+        "", description="Block ID (required for scope='table_cells')"
     ),
     search_query: str = Field(
         "", description="Text to search for (required if scope='search')"
@@ -47,15 +51,13 @@ def read(
     offset: int = Field(0, description="Pagination offset"),
 ) -> DocumentReadResult:
     """Read Word document content with progressive disclosure."""
-    version = compute_version(file_path)
     doc = Document(file_path)
-    warnings = collect_warnings(file_path, doc)
+    warnings = collect_warnings(file_path)
 
     if scope == "meta":
         meta = get_document_meta(doc)
         blocks, block_count = build_blocks(doc, offset=0, limit=0)
         return DocumentReadResult(
-            version=version,
             block_count=block_count,
             blocks=[],
             meta=meta,
@@ -66,7 +68,6 @@ def read(
             doc, offset=offset, limit=limit, heading_only=True
         )
         return DocumentReadResult(
-            version=version,
             block_count=block_count,
             blocks=blocks,
             warnings=warnings,
@@ -74,7 +75,6 @@ def read(
     elif scope == "blocks":
         blocks, block_count = build_blocks(doc, offset=offset, limit=limit)
         return DocumentReadResult(
-            version=version,
             block_count=block_count,
             blocks=blocks,
             warnings=warnings,
@@ -82,7 +82,6 @@ def read(
     elif scope == "search":
         if not search_query:
             return DocumentReadResult(
-                version=version,
                 block_count=0,
                 blocks=[],
                 warnings=["search_query is required for scope='search'"],
@@ -91,46 +90,64 @@ def read(
             doc, offset=offset, limit=limit, search_query=search_query
         )
         return DocumentReadResult(
-            version=version,
             block_count=block_count,
             blocks=blocks,
             warnings=warnings,
         )
+    elif scope == "table_cells":
+        if not target_id:
+            return DocumentReadResult(
+                block_count=0,
+                warnings=["target_id is required for scope='table_cells'"],
+            )
+        try:
+            block_type, obj, target_el, body_idx = resolve_target(doc, target_id)
+        except ValueError as e:
+            return DocumentReadResult(
+                block_count=0,
+                warnings=[str(e)],
+            )
+        if block_type != "table":
+            return DocumentReadResult(
+                block_count=0,
+                warnings=[f"target_id must be a table, got {block_type}"],
+            )
+        cells = build_table_cells(obj)
+        return DocumentReadResult(
+            block_count=len(cells),
+            cells=cells,
+            table_rows=len(obj.rows),
+            table_cols=len(obj.columns),
+            warnings=warnings,
+        )
     else:
         return DocumentReadResult(
-            version=version,
             block_count=0,
             blocks=[],
             warnings=[
-                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', or 'search'."
+                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', or 'table_cells'."
             ],
         )
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create' (new doc), 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style'. All except 'create' require expected_version from read()."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes (chain operations without re-reading)."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
-    expected_version: str = Field(
-        "",
-        description="Version from read() - required for all operations except 'create'",
-    ),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell",
     ),
     content_type: str = Field(
         "paragraph",
-        description="Type: 'paragraph', 'heading', 'table', 'image', 'list', 'page_break'",
+        description="Type: 'paragraph', 'heading', 'table'",
     ),
-    content_data: str = Field(
-        "", description="Content: text, file path (images), or JSON (tables/lists)"
-    ),
+    content_data: str = Field("", description="Content: text or JSON (for tables)"),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
     ),
@@ -141,92 +158,58 @@ def edit(
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
     ),
+    row: int = Field(0, description="Row number (1-based, for edit_cell operation)"),
+    col: int = Field(0, description="Column number (1-based, for edit_cell operation)"),
 ) -> EditResult:
-    """Edit Word document with version check and DOM-style operations."""
-    # Handle create operation separately (no version check needed)
+    """Edit Word document."""
     if operation == "create":
         if os.path.exists(file_path):
             return EditResult(
                 success=False,
-                new_version="",
-                message=f"File already exists: {file_path}. Use 'append' to add content to existing documents.",
+                message=f"File already exists: {file_path}. Use 'append' to add content.",
             )
         doc = Document()
-        warnings: list[str] = []
         element_id = ""
 
-        # Optionally add initial content
         if content_data:
             try:
-                kind, obj, el = create_block(
+                block_type, obj, el = create_block(
                     doc, content_type, content_data, heading_level, style_name
                 )
             except json.JSONDecodeError as e:
                 return EditResult(
                     success=False,
-                    new_version="",
-                    message=f"Invalid JSON for {content_type} content_data: {e}",
+                    message=f"Invalid JSON for {content_type}: {e}",
                 )
             except ValueError as e:
-                return EditResult(
-                    success=False,
-                    new_version="",
-                    message=str(e),
-                )
-            except Exception as e:
-                return EditResult(
-                    success=False,
-                    new_version="",
-                    message=f"Failed to create {content_type}: {e}",
-                )
-            idx = find_body_index_of_element(doc, el)
-            if kind == "table":
-                md, _, _ = table_to_markdown(obj)
-                element_id = make_block_id("table", idx or 0, md)
+                return EditResult(success=False, message=str(e))
+            # Compute content-hash ID with occurrence
+            if block_type == "table":
+                text = table_content_for_hash(obj)
             else:
-                block_type, _ = (
-                    paragraph_kind_and_level(obj)
-                    if kind == "paragraph"
-                    else ("paragraph", 0)
-                )
-                element_id = make_block_id(block_type, idx or 0, obj.text or "")
+                text = obj.text or ""
+            occurrence = count_occurrence(doc, block_type, text, el)
+            element_id = make_block_id(block_type, text, occurrence)
 
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
             element_id=element_id,
-            message=f"Created new document: {file_path}",
-            warnings=warnings,
-        )
-
-    # All other operations require version check
-    current_version = compute_version(file_path)
-    if current_version != expected_version:
-        return EditResult(
-            success=False,
-            new_version=current_version,
-            message="Document modified since read. Please re-read to get current version.",
+            message=f"Created: {file_path}",
         )
 
     doc = Document(file_path)
-    warnings: list[str] = []
     element_id = ""
 
     if operation in ("insert_before", "insert_after"):
         if not target_id:
             return EditResult(
-                success=False,
-                new_version=current_version,
-                message=f"target_id is required for {operation}",
+                success=False, message=f"target_id required for {operation}"
             )
         try:
-            kind, obj, target_el, body_idx = resolve_target(doc, target_id)
+            _, obj, target_el, _ = resolve_target(doc, target_id)
         except ValueError as e:
-            return EditResult(
-                success=False, new_version=current_version, message=str(e)
-            )
+            return EditResult(success=False, message=str(e))
 
         position = "before" if operation == "insert_before" else "after"
 
@@ -234,190 +217,142 @@ def edit(
             new_p = insert_paragraph_relative(
                 doc, target_el, content_data, position, style_name
             )
-            actual_idx = find_body_index_of_element(doc, new_p._element) or 0
-            element_id = make_block_id("paragraph", actual_idx, content_data)
+            text = new_p.text or ""
+            occurrence = count_occurrence(doc, "paragraph", text, new_p._element)
+            element_id = make_block_id("paragraph", text, occurrence)
         elif content_type == "heading":
             new_p = insert_heading_relative(
                 doc, target_el, content_data, heading_level, position
             )
-            actual_idx = find_body_index_of_element(doc, new_p._element) or 0
-            element_id = make_block_id("heading", actual_idx, content_data)
+            text = new_p.text or ""
+            block_type = f"heading{max(1, min(heading_level, 9))}"
+            occurrence = count_occurrence(doc, block_type, text, new_p._element)
+            element_id = make_block_id(block_type, text, occurrence)
         elif content_type == "table":
             try:
                 table_data = json.loads(content_data)
             except json.JSONDecodeError as e:
-                return EditResult(
-                    success=False,
-                    new_version=current_version,
-                    message=f"Invalid JSON for table content_data: {e}",
-                )
+                return EditResult(success=False, message=f"Invalid JSON for table: {e}")
             new_tbl = insert_table_relative(
                 doc, target_el, table_data, position, style_name or "Table Grid"
             )
-            actual_idx = find_body_index_of_element(doc, new_tbl._tbl) or 0
-            md, _, _ = table_to_markdown(new_tbl)
-            element_id = make_block_id("table", actual_idx, md)
+            table_content = table_content_for_hash(new_tbl)
+            occurrence = count_occurrence(doc, "table", table_content, new_tbl._tbl)
+            element_id = make_block_id("table", table_content, occurrence)
         else:
             return EditResult(
-                success=False,
-                new_version=current_version,
-                message=f"content_type '{content_type}' not supported for {operation}. Use 'paragraph', 'heading', or 'table'.",
+                success=False, message=f"Unsupported content_type: {content_type}"
             )
 
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
             element_id=element_id,
             message=f"Inserted {content_type} {position} {target_id}",
-            warnings=warnings,
         )
 
     elif operation == "append":
         try:
-            kind, obj, el = create_block(
+            block_type, obj, el = create_block(
                 doc, content_type, content_data, heading_level, style_name
             )
         except json.JSONDecodeError as e:
             return EditResult(
                 success=False,
-                new_version=current_version,
                 message=f"Invalid JSON for {content_type} content_data: {e}",
             )
         except ValueError as e:
-            return EditResult(
-                success=False,
-                new_version=current_version,
-                message=str(e),
-            )
+            return EditResult(success=False, message=str(e))
         except Exception as e:
             return EditResult(
                 success=False,
-                new_version=current_version,
                 message=f"Failed to create {content_type}: {e}",
             )
-        idx = find_body_index_of_element(doc, el)
-        if kind == "table":
-            md, _, _ = table_to_markdown(obj)
-            element_id = make_block_id("table", idx or 0, md)
-        else:
-            block_type, _ = (
-                paragraph_kind_and_level(obj)
-                if kind == "paragraph"
-                else ("paragraph", 0)
-            )
-            element_id = make_block_id(block_type, idx or 0, obj.text or "")
+        # Compute content-hash ID with occurrence
+        text = table_content_for_hash(obj) if block_type == "table" else obj.text or ""
+        occurrence = count_occurrence(doc, block_type, text, el)
+        element_id = make_block_id(block_type, text, occurrence)
 
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
             element_id=element_id,
             message=f"Appended {content_type} to document",
-            warnings=warnings,
         )
 
     elif operation == "delete":
         if not target_id:
-            return EditResult(
-                success=False,
-                new_version=current_version,
-                message="target_id is required for delete",
-            )
+            return EditResult(success=False, message="target_id is required for delete")
         try:
-            kind, obj, target_el, body_idx = resolve_target(doc, target_id)
+            block_type, obj, target_el, body_idx = resolve_target(doc, target_id)
         except ValueError as e:
-            return EditResult(
-                success=False, new_version=current_version, message=str(e)
-            )
+            return EditResult(success=False, message=str(e))
 
-        delete_block(kind, obj)
-        element_id = target_id
-
+        delete_block(block_type, obj)
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
-            element_id=element_id,
+            element_id=target_id,
             message=f"Deleted block {target_id}",
-            warnings=warnings,
         )
 
     elif operation == "replace":
         if not target_id:
             return EditResult(
-                success=False,
-                new_version=current_version,
-                message="target_id is required for replace",
+                success=False, message="target_id is required for replace"
             )
         try:
-            kind, obj, target_el, body_idx = resolve_target(doc, target_id)
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
         except ValueError as e:
-            return EditResult(
-                success=False, new_version=current_version, message=str(e)
-            )
+            return EditResult(success=False, message=str(e))
 
-        if kind == "paragraph":
+        if block_type.startswith("heading") or block_type == "paragraph":
             replace_paragraph_text(obj, content_data)
-            block_type, _ = paragraph_kind_and_level(obj)
-            element_id = make_block_id(block_type, body_idx, content_data)
-            warnings.append(
-                "Run-level formatting destroyed. Use 'style' operation to reapply formatting."
-            )
-        elif kind == "table":
+            text = content_data
+            occurrence = count_occurrence(doc, block_type, text, target_el)
+            element_id = make_block_id(block_type, text, occurrence)
+        elif block_type == "table":
             try:
                 table_data = json.loads(content_data)
             except json.JSONDecodeError as e:
                 return EditResult(
                     success=False,
-                    new_version=current_version,
                     message=f"Invalid JSON for table content_data: {e}",
                 )
             new_tbl = replace_table(doc, obj, table_data)
-            md, _, _ = table_to_markdown(new_tbl)
-            element_id = make_block_id("table", body_idx, md)
+            table_content = table_content_for_hash(new_tbl)
+            occurrence = count_occurrence(doc, "table", table_content, new_tbl._tbl)
+            element_id = make_block_id("table", table_content, occurrence)
         else:
             return EditResult(
-                success=False,
-                new_version=current_version,
-                message=f"Cannot replace block of type {kind}",
+                success=False, message=f"Cannot replace block of type {block_type}"
             )
 
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
             element_id=element_id,
             message=f"Replaced content of {target_id}",
-            warnings=warnings,
         )
 
     elif operation == "style":
         if not target_id:
-            return EditResult(
-                success=False,
-                new_version=current_version,
-                message="target_id is required for style",
-            )
+            return EditResult(success=False, message="target_id is required for style")
         try:
-            kind, obj, target_el, body_idx = resolve_target(doc, target_id)
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
         except ValueError as e:
-            return EditResult(
-                success=False, new_version=current_version, message=str(e)
-            )
+            return EditResult(success=False, message=str(e))
 
-        if kind != "paragraph":
+        warnings = []
+        if block_type == "table":
             if style_name:
                 try:
                     obj.style = style_name
                 except KeyError:
                     warnings.append(f"Style '{style_name}' not found for table")
-            md, _, _ = table_to_markdown(obj)
-            element_id = make_block_id("table", body_idx, md)
+            table_content = table_content_for_hash(obj)
+            occurrence = count_occurrence(doc, "table", table_content, target_el)
+            element_id = make_block_id("table", table_content, occurrence)
         else:
             if style_name:
                 try:
@@ -430,29 +365,57 @@ def edit(
                     fmt = json.loads(formatting)
                 except json.JSONDecodeError as e:
                     return EditResult(
-                        success=False,
-                        new_version=current_version,
-                        message=f"Invalid JSON for formatting: {e}",
+                        success=False, message=f"Invalid JSON for formatting: {e}"
                     )
                 apply_paragraph_formatting(obj, fmt)
-            block_type, _ = paragraph_kind_and_level(obj)
-            element_id = make_block_id(block_type, body_idx, obj.text or "")
+            text = obj.text or ""
+            occurrence = count_occurrence(doc, block_type, text, target_el)
+            element_id = make_block_id(block_type, text, occurrence)
 
         doc.save(file_path)
-        new_version = compute_version(file_path)
         return EditResult(
             success=True,
-            new_version=new_version,
             element_id=element_id,
             message=f"Applied style to {target_id}",
-            warnings=warnings,
+            warnings=warnings if warnings else [],
+        )
+
+    elif operation == "edit_cell":
+        if not target_id:
+            return EditResult(
+                success=False, message="target_id is required for edit_cell"
+            )
+        if row < 1 or col < 1:
+            return EditResult(
+                success=False, message="row and col must be >= 1 (1-based)"
+            )
+        try:
+            block_type, obj, target_el, _ = resolve_target(doc, target_id)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        if block_type != "table":
+            return EditResult(
+                success=False, message=f"target_id must be a table, got {block_type}"
+            )
+        try:
+            replace_table_cell(obj, row, col, content_data)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        # Return updated table block ID (hash changes after cell edit)
+        table_content = table_content_for_hash(obj)
+        occurrence = count_occurrence(doc, "table", table_content, target_el)
+        element_id = make_block_id("table", table_content, occurrence)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            element_id=element_id,
+            message=f"Updated cell r{row}c{col}",
         )
 
     else:
         return EditResult(
             success=False,
-            new_version=current_version,
-            message=f"Unknown operation: {operation}. Use 'insert_before', 'insert_after', 'append', 'delete', 'replace', or 'style'.",
+            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', or 'edit_cell'.",
         )
 
 

@@ -26,23 +26,30 @@ class DocumentMeta(BaseModel):
     sections: int = 0
 
 
+class CellInfo(BaseModel):
+    """A table cell with row/column coordinates."""
+
+    row: int  # 1-based row number
+    col: int  # 1-based column number
+    text: str  # Cell text content
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
-    version: str  # SHA256 hash of document.xml for concurrency check
-    block_count: int  # Total blocks in document
-    blocks: list[Block] = Field(
-        default_factory=list
-    )  # Ordered list of paragraphs/tables
+    block_count: int  # Count of matched blocks
+    blocks: list[Block] = Field(default_factory=list)
     meta: DocumentMeta | None = None  # Only populated for scope='meta'
-    warnings: list[str] = Field(default_factory=list)  # TOC fields, protection, etc.
+    cells: list[CellInfo] = Field(default_factory=list)  # For scope='table_cells'
+    table_rows: int = 0  # For scope='table_cells'
+    table_cols: int = 0  # For scope='table_cells'
+    warnings: list[str] = Field(default_factory=list)
 
 
 class EditResult(BaseModel):
     """Result from edit() tool."""
 
     success: bool
-    new_version: str  # Updated doc version after edit
     element_id: str = ""  # ID of created/modified block
     message: str  # Human-readable status
     warnings: list[str] = Field(default_factory=list)

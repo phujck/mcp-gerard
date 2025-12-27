@@ -14,18 +14,16 @@ from docx.shared import Pt, RGBColor
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from mcp_handley_lab.word.models import Block, DocumentMeta
+from mcp_handley_lab.word.models import Block, CellInfo, DocumentMeta
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
-_ID_RE = re.compile(r"^(paragraph|heading|table)_(\d+)_([0-9a-f]{8})$")
-_WS_RE = re.compile(r"\s+")
+_ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
 
 
-def compute_version(file_path: str) -> str:
-    """Compute SHA256 hash of word/document.xml for optimistic concurrency."""
-    with zipfile.ZipFile(file_path, "r") as zf:
-        xml_bytes = zf.read("word/document.xml")
-    return hashlib.sha256(xml_bytes).hexdigest()
+def content_hash(text: str) -> str:
+    """8-char SHA256 of normalized text for content-addressable IDs."""
+    normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
+    return hashlib.sha256(normalized.encode()).hexdigest()[:8]
 
 
 def iter_body_blocks(
@@ -40,33 +38,40 @@ def iter_body_blocks(
             yield ("table", Table(child, doc), child)
 
 
-def normalize_text(text: str) -> str:
-    """Normalize text for hashing (strip, collapse whitespace)."""
-    return _WS_RE.sub(" ", (text or "").strip())
-
-
-def short_sha256(text: str) -> str:
-    """First 8 chars of SHA256 hex digest."""
-    return hashlib.sha256(text.encode()).hexdigest()[:8]
-
-
-def make_block_id(block_type: str, index: int, text: str) -> str:
-    """Generate stable-ish block ID: {type}_{index}_{hash[:8]}."""
-    return f"{block_type}_{index}_{short_sha256(normalize_text(text))}"
+def make_block_id(block_type: str, text: str, occurrence: int) -> str:
+    """Generate content-addressable block ID: {type}_{hash}_{occurrence}."""
+    return f"{block_type}_{content_hash(text)}_{occurrence}"
 
 
 def paragraph_kind_and_level(p: Paragraph) -> tuple[str, int]:
-    """Detect if paragraph is a heading and return (kind, level)."""
+    """Detect if paragraph is a heading and return (kind, level).
+
+    For content-hash IDs, kind includes level: 'heading1', 'heading2', etc.
+    """
     style_name = p.style.name if p.style else "Normal"
     m = _HEADING_RE.match(style_name)
     if m:
-        return ("heading", int(m.group(1)))
+        level = int(m.group(1))
+        return (f"heading{level}", level)
     return ("paragraph", 0)
 
 
 def escape_md(text: str) -> str:
     """Escape text for markdown table cells."""
     return (text or "").replace("|", "\\|").replace("\n", "<br>")
+
+
+def table_content_for_hash(table: Table) -> str:
+    """Get full table content as canonical string for hashing.
+
+    Returns JSON-like representation of all cells for content-addressing.
+    This ensures large tables get unique hashes even if preview is truncated.
+    """
+    rows = []
+    for row in table.rows:
+        cells = [cell.text for cell in row.cells]
+        rows.append(cells)
+    return json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
 
 
 def table_to_markdown(
@@ -124,141 +129,153 @@ def build_blocks(
     heading_only: bool = False,
     search_query: str = "",
 ) -> tuple[list[Block], int]:
-    """Build list of Block objects from document body."""
+    """Build list of Block objects from document body.
+
+    Uses content-hash IDs: {type}_{hash}_{occurrence}
+    """
     blocks = []
-    total = 0
+    matched = 0
     query_lower = search_query.lower() if search_query else ""
+    hash_counts: dict[str, int] = {}  # {type_hash: count} for occurrence tracking
 
-    for i, (kind, obj, _el) in enumerate(iter_body_blocks(doc)):
-        total += 1
-
+    for kind, obj, _el in iter_body_blocks(doc):
         if kind == "paragraph":
             block_type, level = paragraph_kind_and_level(obj)
             text = obj.text or ""
             style = obj.style.name if obj.style else "Normal"
 
-            if heading_only and block_type != "heading":
+            # Track occurrence for this type+hash combination
+            hash_key = f"{block_type}_{content_hash(text)}"
+            occurrence = hash_counts.get(hash_key, 0)
+            hash_counts[hash_key] = occurrence + 1
+
+            if heading_only and not block_type.startswith("heading"):
                 continue
             if query_lower and query_lower not in text.lower():
                 continue
 
-            if i >= offset and len(blocks) < limit:
+            if matched >= offset and len(blocks) < limit:
                 blocks.append(
                     Block(
-                        id=make_block_id(block_type, i, text),
+                        id=make_block_id(block_type, text, occurrence),
                         type=block_type,
                         text=text,
                         style=style,
                         level=level,
                     )
                 )
+            matched += 1
 
         elif kind == "table":
             md, rows, cols = table_to_markdown(obj)
             style = obj.style.name if obj.style else ""
+            # Use full content for hash (not truncated markdown)
+            table_content = table_content_for_hash(obj)
+
+            # Track occurrence for this type+hash combination
+            hash_key = f"table_{content_hash(table_content)}"
+            occurrence = hash_counts.get(hash_key, 0)
+            hash_counts[hash_key] = occurrence + 1
 
             if heading_only:
                 continue
             if query_lower and query_lower not in md.lower():
                 continue
 
-            if i >= offset and len(blocks) < limit:
+            if matched >= offset and len(blocks) < limit:
                 blocks.append(
                     Block(
-                        id=make_block_id("table", i, md),
+                        id=make_block_id("table", table_content, occurrence),
                         type="table",
-                        text=md,
+                        text=md,  # Keep markdown for display
                         style=style,
                         rows=rows,
                         cols=cols,
                     )
                 )
+            matched += 1
 
-    return blocks, total
-
-
-def detect_toc(file_path: str, doc: Document) -> bool:
-    """Detect TOC fields or styles."""
-    with zipfile.ZipFile(file_path, "r") as zf:
-        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-    if (
-        "TOC \\" in xml
-        or ("w:fldSimple" in xml and "TOC" in xml)
-        or ("w:instrText" in xml and "TOC" in xml)
-    ):
-        return True
-    for p in doc.paragraphs:
-        if p.style and p.style.name.upper().startswith("TOC"):
-            return True
-    return False
+    return blocks, matched
 
 
-def detect_protection(file_path: str) -> bool:
-    """Detect document protection."""
-    with zipfile.ZipFile(file_path, "r") as zf:
-        if "word/settings.xml" not in zf.namelist():
-            return False
-        settings = zf.read("word/settings.xml").decode("utf-8", errors="ignore")
-    return "w:documentProtection" in settings
-
-
-def detect_fields(file_path: str) -> bool:
-    """Detect Word fields (may affect editing)."""
-    with zipfile.ZipFile(file_path, "r") as zf:
-        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-    return "w:fldSimple" in xml or "w:instrText" in xml or "w:fldChar" in xml
-
-
-def collect_warnings(file_path: str, doc: Document) -> list[str]:
+def collect_warnings(file_path: str) -> list[str]:
     """Collect warnings about document features that may affect editing."""
-    warnings = []
-    if detect_protection(file_path):
-        warnings.append("Document is protected. Edits may fail.")
-    if detect_toc(file_path, doc):
-        warnings.append(
-            "Document contains TOC. TOC may need manual refresh in Word after edits."
-        )
-    if detect_fields(file_path):
-        warnings.append(
-            "Document contains Word fields. Editing nearby content may affect field integrity."
-        )
-    return warnings
+    # Simple check for complex features that may not round-trip
+    with zipfile.ZipFile(file_path, "r") as zf:
+        xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    has_complex = (
+        "w:fldSimple" in xml
+        or "w:instrText" in xml
+        or "w:documentProtection" in xml
+        or "TOC" in xml
+    )
+    if has_complex:
+        return ["Complex Word features detected; verify in Word after edits."]
+    return []
 
 
 def resolve_target(
     doc: Document, target_id: str
 ) -> tuple[str, Paragraph | Table, CT_P | CT_Tbl, int]:
-    """Resolve target_id to (kind, obj, element, body_index)."""
+    """Resolve target_id to (block_type, obj, element, occurrence).
+
+    Uses content-hash IDs: {type}_{hash}_{occurrence}
+    Searches all blocks for matching type+hash, then skips to Nth occurrence.
+    """
     m = _ID_RE.match(target_id)
     if not m:
         raise ValueError(f"Invalid target_id format: {target_id}")
-    declared_type, idx_s, hash8 = m.groups()
-    idx = int(idx_s)
+    target_type, target_hash, occurrence_str = m.groups()
+    target_occurrence = int(occurrence_str)
 
-    for i, (kind, obj, el) in enumerate(iter_body_blocks(doc)):
-        if i == idx:
-            # Validate declared type matches actual type
-            if kind == "table":
-                if declared_type != "table":
-                    raise ValueError(
-                        f"Type mismatch: ID declares '{declared_type}' but block at index {idx} is a table."
-                    )
-                md, _, _ = table_to_markdown(obj)
-                expected_id = make_block_id("table", i, md)
-            else:
-                actual_type, _ = paragraph_kind_and_level(obj)
-                if declared_type != actual_type:
-                    raise ValueError(
-                        f"Type mismatch: ID declares '{declared_type}' but block at index {idx} is a {actual_type}."
-                    )
-                expected_id = make_block_id(actual_type, i, obj.text or "")
-            if not expected_id.endswith(hash8):
-                raise ValueError(
-                    f"Block hash mismatch at index {idx}. Document may have changed. Re-read required."
-                )
-            return kind, obj, el, i
+    occurrence_count = 0
+    for kind, obj, el in iter_body_blocks(doc):
+        if kind == "table":
+            if target_type == "table":
+                table_content = table_content_for_hash(obj)
+                if content_hash(table_content) == target_hash:
+                    if occurrence_count == target_occurrence:
+                        return "table", obj, el, occurrence_count
+                    occurrence_count += 1
+        else:
+            block_type, _ = paragraph_kind_and_level(obj)
+            if target_type == block_type:
+                text = obj.text or ""
+                if content_hash(text) == target_hash:
+                    if occurrence_count == target_occurrence:
+                        return block_type, obj, el, occurrence_count
+                    occurrence_count += 1
 
-    raise ValueError(f"Block index out of range: {idx}")
+    raise ValueError(f"Block not found: {target_id}")
+
+
+def count_occurrence(
+    doc: Document, block_type: str, text: str, target_el: CT_P | CT_Tbl
+) -> int:
+    """Count how many blocks with same type+hash appear before target_el.
+
+    Used after edits to compute the correct occurrence index for returned ID.
+    For tables, 'text' should be the full table content (from table_content_for_hash).
+    """
+    target_hash = content_hash(text)
+    occurrence = 0
+    for kind, obj, el in iter_body_blocks(doc):
+        if kind == "table":
+            if block_type == "table":
+                table_content = table_content_for_hash(obj)
+                if content_hash(table_content) == target_hash:
+                    if el is target_el:
+                        return occurrence
+                    occurrence += 1
+        else:
+            actual_type, _ = paragraph_kind_and_level(obj)
+            if block_type == actual_type:
+                block_text = obj.text or ""
+                if content_hash(block_text) == target_hash:
+                    if el is target_el:
+                        return occurrence
+                    occurrence += 1
+    return occurrence  # fallback
 
 
 def insert_paragraph_relative(
@@ -317,9 +334,14 @@ def insert_table_relative(
     return tbl
 
 
-def delete_block(kind: str, obj: Paragraph | Table) -> None:
+def delete_block(block_type: str, obj: Paragraph | Table) -> None:
     """Delete a block from the document."""
-    el = obj._element if kind == "paragraph" else obj._tbl
+    # block_type is "paragraph", "heading1", "heading2", etc., or "table"
+    el = (
+        obj._element
+        if block_type == "paragraph" or block_type.startswith("heading")
+        else obj._tbl
+    )
     el.getparent().remove(el)
 
 
@@ -397,7 +419,7 @@ def create_block(
     heading_level: int = 1,
     style_name: str = "",
 ) -> tuple[str, Paragraph | Table, CT_P | CT_Tbl]:
-    """Create a new block (paragraph, heading, table, page_break) and return (kind, obj, element)."""
+    """Create a new block (paragraph, heading, table) and return (block_type, obj, element)."""
     if content_type == "paragraph":
         p = doc.add_paragraph(content_data)
         if style_name:
@@ -406,7 +428,7 @@ def create_block(
     elif content_type == "heading":
         level = max(1, min(heading_level, 9))
         p = doc.add_heading(content_data, level=level)
-        return ("paragraph", p, p._element)
+        return (f"heading{level}", p, p._element)
     elif content_type == "table":
         table_data = json.loads(content_data)
         rows = len(table_data)
@@ -420,20 +442,35 @@ def create_block(
                 if c < cols:
                     tbl.cell(r, c).text = str(table_data[r][c])
         return ("table", tbl, tbl._tbl)
-    elif content_type == "page_break":
-        doc.add_page_break()
-        last_p = doc.paragraphs[-1]
-        return ("paragraph", last_p, last_p._element)
-    elif content_type == "list":
-        list_data = json.loads(content_data)
-        items = list_data.get("items", [])
-        p = doc.add_paragraph()
-        p.text = "\n".join(f"• {item}" for item in items)
-        return ("paragraph", p, p._element)
-    elif content_type == "image":
-        p = doc.add_paragraph()
-        run = p.add_run()
-        run.add_picture(content_data)
-        return ("paragraph", p, p._element)
     else:
-        raise ValueError(f"Unknown content_type: {content_type}")
+        raise ValueError(
+            f"Unknown content_type: {content_type}. Use 'paragraph', 'heading', or 'table'."
+        )
+
+
+def build_table_cells(table: Table) -> list[CellInfo]:
+    """Build list of CellInfo for all cells in a table."""
+    cells = []
+    for r_idx, row in enumerate(table.rows):
+        for c_idx, cell in enumerate(row.cells):
+            cells.append(
+                CellInfo(
+                    row=r_idx + 1,  # 1-based
+                    col=c_idx + 1,  # 1-based
+                    text=cell.text or "",
+                )
+            )
+    return cells
+
+
+def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
+    """Replace text in a table cell. Row/col are 1-based."""
+    r_idx = row - 1
+    c_idx = col - 1
+    if r_idx < 0 or r_idx >= len(table.rows):
+        raise ValueError(f"Row {row} out of range (table has {len(table.rows)} rows)")
+    if c_idx < 0 or c_idx >= len(table.columns):
+        raise ValueError(
+            f"Column {col} out of range (table has {len(table.columns)} columns)"
+        )
+    table.cell(r_idx, c_idx).text = text
