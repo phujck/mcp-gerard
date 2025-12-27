@@ -71,6 +71,19 @@ class HeaderFooterInfo(BaseModel):
     has_different_first_page: bool = False
 
 
+class PageSetupInfo(BaseModel):
+    """Page setup info for a document section."""
+
+    section_index: int  # 0-based section index
+    orientation: str  # "portrait" or "landscape"
+    page_width: float  # inches
+    page_height: float  # inches
+    top_margin: float  # inches
+    bottom_margin: float  # inches
+    left_margin: float  # inches
+    right_margin: float  # inches
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -85,6 +98,9 @@ class DocumentReadResult(BaseModel):
     headers_footers: list[HeaderFooterInfo] = Field(
         default_factory=list
     )  # For scope='headers_footers'
+    page_setup: list[PageSetupInfo] = Field(
+        default_factory=list
+    )  # For scope='page_setup'
     warnings: list[str] = Field(default_factory=list)
 
 

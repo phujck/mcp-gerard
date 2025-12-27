@@ -14,6 +14,7 @@ from mcp_handley_lab.word.document import (
     build_blocks,
     build_comments,
     build_headers_footers,
+    build_page_setup,
     build_runs,
     build_table_cells,
     collect_warnings,
@@ -33,6 +34,8 @@ from mcp_handley_lab.word.document import (
     resolve_target,
     set_footer_text,
     set_header_text,
+    set_page_margins,
+    set_page_orientation,
     table_content_for_hash,
 )
 from mcp_handley_lab.word.models import DocumentReadResult, EditResult
@@ -41,13 +44,13 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup'",
     ),
     target_id: str = Field(
         "", description="Block ID (required for scope='table_cells' or 'runs')"
@@ -174,24 +177,31 @@ def read(
             headers_footers=headers_footers,
             warnings=warnings,
         )
+    elif scope == "page_setup":
+        page_setup = build_page_setup(doc)
+        return DocumentReadResult(
+            block_count=len(page_setup),
+            page_setup=page_setup,
+            warnings=warnings,
+        )
     else:
         return DocumentReadResult(
             block_count=0,
             blocks=[],
             warnings=[
-                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', or 'headers_footers'."
+                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', or 'page_setup'."
             ],
         )
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation'",
     ),
     target_id: str = Field(
         "",
@@ -203,14 +213,14 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content.",
+        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content. For set_orientation: 'portrait' or 'landscape'.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
     ),
     formatting: str = Field(
         "",
-        description='Direct formatting JSON: {"bold": true, "color": "FF0000", "font_size": 14}',
+        description='Direct formatting JSON: {"bold": true, "color": "FF0000", "font_size": 14}. For set_margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches.',
     ),
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
@@ -225,7 +235,7 @@ def edit(
     initials: str = Field("", description="Comment author initials (for add_comment)"),
     section_index: int = Field(
         0,
-        description="Section index (0-based, for set_header/set_footer). Use read() with scope='headers_footers' to see sections.",
+        description="Section index (0-based, for set_header/set_footer/set_margins/set_orientation). Use read() with scope='page_setup' to see sections.",
     ),
 ) -> EditResult:
     """Edit Word document."""
@@ -601,10 +611,53 @@ def edit(
             message=f"Set footer for section {section_index}",
         )
 
+    elif operation == "set_margins":
+        if not formatting:
+            return EditResult(
+                success=False,
+                message='formatting is required for set_margins. Use JSON: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches.',
+            )
+        try:
+            margins = json.loads(formatting)
+        except json.JSONDecodeError as e:
+            return EditResult(success=False, message=f"Invalid JSON for margins: {e}")
+        try:
+            set_page_margins(
+                doc,
+                section_index,
+                top=margins.get("top"),
+                bottom=margins.get("bottom"),
+                left=margins.get("left"),
+                right=margins.get("right"),
+            )
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Set margins for section {section_index}",
+        )
+
+    elif operation == "set_orientation":
+        if not content_data:
+            return EditResult(
+                success=False,
+                message="content_data is required for set_orientation. Use 'portrait' or 'landscape'.",
+            )
+        try:
+            set_page_orientation(doc, section_index, content_data)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Set orientation to {content_data} for section {section_index}",
+        )
+
     else:
         return EditResult(
             success=False,
-            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', or 'set_footer'.",
+            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', or 'set_orientation'.",
         )
 
 

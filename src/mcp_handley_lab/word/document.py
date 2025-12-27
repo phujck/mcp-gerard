@@ -20,6 +20,7 @@ from mcp_handley_lab.word.models import (
     CommentInfo,
     DocumentMeta,
     HeaderFooterInfo,
+    PageSetupInfo,
     RunInfo,
 )
 
@@ -687,3 +688,96 @@ def set_footer_text(doc: Document, section_index: int, text: str) -> None:
         footer.paragraphs[0].text = text
     else:
         footer.add_paragraph(text)
+
+
+def _emu_to_inches(emu) -> float:
+    """Convert EMU (English Metric Units) to inches."""
+    if emu is None:
+        return 0.0
+    return round(emu / 914400, 2)
+
+
+def _inches_to_emu(inches: float) -> int:
+    """Convert inches to EMU (English Metric Units)."""
+    return int(inches * 914400)
+
+
+def build_page_setup(doc: Document) -> list[PageSetupInfo]:
+    """Build list of PageSetupInfo for all sections."""
+    from docx.enum.section import WD_ORIENT
+
+    result = []
+    for idx, section in enumerate(doc.sections):
+        orientation = (
+            "landscape" if section.orientation == WD_ORIENT.LANDSCAPE else "portrait"
+        )
+        result.append(
+            PageSetupInfo(
+                section_index=idx,
+                orientation=orientation,
+                page_width=_emu_to_inches(section.page_width),
+                page_height=_emu_to_inches(section.page_height),
+                top_margin=_emu_to_inches(section.top_margin),
+                bottom_margin=_emu_to_inches(section.bottom_margin),
+                left_margin=_emu_to_inches(section.left_margin),
+                right_margin=_emu_to_inches(section.right_margin),
+            )
+        )
+    return result
+
+
+def set_page_margins(
+    doc: Document,
+    section_index: int,
+    top: float | None = None,
+    bottom: float | None = None,
+    left: float | None = None,
+    right: float | None = None,
+) -> None:
+    """Set page margins for a section. Values in inches. None = don't change."""
+    from docx.shared import Emu
+
+    if section_index < 0 or section_index >= len(doc.sections):
+        raise ValueError(
+            f"Section index {section_index} out of range (document has {len(doc.sections)} sections)"
+        )
+    section = doc.sections[section_index]
+    if top is not None:
+        section.top_margin = Emu(_inches_to_emu(top))
+    if bottom is not None:
+        section.bottom_margin = Emu(_inches_to_emu(bottom))
+    if left is not None:
+        section.left_margin = Emu(_inches_to_emu(left))
+    if right is not None:
+        section.right_margin = Emu(_inches_to_emu(right))
+
+
+def set_page_orientation(doc: Document, section_index: int, orientation: str) -> None:
+    """Set page orientation for a section. 'portrait' or 'landscape'."""
+    from docx.enum.section import WD_ORIENT
+    from docx.shared import Emu
+
+    if section_index < 0 or section_index >= len(doc.sections):
+        raise ValueError(
+            f"Section index {section_index} out of range (document has {len(doc.sections)} sections)"
+        )
+    section = doc.sections[section_index]
+    current_width = section.page_width
+    current_height = section.page_height
+
+    if orientation.lower() == "landscape":
+        section.orientation = WD_ORIENT.LANDSCAPE
+        # Swap width/height if currently portrait (height > width)
+        if current_height > current_width:
+            section.page_width = Emu(current_height)
+            section.page_height = Emu(current_width)
+    elif orientation.lower() == "portrait":
+        section.orientation = WD_ORIENT.PORTRAIT
+        # Swap width/height if currently landscape (width > height)
+        if current_width > current_height:
+            section.page_width = Emu(current_height)
+            section.page_height = Emu(current_width)
+    else:
+        raise ValueError(
+            f"Invalid orientation: {orientation}. Use 'portrait' or 'landscape'."
+        )

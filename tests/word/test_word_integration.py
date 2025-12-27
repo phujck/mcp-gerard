@@ -803,3 +803,112 @@ async def test_set_header_invalid_section(sample_docx):
     )
     assert not edit_result["success"]
     assert "out of range" in edit_result["message"]
+
+
+# --- Page Setup tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_page_setup(sample_docx):
+    """Test reading page setup."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    # Document should have at least one section
+    assert result["block_count"] >= 1
+    assert len(result["page_setup"]) >= 1
+    # Check first section has expected fields
+    setup = result["page_setup"][0]
+    assert setup["section_index"] == 0
+    assert setup["orientation"] in ["portrait", "landscape"]
+    assert setup["page_width"] > 0
+    assert setup["page_height"] > 0
+
+
+@pytest.mark.asyncio
+async def test_set_margins(sample_docx):
+    """Test setting page margins."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_margins",
+            "section_index": 0,
+            "formatting": '{"top": 0.5, "bottom": 0.5, "left": 0.75, "right": 0.75}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify margins were set
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    setup = result["page_setup"][0]
+    assert setup["top_margin"] == 0.5
+    assert setup["bottom_margin"] == 0.5
+    assert setup["left_margin"] == 0.75
+    assert setup["right_margin"] == 0.75
+
+
+@pytest.mark.asyncio
+async def test_set_orientation_landscape(sample_docx):
+    """Test setting page orientation to landscape."""
+    # Get original dimensions
+    _, before = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    orig_width = before["page_setup"][0]["page_width"]
+    orig_height = before["page_setup"][0]["page_height"]
+
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_orientation",
+            "section_index": 0,
+            "content_data": "landscape",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify orientation was set
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    setup = result["page_setup"][0]
+    assert setup["orientation"] == "landscape"
+    # Width should now be greater than height (or swapped)
+    assert setup["page_width"] >= setup["page_height"] or (
+        setup["page_width"] == orig_height and setup["page_height"] == orig_width
+    )
+
+
+@pytest.mark.asyncio
+async def test_set_orientation_invalid(sample_docx):
+    """Test that invalid orientation fails."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_orientation",
+            "section_index": 0,
+            "content_data": "diagonal",
+        },
+    )
+    assert not edit_result["success"]
+    assert "Invalid orientation" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_set_margins_missing_formatting(sample_docx):
+    """Test that set_margins without formatting fails."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_margins",
+            "section_index": 0,
+        },
+    )
+    assert not edit_result["success"]
+    assert "formatting" in edit_result["message"]
