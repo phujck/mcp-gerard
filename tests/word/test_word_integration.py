@@ -727,3 +727,79 @@ async def test_add_comment_missing_content(sample_docx):
     )
     assert not edit_result["success"]
     assert "content_data" in edit_result["message"]
+
+
+# --- Headers/Footers tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_headers_footers(sample_docx):
+    """Test reading headers and footers."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    # Document should have at least one section
+    assert result["block_count"] >= 1
+    assert len(result["headers_footers"]) >= 1
+    # First section should be at index 0
+    assert result["headers_footers"][0]["section_index"] == 0
+
+
+@pytest.mark.asyncio
+async def test_set_header(sample_docx):
+    """Test setting a header."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_header",
+            "section_index": 0,
+            "content_data": "My Custom Header",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify header was set
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    assert result["headers_footers"][0]["header_text"] == "My Custom Header"
+    assert result["headers_footers"][0]["header_is_linked"] is False
+
+
+@pytest.mark.asyncio
+async def test_set_footer(sample_docx):
+    """Test setting a footer."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_footer",
+            "section_index": 0,
+            "content_data": "Page Footer Text",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify footer was set
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    assert result["headers_footers"][0]["footer_text"] == "Page Footer Text"
+    assert result["headers_footers"][0]["footer_is_linked"] is False
+
+
+@pytest.mark.asyncio
+async def test_set_header_invalid_section(sample_docx):
+    """Test that setting header on invalid section fails."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_header",
+            "section_index": 99,
+            "content_data": "Should fail",
+        },
+    )
+    assert not edit_result["success"]
+    assert "out of range" in edit_result["message"]

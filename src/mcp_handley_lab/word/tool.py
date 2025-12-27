@@ -13,6 +13,7 @@ from mcp_handley_lab.word.document import (
     apply_paragraph_style,
     build_blocks,
     build_comments,
+    build_headers_footers,
     build_runs,
     build_table_cells,
     collect_warnings,
@@ -30,6 +31,8 @@ from mcp_handley_lab.word.document import (
     replace_table,
     replace_table_cell,
     resolve_target,
+    set_footer_text,
+    set_header_text,
     table_content_for_hash,
 )
 from mcp_handley_lab.word.models import DocumentReadResult, EditResult
@@ -38,13 +41,13 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers'",
     ),
     target_id: str = Field(
         "", description="Block ID (required for scope='table_cells' or 'runs')"
@@ -164,24 +167,31 @@ def read(
             comments=comments,
             warnings=warnings,
         )
+    elif scope == "headers_footers":
+        headers_footers = build_headers_footers(doc)
+        return DocumentReadResult(
+            block_count=len(headers_footers),
+            headers_footers=headers_footers,
+            warnings=warnings,
+        )
     else:
         return DocumentReadResult(
             block_count=0,
             blocks=[],
             warnings=[
-                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', or 'comments'."
+                f"Unknown scope: {scope}. Use 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', or 'headers_footers'."
             ],
         )
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer'",
     ),
     target_id: str = Field(
         "",
@@ -193,7 +203,7 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON (for tables). For add_comment: the comment text.",
+        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
@@ -213,6 +223,10 @@ def edit(
     ),
     author: str = Field("", description="Comment author name (for add_comment)"),
     initials: str = Field("", description="Comment author initials (for add_comment)"),
+    section_index: int = Field(
+        0,
+        description="Section index (0-based, for set_header/set_footer). Use read() with scope='headers_footers' to see sections.",
+    ),
 ) -> EditResult:
     """Edit Word document."""
     if operation == "create":
@@ -565,10 +579,32 @@ def edit(
             message=f"Added comment {comment_id} to {target_id}",
         )
 
+    elif operation == "set_header":
+        try:
+            set_header_text(doc, section_index, content_data)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Set header for section {section_index}",
+        )
+
+    elif operation == "set_footer":
+        try:
+            set_footer_text(doc, section_index, content_data)
+        except ValueError as e:
+            return EditResult(success=False, message=str(e))
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Set footer for section {section_index}",
+        )
+
     else:
         return EditResult(
             success=False,
-            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', or 'add_comment'.",
+            message=f"Unknown operation: {operation}. Use 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', or 'set_footer'.",
         )
 
 

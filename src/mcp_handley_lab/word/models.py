@@ -58,6 +58,19 @@ class CommentInfo(BaseModel):
     text: str
 
 
+class HeaderFooterInfo(BaseModel):
+    """Header and footer info for a document section."""
+
+    section_index: int  # 0-based section index
+    header_text: str | None = None  # None if linked to previous
+    footer_text: str | None = None  # None if linked to previous
+    header_is_linked: bool = True  # True = inherits from previous section
+    footer_is_linked: bool = True
+    first_page_header_text: str | None = None  # Only if different_first_page
+    first_page_footer_text: str | None = None
+    has_different_first_page: bool = False
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -69,6 +82,9 @@ class DocumentReadResult(BaseModel):
     table_cols: int = 0  # For scope='table_cells'
     runs: list[RunInfo] = Field(default_factory=list)  # For scope='runs'
     comments: list[CommentInfo] = Field(default_factory=list)  # For scope='comments'
+    headers_footers: list[HeaderFooterInfo] = Field(
+        default_factory=list
+    )  # For scope='headers_footers'
     warnings: list[str] = Field(default_factory=list)
 
 

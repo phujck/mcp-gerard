@@ -19,6 +19,7 @@ from mcp_handley_lab.word.models import (
     CellInfo,
     CommentInfo,
     DocumentMeta,
+    HeaderFooterInfo,
     RunInfo,
 )
 
@@ -622,3 +623,67 @@ def add_comment_to_block(
 
     comment = doc.add_comment(runs=runs, text=text, author=author, initials=initials)
     return comment.comment_id
+
+
+def _get_header_footer_text(hf) -> str | None:
+    """Extract text from header/footer, or None if linked to previous."""
+    if hf.is_linked_to_previous:
+        return None
+    return "\n".join(p.text for p in hf.paragraphs)
+
+
+def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
+    """Build list of HeaderFooterInfo for all sections."""
+    result = []
+    for idx, section in enumerate(doc.sections):
+        info = HeaderFooterInfo(
+            section_index=idx,
+            header_text=_get_header_footer_text(section.header),
+            footer_text=_get_header_footer_text(section.footer),
+            header_is_linked=section.header.is_linked_to_previous,
+            footer_is_linked=section.footer.is_linked_to_previous,
+            has_different_first_page=section.different_first_page_header_footer,
+        )
+        if section.different_first_page_header_footer:
+            info.first_page_header_text = _get_header_footer_text(
+                section.first_page_header
+            )
+            info.first_page_footer_text = _get_header_footer_text(
+                section.first_page_footer
+            )
+        result.append(info)
+    return result
+
+
+def set_header_text(doc: Document, section_index: int, text: str) -> None:
+    """Set header text for a section. Creates new header (unlinks from previous)."""
+    if section_index < 0 or section_index >= len(doc.sections):
+        raise ValueError(
+            f"Section index {section_index} out of range (document has {len(doc.sections)} sections)"
+        )
+    section = doc.sections[section_index]
+    header = section.header
+    # Clear existing content and add new paragraph
+    for p in list(header.paragraphs):
+        p.clear()
+    if header.paragraphs:
+        header.paragraphs[0].text = text
+    else:
+        header.add_paragraph(text)
+
+
+def set_footer_text(doc: Document, section_index: int, text: str) -> None:
+    """Set footer text for a section. Creates new footer (unlinks from previous)."""
+    if section_index < 0 or section_index >= len(doc.sections):
+        raise ValueError(
+            f"Section index {section_index} out of range (document has {len(doc.sections)} sections)"
+        )
+    section = doc.sections[section_index]
+    footer = section.footer
+    # Clear existing content and add new paragraph
+    for p in list(footer.paragraphs):
+        p.clear()
+    if footer.paragraphs:
+        footer.paragraphs[0].text = text
+    else:
+        footer.add_paragraph(text)
