@@ -356,17 +356,11 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
 
 def build_table_cells(table: Table) -> list[CellInfo]:
     """Build list of CellInfo for all cells in a table."""
-    cells = []
-    for r_idx, row in enumerate(table.rows):
-        for c_idx, cell in enumerate(row.cells):
-            cells.append(
-                CellInfo(
-                    row=r_idx + 1,  # 1-based
-                    col=c_idx + 1,  # 1-based
-                    text=cell.text or "",
-                )
-            )
-    return cells
+    return [
+        CellInfo(row=r_idx + 1, col=c_idx + 1, text=cell.text or "")
+        for r_idx, row in enumerate(table.rows)
+        for c_idx, cell in enumerate(row.cells)
+    ]
 
 
 def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
@@ -376,22 +370,21 @@ def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
 
 def build_runs(paragraph: Paragraph) -> list[RunInfo]:
     """Build list of RunInfo for all runs in a paragraph."""
-    runs = []
-    for idx, run in enumerate(paragraph.runs):
-        font = run.font
-        runs.append(
-            RunInfo(
-                index=idx,
-                text=run.text or "",
-                bold=run.bold,
-                italic=run.italic,
-                underline=run.underline,
-                font_name=font.name,
-                font_size=font.size.pt if font.size else None,
-                color=str(font.color.rgb) if font.color and font.color.rgb else None,
-            )
+    return [
+        RunInfo(
+            index=idx,
+            text=run.text or "",
+            bold=run.bold,
+            italic=run.italic,
+            underline=run.underline,
+            font_name=run.font.name,
+            font_size=run.font.size.pt if run.font.size else None,
+            color=str(run.font.color.rgb)
+            if run.font.color and run.font.color.rgb
+            else None,
         )
-    return runs
+        for idx, run in enumerate(paragraph.runs)
+    ]
 
 
 def edit_run_text(paragraph: Paragraph, run_index: int, text: str) -> None:
@@ -421,18 +414,16 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
 
 def build_comments(doc: Document) -> list[CommentInfo]:
     """Build list of CommentInfo from document comments."""
-    comments = []
-    for comment in doc.comments:
-        comments.append(
-            CommentInfo(
-                id=comment.comment_id,
-                author=comment.author,
-                initials=comment.initials,
-                timestamp=comment.timestamp.isoformat() if comment.timestamp else None,
-                text=comment.text,
-            )
+    return [
+        CommentInfo(
+            id=c.comment_id,
+            author=c.author,
+            initials=c.initials,
+            timestamp=c.timestamp.isoformat() if c.timestamp else None,
+            text=c.text,
         )
-    return comments
+        for c in doc.comments
+    ]
 
 
 def add_comment_to_block(
@@ -443,10 +434,9 @@ def add_comment_to_block(
     initials: str = "",
 ) -> int:
     """Add a comment anchored to all runs in a paragraph. Returns comment_id."""
-    comment = doc.add_comment(
+    return doc.add_comment(
         runs=paragraph.runs, text=text, author=author, initials=initials
-    )
-    return comment.comment_id
+    ).comment_id
 
 
 def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:

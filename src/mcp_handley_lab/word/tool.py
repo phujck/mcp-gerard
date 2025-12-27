@@ -273,13 +273,13 @@ def edit(
 
     if operation == "style":
         block_type, obj, target_el, _ = resolve_target(doc, target_id)
+        if style_name:
+            obj.style = style_name
         if block_type == "table":
-            obj.style = style_name or obj.style
             table_content = table_content_for_hash(obj)
             occurrence = count_occurrence(doc, "table", table_content, target_el)
             element_id = f"table_{content_hash(table_content)}_{occurrence}"
         else:
-            obj.style = style_name or obj.style
             if formatting:
                 fmt = json.loads(formatting)
                 apply_paragraph_formatting(obj, fmt)
@@ -370,10 +370,5 @@ def edit(
     raise ValueError(f"Unknown operation: {operation}")
 
 
-def main():
-    """Run the Word document MCP server."""
-    mcp.run()
-
-
 if __name__ == "__main__":
-    main()
+    mcp.run()
