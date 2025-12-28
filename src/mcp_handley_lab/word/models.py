@@ -36,6 +36,25 @@ class CellInfo(BaseModel):
     grid_span: int = 1  # Horizontal span (columns merged)
     row_span: int = 1  # Vertical span (rows merged)
     is_merge_origin: bool = True  # False if this is a continuation cell
+    width_inches: float | None = None  # Cell width
+    vertical_alignment: str | None = None  # "top", "center", "bottom"
+
+
+class RowInfo(BaseModel):
+    """Row properties for a table."""
+
+    index: int  # 0-based row index
+    height_inches: float | None = None
+    height_rule: str | None = None  # "auto", "at_least", "exactly"
+
+
+class TableLayoutInfo(BaseModel):
+    """Table layout properties."""
+
+    table_id: str
+    alignment: str | None = None  # "left", "center", "right"
+    autofit: bool = True
+    rows: list[RowInfo] = Field(default_factory=list)
 
 
 class RunInfo(BaseModel):
@@ -57,6 +76,14 @@ class RunInfo(BaseModel):
     style: str | None = None  # Character style name
     is_hyperlink: bool = False  # True if inside a hyperlink
     hyperlink_url: str | None = None  # URL if inside hyperlink
+    # Additional font properties
+    all_caps: bool | None = None  # Text appears in capital letters
+    small_caps: bool | None = None  # Lowercase as smaller capitals
+    hidden: bool | None = None  # Hidden text (not displayed unless settings allow)
+    emboss: bool | None = None  # Raised emboss effect
+    imprint: bool | None = None  # Pressed into page effect
+    outline: bool | None = None  # One-pixel border around glyphs
+    shadow: bool | None = None  # Shadow effect on characters
 
 
 class HyperlinkInfo(BaseModel):
@@ -137,6 +164,34 @@ class StyleInfo(BaseModel):
     quick_style: bool = False  # In Quick Styles gallery
 
 
+class StyleFormatInfo(BaseModel):
+    """Detailed style formatting (returned when reading a specific style)."""
+
+    name: str
+    style_id: str
+    type: str
+    # Font properties (from style.font)
+    font_name: str | None = None
+    font_size: float | None = None  # points
+    bold: bool | None = None
+    italic: bool | None = None
+    color: str | None = None  # hex
+    # Paragraph properties (paragraph styles only)
+    alignment: str | None = None
+    left_indent: float | None = None  # inches
+    space_before: float | None = None  # points
+    space_after: float | None = None  # points
+    line_spacing: float | None = None
+
+
+class TabStopInfo(BaseModel):
+    """A tab stop definition."""
+
+    position_inches: float
+    alignment: str  # "left", "center", "right", "decimal"
+    leader: str  # "spaces", "dots", "heavy", "middle_dot"
+
+
 class ParagraphFormatInfo(BaseModel):
     """Paragraph formatting properties."""
 
@@ -149,6 +204,7 @@ class ParagraphFormatInfo(BaseModel):
     line_spacing: float | None = None  # multiplier or points
     keep_with_next: bool | None = None
     page_break_before: bool | None = None
+    tab_stops: list[TabStopInfo] = Field(default_factory=list)
 
 
 class DocumentReadResult(BaseModel):
@@ -168,6 +224,8 @@ class DocumentReadResult(BaseModel):
     hyperlinks: list[HyperlinkInfo] = Field(default_factory=list)
     styles: list[StyleInfo] = Field(default_factory=list)
     paragraph_format: ParagraphFormatInfo | None = None  # For runs scope
+    style_format: "StyleFormatInfo | None" = None  # For style scope
+    table_layout: "TableLayoutInfo | None" = None  # For table_layout scope
 
 
 class EditResult(BaseModel):

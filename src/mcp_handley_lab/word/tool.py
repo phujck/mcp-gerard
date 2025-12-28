@@ -11,6 +11,7 @@ from mcp_handley_lab.word.document import (
     add_comment_to_block,
     add_page_break,
     add_section,
+    add_tab_stop,
     add_table_column,
     add_table_row,
     append_to_footer,
@@ -26,8 +27,10 @@ from mcp_handley_lab.word.document import (
     build_runs,
     build_styles,
     build_table_cells,
+    build_table_layout,
     clear_footer,
     clear_header,
+    clear_tab_stops,
     content_hash,
     count_occurrence,
     delete_block,
@@ -36,15 +39,21 @@ from mcp_handley_lab.word.document import (
     delete_table_row,
     edit_run_formatting,
     edit_run_text,
+    edit_style,
     get_document_meta,
+    get_style_format,
+    insert_field,
     insert_heading_relative,
     insert_image,
+    insert_page_x_of_y,
     insert_paragraph_relative,
     insert_table_relative,
     merge_cells,
     replace_table,
     replace_table_cell,
     resolve_target,
+    set_cell_vertical_alignment,
+    set_cell_width,
     set_document_meta,
     set_even_page_footer,
     set_even_page_header,
@@ -54,6 +63,10 @@ from mcp_handley_lab.word.document import (
     set_header_text,
     set_page_margins,
     set_page_orientation,
+    set_row_height,
+    set_table_alignment,
+    set_table_autofit,
+    set_table_fixed_layout,
     table_content_for_hash,
 )
 from mcp_handley_lab.word.models import DocumentReadResult, EditResult
@@ -62,15 +75,18 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'table_layout', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles', 'style'",
     ),
-    target_id: str = Field("", description="Block ID for table_cells/runs scopes"),
+    target_id: str = Field(
+        "",
+        description="Block ID for table_cells/runs/table_layout scopes, or style name for 'style' scope",
+    ),
     search_query: str = Field("", description="Text to search for (scope='search')"),
     limit: int = Field(50, description="Max blocks to return"),
     offset: int = Field(0, description="Pagination offset"),
@@ -106,6 +122,12 @@ def read(
             table_rows=len(t.leaf_obj.rows),
             table_cols=len(t.leaf_obj.columns),
         )
+    if scope == "table_layout":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
+            raise ValueError("target_id must be a table")
+        table_layout = build_table_layout(t.leaf_obj, t.base_id)
+        return DocumentReadResult(block_count=1, table_layout=table_layout)
     if scope == "runs":
         t = resolve_target(doc, target_id)
         if t.leaf_kind == "table":
@@ -135,21 +157,26 @@ def read(
     if scope == "styles":
         styles = build_styles(doc)
         return DocumentReadResult(block_count=len(styles), styles=styles)
+    if scope == "style":
+        if not target_id:
+            raise ValueError("target_id (style name) required for scope='style'")
+        style_format = get_style_format(doc, target_id)
+        return DocumentReadResult(block_count=1, style_format=style_format)
     raise ValueError(f"Unknown scope: {scope}")
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment/insert_image. Supports hierarchical IDs for insert_image into table cells: 'table_abc_0#r0c1' or 'table_abc_0#r0c1/p0' (0-based indices). For delete_image: the image ID.",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment/insert_image and table operations. For edit_style: style name. For delete_image: the image ID.",
     ),
     content_type: str = Field(
         "paragraph",
@@ -157,7 +184,7 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content. For set_orientation: 'portrait' or 'landscape'. For insert_image: the image file path.",
+        description="Content: text or JSON. For set_table_alignment: 'left'/'center'/'right'. For set_table_autofit: 'true'/'false'. For set_table_fixed_layout: JSON array of widths. For set_row_height: JSON {height, rule}. For set_cell_width: width in inches. For set_cell_vertical_alignment: 'top'/'center'/'bottom'. For add_tab_stop: JSON {position, alignment, leader}. For insert_field: field code (PAGE, NUMPAGES, DATE, TIME). For insert_page_x_of_y: 'header' or 'footer'.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
@@ -278,7 +305,13 @@ def edit(
 
     if operation == "delete":
         t = resolve_target(doc, target_id)
-        delete_block(t.leaf_kind, t.leaf_obj)
+        # Only allow deletion of base blocks, not hierarchical targets
+        if t.base_id != target_id:
+            raise ValueError(
+                f"delete only supports base block IDs (no hierarchical paths like "
+                f"'{target_id}'). Use the base block ID: '{t.base_id}'"
+            )
+        delete_block(t.base_kind, t.base_obj)
         doc.save(file_path)
         return EditResult(
             success=True, element_id=target_id, message=f"Deleted block {target_id}"
@@ -355,6 +388,16 @@ def edit(
         return EditResult(
             success=True, element_id=element_id, message=f"Updated run {run_index}"
         )
+
+    if operation == "edit_style":
+        if not target_id:
+            raise ValueError("target_id (style name) required for edit_style")
+        if not formatting:
+            raise ValueError("formatting required for edit_style")
+        fmt = json.loads(formatting)
+        edit_style(doc, target_id, fmt)
+        doc.save(file_path)
+        return EditResult(success=True, message=f"Modified style: {target_id}")
 
     if operation == "add_comment":
         t = resolve_target(doc, target_id)
@@ -596,6 +639,169 @@ def edit(
         return EditResult(
             success=True,
             message=f"Merged cells from ({row},{col}) to ({end_row},{end_col})",
+        )
+
+    # --- Table Layout Operations ---
+
+    if operation == "set_table_alignment":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        set_table_alignment(target.base_obj, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set table alignment to {content_data}"
+        )
+
+    if operation == "set_table_autofit":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        v = content_data.strip().lower()
+        if v in ("true", "1", "yes"):
+            autofit_val = True
+        elif v in ("false", "0", "no"):
+            autofit_val = False
+        else:
+            raise ValueError(
+                f"Invalid value for set_table_autofit: '{content_data}'. "
+                "Expected: true/false, 1/0, or yes/no"
+            )
+        set_table_autofit(target.base_obj, autofit_val)
+        doc.save(file_path)
+        return EditResult(success=True, message=f"Set table autofit to {autofit_val}")
+
+    if operation == "set_table_fixed_layout":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        widths = json.loads(content_data)
+        set_table_fixed_layout(target.base_obj, widths)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set table fixed layout with {len(widths)} columns"
+        )
+
+    if operation == "set_row_height":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        height_data = json.loads(content_data)
+        height = height_data["height"]
+        rule = height_data.get("rule", "at_least")
+        set_row_height(target.base_obj, row, height, rule)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set row {row} height to {height} inches"
+        )
+
+    if operation == "set_cell_width":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        width = float(content_data)
+        set_cell_width(target.base_obj, row, col, width)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set cell ({row},{col}) width to {width} inches"
+        )
+
+    if operation == "set_cell_vertical_alignment":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        set_cell_vertical_alignment(target.base_obj, row, col, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Set cell ({row},{col}) vertical alignment to {content_data}",
+        )
+
+    # --- Tab Stop Operations ---
+
+    if operation == "add_tab_stop":
+        target = resolve_target(doc, target_id)
+        # Tables don't have tab stops - paragraphs, headings, and cells do
+        if target is None or target.leaf_kind == "table":
+            raise ValueError(
+                f"Target must be a paragraph, heading, or cell, got: {target_id}"
+            )
+        # Get paragraph: either directly or from cell
+        if target.leaf_kind == "cell":
+            cell = target.leaf_obj
+            para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+        else:
+            para = target.leaf_obj
+        # Parse and validate JSON
+        try:
+            tab_data = json.loads(content_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON for add_tab_stop: {e}") from None
+        if "position" not in tab_data:
+            raise ValueError("add_tab_stop requires 'position' in content_data JSON")
+        try:
+            position = float(tab_data["position"])
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Invalid position value: {tab_data['position']}"
+            ) from None
+        alignment = tab_data.get("alignment", "left")
+        leader = tab_data.get("leader", "spaces")
+        add_tab_stop(para, position, alignment, leader)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Added tab stop at {position} inches ({alignment}, {leader})",
+        )
+
+    if operation == "clear_tab_stops":
+        target = resolve_target(doc, target_id)
+        # Tables don't have tab stops - paragraphs, headings, and cells do
+        if target is None or target.leaf_kind == "table":
+            raise ValueError(
+                f"Target must be a paragraph, heading, or cell, got: {target_id}"
+            )
+        # Get paragraph: either directly or from cell
+        if target.leaf_kind == "cell":
+            cell = target.leaf_obj
+            para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+        else:
+            para = target.leaf_obj
+        clear_tab_stops(para)
+        doc.save(file_path)
+        return EditResult(success=True, message="Cleared all tab stops")
+
+    # --- Document Field Operations ---
+
+    if operation == "insert_field":
+        target = resolve_target(doc, target_id)
+        # Tables don't support fields directly - only paragraphs, headings, and cells
+        if target is None or target.leaf_kind == "table":
+            raise ValueError(
+                f"Target must be a paragraph, heading, or cell, got: {target_id}"
+            )
+        # Get paragraph: either directly or from cell
+        if target.leaf_kind == "cell":
+            cell = target.leaf_obj
+            para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+        else:
+            para = target.leaf_obj
+        field_code = content_data.strip().upper()
+        if not field_code:
+            raise ValueError(
+                "content_data must specify a field code (PAGE, NUMPAGES, DATE, TIME)"
+            )
+        insert_field(para, field_code)
+        doc.save(file_path)
+        return EditResult(success=True, message=f"Inserted {field_code} field")
+
+    if operation == "insert_page_x_of_y":
+        location = content_data.strip().lower() or "footer"
+        insert_page_x_of_y(doc, section_index, location)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Inserted 'Page X of Y' in {location} of section {section_index}",
         )
 
     raise ValueError(f"Unknown operation: {operation}")

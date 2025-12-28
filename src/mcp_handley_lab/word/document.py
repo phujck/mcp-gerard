@@ -23,8 +23,12 @@ from mcp_handley_lab.word.models import (
     ImageInfo,
     PageSetupInfo,
     ParagraphFormatInfo,
+    RowInfo,
     RunInfo,
+    StyleFormatInfo,
     StyleInfo,
+    TableLayoutInfo,
+    TabStopInfo,
 )
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
@@ -66,6 +70,11 @@ def _init_highlight_maps() -> None:
 _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
 _TABLE_RE = re.compile(r"^tbl(\d+)$")
+
+
+def _tri_bool(v):
+    """Convert to bool preserving None for tri-state font properties."""
+    return None if v is None else bool(v)
 
 
 @dataclass
@@ -668,20 +677,36 @@ def _get_vmerge_val_from_tc(tc: CT_Tc) -> str | None:
     return val if val else "continue"
 
 
+def _tc_at_grid_col(tr, grid_col: int):
+    """Find the tc element at a given grid column, accounting for gridSpan.
+
+    Returns the tc element or None if not found.
+    """
+    from docx.oxml.ns import qn
+
+    c = 0
+    for tc in tr.findall(qn("w:tc")):
+        span = tc.grid_span
+        if c == grid_col:
+            return tc
+        c += span
+        if c > grid_col:
+            # Grid column falls within a span, no tc origin at this position
+            return None
+    return None
+
+
 def _calculate_row_span_from_xml(table: Table, start_row: int, col: int) -> int:
     """Calculate vertical span by checking vMerge='continue' in subsequent rows.
 
     Iterates over actual XML tc elements to detect continuation cells.
     """
-    from docx.oxml.ns import qn
-
     span = 1
     rows = list(table.rows)
     for r in range(start_row + 1, len(rows)):
         row_el = rows[r]._tr
-        tc_elements = row_el.findall(qn("w:tc"))
-        if col < len(tc_elements):
-            tc = tc_elements[col]
+        tc = _tc_at_grid_col(row_el, col)
+        if tc is not None:
             vmerge = _get_vmerge_val_from_tc(tc)
             if vmerge == "continue":
                 span += 1
@@ -709,7 +734,14 @@ def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
     Returns:
         List of CellInfo with merge info for all grid positions
     """
+    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
     from docx.oxml.ns import qn
+
+    valign_map = {
+        WD_CELL_VERTICAL_ALIGNMENT.TOP: "top",
+        WD_CELL_VERTICAL_ALIGNMENT.CENTER: "center",
+        WD_CELL_VERTICAL_ALIGNMENT.BOTTOM: "bottom",
+    }
 
     result = []
     rows = list(table.rows)
@@ -758,8 +790,10 @@ def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
                     if vmerge == "restart"
                     else 1
                 )
-                # Get text from the cell
+                # Get text and properties from the cell
                 cell = table.cell(r, c)
+                width_inches = cell.width.inches if cell.width else None
+                valign = valign_map.get(cell.vertical_alignment)
                 result.append(
                     CellInfo(
                         row=r,
@@ -769,6 +803,8 @@ def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
                         is_merge_origin=True,
                         grid_span=grid_span,
                         row_span=row_span,
+                        width_inches=width_inches,
+                        vertical_alignment=valign,
                     )
                 )
                 # Add continuation entries for horizontal span
@@ -848,6 +884,169 @@ def delete_table_column(table: Table, col_index: int) -> None:
             cell._element.getparent().remove(cell._element)
 
 
+# --- Table Layout Functions ---
+
+
+def build_table_layout(table: Table, table_id: str) -> TableLayoutInfo:
+    """Build table layout info including row heights and alignment."""
+    from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
+
+    table_align_map = {
+        WD_TABLE_ALIGNMENT.LEFT: "left",
+        WD_TABLE_ALIGNMENT.CENTER: "center",
+        WD_TABLE_ALIGNMENT.RIGHT: "right",
+    }
+    row_height_rule_map = {
+        WD_ROW_HEIGHT_RULE.AUTO: "auto",
+        WD_ROW_HEIGHT_RULE.AT_LEAST: "at_least",
+        WD_ROW_HEIGHT_RULE.EXACTLY: "exactly",
+    }
+
+    rows = []
+    for i, row in enumerate(table.rows):
+        rows.append(
+            RowInfo(
+                index=i,
+                height_inches=row.height.inches if row.height else None,
+                height_rule=row_height_rule_map.get(row.height_rule),
+            )
+        )
+
+    return TableLayoutInfo(
+        table_id=table_id,
+        alignment=table_align_map.get(table.alignment),
+        autofit=table.autofit,
+        rows=rows,
+    )
+
+
+def set_table_alignment(table: Table, alignment: str) -> None:
+    """Set table horizontal alignment."""
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+
+    alignment_map = {
+        "left": WD_TABLE_ALIGNMENT.LEFT,
+        "center": WD_TABLE_ALIGNMENT.CENTER,
+        "right": WD_TABLE_ALIGNMENT.RIGHT,
+    }
+    align_val = alignment.lower()
+    if align_val not in alignment_map:
+        raise ValueError(
+            f"Invalid table alignment: '{alignment}'. Valid: left, center, right"
+        )
+    table.alignment = alignment_map[align_val]
+
+
+def set_table_autofit(table: Table, autofit: bool) -> None:
+    """Set table autofit behavior."""
+    table.autofit = autofit
+
+
+def set_row_height(
+    table: Table, row_index: int, height_inches: float, rule: str = "at_least"
+) -> None:
+    """Set row height. Default rule is 'at_least' to prevent text clipping."""
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+    from docx.shared import Inches
+
+    # Bounds validation
+    num_rows = len(table.rows)
+    if row_index < 0 or row_index >= num_rows:
+        raise ValueError(f"row_index {row_index} out of bounds (0..{num_rows - 1})")
+
+    rule_map = {
+        "auto": WD_ROW_HEIGHT_RULE.AUTO,
+        "at_least": WD_ROW_HEIGHT_RULE.AT_LEAST,
+        "exactly": WD_ROW_HEIGHT_RULE.EXACTLY,
+    }
+    rule_val = rule.lower()
+    if rule_val not in rule_map:
+        raise ValueError(
+            f"Invalid height rule: '{rule}'. Valid: auto, at_least, exactly"
+        )
+
+    row = table.rows[row_index]
+    if rule_val == "auto":
+        row.height = None
+    else:
+        if height_inches <= 0:
+            raise ValueError(f"height_inches must be positive, got {height_inches}")
+        row.height = Inches(height_inches)
+    row.height_rule = rule_map[rule_val]
+
+
+def set_table_fixed_layout(table: Table, column_widths: list[float]) -> None:
+    """Set table to fixed layout with explicit column widths (inches).
+
+    This is the robust way to control table widths:
+    - Sets autofit=False
+    - Sets each column width
+    """
+    from docx.shared import Inches
+
+    # Type validation
+    if not isinstance(column_widths, list):
+        raise ValueError(
+            f"column_widths must be a list, got {type(column_widths).__name__}"
+        )
+    for i, width in enumerate(column_widths):
+        if not isinstance(width, int | float):
+            raise ValueError(
+                f"column_widths[{i}] must be a number, got {type(width).__name__}"
+            )
+        if width <= 0:
+            raise ValueError(f"column_widths[{i}] must be positive, got {width}")
+
+    table.autofit = False
+    for i, width in enumerate(column_widths):
+        if i < len(table.columns):
+            table.columns[i].width = Inches(width)
+
+
+def set_cell_width(table: Table, row: int, col: int, width_inches: float) -> None:
+    """Set cell width."""
+    from docx.shared import Inches
+
+    # Bounds validation
+    num_rows = len(table.rows)
+    num_cols = len(table.columns)
+    if row < 0 or row >= num_rows:
+        raise ValueError(f"row {row} out of bounds (0..{num_rows - 1})")
+    if col < 0 or col >= num_cols:
+        raise ValueError(f"col {col} out of bounds (0..{num_cols - 1})")
+    if width_inches <= 0:
+        raise ValueError(f"width_inches must be positive, got {width_inches}")
+
+    table.cell(row, col).width = Inches(width_inches)
+
+
+def set_cell_vertical_alignment(
+    table: Table, row: int, col: int, alignment: str
+) -> None:
+    """Set cell vertical alignment."""
+    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+
+    # Bounds validation
+    num_rows = len(table.rows)
+    num_cols = len(table.columns)
+    if row < 0 or row >= num_rows:
+        raise ValueError(f"row {row} out of bounds (0..{num_rows - 1})")
+    if col < 0 or col >= num_cols:
+        raise ValueError(f"col {col} out of bounds (0..{num_cols - 1})")
+
+    valign_map = {
+        "top": WD_CELL_VERTICAL_ALIGNMENT.TOP,
+        "center": WD_CELL_VERTICAL_ALIGNMENT.CENTER,
+        "bottom": WD_CELL_VERTICAL_ALIGNMENT.BOTTOM,
+    }
+    align_val = alignment.lower()
+    if align_val not in valign_map:
+        raise ValueError(
+            f"Invalid vertical alignment: '{alignment}'. Valid: top, center, bottom"
+        )
+    table.cell(row, col).vertical_alignment = valign_map[align_val]
+
+
 def _build_run_info(
     run, index: int, is_hyperlink: bool = False, hyperlink_url: str | None = None
 ) -> RunInfo:
@@ -871,6 +1070,14 @@ def _build_run_info(
         style=run.style.name if run.style else None,
         is_hyperlink=is_hyperlink,
         hyperlink_url=hyperlink_url,
+        # Additional font properties
+        all_caps=run.font.all_caps,
+        small_caps=run.font.small_caps,
+        hidden=run.font.hidden,
+        emboss=run.font.emboss,
+        imprint=run.font.imprint,
+        outline=run.font.outline,
+        shadow=run.font.shadow,
     )
 
 
@@ -952,10 +1159,304 @@ def build_styles(doc: Document) -> list[StyleInfo]:
     return result
 
 
+def get_style_format(doc: Document, style_name: str) -> StyleFormatInfo:
+    """Get detailed formatting for a specific style."""
+    from docx.enum.style import WD_STYLE_TYPE
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    # Alignment normalization map (enum -> API value)
+    alignment_to_api = {
+        WD_ALIGN_PARAGRAPH.LEFT: "left",
+        WD_ALIGN_PARAGRAPH.CENTER: "center",
+        WD_ALIGN_PARAGRAPH.RIGHT: "right",
+        WD_ALIGN_PARAGRAPH.JUSTIFY: "justify",
+    }
+
+    style = doc.styles[style_name]
+    font = style.font
+
+    # Determine style type
+    style_type_map = {
+        WD_STYLE_TYPE.PARAGRAPH: "paragraph",
+        WD_STYLE_TYPE.CHARACTER: "character",
+        WD_STYLE_TYPE.TABLE: "table",
+        WD_STYLE_TYPE.LIST: "list",
+    }
+    style_type = style_type_map.get(style.type, "unknown")
+
+    # Extract paragraph format if available
+    pf = getattr(style, "paragraph_format", None)
+    alignment = None
+    left_indent = None
+    space_before = None
+    space_after = None
+    line_spacing = None
+
+    if pf:
+        alignment = alignment_to_api.get(pf.alignment) if pf.alignment else None
+        left_indent = pf.left_indent.inches if pf.left_indent else None
+        space_before = pf.space_before.pt if pf.space_before else None
+        space_after = pf.space_after.pt if pf.space_after else None
+        # Handle both float multipliers and Length objects (same as build_paragraph_format)
+        line_spacing = (
+            pf.line_spacing
+            if isinstance(pf.line_spacing, float)
+            else (pf.line_spacing.pt if pf.line_spacing else None)
+        )
+
+    return StyleFormatInfo(
+        name=style.name,
+        style_id=style.style_id,
+        type=style_type,
+        font_name=font.name,
+        font_size=font.size.pt if font.size else None,
+        bold=font.bold,
+        italic=font.italic,
+        color=str(font.color.rgb) if font.color and font.color.rgb else None,
+        alignment=alignment,
+        left_indent=left_indent,
+        space_before=space_before,
+        space_after=space_after,
+        line_spacing=line_spacing,
+    )
+
+
+def edit_style(doc: Document, style_name: str, fmt: dict) -> None:
+    """Modify a style definition."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Inches, Pt, RGBColor
+
+    style = doc.styles[style_name]
+    font = style.font
+
+    # Font properties
+    if "font_name" in fmt:
+        font.name = fmt["font_name"]
+    if "font_size" in fmt:
+        font.size = Pt(fmt["font_size"])
+    if "bold" in fmt:
+        font.bold = _tri_bool(fmt["bold"])
+    if "italic" in fmt:
+        font.italic = _tri_bool(fmt["italic"])
+    if "color" in fmt:
+        font.color.rgb = RGBColor.from_string(fmt["color"].lstrip("#"))
+
+    # Paragraph properties (paragraph/table styles only)
+    pf = getattr(style, "paragraph_format", None)
+    if pf:
+        if "alignment" in fmt:
+            alignment_map = {
+                "left": WD_ALIGN_PARAGRAPH.LEFT,
+                "center": WD_ALIGN_PARAGRAPH.CENTER,
+                "right": WD_ALIGN_PARAGRAPH.RIGHT,
+                "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+            }
+            align_val = fmt["alignment"].lower()
+            if align_val not in alignment_map:
+                raise ValueError(
+                    f"Invalid alignment: '{fmt['alignment']}'. "
+                    f"Valid: left, center, right, justify"
+                )
+            pf.alignment = alignment_map[align_val]
+        if "left_indent" in fmt:
+            pf.left_indent = Inches(fmt["left_indent"])
+        if "space_before" in fmt:
+            pf.space_before = Pt(fmt["space_before"])
+        if "space_after" in fmt:
+            pf.space_after = Pt(fmt["space_after"])
+        if "line_spacing" in fmt:
+            val = fmt["line_spacing"]
+            if val < 5:  # Multiplier (1.0, 1.5, 2.0, etc.)
+                pf.line_spacing = val
+            else:  # Points (6pt+)
+                pf.line_spacing = Pt(val)
+
+
+def build_tab_stops(paragraph: Paragraph) -> list[TabStopInfo]:
+    """Build list of tab stops for a paragraph."""
+    from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
+
+    tab_align_map = {
+        WD_TAB_ALIGNMENT.LEFT: "left",
+        WD_TAB_ALIGNMENT.CENTER: "center",
+        WD_TAB_ALIGNMENT.RIGHT: "right",
+        WD_TAB_ALIGNMENT.DECIMAL: "decimal",
+        WD_TAB_ALIGNMENT.BAR: "bar",
+    }
+    tab_leader_map = {
+        WD_TAB_LEADER.SPACES: "spaces",
+        WD_TAB_LEADER.DOTS: "dots",
+        WD_TAB_LEADER.HEAVY: "heavy",
+        WD_TAB_LEADER.MIDDLE_DOT: "middle_dot",
+        None: "spaces",  # None means default (spaces)
+    }
+
+    result = []
+    for tab in paragraph.paragraph_format.tab_stops:
+        alignment = tab_align_map.get(tab.alignment, "unknown")
+        leader = tab_leader_map.get(tab.leader, "unknown")
+        result.append(
+            TabStopInfo(
+                position_inches=round(tab.position.inches, 4),
+                alignment=alignment,
+                leader=leader,
+            )
+        )
+    return result
+
+
+def add_tab_stop(
+    paragraph: Paragraph,
+    position_inches: float,
+    alignment: str = "left",
+    leader: str = "spaces",
+) -> None:
+    """Add a tab stop to a paragraph."""
+    from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
+    from docx.shared import Inches
+
+    # Validate alignment
+    align_map = {
+        "left": WD_TAB_ALIGNMENT.LEFT,
+        "center": WD_TAB_ALIGNMENT.CENTER,
+        "right": WD_TAB_ALIGNMENT.RIGHT,
+        "decimal": WD_TAB_ALIGNMENT.DECIMAL,
+    }
+    align_val = alignment.lower()
+    if align_val not in align_map:
+        raise ValueError(
+            f"Invalid tab alignment: '{alignment}'. Valid: left, center, right, decimal"
+        )
+
+    # Validate leader
+    leader_map = {
+        "spaces": WD_TAB_LEADER.SPACES,
+        "dots": WD_TAB_LEADER.DOTS,
+        "heavy": WD_TAB_LEADER.HEAVY,
+        "middle_dot": WD_TAB_LEADER.MIDDLE_DOT,
+    }
+    leader_val = leader.lower()
+    if leader_val not in leader_map:
+        raise ValueError(
+            f"Invalid tab leader: '{leader}'. Valid: spaces, dots, heavy, middle_dot"
+        )
+
+    # Validate position
+    if position_inches <= 0:
+        raise ValueError(f"position_inches must be positive, got {position_inches}")
+
+    paragraph.paragraph_format.tab_stops.add_tab_stop(
+        Inches(position_inches),
+        align_map[align_val],
+        leader_map[leader_val],
+    )
+
+
+def clear_tab_stops(paragraph: Paragraph) -> None:
+    """Clear all tab stops from a paragraph."""
+    paragraph.paragraph_format.tab_stops.clear_all()
+
+
+# --- Document Fields ---
+
+
+def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") -> None:
+    """Insert a Word field into a paragraph.
+
+    Creates proper OXML field structure with separate runs for each part:
+    begin, instruction, separator, result, and end markers.
+    Common field codes: PAGE, NUMPAGES, DATE, TIME.
+    """
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    valid_fields = {"PAGE", "NUMPAGES", "DATE", "TIME"}
+    code_upper = field_code.strip().upper()
+    if code_upper not in valid_fields:
+        raise ValueError(
+            f"Invalid field code: '{field_code}'. Valid: {', '.join(sorted(valid_fields))}"
+        )
+
+    p = paragraph._p
+
+    def make_run_with(*elements):
+        """Create a w:r element containing the given child elements."""
+        r = OxmlElement("w:r")
+        for elem in elements:
+            r.append(elem)
+        return r
+
+    # Run 1: Field begin
+    fld_char_begin = OxmlElement("w:fldChar")
+    fld_char_begin.set(qn("w:fldCharType"), "begin")
+    p.append(make_run_with(fld_char_begin))
+
+    # Run 2: Field instruction
+    instr_text = OxmlElement("w:instrText")
+    instr_text.set(qn("xml:space"), "preserve")
+    instr_text.text = f" {code_upper} "
+    p.append(make_run_with(instr_text))
+
+    # Run 3: Field separator
+    fld_char_sep = OxmlElement("w:fldChar")
+    fld_char_sep.set(qn("w:fldCharType"), "separate")
+    p.append(make_run_with(fld_char_sep))
+
+    # Run 4: Result text (placeholder shown before field updates)
+    text_elem = OxmlElement("w:t")
+    text_elem.text = display_text or "1"
+    p.append(make_run_with(text_elem))
+
+    # Run 5: Field end
+    fld_char_end = OxmlElement("w:fldChar")
+    fld_char_end.set(qn("w:fldCharType"), "end")
+    p.append(make_run_with(fld_char_end))
+
+
+def insert_page_x_of_y(
+    doc: Document, section_index: int, location: str = "footer"
+) -> None:
+    """Insert 'Page X of Y' into header or footer.
+
+    Args:
+        doc: Document to modify
+        section_index: 0-based section index
+        location: 'header' or 'footer'
+    """
+    if section_index < 0 or section_index >= len(doc.sections):
+        raise ValueError(
+            f"section_index {section_index} out of range (0-{len(doc.sections) - 1})"
+        )
+    if location not in ("header", "footer"):
+        raise ValueError(f"location must be 'header' or 'footer', got: {location}")
+
+    section = doc.sections[section_index]
+    if location == "footer":
+        hf = section.footer
+        hf.is_linked_to_previous = False
+    else:
+        hf = section.header
+        hf.is_linked_to_previous = False
+
+    p = hf.add_paragraph()
+    p.add_run("Page ")
+    insert_field(p, "PAGE")
+    p.add_run(" of ")
+    insert_field(p, "NUMPAGES")
+
+
 def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
     """Extract paragraph formatting properties."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    alignment_map = {
+        WD_ALIGN_PARAGRAPH.LEFT: "left",
+        WD_ALIGN_PARAGRAPH.CENTER: "center",
+        WD_ALIGN_PARAGRAPH.RIGHT: "right",
+        WD_ALIGN_PARAGRAPH.JUSTIFY: "justify",
+    }
     pf = paragraph.paragraph_format
-    alignment = paragraph.alignment.name.lower() if paragraph.alignment else None
+    alignment = alignment_map.get(paragraph.alignment)
     return ParagraphFormatInfo(
         alignment=alignment,
         left_indent=pf.left_indent.inches if pf.left_indent else None,
@@ -970,6 +1471,7 @@ def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
         ),
         keep_with_next=pf.keep_with_next,
         page_break_before=pf.page_break_before,
+        tab_stops=build_tab_stops(paragraph),
     )
 
 
@@ -1011,11 +1513,11 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
         if key == "style":
             run.style = value  # e.g., "Strong", "Emphasis"
         elif key == "bold":
-            run.bold = bool(value)
+            run.bold = _tri_bool(value)
         elif key == "italic":
-            run.italic = bool(value)
+            run.italic = _tri_bool(value)
         elif key == "underline":
-            run.underline = bool(value)
+            run.underline = _tri_bool(value)
         elif key == "font_name":
             run.font.name = value
         elif key == "font_size":
@@ -1025,13 +1527,28 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
         elif key == "highlight_color":
             run.font.highlight_color = _HIGHLIGHT_MAP.get(value.lower())
         elif key == "strike":
-            run.font.strike = bool(value)
+            run.font.strike = _tri_bool(value)
         elif key == "double_strike":
-            run.font.double_strike = bool(value)
+            run.font.double_strike = _tri_bool(value)
         elif key == "subscript":
-            run.font.subscript = bool(value)
+            run.font.subscript = _tri_bool(value)
         elif key == "superscript":
-            run.font.superscript = bool(value)
+            run.font.superscript = _tri_bool(value)
+        # Additional font properties
+        elif key == "all_caps":
+            run.font.all_caps = _tri_bool(value)
+        elif key == "small_caps":
+            run.font.small_caps = _tri_bool(value)
+        elif key == "hidden":
+            run.font.hidden = _tri_bool(value)
+        elif key == "emboss":
+            run.font.emboss = _tri_bool(value)
+        elif key == "imprint":
+            run.font.imprint = _tri_bool(value)
+        elif key == "outline":
+            run.font.outline = _tri_bool(value)
+        elif key == "shadow":
+            run.font.shadow = _tri_bool(value)
 
 
 def build_comments(doc: Document) -> list[CommentInfo]:

@@ -2784,3 +2784,1101 @@ async def test_merge_cells_rectangular(docx_with_table):
     for r, c in [(0, 1), (1, 0), (1, 1)]:
         cell = next(cl for cl in result["cells"] if cl["row"] == r and cl["col"] == c)
         assert cell["is_merge_origin"] is False
+
+
+# =============================================================================
+# Phase 3.1: Additional Font Properties Tests
+# =============================================================================
+
+
+@pytest.fixture
+def docx_with_font_effects():
+    """Create a document with various font effects for testing."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        p = doc.add_paragraph()
+        # Run 0: all_caps
+        run0 = p.add_run("ALL CAPS TEXT")
+        run0.font.all_caps = True
+        # Run 1: small_caps
+        run1 = p.add_run("Small Caps Text")
+        run1.font.small_caps = True
+        # Run 2: hidden
+        run2 = p.add_run("Hidden Text")
+        run2.font.hidden = True
+        # Run 3: emboss
+        run3 = p.add_run("Embossed Text")
+        run3.font.emboss = True
+        # Run 4: normal for editing
+        p.add_run("Normal Text")
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_font_all_caps(docx_with_font_effects):
+    """Test reading all_caps font property."""
+    # Get the paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Check all_caps on run 0
+    assert runs_result["runs"][0]["all_caps"] is True
+    assert (
+        runs_result["runs"][1]["all_caps"] is None
+        or runs_result["runs"][1]["all_caps"] is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_font_small_caps(docx_with_font_effects):
+    """Test reading small_caps font property."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Check small_caps on run 1
+    assert runs_result["runs"][1]["small_caps"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_font_hidden(docx_with_font_effects):
+    """Test reading hidden font property."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Check hidden on run 2
+    assert runs_result["runs"][2]["hidden"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_font_emboss(docx_with_font_effects):
+    """Test reading emboss font property."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Check emboss on run 3
+    assert runs_result["runs"][3]["emboss"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_font_small_caps(docx_with_font_effects):
+    """Test applying small_caps formatting to a run."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply small_caps to run 4 (normal text)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 4,
+            "formatting": json.dumps({"small_caps": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify the change
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][4]["small_caps"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_font_emboss(docx_with_font_effects):
+    """Test applying emboss effect to a run."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply emboss to run 4
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 4,
+            "formatting": json.dumps({"emboss": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][4]["emboss"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_font_imprint(docx_with_font_effects):
+    """Test applying imprint effect to a run."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply imprint to run 4
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 4,
+            "formatting": json.dumps({"imprint": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][4]["imprint"] is True
+
+
+@pytest.mark.asyncio
+async def test_edit_font_outline_shadow(docx_with_font_effects):
+    """Test applying outline and shadow effects to a run."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply both outline and shadow to run 4
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 4,
+            "formatting": json.dumps({"outline": True, "shadow": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify both properties
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][4]["outline"] is True
+    assert runs_result["runs"][4]["shadow"] is True
+
+
+@pytest.mark.asyncio
+async def test_clear_font_properties(docx_with_font_effects):
+    """Test clearing/unsetting font properties by setting to null."""
+    # Read the document to get block ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_font_effects), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # First, apply small_caps and emboss to run 0
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": json.dumps({"small_caps": True, "emboss": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify they are set
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][0]["small_caps"] is True
+    assert runs_result["runs"][0]["emboss"] is True
+
+    # Now clear (unset) by setting to null
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_font_effects),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": json.dumps({"small_caps": None, "emboss": None}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify they are cleared (None)
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_font_effects),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][0]["small_caps"] is None
+    assert runs_result["runs"][0]["emboss"] is None
+
+
+# --- Phase 2: Edit Style Definitions ---
+
+
+@pytest.fixture
+def docx_with_custom_style(tmp_path):
+    """Create a document with a custom paragraph style for testing."""
+    from docx import Document
+    from docx.shared import Pt
+
+    doc = Document()
+    # Create a custom style based on Normal
+    custom_style = doc.styles.add_style("TestStyle", 1)  # 1 = WD_STYLE_TYPE.PARAGRAPH
+    custom_style.base_style = doc.styles["Normal"]
+    custom_style.font.name = "Arial"
+    custom_style.font.size = Pt(12)
+    custom_style.font.bold = False
+
+    # Add a paragraph using the custom style
+    doc.add_paragraph("Test paragraph with custom style", style="TestStyle")
+
+    path = tmp_path / "custom_style.docx"
+    doc.save(path)
+    return path
+
+
+@pytest.mark.asyncio
+async def test_read_style_format(docx_with_custom_style):
+    """Test reading detailed style formatting."""
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+
+    assert result["block_count"] == 1
+    style_fmt = result["style_format"]
+    assert style_fmt["name"] == "TestStyle"
+    assert style_fmt["type"] == "paragraph"
+    assert style_fmt["font_name"] == "Arial"
+    assert style_fmt["font_size"] == 12.0
+    assert style_fmt["bold"] is False
+
+
+@pytest.mark.asyncio
+async def test_edit_style_font(docx_with_custom_style):
+    """Test modifying style font properties."""
+    # Edit the style to make it bold and 16pt
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps({"bold": True, "font_size": 16, "italic": True}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Read the style back and verify changes
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    style_fmt = result["style_format"]
+    assert style_fmt["bold"] is True
+    assert style_fmt["italic"] is True
+    assert style_fmt["font_size"] == 16.0
+
+
+@pytest.mark.asyncio
+async def test_edit_style_paragraph(docx_with_custom_style):
+    """Test modifying style paragraph properties."""
+    # Edit the style paragraph formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps(
+                {
+                    "alignment": "center",
+                    "space_before": 12,
+                    "space_after": 6,
+                }
+            ),
+        },
+    )
+    assert edit_result["success"]
+
+    # Read the style back and verify changes
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    style_fmt = result["style_format"]
+    assert style_fmt["alignment"] == "center"
+    assert style_fmt["space_before"] == 12.0
+    assert style_fmt["space_after"] == 6.0
+
+
+@pytest.mark.asyncio
+async def test_edit_style_line_spacing_multiplier_roundtrip(docx_with_custom_style):
+    """Test setting line spacing as a multiplier (< 5)."""
+    # Set line spacing to 1.5 (multiplier)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps({"line_spacing": 1.5}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back and verify
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    assert result["style_format"]["line_spacing"] == 1.5
+
+
+@pytest.mark.asyncio
+async def test_edit_style_line_spacing_points_roundtrip(docx_with_custom_style):
+    """Test setting line spacing as points (>= 5)."""
+    # Set line spacing to 18 points
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps({"line_spacing": 18}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back and verify (should read as 18.0 points)
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    assert result["style_format"]["line_spacing"] == 18.0
+
+
+@pytest.mark.asyncio
+async def test_edit_style_alignment_justify_roundtrip(docx_with_custom_style):
+    """Test that justify alignment roundtrips correctly."""
+    # Set alignment to justify
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps({"alignment": "justify"}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back and verify API returns "justify" (not "both" or other variants)
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    assert result["style_format"]["alignment"] == "justify"
+
+
+@pytest.mark.asyncio
+async def test_edit_style_invalid_alignment_raises(docx_with_custom_style):
+    """Test that invalid alignment raises a helpful error."""
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    with pytest.raises(ToolError) as excinfo:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(docx_with_custom_style),
+                "operation": "edit_style",
+                "target_id": "TestStyle",
+                "formatting": json.dumps({"alignment": "invalid"}),
+            },
+        )
+    assert "Invalid alignment" in str(excinfo.value)
+
+
+# =============================================================================
+# Phase 3: Table Dimensions & Layout Tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_read_table_layout(docx_with_table):
+    """Test reading table layout info via scope='table_layout'."""
+    # Get the table ID first
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Read table layout
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+
+    # Check layout info returned
+    layout = result["table_layout"]
+    assert layout["table_id"] == table_block["id"]
+    assert layout["autofit"] is True  # Default for new tables
+    # Rows should be present (3 rows in fixture)
+    assert len(layout["rows"]) == 3
+    for i, row in enumerate(layout["rows"]):
+        assert row["index"] == i
+
+
+@pytest.mark.asyncio
+async def test_set_table_alignment(docx_with_table):
+    """Test setting table horizontal alignment."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set alignment to center
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_table_alignment",
+            "target_id": table_block["id"],
+            "content_data": "center",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading layout
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+    assert result["table_layout"]["alignment"] == "center"
+
+
+@pytest.mark.asyncio
+async def test_set_table_fixed_layout(docx_with_table):
+    """Test setting table to fixed layout with column widths."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set fixed layout with column widths
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_table_fixed_layout",
+            "target_id": table_block["id"],
+            "content_data": json.dumps([1.5, 2.0, 1.5]),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify autofit is False
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+    assert result["table_layout"]["autofit"] is False
+
+
+@pytest.mark.asyncio
+async def test_set_row_height(docx_with_table):
+    """Test setting row height with at_least rule."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set row 0 height to 0.5 inches with "at_least" rule
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_row_height",
+            "target_id": table_block["id"],
+            "row": 0,
+            "content_data": json.dumps({"height": 0.5, "rule": "at_least"}),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading layout
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+    row0 = result["table_layout"]["rows"][0]
+    assert row0["height_inches"] == pytest.approx(0.5, rel=0.01)
+    assert row0["height_rule"] == "at_least"
+
+
+@pytest.mark.asyncio
+async def test_set_cell_width(docx_with_table):
+    """Test setting cell width."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set cell (0, 0) width to 2.0 inches
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_cell_width",
+            "target_id": table_block["id"],
+            "row": 0,
+            "col": 0,
+            "content_data": "2.0",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading table cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+    cell_00 = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert cell_00["width_inches"] == pytest.approx(2.0, rel=0.01)
+
+
+@pytest.mark.asyncio
+async def test_set_cell_vertical_alignment(docx_with_table):
+    """Test setting cell vertical alignment."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set cell (1, 1) to vertical center
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_cell_vertical_alignment",
+            "target_id": table_block["id"],
+            "row": 1,
+            "col": 1,
+            "content_data": "center",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading table cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+    cell_11 = next(c for c in result["cells"] if c["row"] == 1 and c["col"] == 1)
+    assert cell_11["vertical_alignment"] == "center"
+
+
+@pytest.mark.asyncio
+async def test_table_layout_xml_structure(docx_with_table):
+    """Test that table layout changes produce correct XML structure."""
+    from docx import Document
+
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Apply multiple layout changes
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_table_alignment",
+            "target_id": table_block["id"],
+            "content_data": "right",
+        },
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_row_height",
+            "target_id": table_block["id"],
+            "row": 1,
+            "content_data": json.dumps({"height": 0.75, "rule": "exactly"}),
+        },
+    )
+
+    # Open and verify XML
+    doc = Document(str(docx_with_table))
+    table = doc.tables[0]
+
+    # Verify table alignment in XML (tblPr/jc element)
+    tbl_pr = table._tbl.tblPr
+    assert tbl_pr is not None
+    jc = tbl_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}jc")
+    assert jc is not None
+    assert (
+        jc.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+        == "right"
+    )
+
+    # Verify row height in XML (trPr/trHeight element)
+    row = table.rows[1]
+    tr = row._tr
+    tr_pr = tr.find(
+        "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}trPr"
+    )
+    assert tr_pr is not None
+    tr_height = tr_pr.find(
+        "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}trHeight"
+    )
+    assert tr_height is not None
+    # hRule should be "exact" for "exactly" rule
+    assert (
+        tr_height.get(
+            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}hRule"
+        )
+        == "exact"
+    )
+
+
+# =============================================================================
+# Phase 4: Paragraph Tab Stops Tests
+# =============================================================================
+
+
+@pytest.fixture
+def docx_for_tabs():
+    """Create a Word document for tab stop testing."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        doc.add_paragraph("Test paragraph for tab stops")
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_add_tab_stop(docx_for_tabs):
+    """Test adding a tab stop with alignment and leader."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_tabs), "scope": "blocks"}
+    )
+    para = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add right-aligned tab with dot leader at 4 inches
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "add_tab_stop",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"position": 4.0, "alignment": "right", "leader": "dots"}
+            ),
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading paragraph format
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_for_tabs),
+            "scope": "runs",
+            "target_id": para["id"],
+        },
+    )
+    tab_stops = result["paragraph_format"]["tab_stops"]
+    assert len(tab_stops) >= 1
+    tab = tab_stops[0]
+    assert tab["position_inches"] == pytest.approx(4.0, rel=0.01)
+    assert tab["alignment"] == "right"
+    assert tab["leader"] == "dots"
+
+
+@pytest.mark.asyncio
+async def test_clear_tab_stops(docx_for_tabs):
+    """Test clearing all tab stops from a paragraph."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_tabs), "scope": "blocks"}
+    )
+    para = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add a tab stop first
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "add_tab_stop",
+            "target_id": para["id"],
+            "content_data": json.dumps({"position": 2.0, "alignment": "left"}),
+        },
+    )
+
+    # Clear all tab stops
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "clear_tab_stops",
+            "target_id": para["id"],
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify no tab stops remain
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_for_tabs),
+            "scope": "runs",
+            "target_id": para["id"],
+        },
+    )
+    assert result["paragraph_format"]["tab_stops"] == []
+
+
+@pytest.mark.asyncio
+async def test_read_tab_stops(docx_for_tabs):
+    """Test reading multiple tab stops from a paragraph."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_tabs), "scope": "blocks"}
+    )
+    para = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add multiple tab stops
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "add_tab_stop",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"position": 1.0, "alignment": "left", "leader": "spaces"}
+            ),
+        },
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "add_tab_stop",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"position": 3.0, "alignment": "center", "leader": "heavy"}
+            ),
+        },
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_tabs),
+            "operation": "add_tab_stop",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"position": 5.0, "alignment": "decimal", "leader": "middle_dot"}
+            ),
+        },
+    )
+
+    # Read tab stops
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_for_tabs),
+            "scope": "runs",
+            "target_id": para["id"],
+        },
+    )
+    tab_stops = result["paragraph_format"]["tab_stops"]
+    assert len(tab_stops) == 3
+
+    # Tab stops should be returned in position order
+    positions = [t["position_inches"] for t in tab_stops]
+    assert positions == sorted(positions)
+
+
+# --- Phase 5: Document Fields Tests ---
+
+
+@pytest.fixture
+def docx_for_fields(tmp_path):
+    """Create a document for field tests."""
+    doc = Document()
+    doc.add_paragraph("First section content")
+    doc_path = tmp_path / "fields_test.docx"
+    doc.save(str(doc_path))
+    return doc_path
+
+
+@pytest.mark.asyncio
+async def test_insert_field_page(docx_for_fields):
+    """Test inserting PAGE field into a paragraph."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_fields), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    # Insert PAGE field
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_fields),
+            "operation": "insert_field",
+            "target_id": para["id"],
+            "content_data": "PAGE",
+        },
+    )
+    assert result["success"] is True
+    assert "PAGE" in result["message"]
+
+    # Verify XML structure - field parts are in separate runs
+    doc = Document(str(docx_for_fields))
+    p = doc.paragraphs[0]
+    para_xml = p._p.xml
+    assert "w:fldChar" in para_xml
+    assert 'w:fldCharType="begin"' in para_xml
+    assert 'w:fldCharType="separate"' in para_xml
+    assert 'w:fldCharType="end"' in para_xml
+    assert "PAGE" in para_xml
+
+
+@pytest.mark.asyncio
+async def test_insert_field_numpages(docx_for_fields):
+    """Test inserting NUMPAGES field."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_fields), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_fields),
+            "operation": "insert_field",
+            "target_id": para["id"],
+            "content_data": "NUMPAGES",
+        },
+    )
+    assert result["success"] is True
+    assert "NUMPAGES" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_insert_page_x_of_y_footer(docx_for_fields):
+    """Test inserting 'Page X of Y' in footer."""
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_fields),
+            "operation": "insert_page_x_of_y",
+            "section_index": 0,
+            "content_data": "footer",
+        },
+    )
+    assert result["success"] is True
+    assert "footer" in result["message"]
+
+    # Verify footer content
+    doc = Document(str(docx_for_fields))
+    footer = doc.sections[0].footer
+    footer_text = "".join(p.text for p in footer.paragraphs)
+    assert "Page" in footer_text
+    assert "of" in footer_text
+
+    # Verify field structure in footer
+    footer_xml = footer._element.xml
+    assert "w:fldChar" in footer_xml
+    assert "PAGE" in footer_xml
+    assert "NUMPAGES" in footer_xml
+
+
+@pytest.mark.asyncio
+async def test_insert_page_x_of_y_header(docx_for_fields):
+    """Test inserting 'Page X of Y' in header."""
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_fields),
+            "operation": "insert_page_x_of_y",
+            "section_index": 0,
+            "content_data": "header",
+        },
+    )
+    assert result["success"] is True
+    assert "header" in result["message"]
+
+    # Verify header content
+    doc = Document(str(docx_for_fields))
+    header = doc.sections[0].header
+    header_text = "".join(p.text for p in header.paragraphs)
+    assert "Page" in header_text
+    assert "of" in header_text
+
+
+@pytest.mark.asyncio
+async def test_insert_field_invalid_code(docx_for_fields):
+    """Test that invalid field codes raise ValueError."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_fields), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    with pytest.raises(Exception) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(docx_for_fields),
+                "operation": "insert_field",
+                "target_id": para["id"],
+                "content_data": "INVALID_FIELD",
+            },
+        )
+    assert "Invalid field code" in str(exc_info.value)
