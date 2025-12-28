@@ -289,7 +289,7 @@ async def test_block_ids_are_content_hash(sample_docx):
 
 @pytest.mark.asyncio
 async def test_read_table_cells(sample_docx):
-    """Test reading table cells."""
+    """Test reading table cells with 0-based indices and hierarchical IDs."""
     # First find the table
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(sample_docx), "scope": "blocks"}
@@ -305,9 +305,15 @@ async def test_read_table_cells(sample_docx):
     assert cells_result["table_rows"] == 2
     assert cells_result["table_cols"] == 2
     assert len(cells_result["cells"]) == 4  # 2x2 table
-    # Check first cell
+    # Check first cell (now 0-based)
+    cell_0_0 = next(c for c in cells_result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert cell_0_0["text"] == "Header 1"
+    # Check hierarchical_id format
+    assert cell_0_0["hierarchical_id"] == f"{table_id}#r0c0"
+    # Check another cell
     cell_1_1 = next(c for c in cells_result["cells"] if c["row"] == 1 and c["col"] == 1)
-    assert cell_1_1["text"] == "Header 1"
+    assert cell_1_1["text"] == "Row 1 Col 2"
+    assert cell_1_1["hierarchical_id"] == f"{table_id}#r1c1"
 
 
 @pytest.mark.asyncio
@@ -935,3 +941,461 @@ async def test_create_in_new_directory():
                     "content_data": "Test content",
                 },
             )
+
+
+# --- Image tests ---
+
+
+@pytest.fixture
+def sample_image():
+    """Create a minimal PNG image for testing using PIL."""
+    from PIL import Image as PILImage
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        # Create a 10x10 red image
+        img = PILImage.new("RGB", (10, 10), color="red")
+        img.save(f.name, "PNG")
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.fixture
+def docx_with_image(sample_image):
+    """Create a Word document with an embedded image."""
+    from docx.shared import Inches
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        doc.add_heading("Document with Image", level=1)
+        p = doc.add_paragraph()
+        run = p.add_run()
+        run.add_picture(str(sample_image), width=Inches(1), height=Inches(1))
+        doc.add_paragraph("Text after image.")
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_images(docx_with_image):
+    """Test reading images from a document."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_image), "scope": "images"}
+    )
+    assert result["block_count"] == 1
+    assert len(result["images"]) == 1
+    img = result["images"][0]
+    # Check ID format: image_{hash}_{occurrence}
+    assert img["id"].startswith("image_")
+    assert "_" in img["id"][6:]  # hash_occurrence part
+    # Check dimensions (we set 1 inch)
+    assert 0.9 < img["width_inches"] < 1.1
+    assert 0.9 < img["height_inches"] < 1.1
+    assert img["content_type"] == "image/png"
+    # Check block_id references a paragraph
+    assert img["block_id"].startswith("paragraph_")
+
+
+@pytest.mark.asyncio
+async def test_read_images_empty(sample_docx):
+    """Test reading images from a document with no images."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    assert result["block_count"] == 0
+    assert result["images"] == []
+
+
+@pytest.mark.asyncio
+async def test_insert_image(sample_docx, sample_image):
+    """Test inserting an image."""
+    # Get a paragraph to insert after
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Insert image
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_image",
+            "target_id": para_block["id"],
+            "content_data": str(sample_image),
+            "formatting": '{"width": 2.0, "height": 1.5}',
+        },
+    )
+    assert edit_result["success"]
+    assert edit_result["element_id"].startswith("image_")
+
+    # Verify image was added
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    assert images_result["block_count"] == 1
+    img = images_result["images"][0]
+    assert 1.9 < img["width_inches"] < 2.1
+    assert 1.4 < img["height_inches"] < 1.6
+
+
+@pytest.mark.asyncio
+async def test_delete_image(docx_with_image):
+    """Test deleting an image."""
+    # Get the image ID
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_image), "scope": "images"}
+    )
+    assert len(images_result["images"]) == 1
+    image_id = images_result["images"][0]["id"]
+
+    # Delete the image
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_image),
+            "operation": "delete_image",
+            "target_id": image_id,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify image was deleted
+    _, images_result2 = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_image), "scope": "images"}
+    )
+    assert images_result2["block_count"] == 0
+    assert images_result2["images"] == []
+
+
+@pytest.mark.asyncio
+async def test_image_id_format(sample_image):
+    """Test that image IDs use content-hash format."""
+    import re
+
+    from docx.shared import Inches
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
+        doc = Document()
+        p = doc.add_paragraph()
+        run = p.add_run()
+        run.add_picture(str(sample_image), width=Inches(1))
+        doc.save(doc_f.name)
+        doc_path = doc_f.name
+
+    try:
+        _, result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        # Image ID format: image_{sha1[:8]}_{occurrence}
+        id_pattern = re.compile(r"^image_[0-9a-f]{8}_\d+$")
+        for img in result["images"]:
+            assert id_pattern.match(img["id"]), f"Invalid ID format: {img['id']}"
+    finally:
+        Path(doc_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_multiple_same_images(sample_image):
+    """Test that same image appearing twice has different occurrence numbers."""
+    from docx.shared import Inches
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
+        doc = Document()
+        # Add same image twice in different paragraphs
+        p1 = doc.add_paragraph()
+        p1.add_run().add_picture(str(sample_image), width=Inches(1))
+        p2 = doc.add_paragraph()
+        p2.add_run().add_picture(str(sample_image), width=Inches(1))
+        doc.save(doc_f.name)
+        doc_path = doc_f.name
+
+    try:
+        _, result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        assert len(result["images"]) == 2
+        # Same hash, different occurrence
+        id1, id2 = result["images"][0]["id"], result["images"][1]["id"]
+        hash1, occ1 = id1.split("_")[1], id1.split("_")[2]
+        hash2, occ2 = id2.split("_")[1], id2.split("_")[2]
+        assert hash1 == hash2  # Same image = same hash
+        assert occ1 != occ2  # Different occurrences
+        assert {occ1, occ2} == {"0", "1"}  # Should be 0 and 1
+    finally:
+        Path(doc_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_delete_image_invalid_id(sample_docx):
+    """Test that deleting with invalid image ID fails."""
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "delete_image",
+                "target_id": "image_nonexist_0",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_read_images_in_table(sample_image):
+    """Test reading images from table cells with hierarchical block_id."""
+    from docx.shared import Inches
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
+        doc = Document()
+        doc.add_paragraph("Document with table containing image")
+        table = doc.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Name"
+        table.cell(0, 1).text = "Signature"
+        table.cell(1, 0).text = "John Doe"
+        # Add image to signature cell (row=1, col=1, 0-based)
+        sig_cell = table.cell(1, 1)
+        sig_para = sig_cell.paragraphs[0]
+        sig_para.add_run().add_picture(str(sample_image), width=Inches(1))
+        doc.save(doc_f.name)
+        doc_path = doc_f.name
+
+    try:
+        _, result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        assert result["block_count"] == 1
+        assert len(result["images"]) == 1
+        img = result["images"][0]
+        # block_id should be hierarchical: table_xxx#r1c1/p0
+        assert img["block_id"].startswith("table_")
+        assert "#r1c1/p0" in img["block_id"]  # Image in cell (1,1), paragraph 0
+        assert img["content_type"] == "image/png"
+    finally:
+        Path(doc_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_delete_image_in_table(sample_image):
+    """Test deleting an image from a table cell."""
+    from docx.shared import Inches
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
+        doc = Document()
+        table = doc.add_table(rows=1, cols=1)
+        cell = table.cell(0, 0)
+        cell.paragraphs[0].add_run().add_picture(str(sample_image), width=Inches(1))
+        doc.save(doc_f.name)
+        doc_path = doc_f.name
+
+    try:
+        # Get the image ID
+        _, images_result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        assert len(images_result["images"]) == 1
+        image_id = images_result["images"][0]["id"]
+
+        # Delete the image
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": doc_path,
+                "operation": "delete_image",
+                "target_id": image_id,
+            },
+        )
+        assert edit_result["success"]
+
+        # Verify image was deleted
+        _, images_result2 = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        assert images_result2["block_count"] == 0
+    finally:
+        Path(doc_path).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_insert_image_into_table_cell(sample_image):
+    """Test inserting an image into a specific table cell using hierarchical target_id."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
+        doc = Document()
+        table = doc.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Image"
+        table.cell(0, 1).text = "Description"
+        table.cell(1, 1).text = "A test image"
+        doc.save(doc_f.name)
+        doc_path = doc_f.name
+
+    try:
+        # Get the table ID
+        _, blocks_result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "blocks"}
+        )
+        table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+        table_id = table_block["id"]
+
+        # Insert image into cell (1, 0) - second row, first column (0-based)
+        # Using hierarchical target_id: table_xxx#r1c0
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": doc_path,
+                "operation": "insert_image",
+                "target_id": f"{table_id}#r1c0",
+                "content_data": str(sample_image),
+                "formatting": '{"width": 1}',
+            },
+        )
+        assert edit_result["success"]
+        assert edit_result["element_id"].startswith("image_")
+
+        # Verify image was inserted in the correct cell
+        _, images_result = await mcp.call_tool(
+            "read", {"file_path": doc_path, "scope": "images"}
+        )
+        assert images_result["block_count"] == 1
+        img = images_result["images"][0]
+        # Image should be in cell (1,0), paragraph 0
+        assert "#r1c0/p0" in img["block_id"]
+    finally:
+        Path(doc_path).unlink(missing_ok=True)
+
+
+# --- Hierarchical addressing tests ---
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_path_parsing(sample_docx):
+    """Test that hierarchical paths are parsed correctly."""
+    import re
+
+    # Get table ID and read cells with hierarchical IDs
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    table_id = table_block["id"]
+
+    _, cells_result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "table_cells", "target_id": table_id},
+    )
+
+    # Each cell should have a hierarchical_id in format: {table_id}#r{row}c{col}
+    # Use strict regex to validate full grammar
+    hier_id_pattern = re.compile(rf"^{re.escape(table_id)}#r(\d+)c(\d+)$")
+
+    for cell in cells_result["cells"]:
+        hid = cell["hierarchical_id"]
+        match = hier_id_pattern.match(hid)
+        assert match, f"Invalid hierarchical_id format: {hid}"
+        # Verify the parsed row/col match cell's row/col
+        assert int(match.group(1)) == cell["row"]
+        assert int(match.group(2)) == cell["col"]
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_path_from_paragraph_fails(sample_docx):
+    """Test that hierarchical paths are rejected for non-table base blocks."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Trying to use hierarchical path on a paragraph should fail
+    with pytest.raises(ToolError, match="table base blocks"):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": str(sample_docx),
+                "scope": "runs",
+                "target_id": f"{para_id}#r0c0",  # Invalid: para can't have cell path
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_path_invalid_segment(sample_docx):
+    """Test that invalid path segments are rejected."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    table_id = table_block["id"]
+
+    # Invalid segment format should fail
+    with pytest.raises(ToolError, match="Invalid path segment"):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": str(sample_docx),
+                "scope": "runs",
+                "target_id": f"{table_id}#invalid",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_path_cell_out_of_bounds(sample_docx):
+    """Test that out-of-bounds cell coordinates are rejected."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    table_id = table_block["id"]
+
+    # Row out of bounds (table has 2 rows: 0 and 1)
+    with pytest.raises(ToolError, match="out of bounds"):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": str(sample_docx),
+                "scope": "runs",
+                "target_id": f"{table_id}#r99c0/p0",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_transition_cell_to_paragraph(sample_docx):
+    """Test valid transition: table -> cell -> paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    table_id = table_block["id"]
+
+    # Valid path: table#r0c0/p0 -> first paragraph in cell (0,0)
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": f"{table_id}#r0c0/p0",
+        },
+    )
+    # Should succeed and return runs for the paragraph in the cell
+    assert "runs" in runs_result
+
+
+@pytest.mark.asyncio
+async def test_hierarchical_transition_invalid_para_from_table(sample_docx):
+    """Test invalid transition: cannot select paragraph directly from table."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    table_id = table_block["id"]
+
+    # Invalid: p0 directly from table (must go through cell first)
+    with pytest.raises(ToolError, match="Cannot select paragraph"):
+        await mcp.call_tool(
+            "read",
+            {
+                "file_path": str(sample_docx),
+                "scope": "runs",
+                "target_id": f"{table_id}#p0",  # Missing cell selector
+            },
+        )

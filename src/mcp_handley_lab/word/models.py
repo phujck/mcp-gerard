@@ -27,11 +27,12 @@ class DocumentMeta(BaseModel):
 
 
 class CellInfo(BaseModel):
-    """A table cell with row/column coordinates."""
+    """A table cell with coordinates and hierarchical ID."""
 
-    row: int  # 1-based row number
-    col: int  # 1-based column number
+    row: int  # 0-based row index
+    col: int  # 0-based column index
     text: str  # Cell text content
+    hierarchical_id: str = ""  # e.g., "table_abc_0#r0c0"
 
 
 class RunInfo(BaseModel):
@@ -83,6 +84,21 @@ class PageSetupInfo(BaseModel):
     right_margin: float  # inches
 
 
+class ImageInfo(BaseModel):
+    """Information about an embedded inline image."""
+
+    id: str  # image_{sha1[:8]}_{occurrence}
+    width_inches: float
+    height_inches: float
+    content_type: str  # e.g., "image/png", "image/jpeg"
+    block_id: (
+        str  # Hierarchical ID of containing paragraph (e.g., "table_abc_0#r0c0/p0")
+    )
+    run_index: int  # 0-based index of run within paragraph
+    image_index_in_run: int  # 0-based index among inline images in run
+    filename: str  # Original filename if available
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -96,6 +112,7 @@ class DocumentReadResult(BaseModel):
     comments: list[CommentInfo] = Field(default_factory=list)
     headers_footers: list[HeaderFooterInfo] = Field(default_factory=list)
     page_setup: list[PageSetupInfo] = Field(default_factory=list)
+    images: list[ImageInfo] = Field(default_factory=list)
 
 
 class EditResult(BaseModel):

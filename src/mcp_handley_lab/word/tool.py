@@ -12,16 +12,19 @@ from mcp_handley_lab.word.document import (
     build_blocks,
     build_comments,
     build_headers_footers,
+    build_images,
     build_page_setup,
     build_runs,
     build_table_cells,
     content_hash,
     count_occurrence,
     delete_block,
+    delete_image,
     edit_run_formatting,
     edit_run_text,
     get_document_meta,
     insert_heading_relative,
+    insert_image,
     insert_paragraph_relative,
     insert_table_relative,
     replace_table,
@@ -39,13 +42,13 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup', 'images'",
     ),
     target_id: str = Field("", description="Block ID for table_cells/runs scopes"),
     search_query: str = Field("", description="Text to search for (scope='search')"),
@@ -73,21 +76,21 @@ def read(
         )
         return DocumentReadResult(block_count=block_count, blocks=blocks)
     if scope == "table_cells":
-        block_type, obj, _, _ = resolve_target(doc, target_id)
-        if block_type != "table":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
             raise ValueError("target_id must be a table")
-        cells = build_table_cells(obj)
+        cells = build_table_cells(t.leaf_obj, t.base_id)
         return DocumentReadResult(
             block_count=len(cells),
             cells=cells,
-            table_rows=len(obj.rows),
-            table_cols=len(obj.columns),
+            table_rows=len(t.leaf_obj.rows),
+            table_cols=len(t.leaf_obj.columns),
         )
     if scope == "runs":
-        block_type, obj, _, _ = resolve_target(doc, target_id)
-        if block_type == "table":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind == "table":
             raise ValueError("target_id must be a paragraph or heading")
-        runs = build_runs(obj)
+        runs = build_runs(t.leaf_obj)
         return DocumentReadResult(block_count=len(runs), runs=runs)
     if scope == "comments":
         comments = build_comments(doc)
@@ -100,21 +103,24 @@ def read(
     if scope == "page_setup":
         page_setup = build_page_setup(doc)
         return DocumentReadResult(block_count=len(page_setup), page_setup=page_setup)
+    if scope == "images":
+        images = build_images(doc)
+        return DocumentReadResult(block_count=len(images), images=images)
     raise ValueError(f"Unknown scope: {scope}")
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment/insert_image. Supports hierarchical IDs for insert_image into table cells: 'table_abc_0#r0c1' or 'table_abc_0#r0c1/p0' (0-based indices). For delete_image: the image ID.",
     ),
     content_type: str = Field(
         "paragraph",
@@ -122,20 +128,20 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content. For set_orientation: 'portrait' or 'landscape'.",
+        description="Content: text or JSON (for tables). For add_comment/set_header/set_footer: the text content. For set_orientation: 'portrait' or 'landscape'. For insert_image: the image file path.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
     ),
     formatting: str = Field(
         "",
-        description='Direct formatting JSON: {"bold": true, "color": "FF0000", "font_size": 14}. For set_margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches.',
+        description='Direct formatting JSON. Text: {"bold": true, "color": "FF0000", "font_size": 14}. Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches (maintains aspect ratio; defaults to native size at 72 DPI if omitted).',
     ),
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
     ),
-    row: int = Field(0, description="Row number (1-based, for edit_cell operation)"),
-    col: int = Field(0, description="Column number (1-based, for edit_cell operation)"),
+    row: int = Field(0, description="Row number (0-based, for edit_cell operation)"),
+    col: int = Field(0, description="Column number (0-based, for edit_cell operation)"),
     run_index: int = Field(
         -1,
         description="Run index (0-based, for edit_run operation). Use read() with scope='runs' to find indices.",
@@ -178,19 +184,19 @@ def edit(
     doc = Document(file_path)
 
     if operation in ("insert_before", "insert_after"):
-        _, obj, target_el, _ = resolve_target(doc, target_id)
+        t = resolve_target(doc, target_id)
         position = "before" if operation == "insert_before" else "after"
 
         if content_type == "paragraph":
             new_p = insert_paragraph_relative(
-                doc, target_el, content_data, position, style_name
+                doc, t.leaf_el, content_data, position, style_name
             )
             text = new_p.text or ""
             occurrence = count_occurrence(doc, "paragraph", text, new_p._element)
             element_id = f"paragraph_{content_hash(text)}_{occurrence}"
         elif content_type == "heading":
             new_p = insert_heading_relative(
-                doc, target_el, content_data, heading_level, position
+                doc, t.leaf_el, content_data, heading_level, position
             )
             text = new_p.text or ""
             block_type = f"heading{heading_level}"
@@ -199,7 +205,7 @@ def edit(
         elif content_type == "table":
             table_data = json.loads(content_data)
             new_tbl = insert_table_relative(
-                doc, target_el, table_data, position, style_name or "Table Grid"
+                doc, t.leaf_el, table_data, position, style_name or "Table Grid"
             )
             table_content = table_content_for_hash(new_tbl)
             occurrence = count_occurrence(doc, "table", table_content, new_tbl._tbl)
@@ -242,28 +248,28 @@ def edit(
         )
 
     if operation == "delete":
-        block_type, obj, _, _ = resolve_target(doc, target_id)
-        delete_block(block_type, obj)
+        t = resolve_target(doc, target_id)
+        delete_block(t.leaf_kind, t.leaf_obj)
         doc.save(file_path)
         return EditResult(
             success=True, element_id=target_id, message=f"Deleted block {target_id}"
         )
 
     if operation == "replace":
-        block_type, obj, target_el, _ = resolve_target(doc, target_id)
-        if block_type.startswith("heading") or block_type == "paragraph":
-            obj.text = content_data
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind.startswith("heading") or t.leaf_kind == "paragraph":
+            t.leaf_obj.text = content_data
             text = content_data
-            occurrence = count_occurrence(doc, block_type, text, target_el)
-            element_id = f"{block_type}_{content_hash(text)}_{occurrence}"
-        elif block_type == "table":
+            occurrence = count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
+            element_id = f"{t.leaf_kind}_{content_hash(text)}_{occurrence}"
+        elif t.leaf_kind == "table":
             table_data = json.loads(content_data)
-            new_tbl = replace_table(doc, obj, table_data)
+            new_tbl = replace_table(doc, t.leaf_obj, table_data)
             table_content = table_content_for_hash(new_tbl)
             occurrence = count_occurrence(doc, "table", table_content, new_tbl._tbl)
             element_id = f"table_{content_hash(table_content)}_{occurrence}"
         else:
-            raise ValueError(f"Unsupported block_type: {block_type}")
+            raise ValueError(f"Unsupported leaf_kind: {t.leaf_kind}")
         doc.save(file_path)
         return EditResult(
             success=True,
@@ -272,32 +278,32 @@ def edit(
         )
 
     if operation == "style":
-        block_type, obj, target_el, _ = resolve_target(doc, target_id)
+        t = resolve_target(doc, target_id)
         if style_name:
-            obj.style = style_name
-        if block_type == "table":
-            table_content = table_content_for_hash(obj)
-            occurrence = count_occurrence(doc, "table", table_content, target_el)
+            t.leaf_obj.style = style_name
+        if t.leaf_kind == "table":
+            table_content = table_content_for_hash(t.leaf_obj)
+            occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
             element_id = f"table_{content_hash(table_content)}_{occurrence}"
         else:
             if formatting:
                 fmt = json.loads(formatting)
-                apply_paragraph_formatting(obj, fmt)
-            text = obj.text or ""
-            occurrence = count_occurrence(doc, block_type, text, target_el)
-            element_id = f"{block_type}_{content_hash(text)}_{occurrence}"
+                apply_paragraph_formatting(t.leaf_obj, fmt)
+            text = t.leaf_obj.text or ""
+            occurrence = count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
+            element_id = f"{t.leaf_kind}_{content_hash(text)}_{occurrence}"
         doc.save(file_path)
         return EditResult(
             success=True, element_id=element_id, message=f"Applied style to {target_id}"
         )
 
     if operation == "edit_cell":
-        block_type, obj, target_el, _ = resolve_target(doc, target_id)
-        if block_type != "table":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
             raise ValueError("target_id must be a table")
-        replace_table_cell(obj, row, col, content_data)
-        table_content = table_content_for_hash(obj)
-        occurrence = count_occurrence(doc, "table", table_content, target_el)
+        replace_table_cell(t.leaf_obj, row, col, content_data)
+        table_content = table_content_for_hash(t.leaf_obj)
+        occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
         element_id = f"table_{content_hash(table_content)}_{occurrence}"
         doc.save(file_path)
         return EditResult(
@@ -305,25 +311,27 @@ def edit(
         )
 
     if operation == "edit_run":
-        block_type, obj, target_el, _ = resolve_target(doc, target_id)
-        if block_type == "table":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind == "table":
             raise ValueError("target_id must be a paragraph or heading")
         if content_data:
-            edit_run_text(obj, run_index, content_data)
+            edit_run_text(t.leaf_obj, run_index, content_data)
         if formatting:
             fmt = json.loads(formatting)
-            edit_run_formatting(obj, run_index, fmt)
-        text = obj.text or ""
-        occurrence = count_occurrence(doc, block_type, text, target_el)
-        element_id = f"{block_type}_{content_hash(text)}_{occurrence}"
+            edit_run_formatting(t.leaf_obj, run_index, fmt)
+        text = t.leaf_obj.text or ""
+        occurrence = count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
+        element_id = f"{t.leaf_kind}_{content_hash(text)}_{occurrence}"
         doc.save(file_path)
         return EditResult(
             success=True, element_id=element_id, message=f"Updated run {run_index}"
         )
 
     if operation == "add_comment":
-        _, obj, _, _ = resolve_target(doc, target_id)
-        comment_id = add_comment_to_block(doc, obj, content_data, author, initials)
+        t = resolve_target(doc, target_id)
+        comment_id = add_comment_to_block(
+            doc, t.leaf_obj, content_data, author, initials
+        )
         doc.save(file_path)
         return EditResult(
             success=True,
@@ -367,8 +375,32 @@ def edit(
             success=True,
             message=f"Set orientation to {content_data} for section {section_index}",
         )
+
+    if operation == "insert_image":
+        fmt = json.loads(formatting) if formatting else {}
+        element_id = insert_image(
+            doc,
+            content_data,
+            target_id,
+            "after",
+            width_inches=float(fmt.get("width", 0)),
+            height_inches=float(fmt.get("height", 0)),
+        )
+        doc.save(file_path)
+        return EditResult(success=True, element_id=element_id, message="Inserted image")
+
+    if operation == "delete_image":
+        delete_image(doc, target_id)
+        doc.save(file_path)
+        return EditResult(success=True, message=f"Deleted {target_id}")
+
     raise ValueError(f"Unknown operation: {operation}")
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for mcp-word command."""
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -4,11 +4,13 @@ import hashlib
 import json
 import re
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 from docx import Document
-from docx.oxml.table import CT_Tbl
+from docx.oxml.ns import nsmap as oxml_nsmap
+from docx.oxml.table import CT_Tbl, CT_Tc
 from docx.oxml.text.paragraph import CT_P
-from docx.table import Table
+from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.models import (
@@ -17,18 +19,52 @@ from mcp_handley_lab.word.models import (
     CommentInfo,
     DocumentMeta,
     HeaderFooterInfo,
+    ImageInfo,
     PageSetupInfo,
     RunInfo,
 )
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
 _ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
+_IMAGE_ID_RE = re.compile(r"^image_([0-9a-f]{8})_(\d+)$")
+_EMU_PER_INCH = 914400
+
+# Hierarchical path segment patterns (0-based indices)
+_CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
+_PARA_RE = re.compile(r"^p(\d+)$")
+_TABLE_RE = re.compile(r"^tbl(\d+)$")
+
+
+@dataclass
+class PathSegment:
+    """A segment in a hierarchical path (e.g., r0c1, p0, tbl0)."""
+
+    kind: str  # 'cell', 'para', 'tbl'
+    indices: tuple[int, ...]
+
+
+@dataclass
+class ResolvedTarget:
+    """Result of resolving a hierarchical target ID."""
+
+    base_id: str
+    base_kind: str  # 'table' | 'paragraph' | 'heading1' etc
+    base_obj: Paragraph | Table
+    base_occurrence: int
+    leaf_kind: str  # 'table' | 'cell' | 'paragraph'
+    leaf_obj: Paragraph | Table | _Cell
+    leaf_el: CT_P | CT_Tbl | CT_Tc  # XML element (Paragraph, Table, or Cell)
 
 
 def content_hash(text: str) -> str:
     """8-char SHA256 of normalized text for content-addressable IDs."""
     normalized = re.sub(r"\s+", " ", text.strip().lower())
     return hashlib.sha256(normalized.encode()).hexdigest()[:8]
+
+
+def make_block_id(block_type: str, text: str, occurrence: int) -> str:
+    """Generate content-addressable block ID. Single source of truth."""
+    return f"{block_type}_{content_hash(text)}_{occurrence}"
 
 
 def iter_body_blocks(
@@ -146,7 +182,7 @@ def build_blocks(
             if matched >= offset and len(blocks) < limit:
                 blocks.append(
                     Block(
-                        id=f"{block_type}_{content_hash(text)}_{occurrence}",
+                        id=make_block_id(block_type, text, occurrence),
                         type=block_type,
                         text=text,
                         style=style,
@@ -175,7 +211,7 @@ def build_blocks(
             if matched >= offset and len(blocks) < limit:
                 blocks.append(
                     Block(
-                        id=f"table_{content_hash(table_content)}_{occurrence}",
+                        id=make_block_id("table", table_content, occurrence),
                         type="table",
                         text=md,  # Keep markdown for display
                         style=style,
@@ -188,17 +224,124 @@ def build_blocks(
     return blocks, matched
 
 
-def resolve_target(
-    doc: Document, target_id: str
+def parse_target_id(target_id: str) -> tuple[str, list[PathSegment]]:
+    """Parse target_id into (base_id, path_segments).
+
+    Supports hierarchical IDs: table_abc12345_0#r0c1/p0
+    Returns (base_id, []) for simple IDs without path.
+    """
+    if "#" not in target_id:
+        return target_id, []
+
+    base_id, path_str = target_id.split("#", 1)
+    if not path_str:
+        raise ValueError("Empty path after '#'")
+
+    segments = []
+    for part in path_str.split("/"):
+        if not part:
+            raise ValueError("Empty path segment")
+        if m := _CELL_RE.match(part):
+            segments.append(PathSegment("cell", (int(m[1]), int(m[2]))))
+        elif m := _PARA_RE.match(part):
+            segments.append(PathSegment("para", (int(m[1]),)))
+        elif m := _TABLE_RE.match(part):
+            segments.append(PathSegment("tbl", (int(m[1]),)))
+        else:
+            raise ValueError(f"Invalid path segment: {part}")
+    return base_id, segments
+
+
+def _get_element(obj: Paragraph | Table | _Cell) -> CT_P | CT_Tbl | CT_Tc:
+    """Get XML element handle for an object."""
+    if isinstance(obj, Table):
+        return obj._tbl
+    if isinstance(obj, _Cell):
+        return obj._tc
+    if isinstance(obj, Paragraph):
+        return obj._element
+    raise ValueError(f"Unknown object type: {type(obj).__name__}")
+
+
+def _get_kind(obj: Paragraph | Table | _Cell) -> str:
+    """Get kind string for an object."""
+    if isinstance(obj, Table):
+        return "table"
+    if isinstance(obj, _Cell):
+        return "cell"
+    if isinstance(obj, Paragraph):
+        return "paragraph"
+    raise ValueError(f"Unknown object type: {type(obj).__name__}")
+
+
+def resolve_path(
+    container: Table | _Cell, segments: list[PathSegment]
+) -> Paragraph | Table | _Cell:
+    """Resolve path segments from container. Returns leaf object.
+
+    Transition rules:
+    - From Table -> cell (r,c) only
+    - From Cell -> para (p) or tbl (tbl)
+    - From nested Table -> cell (r,c)
+    """
+    current: Table | _Cell | Paragraph = container
+
+    for seg in segments:
+        if seg.kind == "cell":
+            if not isinstance(current, Table):
+                raise ValueError(f"Cannot select cell from {type(current).__name__}")
+            row, col = seg.indices
+            if row >= len(current.rows):
+                raise ValueError(
+                    f"Row {row} out of bounds (table has {len(current.rows)} rows)"
+                )
+            if col >= len(current.columns):
+                raise ValueError(
+                    f"Column {col} out of bounds (table has {len(current.columns)} cols)"
+                )
+            current = current.cell(row, col)
+
+        elif seg.kind == "para":
+            if not isinstance(current, _Cell):
+                raise ValueError(
+                    f"Cannot select paragraph from {type(current).__name__}"
+                )
+            idx = seg.indices[0]
+            if idx >= len(current.paragraphs):
+                raise ValueError(
+                    f"Paragraph {idx} out of bounds "
+                    f"(cell has {len(current.paragraphs)} paragraphs)"
+                )
+            current = current.paragraphs[idx]
+
+        elif seg.kind == "tbl":
+            if not isinstance(current, _Cell):
+                raise ValueError(
+                    f"Cannot select nested table from {type(current).__name__} "
+                    "(only valid from Cell)"
+                )
+            idx = seg.indices[0]
+            if idx >= len(current.tables):
+                raise ValueError(
+                    f"Nested table {idx} out of bounds "
+                    f"(cell has {len(current.tables)} tables)"
+                )
+            current = current.tables[idx]
+
+    return current
+
+
+def _resolve_base_block(
+    doc: Document, base_id: str
 ) -> tuple[str, Paragraph | Table, CT_P | CT_Tbl, int]:
-    """Resolve target_id to (block_type, obj, element, occurrence).
+    """Resolve base block ID to (block_type, obj, element, occurrence).
 
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     Searches all blocks for matching type+hash, then skips to Nth occurrence.
     """
-    m = _ID_RE.match(target_id)
+    m = _ID_RE.match(base_id)
     if not m:
-        raise ValueError(f"Bad block id: {target_id}")
+        raise ValueError(f"Bad block id: {base_id}")
     target_type, target_hash, occurrence_str = m.groups()
     target_occurrence = int(occurrence_str)
 
@@ -219,7 +362,49 @@ def resolve_target(
                     if occurrence_count == target_occurrence:
                         return block_type, obj, el, occurrence_count
                     occurrence_count += 1
-    raise ValueError(f"Block not found: {target_id}")
+    raise ValueError(f"Block not found: {base_id}")
+
+
+def resolve_target(doc: Document, target_id: str) -> ResolvedTarget:
+    """Resolve target_id to ResolvedTarget with base and leaf info.
+
+    Supports hierarchical IDs: table_abc12345_0#r0c1/p0
+    """
+    base_id, path_segments = parse_target_id(target_id)
+
+    # Resolve base block
+    base_kind, base_obj, base_el, base_occurrence = _resolve_base_block(doc, base_id)
+
+    if not path_segments:
+        return ResolvedTarget(
+            base_id=base_id,
+            base_kind=base_kind,
+            base_obj=base_obj,
+            base_occurrence=base_occurrence,
+            leaf_kind=base_kind,
+            leaf_obj=base_obj,
+            leaf_el=base_el,
+        )
+
+    # Hierarchical paths only supported from table base blocks
+    if not isinstance(base_obj, Table):
+        raise ValueError(
+            f"Hierarchical paths are only supported from table base blocks "
+            f"(got {base_kind})"
+        )
+
+    # Resolve path within container
+    leaf_obj = resolve_path(base_obj, path_segments)
+
+    return ResolvedTarget(
+        base_id=base_id,
+        base_kind=base_kind,
+        base_obj=base_obj,
+        base_occurrence=base_occurrence,
+        leaf_kind=_get_kind(leaf_obj),
+        leaf_obj=leaf_obj,
+        leaf_el=_get_element(leaf_obj),
+    )
 
 
 def count_occurrence(
@@ -354,18 +539,35 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
                 run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
 
 
-def build_table_cells(table: Table) -> list[CellInfo]:
-    """Build list of CellInfo for all cells in a table."""
+def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
+    """Build list of CellInfo for all cells in a table.
+
+    Uses true grid coordinates (rows × columns) to handle merged cells correctly.
+    For merged cells, multiple coordinates may refer to the same underlying cell.
+
+    Args:
+        table: The Table object
+        table_id: Base ID of the table (for hierarchical IDs)
+
+    Returns:
+        List of CellInfo with 0-based indices and hierarchical IDs
+    """
+    rows, cols = len(table.rows), len(table.columns)
     return [
-        CellInfo(row=r_idx + 1, col=c_idx + 1, text=cell.text or "")
-        for r_idx, row in enumerate(table.rows)
-        for c_idx, cell in enumerate(row.cells)
+        CellInfo(
+            row=r,
+            col=c,
+            text=table.cell(r, c).text or "",
+            hierarchical_id=f"{table_id}#r{r}c{c}" if table_id else "",
+        )
+        for r in range(rows)
+        for c in range(cols)
     ]
 
 
 def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
-    """Replace text in a table cell. Row/col are 1-based."""
-    table.cell(row - 1, col - 1).text = text
+    """Replace text in a table cell. Row/col are 0-based."""
+    table.cell(row, col).text = text
 
 
 def build_runs(paragraph: Paragraph) -> list[RunInfo]:
@@ -548,3 +750,252 @@ def set_page_orientation(doc: Document, section_index: int, orientation: str) ->
     )
     if orient_lower == "landscape" and h > w or orient_lower == "portrait" and w > h:
         section.page_width, section.page_height = Emu(h), Emu(w)
+
+
+# Image support functions
+
+
+def get_embedded_image_hash(doc: Document, blip) -> str | None:
+    """Get SHA1 hash for embedded image. Returns None for linked images."""
+    rel_id = blip.embed  # Only embedded, not linked
+    if not rel_id:
+        return None  # Linked image - can't hash external resource
+    image_part = doc.part.related_parts[rel_id]
+    return image_part.image.sha1[:8]
+
+
+def _extract_images_from_paragraph(
+    doc: Document,
+    para,
+    block_id: str,
+    image_hash_counts: dict[str, int],
+) -> list[ImageInfo]:
+    """Extract images from a paragraph, updating occurrence counts."""
+    images = []
+    for run_idx, run in enumerate(para.runs):
+        image_idx_in_run = 0
+        for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
+            inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
+            if inline is None:
+                continue
+
+            # Guard access to pic element (skip charts/smartart)
+            try:
+                blip = inline.graphic.graphicData.pic.blipFill.blip
+            except AttributeError:
+                continue
+
+            h = get_embedded_image_hash(doc, blip)
+            if h is None:
+                continue  # Skip linked images
+
+            # Track image occurrence globally
+            img_occurrence = image_hash_counts.get(h, 0)
+            image_hash_counts[h] = img_occurrence + 1
+
+            # Get metadata via XML (avoid InlineShape construction issues)
+            image_part = doc.part.related_parts[blip.embed]
+            extent = inline.extent
+            width_emu = extent.cx if extent is not None else 0
+            height_emu = extent.cy if extent is not None else 0
+
+            images.append(
+                ImageInfo(
+                    id=f"image_{h}_{img_occurrence}",
+                    width_inches=width_emu / _EMU_PER_INCH,
+                    height_inches=height_emu / _EMU_PER_INCH,
+                    content_type=image_part.content_type,
+                    block_id=block_id,
+                    run_index=run_idx,
+                    image_index_in_run=image_idx_in_run,
+                    filename=image_part.image.filename or "",
+                )
+            )
+            image_idx_in_run += 1
+    return images
+
+
+def build_images(doc: Document) -> list[ImageInfo]:
+    """Build list of ImageInfo from document body, including tables."""
+    images = []
+    block_hash_counts: dict[str, int] = {}  # For block_id computation
+    image_hash_counts: dict[str, int] = {}  # For image occurrence
+
+    for kind, obj, _el in iter_body_blocks(doc):
+        if kind == "paragraph":
+            # Use SAME logic as build_blocks for block_id
+            block_type, _ = paragraph_kind_and_level(obj)
+            text = obj.text or ""
+            block_hash_key = f"{block_type}_{content_hash(text)}"
+            block_occurrence = block_hash_counts.get(block_hash_key, 0)
+            block_id = make_block_id(block_type, text, block_occurrence)
+            block_hash_counts[block_hash_key] = block_occurrence + 1
+
+            images.extend(
+                _extract_images_from_paragraph(doc, obj, block_id, image_hash_counts)
+            )
+
+        elif kind == "table":
+            # Compute table's block_id
+            table_content = table_content_for_hash(obj)
+            block_hash_key = f"table_{content_hash(table_content)}"
+            block_occurrence = block_hash_counts.get(block_hash_key, 0)
+            table_block_id = make_block_id("table", table_content, block_occurrence)
+            block_hash_counts[block_hash_key] = block_occurrence + 1
+
+            # Search all cells for images with hierarchical block_id
+            # Use true grid coordinates to handle merged cells correctly
+            rows, cols = len(obj.rows), len(obj.columns)
+            for r in range(rows):
+                for c in range(cols):
+                    cell = obj.cell(r, c)
+                    for p_idx, para in enumerate(cell.paragraphs):
+                        # Hierarchical block_id: table_abc_0#r0c0/p0
+                        hier_block_id = f"{table_block_id}#r{r}c{c}/p{p_idx}"
+                        images.extend(
+                            _extract_images_from_paragraph(
+                                doc, para, hier_block_id, image_hash_counts
+                            )
+                        )
+
+    return images
+
+
+def _iter_all_paragraphs(doc: Document):
+    """Iterate over all paragraphs in document body and tables."""
+    for kind, obj, el in iter_body_blocks(doc):
+        if kind == "paragraph":
+            yield obj, el
+        elif kind == "table":
+            for row in obj.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        yield para, para._element
+
+
+def _find_image_in_paragraph(doc: Document, para, target_hash: str):
+    """Find inline element matching hash in paragraph. Returns inline or None."""
+    for run in para.runs:
+        for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
+            inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
+            if inline is None:
+                continue
+            try:
+                blip = inline.graphic.graphicData.pic.blipFill.blip
+            except AttributeError:
+                continue
+            h = get_embedded_image_hash(doc, blip)
+            if h == target_hash:
+                yield inline
+
+
+def resolve_image(doc: Document, image_id: str) -> tuple:
+    """Find embedded image by content-addressable ID. Returns (inline_el, para_el)."""
+    m = _IMAGE_ID_RE.match(image_id)
+    if not m:
+        raise ValueError(f"Bad image id: {image_id}")
+    target_hash, target_occurrence = m.groups()
+    target_occurrence = int(target_occurrence)
+
+    occurrence_count = 0
+    for para, para_el in _iter_all_paragraphs(doc):
+        for inline in _find_image_in_paragraph(doc, para, target_hash):
+            if occurrence_count == target_occurrence:
+                return inline, para_el
+            occurrence_count += 1
+
+    raise ValueError(f"Image not found: {image_id}")
+
+
+def insert_image(
+    doc: Document,
+    image_path: str,
+    target_id: str,
+    position: str,
+    width_inches: float = 0,
+    height_inches: float = 0,
+) -> str:
+    """Insert image at target location.
+
+    Supports hierarchical target IDs:
+    - table_abc_0#r0c1/p0 -> Insert into paragraph in cell
+    - table_abc_0#r0c1 -> Insert into first paragraph of cell
+    - table_abc_0 -> Insert before/after table
+    - paragraph_abc_0 -> Insert before/after paragraph
+    """
+    from docx.shared import Inches
+
+    target = resolve_target(doc, target_id)
+
+    # Get image hash first
+    _, image = doc.part.get_or_add_image(image_path)
+    h = image.sha1[:8]
+
+    width = Inches(width_inches) if width_inches else None
+    height = Inches(height_inches) if height_inches else None
+
+    if target.leaf_kind == "paragraph":
+        # Insert into this paragraph
+        para = target.leaf_obj
+        run = para.add_run()
+        run.add_picture(image_path, width, height)
+        occurrence = count_image_occurrence(doc, h, para._element)
+        return f"image_{h}_{occurrence}"
+
+    if target.leaf_kind == "cell":
+        # Use first paragraph of cell (create if needed)
+        cell = target.leaf_obj
+        para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+        run = para.add_run()
+        run.add_picture(image_path, width, height)
+        occurrence = count_image_occurrence(doc, h, para._element)
+        return f"image_{h}_{occurrence}"
+
+    # Target is table or paragraph at base level -> insert before/after
+    new_para = doc.add_paragraph()
+    run = new_para.add_run()
+    run.add_picture(image_path, width, height)
+
+    if position == "before":
+        target.leaf_el.addprevious(new_para._element)
+    else:
+        target.leaf_el.addnext(new_para._element)
+
+    occurrence = count_image_occurrence(doc, h, new_para._element)
+    return f"image_{h}_{occurrence}"
+
+
+def count_image_occurrence(doc: Document, target_hash: str, target_para_el) -> int:
+    """Count embedded images with same hash before target paragraph."""
+    occurrence = 0
+    for para, para_el in _iter_all_paragraphs(doc):
+        for _inline in _find_image_in_paragraph(doc, para, target_hash):
+            if para_el is target_para_el:
+                return occurrence
+            occurrence += 1
+    raise ValueError("Target paragraph not found")
+
+
+def delete_image(doc: Document, image_id: str) -> None:
+    """Delete an image. Removes containing paragraph if only whitespace remains."""
+    inline_el, para_el = resolve_image(doc, image_id)
+
+    # Remove the drawing element (parent of inline)
+    drawing_el = inline_el.getparent()
+    drawing_el.getparent().remove(drawing_el)
+
+    # Check if paragraph has any remaining content (text, drawings, fields, etc.)
+    para = Paragraph(para_el, doc)
+    has_content = bool(para.text.strip())
+    if not has_content:
+        for run in para.runs:
+            # Check for drawings, fields, or other significant content
+            run_el = run._element
+            if run_el.findall(".//w:drawing", namespaces=oxml_nsmap) or run_el.findall(
+                ".//w:fldChar", namespaces=oxml_nsmap
+            ):
+                has_content = True
+                break
+
+    if not has_content:
+        para_el.getparent().remove(para_el)
