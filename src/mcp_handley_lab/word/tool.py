@@ -13,14 +13,21 @@ from mcp_handley_lab.word.document import (
     add_section,
     add_table_column,
     add_table_row,
+    append_to_footer,
+    append_to_header,
     apply_paragraph_formatting,
     build_blocks,
     build_comments,
     build_headers_footers,
+    build_hyperlinks,
     build_images,
     build_page_setup,
+    build_paragraph_format,
     build_runs,
+    build_styles,
     build_table_cells,
+    clear_footer,
+    clear_header,
     content_hash,
     count_occurrence,
     delete_block,
@@ -34,6 +41,7 @@ from mcp_handley_lab.word.document import (
     insert_image,
     insert_paragraph_relative,
     insert_table_relative,
+    merge_cells,
     replace_table,
     replace_table_cell,
     resolve_target,
@@ -54,13 +62,13 @@ mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup', 'images'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles'",
     ),
     target_id: str = Field("", description="Block ID for table_cells/runs scopes"),
     search_query: str = Field("", description="Text to search for (scope='search')"),
@@ -103,7 +111,10 @@ def read(
         if t.leaf_kind == "table":
             raise ValueError("target_id must be a paragraph or heading")
         runs = build_runs(t.leaf_obj)
-        return DocumentReadResult(block_count=len(runs), runs=runs)
+        paragraph_format = build_paragraph_format(t.leaf_obj)
+        return DocumentReadResult(
+            block_count=len(runs), runs=runs, paragraph_format=paragraph_format
+        )
     if scope == "comments":
         comments = build_comments(doc)
         return DocumentReadResult(block_count=len(comments), comments=comments)
@@ -118,17 +129,23 @@ def read(
     if scope == "images":
         images = build_images(doc)
         return DocumentReadResult(block_count=len(images), images=images)
+    if scope == "hyperlinks":
+        hyperlinks = build_hyperlinks(doc)
+        return DocumentReadResult(block_count=len(hyperlinks), hyperlinks=hyperlinks)
+    if scope == "styles":
+        styles = build_styles(doc)
+        return DocumentReadResult(block_count=len(styles), styles=styles)
     raise ValueError(f"Unknown scope: {scope}")
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells'",
     ),
     target_id: str = Field(
         "",
@@ -147,7 +164,7 @@ def edit(
     ),
     formatting: str = Field(
         "",
-        description='Direct formatting JSON. Text: {"bold": true, "color": "FF0000", "font_size": 14, "highlight_color": "yellow", "strike": true, "subscript": true, "superscript": true}. Paragraph: {"left_indent": 0.5, "right_indent": 0.5, "first_line_indent": 0.5, "space_before": 12, "space_after": 12, "line_spacing": 1.5, "keep_with_next": true, "page_break_before": true} (indents in inches, spacing in points, line_spacing < 5 is multiplier). Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches.',
+        description='Direct formatting JSON. Text/Run: {"bold": true, "color": "FF0000", "font_size": 14, "highlight_color": "yellow", "strike": true, "subscript": true, "superscript": true, "style": "Strong"}. Character styles: "Strong", "Emphasis", "Hyperlink", etc. Paragraph: {"left_indent": 0.5, "right_indent": 0.5, "first_line_indent": 0.5, "space_before": 12, "space_after": 12, "line_spacing": 1.5, "keep_with_next": true, "page_break_before": true} (indents in inches, spacing in points, line_spacing < 5 is multiplier). Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches.',
     ),
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
@@ -393,6 +410,38 @@ def edit(
             success=True, message=f"Set even page footer for section {section_index}"
         )
 
+    if operation == "append_header":
+        element_id = append_to_header(doc, section_index, content_type, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            element_id=element_id,
+            message=f"Appended {content_type} to header of section {section_index}",
+        )
+
+    if operation == "append_footer":
+        element_id = append_to_footer(doc, section_index, content_type, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            element_id=element_id,
+            message=f"Appended {content_type} to footer of section {section_index}",
+        )
+
+    if operation == "clear_header":
+        clear_header(doc, section_index)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Cleared header for section {section_index}"
+        )
+
+    if operation == "clear_footer":
+        clear_footer(doc, section_index)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Cleared footer for section {section_index}"
+        )
+
     if operation == "set_margins":
         margins = json.loads(formatting)
         set_page_margins(
@@ -533,6 +582,20 @@ def edit(
         doc.save(file_path)
         return EditResult(
             success=True, message=f"Added section {section_idx} ({start_type})"
+        )
+
+    if operation == "merge_cells":
+        target = resolve_target(doc, target_id)
+        if target is None or target.base_kind != "table":
+            raise ValueError(f"Target must be a table, got: {target_id}")
+        end_data = json.loads(content_data)
+        end_row = end_data["end_row"]
+        end_col = end_data["end_col"]
+        merge_cells(target.base_obj, row, col, end_row, end_col)
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            message=f"Merged cells from ({row},{col}) to ({end_row},{end_col})",
         )
 
     raise ValueError(f"Unknown operation: {operation}")

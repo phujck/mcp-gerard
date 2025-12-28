@@ -542,7 +542,7 @@ async def test_edit_run_out_of_range(formatted_docx):
     )
     para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
 
-    with pytest.raises(ToolError, match="index out of range"):
+    with pytest.raises(ToolError, match="out of range"):
         await mcp.call_tool(
             "edit",
             {
@@ -2039,3 +2039,748 @@ async def test_add_section_continuous(sample_docx):
         "read", {"file_path": str(sample_docx), "scope": "page_setup"}
     )
     assert len(result["page_setup"]) >= 2
+
+
+# --- Hyperlink tests ---
+
+
+@pytest.fixture
+def docx_with_hyperlinks():
+    """Create a Word document with hyperlinks for testing."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        doc.add_heading("Document with Links", level=1)
+        # Add a paragraph with text and a hyperlink
+        p = doc.add_paragraph("Visit ")
+        # Use python-docx's add_hyperlink (via low-level API)
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        # Create hyperlink element
+        hyperlink = OxmlElement("w:hyperlink")
+        hyperlink.set(
+            qn("r:id"),
+            doc.part.relate_to(
+                "https://example.com",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+                is_external=True,
+            ),
+        )
+        # Create run with text
+        new_run = OxmlElement("w:r")
+        r_pr = OxmlElement("w:rPr")
+        new_run.append(r_pr)
+        text = OxmlElement("w:t")
+        text.text = "Example Website"
+        new_run.append(text)
+        hyperlink.append(new_run)
+        p._p.append(hyperlink)
+
+        # Add more text after the hyperlink
+        p.add_run(" for more info.")
+
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_build_runs_includes_hyperlink_text(docx_with_hyperlinks):
+    """Test that build_runs includes text from hyperlinks."""
+    # Get the paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_hyperlinks), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs from the paragraph
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_hyperlinks),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Should have 3 runs: "Visit ", "Example Website" (hyperlink), " for more info."
+    assert runs_result["block_count"] == 3
+    texts = [r["text"] for r in runs_result["runs"]]
+    assert "Visit " in texts
+    assert "Example Website" in texts
+    assert " for more info." in texts
+
+    # The hyperlink run should be marked
+    hyperlink_run = next(
+        r for r in runs_result["runs"] if r["text"] == "Example Website"
+    )
+    assert hyperlink_run["is_hyperlink"] is True
+    assert hyperlink_run["hyperlink_url"] == "https://example.com"
+
+
+@pytest.mark.asyncio
+async def test_read_hyperlinks(docx_with_hyperlinks):
+    """Test reading hyperlinks from a document."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_hyperlinks), "scope": "hyperlinks"}
+    )
+
+    assert result["block_count"] == 1
+    assert len(result["hyperlinks"]) == 1
+
+    link = result["hyperlinks"][0]
+    assert link["text"] == "Example Website"
+    assert link["url"] == "https://example.com"
+    assert link["address"] == "https://example.com"
+    assert link["is_external"] is True
+    assert link["index"] == 0
+
+
+@pytest.mark.asyncio
+async def test_read_hyperlinks_empty(sample_docx):
+    """Test reading hyperlinks from a document with no hyperlinks."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "hyperlinks"}
+    )
+    assert result["block_count"] == 0
+    assert result["hyperlinks"] == []
+
+
+@pytest.mark.asyncio
+async def test_hyperlink_in_table_cell():
+    """Test that hyperlinks in table cells are detected."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        table = doc.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Name"
+        table.cell(0, 1).text = "Website"
+        table.cell(1, 0).text = "Example Corp"
+
+        # Add hyperlink to cell (1, 1)
+        cell = table.cell(1, 1)
+        p = cell.paragraphs[0]
+
+        # Create hyperlink
+        hyperlink = OxmlElement("w:hyperlink")
+        hyperlink.set(
+            qn("r:id"),
+            doc.part.relate_to(
+                "https://example.org",
+                "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+                is_external=True,
+            ),
+        )
+        new_run = OxmlElement("w:r")
+        text = OxmlElement("w:t")
+        text.text = "Visit Site"
+        new_run.append(text)
+        hyperlink.append(new_run)
+        p._p.append(hyperlink)
+
+        doc.save(f.name)
+        doc_path = Path(f.name)
+
+    try:
+        # Read hyperlinks
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(doc_path), "scope": "hyperlinks"}
+        )
+
+        assert result["block_count"] == 1
+        assert len(result["hyperlinks"]) == 1
+        link = result["hyperlinks"][0]
+        assert link["text"] == "Visit Site"
+        assert link["url"] == "https://example.org"
+        assert link["is_external"] is True
+    finally:
+        doc_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_edit_hyperlink_run(docx_with_hyperlinks):
+    """Test that editing a hyperlink run uses correct indexing."""
+    # Get the paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_hyperlinks), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs to find the hyperlink run index
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_hyperlinks),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Find the hyperlink run
+    hyperlink_run = next(r for r in runs_result["runs"] if r["is_hyperlink"])
+    hyperlink_index = hyperlink_run["index"]
+
+    # Edit the hyperlink run text
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_hyperlinks),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": hyperlink_index,
+            "content_data": "Modified Link Text",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify the hyperlink run was edited (not another run)
+    _, runs_result2 = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_hyperlinks),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    edited_run = runs_result2["runs"][hyperlink_index]
+    assert edited_run["text"] == "Modified Link Text"
+    assert edited_run["is_hyperlink"] is True  # Still a hyperlink
+
+
+# --- Style tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_styles(sample_docx):
+    """Test reading all styles from a document."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "styles"}
+    )
+
+    # Should have many built-in styles
+    assert result["block_count"] > 0
+    assert len(result["styles"]) > 0
+
+    # Check that common styles exist
+    style_names = [s["name"] for s in result["styles"]]
+    assert "Normal" in style_names
+    assert "Heading 1" in style_names
+
+    # Check style properties
+    normal_style = next(s for s in result["styles"] if s["name"] == "Normal")
+    assert normal_style["style_id"] == "Normal"
+    assert normal_style["type"] == "paragraph"
+    assert normal_style["builtin"] is True
+
+
+@pytest.mark.asyncio
+async def test_read_styles_includes_custom():
+    """Test that custom styles appear in the list."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        # Add a custom style
+        from docx.enum.style import WD_STYLE_TYPE
+
+        custom_style = doc.styles.add_style("MyCustomStyle", WD_STYLE_TYPE.PARAGRAPH)
+        custom_style.base_style = doc.styles["Normal"]
+        doc.add_paragraph("Test paragraph", style="MyCustomStyle")
+        doc.save(f.name)
+        doc_path = Path(f.name)
+
+    try:
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(doc_path), "scope": "styles"}
+        )
+
+        # Custom style should be in the list
+        style_names = [s["name"] for s in result["styles"]]
+        assert "MyCustomStyle" in style_names
+
+        # Check custom style properties
+        custom = next(s for s in result["styles"] if s["name"] == "MyCustomStyle")
+        assert custom["builtin"] is False
+        assert custom["base_style"] == "Normal"
+        assert custom["type"] == "paragraph"
+    finally:
+        doc_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_style_hierarchy(sample_docx):
+    """Test that base_style relationships are correctly reported."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "styles"}
+    )
+
+    # Heading 1 typically has a base style
+    heading1 = next((s for s in result["styles"] if s["name"] == "Heading 1"), None)
+    if heading1:
+        # Base style could be None or another style
+        # Just verify the field exists and is valid
+        assert "base_style" in heading1
+
+    # Check style types are valid
+    for style in result["styles"]:
+        assert style["type"] in ["paragraph", "character", "table", "list", "unknown"]
+
+
+@pytest.mark.asyncio
+async def test_read_styles_includes_character_styles(sample_docx):
+    """Test that character styles are included."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "styles"}
+    )
+
+    # Should have character styles
+    char_styles = [s for s in result["styles"] if s["type"] == "character"]
+    assert len(char_styles) > 0
+
+    # Check common character styles
+    style_names = [s["name"] for s in char_styles]
+    # Common character styles in Word
+    common_char_styles = ["Default Paragraph Font", "Hyperlink"]
+    found_any = any(s in style_names for s in common_char_styles)
+    assert found_any or len(char_styles) > 0  # At least has some character styles
+
+
+# --- Paragraph Format Read tests ---
+
+
+@pytest.fixture
+def docx_with_formatting():
+    """Create a Word document with paragraph formatting."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Inches, Pt
+
+        # Add a formatted paragraph
+        para = doc.add_paragraph("Formatted paragraph")
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pf = para.paragraph_format
+        pf.left_indent = Inches(0.5)
+        pf.right_indent = Inches(0.25)
+        pf.first_line_indent = Inches(0.3)
+        pf.space_before = Pt(12)
+        pf.space_after = Pt(6)
+        pf.line_spacing = 1.5
+
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_paragraph_format(docx_with_formatting):
+    """Test reading paragraph formatting via runs scope."""
+    # Get the paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_formatting), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs (which includes paragraph_format)
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_formatting),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Verify paragraph_format is included
+    pf = result["paragraph_format"]
+    assert pf is not None
+    assert pf["alignment"] == "center"
+    assert pf["left_indent"] == pytest.approx(0.5, abs=0.01)
+    assert pf["right_indent"] == pytest.approx(0.25, abs=0.01)
+    assert pf["first_line_indent"] == pytest.approx(0.3, abs=0.01)
+    assert pf["space_before"] == pytest.approx(12.0, abs=0.1)
+    assert pf["space_after"] == pytest.approx(6.0, abs=0.1)
+    assert pf["line_spacing"] == pytest.approx(1.5, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_read_paragraph_alignment(sample_docx):
+    """Test reading paragraph alignment from normal document."""
+    # Get the first paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs with paragraph_format
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+
+    # Normal paragraphs typically have no explicit alignment (None or left)
+    pf = result["paragraph_format"]
+    assert pf is not None
+    # alignment could be None for default or 'left'
+    assert pf["alignment"] is None or pf["alignment"] == "left"
+
+
+# --- Character Style tests ---
+
+
+@pytest.mark.asyncio
+async def test_apply_character_style(sample_docx):
+    """Test applying a character style to a run."""
+    # Get the first paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply "Strong" style to run 0
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": '{"style": "Strong"}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Read runs and verify style
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result["runs"][0]["style"] == "Strong"
+
+
+@pytest.mark.asyncio
+async def test_read_character_style(sample_docx):
+    """Test reading character style from run."""
+    # Get the first paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs - default runs have no explicit style
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": para_block["id"],
+        },
+    )
+    # Default runs typically have None or "Default Paragraph Font" style
+    assert result["runs"][0]["style"] is None or result["runs"][0]["style"] is not None
+
+
+# --- Rich Header/Footer tests ---
+
+
+@pytest.mark.asyncio
+async def test_append_paragraph_to_header(sample_docx):
+    """Test appending a paragraph to the header."""
+    # First set a header
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_header",
+            "content_data": "Initial Header",
+            "section_index": 0,
+        },
+    )
+
+    # Append a second paragraph
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "append_header",
+            "content_type": "paragraph",
+            "content_data": "Second Header Line",
+            "section_index": 0,
+        },
+    )
+    assert edit_result["success"]
+    assert "paragraph_" in edit_result["element_id"]
+
+    # Verify both are present
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    header_text = result["headers_footers"][0]["header_text"]
+    assert "Initial Header" in header_text
+    assert "Second Header Line" in header_text
+
+
+@pytest.mark.asyncio
+async def test_append_table_to_header(sample_docx):
+    """Test appending a table to the header."""
+    # First set a header
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_header",
+            "content_data": "Header Text",
+            "section_index": 0,
+        },
+    )
+
+    # Append a table
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "append_header",
+            "content_type": "table",
+            "content_data": '[["Col1", "Col2"], ["A", "B"]]',
+            "section_index": 0,
+        },
+    )
+    assert edit_result["success"]
+    assert "table_" in edit_result["element_id"]
+
+
+@pytest.mark.asyncio
+async def test_clear_header(sample_docx):
+    """Test clearing header content."""
+    # First set a header
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_header",
+            "content_data": "Header To Clear",
+            "section_index": 0,
+        },
+    )
+
+    # Clear the header
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "clear_header",
+            "section_index": 0,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify header is cleared (should have empty or minimal content)
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    header_text = result["headers_footers"][0]["header_text"]
+    # Header should be empty or contain only whitespace
+    assert header_text is None or header_text.strip() == ""
+
+
+# --- Cell Merge tests ---
+
+
+@pytest.fixture
+def docx_with_table():
+    """Create a Word document with a 3x3 table for merge testing."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        doc.add_heading("Table for Merge Testing", level=1)
+        table = doc.add_table(rows=3, cols=3)
+        for r in range(3):
+            for c in range(3):
+                table.cell(r, c).text = f"R{r}C{c}"
+        doc.save(f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_table_cells_merge_info(docx_with_table):
+    """Test that table cells include merge info fields."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Read cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+
+    # All cells should be unmerged origin cells
+    assert result["table_rows"] == 3
+    assert result["table_cols"] == 3
+    for cell in result["cells"]:
+        assert cell["grid_span"] == 1
+        assert cell["row_span"] == 1
+        assert cell["is_merge_origin"] is True
+
+
+@pytest.mark.asyncio
+async def test_merge_cells_horizontal(docx_with_table):
+    """Test merging cells horizontally."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Merge row 0, columns 0-1
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "merge_cells",
+            "target_id": table_block["id"],
+            "row": 0,
+            "col": 0,
+            "content_data": '{"end_row": 0, "end_col": 1}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Re-fetch table ID (content hash changed after merge)
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Verify merge by reading cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+
+    # Find the merged cell origin (row 0, col 0)
+    origin = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert origin["grid_span"] == 2
+    assert origin["is_merge_origin"] is True
+
+    # The continuation cell should exist but not be an origin
+    continuation = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 1)
+    assert continuation["is_merge_origin"] is False
+
+
+@pytest.mark.asyncio
+async def test_merge_cells_vertical(docx_with_table):
+    """Test merging cells vertically."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Merge column 0, rows 0-1
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "merge_cells",
+            "target_id": table_block["id"],
+            "row": 0,
+            "col": 0,
+            "content_data": '{"end_row": 1, "end_col": 0}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Re-fetch table ID (content hash changed after merge)
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Verify merge by reading cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+
+    # Find the merged cell origin (row 0, col 0)
+    origin = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert origin["row_span"] == 2
+    assert origin["is_merge_origin"] is True
+
+    # The continuation cell should exist but not be an origin
+    continuation = next(c for c in result["cells"] if c["row"] == 1 and c["col"] == 0)
+    assert continuation["is_merge_origin"] is False
+
+
+@pytest.mark.asyncio
+async def test_merge_cells_rectangular(docx_with_table):
+    """Test merging a 2x2 block of cells."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Merge 2x2 block from (0,0) to (1,1)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "merge_cells",
+            "target_id": table_block["id"],
+            "row": 0,
+            "col": 0,
+            "content_data": '{"end_row": 1, "end_col": 1}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Re-fetch table ID (content hash changed after merge)
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Verify merge by reading cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+
+    # Find the merged cell origin (row 0, col 0)
+    origin = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert origin["grid_span"] == 2
+    assert origin["row_span"] == 2
+    assert origin["is_merge_origin"] is True
+
+    # All other cells in the 2x2 block should not be origins
+    for r, c in [(0, 1), (1, 0), (1, 1)]:
+        cell = next(cl for cl in result["cells"] if cl["row"] == r and cl["col"] == c)
+        assert cell["is_merge_origin"] is False

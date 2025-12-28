@@ -33,6 +33,9 @@ class CellInfo(BaseModel):
     col: int  # 0-based column index
     text: str  # Cell text content
     hierarchical_id: str = ""  # e.g., "table_abc_0#r0c0"
+    grid_span: int = 1  # Horizontal span (columns merged)
+    row_span: int = 1  # Vertical span (rows merged)
+    is_merge_origin: bool = True  # False if this is a continuation cell
 
 
 class RunInfo(BaseModel):
@@ -51,6 +54,20 @@ class RunInfo(BaseModel):
     double_strike: bool | None = None
     subscript: bool | None = None
     superscript: bool | None = None
+    style: str | None = None  # Character style name
+    is_hyperlink: bool = False  # True if inside a hyperlink
+    hyperlink_url: str | None = None  # URL if inside hyperlink
+
+
+class HyperlinkInfo(BaseModel):
+    """A hyperlink within a paragraph."""
+
+    index: int  # Position in document's hyperlink list
+    text: str  # Visible link text
+    url: str  # Full URL (address + fragment)
+    address: str  # Base URL
+    fragment: str  # Anchor/bookmark (without #)
+    is_external: bool  # True if external link (has rId)
 
 
 class CommentInfo(BaseModel):
@@ -107,6 +124,33 @@ class ImageInfo(BaseModel):
     filename: str  # Original filename if available
 
 
+class StyleInfo(BaseModel):
+    """A style definition in the document."""
+
+    name: str  # UI name (e.g., "Heading 1")
+    style_id: str  # Internal ID
+    type: str  # "paragraph", "character", "table", "list"
+    builtin: bool  # True if built-in style
+    base_style: str | None = None  # Parent style name
+    next_style: str | None = None  # Auto-applied next paragraph style
+    hidden: bool = False  # Hidden from UI
+    quick_style: bool = False  # In Quick Styles gallery
+
+
+class ParagraphFormatInfo(BaseModel):
+    """Paragraph formatting properties."""
+
+    alignment: str | None = None  # "left", "center", "right", "justify"
+    left_indent: float | None = None  # inches
+    right_indent: float | None = None  # inches
+    first_line_indent: float | None = None  # inches
+    space_before: float | None = None  # points
+    space_after: float | None = None  # points
+    line_spacing: float | None = None  # multiplier or points
+    keep_with_next: bool | None = None
+    page_break_before: bool | None = None
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -121,6 +165,9 @@ class DocumentReadResult(BaseModel):
     headers_footers: list[HeaderFooterInfo] = Field(default_factory=list)
     page_setup: list[PageSetupInfo] = Field(default_factory=list)
     images: list[ImageInfo] = Field(default_factory=list)
+    hyperlinks: list[HyperlinkInfo] = Field(default_factory=list)
+    styles: list[StyleInfo] = Field(default_factory=list)
+    paragraph_format: ParagraphFormatInfo | None = None  # For runs scope
 
 
 class EditResult(BaseModel):

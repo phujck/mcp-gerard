@@ -19,9 +19,12 @@ from mcp_handley_lab.word.models import (
     CommentInfo,
     DocumentMeta,
     HeaderFooterInfo,
+    HyperlinkInfo,
     ImageInfo,
     PageSetupInfo,
+    ParagraphFormatInfo,
     RunInfo,
+    StyleInfo,
 )
 
 _HEADING_RE = re.compile(r"^Heading ([1-9])$")
@@ -646,30 +649,154 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
                 run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
 
 
-def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
-    """Build list of CellInfo for all cells in a table.
+def _get_vmerge_val_from_tc(tc: CT_Tc) -> str | None:
+    """Get vMerge value from a tc element.
 
-    Uses true grid coordinates (rows × columns) to handle merged cells correctly.
-    For merged cells, multiple coordinates may refer to the same underlying cell.
+    Returns:
+        'restart' for merge origin, 'continue' for continuation, None for no merge.
+    """
+    from docx.oxml.ns import qn
+
+    tc_pr = tc.find(qn("w:tcPr"))
+    if tc_pr is None:
+        return None
+    v_merge = tc_pr.find(qn("w:vMerge"))
+    if v_merge is None:
+        return None
+    # vMerge with val="restart" is origin, vMerge without val is continue
+    val = v_merge.get(qn("w:val"))
+    return val if val else "continue"
+
+
+def _calculate_row_span_from_xml(table: Table, start_row: int, col: int) -> int:
+    """Calculate vertical span by checking vMerge='continue' in subsequent rows.
+
+    Iterates over actual XML tc elements to detect continuation cells.
+    """
+    from docx.oxml.ns import qn
+
+    span = 1
+    rows = list(table.rows)
+    for r in range(start_row + 1, len(rows)):
+        row_el = rows[r]._tr
+        tc_elements = row_el.findall(qn("w:tc"))
+        if col < len(tc_elements):
+            tc = tc_elements[col]
+            vmerge = _get_vmerge_val_from_tc(tc)
+            if vmerge == "continue":
+                span += 1
+            else:
+                break
+        else:
+            break
+    return span
+
+
+def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
+    """Build list of CellInfo with merge information.
+
+    Detects:
+    - Horizontal merges via grid_span property
+    - Vertical merges via vMerge XML attribute
+
+    Iterates over actual XML elements (not table.cell()) to correctly
+    detect continuation cells in vertical merges.
 
     Args:
         table: The Table object
         table_id: Base ID of the table (for hierarchical IDs)
 
     Returns:
-        List of CellInfo with 0-based indices and hierarchical IDs
+        List of CellInfo with merge info for all grid positions
     """
-    rows, cols = len(table.rows), len(table.columns)
-    return [
-        CellInfo(
-            row=r,
-            col=c,
-            text=table.cell(r, c).text or "",
-            hierarchical_id=f"{table_id}#r{r}c{c}" if table_id else "",
-        )
-        for r in range(rows)
-        for c in range(cols)
-    ]
+    from docx.oxml.ns import qn
+
+    result = []
+    rows = list(table.rows)
+
+    for r, row in enumerate(rows):
+        row_el = row._tr
+        tc_elements = row_el.findall(qn("w:tc"))
+        c = 0
+        for tc in tc_elements:
+            vmerge = _get_vmerge_val_from_tc(tc)
+            grid_span = tc.grid_span
+
+            if vmerge == "continue":
+                # Vertical continuation cell
+                result.append(
+                    CellInfo(
+                        row=r,
+                        col=c,
+                        text="",
+                        hierarchical_id=f"{table_id}#r{r}c{c}" if table_id else "",
+                        is_merge_origin=False,
+                        grid_span=1,
+                        row_span=1,
+                    )
+                )
+                # Add horizontal continuation entries for wide continuation cells
+                for span_c in range(1, grid_span):
+                    result.append(
+                        CellInfo(
+                            row=r,
+                            col=c + span_c,
+                            text="",
+                            hierarchical_id=(
+                                f"{table_id}#r{r}c{c + span_c}" if table_id else ""
+                            ),
+                            is_merge_origin=False,
+                            grid_span=1,
+                            row_span=1,
+                        )
+                    )
+                c += grid_span
+            else:
+                # Origin cell (vmerge='restart' or None) or normal cell
+                row_span = (
+                    _calculate_row_span_from_xml(table, r, c)
+                    if vmerge == "restart"
+                    else 1
+                )
+                # Get text from the cell
+                cell = table.cell(r, c)
+                result.append(
+                    CellInfo(
+                        row=r,
+                        col=c,
+                        text=cell.text or "",
+                        hierarchical_id=f"{table_id}#r{r}c{c}" if table_id else "",
+                        is_merge_origin=True,
+                        grid_span=grid_span,
+                        row_span=row_span,
+                    )
+                )
+                # Add continuation entries for horizontal span
+                for span_c in range(1, grid_span):
+                    result.append(
+                        CellInfo(
+                            row=r,
+                            col=c + span_c,
+                            text="",
+                            hierarchical_id=(
+                                f"{table_id}#r{r}c{c + span_c}" if table_id else ""
+                            ),
+                            is_merge_origin=False,
+                            grid_span=1,
+                            row_span=1,
+                        )
+                    )
+                c += grid_span
+    return result
+
+
+def merge_cells(
+    table: Table, start_row: int, start_col: int, end_row: int, end_col: int
+) -> None:
+    """Merge a rectangular region of cells."""
+    start_cell = table.cell(start_row, start_col)
+    end_cell = table.cell(end_row, end_col)
+    start_cell.merge(end_cell)
 
 
 def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
@@ -721,44 +848,169 @@ def delete_table_column(table: Table, col_index: int) -> None:
             cell._element.getparent().remove(cell._element)
 
 
+def _build_run_info(
+    run, index: int, is_hyperlink: bool = False, hyperlink_url: str | None = None
+) -> RunInfo:
+    """Build RunInfo from a Run object."""
+    return RunInfo(
+        index=index,
+        text=run.text or "",
+        bold=run.bold,
+        italic=run.italic,
+        underline=run.underline,
+        font_name=run.font.name,
+        font_size=run.font.size.pt if run.font.size else None,
+        color=str(run.font.color.rgb)
+        if run.font.color and run.font.color.rgb
+        else None,
+        highlight_color=_HIGHLIGHT_REVERSE.get(run.font.highlight_color),
+        strike=run.font.strike,
+        double_strike=run.font.double_strike,
+        subscript=run.font.subscript,
+        superscript=run.font.superscript,
+        style=run.style.name if run.style else None,
+        is_hyperlink=is_hyperlink,
+        hyperlink_url=hyperlink_url,
+    )
+
+
 def build_runs(paragraph: Paragraph) -> list[RunInfo]:
-    """Build list of RunInfo for all runs in a paragraph."""
+    """Build list of RunInfo for all runs in a paragraph, including hyperlink runs."""
+    from docx.text.hyperlink import Hyperlink
+
     _init_highlight_maps()
-    return [
-        RunInfo(
-            index=idx,
-            text=run.text or "",
-            bold=run.bold,
-            italic=run.italic,
-            underline=run.underline,
-            font_name=run.font.name,
-            font_size=run.font.size.pt if run.font.size else None,
-            color=str(run.font.color.rgb)
-            if run.font.color and run.font.color.rgb
-            else None,
-            highlight_color=_HIGHLIGHT_REVERSE.get(run.font.highlight_color),
-            strike=run.font.strike,
-            double_strike=run.font.double_strike,
-            subscript=run.font.subscript,
-            superscript=run.font.superscript,
+    result = []
+    idx = 0
+    for item in paragraph.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            url = item.url
+            for run in item.runs:
+                result.append(
+                    _build_run_info(run, idx, is_hyperlink=True, hyperlink_url=url)
+                )
+                idx += 1
+        else:  # Run
+            result.append(_build_run_info(item, idx))
+            idx += 1
+    return result
+
+
+def build_hyperlinks(doc: Document) -> list[HyperlinkInfo]:
+    """Build list of all hyperlinks in the document."""
+    from docx.text.hyperlink import Hyperlink
+
+    result = []
+    idx = 0
+    for para, _el in _iter_all_paragraphs(doc):
+        for item in para.iter_inner_content():
+            if isinstance(item, Hyperlink):
+                result.append(
+                    HyperlinkInfo(
+                        index=idx,
+                        text=item.text,
+                        url=item.url,
+                        address=item.address,
+                        fragment=item.fragment,
+                        is_external=bool(item._hyperlink.rId),
+                    )
+                )
+                idx += 1
+    return result
+
+
+def build_styles(doc: Document) -> list[StyleInfo]:
+    """Build list of all styles in the document."""
+    from docx.enum.style import WD_STYLE_TYPE
+
+    style_type_map = {
+        WD_STYLE_TYPE.PARAGRAPH: "paragraph",
+        WD_STYLE_TYPE.CHARACTER: "character",
+        WD_STYLE_TYPE.TABLE: "table",
+        WD_STYLE_TYPE.LIST: "list",
+    }
+    result = []
+    for style in doc.styles:
+        # Some style types (e.g., _NumberingStyle) don't have all attributes
+        base = getattr(style, "base_style", None)
+        next_style = getattr(style, "next_paragraph_style", None)
+        hidden = getattr(style, "hidden", False)
+        quick_style = getattr(style, "quick_style", False)
+        result.append(
+            StyleInfo(
+                name=style.name,
+                style_id=style.style_id,
+                type=style_type_map.get(style.type, "unknown"),
+                builtin=style.builtin,
+                base_style=base.name if base else None,
+                next_style=(
+                    next_style.name if next_style and next_style != style else None
+                ),
+                hidden=hidden,
+                quick_style=quick_style,
+            )
         )
-        for idx, run in enumerate(paragraph.runs)
-    ]
+    return result
+
+
+def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
+    """Extract paragraph formatting properties."""
+    pf = paragraph.paragraph_format
+    alignment = paragraph.alignment.name.lower() if paragraph.alignment else None
+    return ParagraphFormatInfo(
+        alignment=alignment,
+        left_indent=pf.left_indent.inches if pf.left_indent else None,
+        right_indent=pf.right_indent.inches if pf.right_indent else None,
+        first_line_indent=pf.first_line_indent.inches if pf.first_line_indent else None,
+        space_before=pf.space_before.pt if pf.space_before else None,
+        space_after=pf.space_after.pt if pf.space_after else None,
+        line_spacing=(
+            pf.line_spacing
+            if isinstance(pf.line_spacing, float)
+            else (pf.line_spacing.pt if pf.line_spacing else None)
+        ),
+        keep_with_next=pf.keep_with_next,
+        page_break_before=pf.page_break_before,
+    )
+
+
+def _resolve_run_by_inner_index(paragraph: Paragraph, run_index: int):
+    """Resolve run by iter_inner_content index (matching build_runs indexing).
+
+    This ensures edit_run operations use the same indexing as read(scope='runs'),
+    which includes runs inside hyperlinks.
+    """
+    from docx.text.hyperlink import Hyperlink
+
+    idx = 0
+    for item in paragraph.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            for run in item.runs:
+                if idx == run_index:
+                    return run
+                idx += 1
+        else:  # Run
+            if idx == run_index:
+                return item
+            idx += 1
+    raise IndexError(f"Run index {run_index} out of range (paragraph has {idx} runs)")
 
 
 def edit_run_text(paragraph: Paragraph, run_index: int, text: str) -> None:
-    """Edit run text."""
-    paragraph.runs[run_index].text = text
+    """Edit run text. Uses iter_inner_content indexing (includes hyperlink runs)."""
+    run = _resolve_run_by_inner_index(paragraph, run_index)
+    run.text = text
 
 
 def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None:
-    """Apply formatting to a specific run."""
+    """Apply formatting to a specific run. Uses iter_inner_content indexing."""
     from docx.shared import Pt, RGBColor
 
     _init_highlight_maps()
-    run = paragraph.runs[run_index]
+    run = _resolve_run_by_inner_index(paragraph, run_index)
     for key, value in fmt.items():
-        if key == "bold":
+        if key == "style":
+            run.style = value  # e.g., "Strong", "Emphasis"
+        elif key == "bold":
             run.bold = bool(value)
         elif key == "italic":
             run.italic = bool(value)
@@ -911,6 +1163,86 @@ def set_even_page_footer(doc: Document, section_index: int, text: str) -> None:
     footer.add_paragraph(text)
 
 
+def append_to_header(
+    doc: Document, section_index: int, content_type: str, content_data: str
+) -> str:
+    """Append paragraph or table to header. Returns element_id.
+
+    If header is_linked_to_previous, this modifies the previous section's header.
+    Use clear_header first to unlink if independent content is needed.
+    """
+    from docx.shared import Inches
+
+    section = doc.sections[section_index]
+    header = section.header
+    if content_type == "paragraph":
+        p = header.add_paragraph(content_data)
+        occurrence = sum(1 for para in header.paragraphs if para.text == p.text) - 1
+        return f"paragraph_{content_hash(p.text)}_{occurrence}"
+    if content_type == "table":
+        table_data = json.loads(content_data)
+        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
+        # BlockItemContainer.add_table requires width parameter
+        tbl = header.add_table(rows=rows, cols=cols, width=Inches(6))
+        for r in range(rows):
+            for c in range(len(table_data[r])):
+                tbl.cell(r, c).text = str(table_data[r][c])
+        return f"table_{content_hash(table_content_for_hash(tbl))}_0"
+    raise ValueError(f"Unknown content_type: {content_type}")
+
+
+def append_to_footer(
+    doc: Document, section_index: int, content_type: str, content_data: str
+) -> str:
+    """Append paragraph or table to footer. Returns element_id.
+
+    If footer is_linked_to_previous, this modifies the previous section's footer.
+    Use clear_footer first to unlink if independent content is needed.
+    """
+    from docx.shared import Inches
+
+    section = doc.sections[section_index]
+    footer = section.footer
+    if content_type == "paragraph":
+        p = footer.add_paragraph(content_data)
+        occurrence = sum(1 for para in footer.paragraphs if para.text == p.text) - 1
+        return f"paragraph_{content_hash(p.text)}_{occurrence}"
+    if content_type == "table":
+        table_data = json.loads(content_data)
+        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
+        # BlockItemContainer.add_table requires width parameter
+        tbl = footer.add_table(rows=rows, cols=cols, width=Inches(6))
+        for r in range(rows):
+            for c in range(len(table_data[r])):
+                tbl.cell(r, c).text = str(table_data[r][c])
+        return f"table_{content_hash(table_content_for_hash(tbl))}_0"
+    raise ValueError(f"Unknown content_type: {content_type}")
+
+
+def clear_header(doc: Document, section_index: int) -> None:
+    """Clear all header content. Unlinks from previous section first."""
+    section = doc.sections[section_index]
+    header = section.header
+    header.is_linked_to_previous = False
+    header_el = header._element
+    for child in list(header_el):
+        header_el.remove(child)
+    # Word requires at least one paragraph
+    header.add_paragraph("")
+
+
+def clear_footer(doc: Document, section_index: int) -> None:
+    """Clear all footer content. Unlinks from previous section first."""
+    section = doc.sections[section_index]
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    footer_el = footer._element
+    for child in list(footer_el):
+        footer_el.remove(child)
+    # Word requires at least one paragraph
+    footer.add_paragraph("")
+
+
 def build_page_setup(doc: Document) -> list[PageSetupInfo]:
     """Build list of PageSetupInfo for all sections."""
     from docx.enum.section import WD_ORIENT
@@ -1019,54 +1351,82 @@ def get_embedded_image_hash(doc: Document, blip) -> str | None:
     return image_part.image.sha1[:8]
 
 
+def _extract_images_from_run(
+    doc: Document,
+    run,
+    run_idx: int,
+    block_id: str,
+    image_hash_counts: dict[str, int],
+    images: list[ImageInfo],
+) -> None:
+    """Extract images from a single run."""
+    image_idx_in_run = 0
+    for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
+        inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
+        if inline is None:
+            continue
+
+        # Guard access to pic element (skip charts/smartart)
+        try:
+            blip = inline.graphic.graphicData.pic.blipFill.blip
+        except AttributeError:
+            continue
+
+        h = get_embedded_image_hash(doc, blip)
+        if h is None:
+            continue  # Skip linked images
+
+        # Track image occurrence globally
+        img_occurrence = image_hash_counts.get(h, 0)
+        image_hash_counts[h] = img_occurrence + 1
+
+        # Get metadata via XML (avoid InlineShape construction issues)
+        image_part = doc.part.related_parts[blip.embed]
+        extent = inline.extent
+        width_emu = extent.cx if extent is not None else 0
+        height_emu = extent.cy if extent is not None else 0
+
+        images.append(
+            ImageInfo(
+                id=f"image_{h}_{img_occurrence}",
+                width_inches=width_emu / _EMU_PER_INCH,
+                height_inches=height_emu / _EMU_PER_INCH,
+                content_type=image_part.content_type,
+                block_id=block_id,
+                run_index=run_idx,
+                image_index_in_run=image_idx_in_run,
+                filename=image_part.image.filename or "",
+            )
+        )
+        image_idx_in_run += 1
+
+
 def _extract_images_from_paragraph(
     doc: Document,
     para,
     block_id: str,
     image_hash_counts: dict[str, int],
 ) -> list[ImageInfo]:
-    """Extract images from a paragraph, updating occurrence counts."""
-    images = []
-    for run_idx, run in enumerate(para.runs):
-        image_idx_in_run = 0
-        for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
-            inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
-            if inline is None:
-                continue
+    """Extract images from a paragraph, updating occurrence counts.
 
-            # Guard access to pic element (skip charts/smartart)
-            try:
-                blip = inline.graphic.graphicData.pic.blipFill.blip
-            except AttributeError:
-                continue
+    Uses iter_inner_content() indexing to match build_runs() indexing.
+    """
+    from docx.text.hyperlink import Hyperlink
 
-            h = get_embedded_image_hash(doc, blip)
-            if h is None:
-                continue  # Skip linked images
-
-            # Track image occurrence globally
-            img_occurrence = image_hash_counts.get(h, 0)
-            image_hash_counts[h] = img_occurrence + 1
-
-            # Get metadata via XML (avoid InlineShape construction issues)
-            image_part = doc.part.related_parts[blip.embed]
-            extent = inline.extent
-            width_emu = extent.cx if extent is not None else 0
-            height_emu = extent.cy if extent is not None else 0
-
-            images.append(
-                ImageInfo(
-                    id=f"image_{h}_{img_occurrence}",
-                    width_inches=width_emu / _EMU_PER_INCH,
-                    height_inches=height_emu / _EMU_PER_INCH,
-                    content_type=image_part.content_type,
-                    block_id=block_id,
-                    run_index=run_idx,
-                    image_index_in_run=image_idx_in_run,
-                    filename=image_part.image.filename or "",
+    images: list[ImageInfo] = []
+    run_idx = 0
+    for item in para.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            for run in item.runs:
+                _extract_images_from_run(
+                    doc, run, run_idx, block_id, image_hash_counts, images
                 )
+                run_idx += 1
+        else:  # Run
+            _extract_images_from_run(
+                doc, item, run_idx, block_id, image_hash_counts, images
             )
-            image_idx_in_run += 1
+            run_idx += 1
     return images
 
 
@@ -1128,9 +1488,26 @@ def _iter_all_paragraphs(doc: Document):
                         yield para, para._element
 
 
+def _iter_all_runs_in_paragraph(para):
+    """Iterate all runs in paragraph including those inside hyperlinks.
+
+    Uses iter_inner_content() to match build_runs() indexing.
+    """
+    from docx.text.hyperlink import Hyperlink
+
+    for item in para.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            yield from item.runs
+        else:  # Run
+            yield item
+
+
 def _find_image_in_paragraph(doc: Document, para, target_hash: str):
-    """Find inline element matching hash in paragraph. Returns inline or None."""
-    for run in para.runs:
+    """Yield each wp:inline element in paragraph matching target_hash.
+
+    Uses iter_inner_content() traversal to match build_images() indexing.
+    """
+    for run in _iter_all_runs_in_paragraph(para):
         for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
             inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
             if inline is None:
@@ -1243,7 +1620,7 @@ def delete_image(doc: Document, image_id: str) -> None:
     para = Paragraph(para_el, doc)
     has_content = bool(para.text.strip())
     if not has_content:
-        for run in para.runs:
+        for run in _iter_all_runs_in_paragraph(para):
             # Check for drawings, fields, or other significant content
             run_el = run._element
             if run_el.findall(".//w:drawing", namespaces=oxml_nsmap) or run_el.findall(
