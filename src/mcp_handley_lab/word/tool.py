@@ -7,7 +7,12 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.word.document import (
+    add_break_after,
     add_comment_to_block,
+    add_page_break,
+    add_section,
+    add_table_column,
+    add_table_row,
     apply_paragraph_formatting,
     build_blocks,
     build_comments,
@@ -20,6 +25,8 @@ from mcp_handley_lab.word.document import (
     count_occurrence,
     delete_block,
     delete_image,
+    delete_table_column,
+    delete_table_row,
     edit_run_formatting,
     edit_run_text,
     get_document_meta,
@@ -30,6 +37,11 @@ from mcp_handley_lab.word.document import (
     replace_table,
     replace_table_cell,
     resolve_target,
+    set_document_meta,
+    set_even_page_footer,
+    set_even_page_header,
+    set_first_page_footer,
+    set_first_page_header,
     set_footer_text,
     set_header_text,
     set_page_margins,
@@ -110,13 +122,13 @@ def read(
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section'",
     ),
     target_id: str = Field(
         "",
@@ -135,7 +147,7 @@ def edit(
     ),
     formatting: str = Field(
         "",
-        description='Direct formatting JSON. Text: {"bold": true, "color": "FF0000", "font_size": 14}. Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches (maintains aspect ratio; defaults to native size at 72 DPI if omitted).',
+        description='Direct formatting JSON. Text: {"bold": true, "color": "FF0000", "font_size": 14, "highlight_color": "yellow", "strike": true, "subscript": true, "superscript": true}. Paragraph: {"left_indent": 0.5, "right_indent": 0.5, "first_line_indent": 0.5, "space_before": 12, "space_after": 12, "line_spacing": 1.5, "keep_with_next": true, "page_break_before": true} (indents in inches, spacing in points, line_spacing < 5 is multiplier). Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches.',
     ),
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
@@ -353,6 +365,34 @@ def edit(
             success=True, message=f"Set footer for section {section_index}"
         )
 
+    if operation == "set_first_page_header":
+        set_first_page_header(doc, section_index, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set first page header for section {section_index}"
+        )
+
+    if operation == "set_first_page_footer":
+        set_first_page_footer(doc, section_index, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set first page footer for section {section_index}"
+        )
+
+    if operation == "set_even_page_header":
+        set_even_page_header(doc, section_index, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set even page header for section {section_index}"
+        )
+
+    if operation == "set_even_page_footer":
+        set_even_page_footer(doc, section_index, content_data)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Set even page footer for section {section_index}"
+        )
+
     if operation == "set_margins":
         margins = json.loads(formatting)
         set_page_margins(
@@ -393,6 +433,107 @@ def edit(
         delete_image(doc, target_id)
         doc.save(file_path)
         return EditResult(success=True, message=f"Deleted {target_id}")
+
+    if operation == "add_row":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
+            raise ValueError("target_id must be a table")
+        data = json.loads(content_data) if content_data else None
+        row_idx = add_table_row(t.leaf_obj, data)
+        table_content = table_content_for_hash(t.leaf_obj)
+        occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
+        element_id = f"table_{content_hash(table_content)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True, element_id=element_id, message=f"Added row {row_idx}"
+        )
+
+    if operation == "add_column":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
+            raise ValueError("target_id must be a table")
+        fmt = json.loads(formatting) if formatting else {}
+        width = float(fmt.get("width", 1.0))
+        data = json.loads(content_data) if content_data else None
+        col_idx = add_table_column(t.leaf_obj, width, data)
+        table_content = table_content_for_hash(t.leaf_obj)
+        occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
+        element_id = f"table_{content_hash(table_content)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True, element_id=element_id, message=f"Added column {col_idx}"
+        )
+
+    if operation == "delete_row":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
+            raise ValueError("target_id must be a table")
+        delete_table_row(t.leaf_obj, row)
+        table_content = table_content_for_hash(t.leaf_obj)
+        occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
+        element_id = f"table_{content_hash(table_content)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True, element_id=element_id, message=f"Deleted row {row}"
+        )
+
+    if operation == "delete_column":
+        t = resolve_target(doc, target_id)
+        if t.leaf_kind != "table":
+            raise ValueError("target_id must be a table")
+        delete_table_column(t.leaf_obj, col)
+        table_content = table_content_for_hash(t.leaf_obj)
+        occurrence = count_occurrence(doc, "table", table_content, t.leaf_el)
+        element_id = f"table_{content_hash(table_content)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True, element_id=element_id, message=f"Deleted column {col}"
+        )
+
+    if operation == "add_page_break":
+        p = add_page_break(doc)
+        text = p.text or ""
+        occurrence = count_occurrence(doc, "paragraph", text, p._element)
+        element_id = f"paragraph_{content_hash(text)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True, element_id=element_id, message="Added page break"
+        )
+
+    if operation == "add_break":
+        t = resolve_target(doc, target_id)
+        break_type = content_data or "page"  # default to page break
+        p = add_break_after(doc, t.leaf_el, break_type)
+        text = p.text or ""
+        occurrence = count_occurrence(doc, "paragraph", text, p._element)
+        element_id = f"paragraph_{content_hash(text)}_{occurrence}"
+        doc.save(file_path)
+        return EditResult(
+            success=True,
+            element_id=element_id,
+            message=f"Added {break_type} break after {target_id}",
+        )
+
+    if operation == "set_meta":
+        meta_data = json.loads(content_data) if content_data else {}
+        set_document_meta(
+            doc,
+            title=meta_data.get("title"),
+            author=meta_data.get("author"),
+            subject=meta_data.get("subject"),
+            keywords=meta_data.get("keywords"),
+            category=meta_data.get("category"),
+        )
+        doc.save(file_path)
+        return EditResult(success=True, message="Updated document metadata")
+
+    if operation == "add_section":
+        start_type = content_data or "new_page"
+        section_idx = add_section(doc, start_type)
+        doc.save(file_path)
+        return EditResult(
+            success=True, message=f"Added section {section_idx} ({start_type})"
+        )
 
     raise ValueError(f"Unknown operation: {operation}")
 

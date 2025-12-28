@@ -29,6 +29,36 @@ _ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
 _IMAGE_ID_RE = re.compile(r"^image_([0-9a-f]{8})_(\d+)$")
 _EMU_PER_INCH = 914400
 
+# Highlight color mapping (WD_COLOR_INDEX enum)
+_HIGHLIGHT_MAP: dict[str, int] = {}  # Populated lazily
+_HIGHLIGHT_REVERSE: dict[int, str] = {}
+
+
+def _init_highlight_maps() -> None:
+    """Initialize highlight color maps from WD_COLOR_INDEX enum."""
+    if _HIGHLIGHT_MAP:
+        return  # Already initialized
+    from docx.enum.text import WD_COLOR_INDEX
+
+    mappings = {
+        "yellow": WD_COLOR_INDEX.YELLOW,
+        "green": WD_COLOR_INDEX.BRIGHT_GREEN,
+        "cyan": WD_COLOR_INDEX.TURQUOISE,
+        "pink": WD_COLOR_INDEX.PINK,
+        "blue": WD_COLOR_INDEX.BLUE,
+        "red": WD_COLOR_INDEX.RED,
+        "dark_blue": WD_COLOR_INDEX.DARK_BLUE,
+        "dark_red": WD_COLOR_INDEX.DARK_RED,
+        "dark_yellow": WD_COLOR_INDEX.DARK_YELLOW,
+        "gray": WD_COLOR_INDEX.GRAY_25,
+        "dark_gray": WD_COLOR_INDEX.GRAY_50,
+        "black": WD_COLOR_INDEX.BLACK,
+        "white": WD_COLOR_INDEX.WHITE,
+    }
+    _HIGHLIGHT_MAP.update(mappings)
+    _HIGHLIGHT_REVERSE.update({v: k for k, v in mappings.items()})
+
+
 # Hierarchical path segment patterns (0-based indices)
 _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
@@ -145,6 +175,28 @@ def get_document_meta(doc: Document) -> DocumentMeta:
         revision=cp.revision or 0,
         sections=len(doc.sections),
     )
+
+
+def set_document_meta(
+    doc: Document,
+    title: str | None = None,
+    author: str | None = None,
+    subject: str | None = None,
+    keywords: str | None = None,
+    category: str | None = None,
+) -> None:
+    """Update document core properties. Only updates non-None values."""
+    cp = doc.core_properties
+    if title is not None:
+        cp.title = title
+    if author is not None:
+        cp.author = author
+    if subject is not None:
+        cp.subject = subject
+    if keywords is not None:
+        cp.keywords = keywords
+    if category is not None:
+        cp.category = category
 
 
 def build_blocks(
@@ -485,6 +537,37 @@ def insert_table_relative(
     return tbl
 
 
+def add_page_break(doc: Document) -> Paragraph:
+    """Append a page break paragraph to the document. Returns the paragraph."""
+    from docx.enum.text import WD_BREAK
+
+    p = doc.add_paragraph()
+    run = p.add_run()
+    run.add_break(WD_BREAK.PAGE)
+    return p
+
+
+def add_break_after(
+    doc: Document, target_el: CT_P | CT_Tbl, break_type: str
+) -> Paragraph:
+    """Insert break after target element. break_type: 'page', 'column', 'line'."""
+    from docx.enum.text import WD_BREAK
+
+    break_map = {
+        "page": WD_BREAK.PAGE,
+        "column": WD_BREAK.COLUMN,
+        "line": WD_BREAK.LINE,
+    }
+    if break_type not in break_map:
+        raise ValueError(f"Unknown break_type: {break_type}")
+
+    p = doc.add_paragraph()
+    run = p.add_run()
+    run.add_break(break_map[break_type])
+    target_el.addnext(p._element)
+    return p
+
+
 def delete_block(block_type: str, obj: Paragraph | Table) -> None:
     """Delete a block from the document."""
     # block_type is "paragraph", "heading1", "heading2", etc., or "table"
@@ -512,7 +595,7 @@ def replace_table(doc: Document, old_tbl: Table, table_data: list[list[str]]) ->
 def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
     """Apply direct formatting to paragraph (affects all runs)."""
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Pt, RGBColor
+    from docx.shared import Inches, Pt, RGBColor
 
     alignment_map = {
         "left": WD_ALIGN_PARAGRAPH.LEFT,
@@ -523,6 +606,30 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
     if "alignment" in fmt:
         p.alignment = alignment_map[fmt["alignment"].lower()]
 
+    # Paragraph format properties (indentation, spacing, flow control)
+    pf = p.paragraph_format
+    if "left_indent" in fmt:
+        pf.left_indent = Inches(fmt["left_indent"])
+    if "right_indent" in fmt:
+        pf.right_indent = Inches(fmt["right_indent"])
+    if "first_line_indent" in fmt:
+        pf.first_line_indent = Inches(fmt["first_line_indent"])  # negative = hanging
+    if "space_before" in fmt:
+        pf.space_before = Pt(fmt["space_before"])
+    if "space_after" in fmt:
+        pf.space_after = Pt(fmt["space_after"])
+    if "line_spacing" in fmt:
+        val = fmt["line_spacing"]
+        if val < 5:  # Multiplier (1.0, 1.5, 2.0, 3.0 triple-spacing)
+            pf.line_spacing = val
+        else:  # Points (6pt+)
+            pf.line_spacing = Pt(val)
+    if "keep_with_next" in fmt:
+        pf.keep_with_next = fmt["keep_with_next"]
+    if "page_break_before" in fmt:
+        pf.page_break_before = fmt["page_break_before"]
+
+    # Run-level formatting (font properties)
     for run in p.runs:
         for key, value in fmt.items():
             if key == "bold":
@@ -570,8 +677,53 @@ def replace_table_cell(table: Table, row: int, col: int, text: str) -> None:
     table.cell(row, col).text = text
 
 
+def add_table_row(table: Table, data: list[str] | None = None) -> int:
+    """Add row to table. Returns new row index (0-based)."""
+    row = table.add_row()
+    if data:
+        for i, text in enumerate(data[: len(table.columns)]):
+            row.cells[i].text = text
+    return len(table.rows) - 1
+
+
+def add_table_column(
+    table: Table, width_inches: float = 1.0, data: list[str] | None = None
+) -> int:
+    """Add column to table. Width required by python-docx API. Returns new col index."""
+    from docx.shared import Inches
+
+    table.add_column(Inches(width_inches))
+    col_idx = len(table.columns) - 1
+    if data:
+        for i, text in enumerate(data[: len(table.rows)]):
+            table.cell(i, col_idx).text = text
+    return col_idx
+
+
+def delete_table_row(table: Table, row_index: int) -> None:
+    """Delete row from table (0-based index)."""
+    row = table.rows[row_index]
+    row._element.getparent().remove(row._element)
+
+
+def delete_table_column(table: Table, col_index: int) -> None:
+    """Delete column from table (0-based index). Removes grid definition and cells."""
+    # 1. Remove the grid column definition (required for valid Word XML)
+    tbl_grid = table._tbl.tblGrid
+    if col_index < len(tbl_grid.gridCol_lst):
+        grid_col = tbl_grid.gridCol_lst[col_index]
+        grid_col.getparent().remove(grid_col)
+
+    # 2. Remove the cell from every row
+    for row in table.rows:
+        if col_index < len(row.cells):
+            cell = row.cells[col_index]
+            cell._element.getparent().remove(cell._element)
+
+
 def build_runs(paragraph: Paragraph) -> list[RunInfo]:
     """Build list of RunInfo for all runs in a paragraph."""
+    _init_highlight_maps()
     return [
         RunInfo(
             index=idx,
@@ -584,6 +736,11 @@ def build_runs(paragraph: Paragraph) -> list[RunInfo]:
             color=str(run.font.color.rgb)
             if run.font.color and run.font.color.rgb
             else None,
+            highlight_color=_HIGHLIGHT_REVERSE.get(run.font.highlight_color),
+            strike=run.font.strike,
+            double_strike=run.font.double_strike,
+            subscript=run.font.subscript,
+            superscript=run.font.superscript,
         )
         for idx, run in enumerate(paragraph.runs)
     ]
@@ -598,6 +755,7 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
     """Apply formatting to a specific run."""
     from docx.shared import Pt, RGBColor
 
+    _init_highlight_maps()
     run = paragraph.runs[run_index]
     for key, value in fmt.items():
         if key == "bold":
@@ -612,6 +770,16 @@ def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None
             run.font.size = Pt(float(value))
         elif key == "color":
             run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
+        elif key == "highlight_color":
+            run.font.highlight_color = _HIGHLIGHT_MAP.get(value.lower())
+        elif key == "strike":
+            run.font.strike = bool(value)
+        elif key == "double_strike":
+            run.font.double_strike = bool(value)
+        elif key == "subscript":
+            run.font.subscript = bool(value)
+        elif key == "superscript":
+            run.font.superscript = bool(value)
 
 
 def build_comments(doc: Document) -> list[CommentInfo]:
@@ -657,6 +825,7 @@ def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
             header_is_linked=hdr.is_linked_to_previous,
             footer_is_linked=ftr.is_linked_to_previous,
             has_different_first_page=section.different_first_page_header_footer,
+            has_different_odd_even=doc.settings.odd_and_even_pages_header_footer,
         )
         if section.different_first_page_header_footer:
             fp_hdr, fp_ftr = section.first_page_header, section.first_page_footer
@@ -669,6 +838,18 @@ def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
                 None
                 if fp_ftr.is_linked_to_previous
                 else "\n".join(p.text for p in fp_ftr.paragraphs)
+            )
+        if doc.settings.odd_and_even_pages_header_footer:
+            ev_hdr, ev_ftr = section.even_page_header, section.even_page_footer
+            info.even_page_header_text = (
+                None
+                if ev_hdr.is_linked_to_previous
+                else "\n".join(p.text for p in ev_hdr.paragraphs)
+            )
+            info.even_page_footer_text = (
+                None
+                if ev_ftr.is_linked_to_previous
+                else "\n".join(p.text for p in ev_ftr.paragraphs)
             )
         result.append(info)
     return result
@@ -685,6 +866,46 @@ def set_header_text(doc: Document, section_index: int, text: str) -> None:
 def set_footer_text(doc: Document, section_index: int, text: str) -> None:
     """Set footer text for a section."""
     footer = doc.sections[section_index].footer
+    for p in list(footer.paragraphs):
+        p._element.getparent().remove(p._element)
+    footer.add_paragraph(text)
+
+
+def set_first_page_header(doc: Document, section_index: int, text: str) -> None:
+    """Set first page header text for a section. Enables different first page."""
+    section = doc.sections[section_index]
+    section.different_first_page_header_footer = True
+    header = section.first_page_header
+    for p in list(header.paragraphs):
+        p._element.getparent().remove(p._element)
+    header.add_paragraph(text)
+
+
+def set_first_page_footer(doc: Document, section_index: int, text: str) -> None:
+    """Set first page footer text for a section. Enables different first page."""
+    section = doc.sections[section_index]
+    section.different_first_page_header_footer = True
+    footer = section.first_page_footer
+    for p in list(footer.paragraphs):
+        p._element.getparent().remove(p._element)
+    footer.add_paragraph(text)
+
+
+def set_even_page_header(doc: Document, section_index: int, text: str) -> None:
+    """Set even page header text for a section. Enables different odd/even pages."""
+    doc.settings.odd_and_even_pages_header_footer = True
+    section = doc.sections[section_index]
+    header = section.even_page_header
+    for p in list(header.paragraphs):
+        p._element.getparent().remove(p._element)
+    header.add_paragraph(text)
+
+
+def set_even_page_footer(doc: Document, section_index: int, text: str) -> None:
+    """Set even page footer text for a section. Enables different odd/even pages."""
+    doc.settings.odd_and_even_pages_header_footer = True
+    section = doc.sections[section_index]
+    footer = section.even_page_footer
     for p in list(footer.paragraphs):
         p._element.getparent().remove(p._element)
     footer.add_paragraph(text)
@@ -750,6 +971,40 @@ def set_page_orientation(doc: Document, section_index: int, orientation: str) ->
     )
     if orient_lower == "landscape" and h > w or orient_lower == "portrait" and w > h:
         section.page_width, section.page_height = Emu(h), Emu(w)
+
+
+# Section start type mapping (lazy-initialized)
+_SECTION_START_MAP: dict[str, int] = {}
+
+
+def _init_section_start_map() -> None:
+    """Initialize section start type map from WD_SECTION enum."""
+    if _SECTION_START_MAP:
+        return
+    from docx.enum.section import WD_SECTION
+
+    _SECTION_START_MAP.update(
+        {
+            "new_page": WD_SECTION.NEW_PAGE,
+            "continuous": WD_SECTION.CONTINUOUS,
+            "even_page": WD_SECTION.EVEN_PAGE,
+            "odd_page": WD_SECTION.ODD_PAGE,
+            "new_column": WD_SECTION.NEW_COLUMN,
+        }
+    )
+
+
+def add_section(doc: Document, start_type: str = "new_page") -> int:
+    """Add new section. Returns new section index (0-based).
+
+    start_type: 'new_page', 'continuous', 'even_page', 'odd_page', 'new_column'.
+    """
+    _init_section_start_map()
+    from docx.enum.section import WD_SECTION
+
+    section_start = _SECTION_START_MAP.get(start_type.lower(), WD_SECTION.NEW_PAGE)
+    doc.add_section(section_start)
+    return len(doc.sections) - 1
 
 
 # Image support functions

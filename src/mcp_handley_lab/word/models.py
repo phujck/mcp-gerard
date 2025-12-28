@@ -46,6 +46,11 @@ class RunInfo(BaseModel):
     font_name: str | None = None
     font_size: float | None = None  # in points
     color: str | None = None  # hex color (e.g., "FF0000")
+    highlight_color: str | None = None  # e.g., "yellow", "cyan"
+    strike: bool | None = None
+    double_strike: bool | None = None
+    subscript: bool | None = None
+    superscript: bool | None = None
 
 
 class CommentInfo(BaseModel):
@@ -69,6 +74,9 @@ class HeaderFooterInfo(BaseModel):
     first_page_header_text: str | None = None  # Only if different_first_page
     first_page_footer_text: str | None = None
     has_different_first_page: bool = False
+    even_page_header_text: str | None = None  # Only if different_odd_even
+    even_page_footer_text: str | None = None
+    has_different_odd_even: bool = False
 
 
 class PageSetupInfo(BaseModel):

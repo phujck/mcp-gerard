@@ -1399,3 +1399,643 @@ async def test_hierarchical_transition_invalid_para_from_table(sample_docx):
                 "target_id": f"{table_id}#p0",  # Missing cell selector
             },
         )
+
+
+# --- Paragraph formatting tests ---
+
+
+@pytest.mark.asyncio
+async def test_paragraph_indentation(sample_docx):
+    """Test setting paragraph indentation (left, right, first-line)."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply indentation formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "style",
+            "target_id": para_block["id"],
+            "formatting": '{"left_indent": 0.5, "right_indent": 0.25, "first_line_indent": 0.5}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reopening document
+    # Note: doc.paragraphs includes headings, so find paragraph by text
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    pf = para.paragraph_format
+    # Check values are approximately correct (allow for floating point)
+    assert abs(pf.left_indent.inches - 0.5) < 0.01
+    assert abs(pf.right_indent.inches - 0.25) < 0.01
+    assert abs(pf.first_line_indent.inches - 0.5) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_paragraph_spacing(sample_docx):
+    """Test setting paragraph spacing (before, after, line spacing)."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply spacing formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "style",
+            "target_id": para_block["id"],
+            "formatting": '{"space_before": 12, "space_after": 6, "line_spacing": 1.5}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reopening document
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    pf = para.paragraph_format
+    assert abs(pf.space_before.pt - 12) < 0.1
+    assert abs(pf.space_after.pt - 6) < 0.1
+    assert abs(pf.line_spacing - 1.5) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_paragraph_flow_control(sample_docx):
+    """Test setting paragraph flow control (keep_with_next, page_break_before)."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply flow control formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "style",
+            "target_id": para_block["id"],
+            "formatting": '{"keep_with_next": true, "page_break_before": true}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reopening document
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    pf = para.paragraph_format
+    assert pf.keep_with_next is True
+    assert pf.page_break_before is True
+
+
+# --- Run effects tests ---
+
+
+@pytest.mark.asyncio
+async def test_run_highlight(sample_docx):
+    """Test applying highlight color to a run."""
+    from docx.enum.text import WD_COLOR_INDEX
+
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Read runs to get run index
+    _, runs_result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "runs", "target_id": para_block["id"]},
+    )
+    assert len(runs_result["runs"]) > 0
+
+    # Apply highlight formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": '{"highlight_color": "yellow"}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reopening document
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    assert para.runs[0].font.highlight_color == WD_COLOR_INDEX.YELLOW
+
+    # Also verify via read() returns the highlight
+    _, runs_result2 = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "runs",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert runs_result2["runs"][0]["highlight_color"] == "yellow"
+
+
+@pytest.mark.asyncio
+async def test_run_strikethrough(sample_docx):
+    """Test applying strikethrough to a run."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply strike formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": '{"strike": true, "double_strike": false}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reopening document
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    assert para.runs[0].font.strike is True
+    assert para.runs[0].font.double_strike is False
+
+
+@pytest.mark.asyncio
+async def test_run_subscript_superscript(sample_docx):
+    """Test applying subscript and superscript to runs."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Apply subscript formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": para_block["id"],
+            "run_index": 0,
+            "formatting": '{"subscript": true}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify subscript
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    assert para.runs[0].font.subscript is True
+
+    # Now change to superscript
+    _, edit_result2 = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "edit_run",
+            "target_id": edit_result["element_id"],
+            "run_index": 0,
+            "formatting": '{"subscript": false, "superscript": true}',
+        },
+    )
+    assert edit_result2["success"]
+
+    # Verify superscript
+    doc = Document(str(sample_docx))
+    para = next(p for p in doc.paragraphs if p.text == para_block["text"])
+    assert para.runs[0].font.subscript is False
+    assert para.runs[0].font.superscript is True
+
+
+# --- Table row/column operations tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_table_row_empty(sample_docx):
+    """Test adding an empty row to a table."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    original_rows = table_block["rows"]
+
+    # Add empty row
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_row",
+            "target_id": table_block["id"],
+        },
+    )
+    assert edit_result["success"]
+    assert "Added row" in edit_result["message"]
+
+    # Verify row count increased
+    _, cells_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "table_cells",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert cells_result["table_rows"] == original_rows + 1
+
+
+@pytest.mark.asyncio
+async def test_add_table_row_with_data(sample_docx):
+    """Test adding a row with cell values."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Add row with data
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_row",
+            "target_id": table_block["id"],
+            "content_data": '["New Cell 1", "New Cell 2"]',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify cell content
+    doc = Document(str(sample_docx))
+    table = doc.tables[0]
+    last_row = table.rows[-1]
+    assert last_row.cells[0].text == "New Cell 1"
+    assert last_row.cells[1].text == "New Cell 2"
+
+
+@pytest.mark.asyncio
+async def test_add_table_column(sample_docx):
+    """Test adding a column with width and values."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    original_cols = table_block["cols"]
+
+    # Add column with data
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_column",
+            "target_id": table_block["id"],
+            "content_data": '["Header 3", "Row 1 Col 3"]',
+            "formatting": '{"width": 1.5}',
+        },
+    )
+    assert edit_result["success"]
+    assert "Added column" in edit_result["message"]
+
+    # Verify column count and content
+    _, cells_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "table_cells",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert cells_result["table_cols"] == original_cols + 1
+
+    doc = Document(str(sample_docx))
+    table = doc.tables[0]
+    assert table.cell(0, original_cols).text == "Header 3"
+    assert table.cell(1, original_cols).text == "Row 1 Col 3"
+
+
+@pytest.mark.asyncio
+async def test_delete_table_row(sample_docx):
+    """Test deleting a specific row."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    original_rows = table_block["rows"]
+
+    # Delete second row (row index 1)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "delete_row",
+            "target_id": table_block["id"],
+            "row": 1,
+        },
+    )
+    assert edit_result["success"]
+    assert "Deleted row 1" in edit_result["message"]
+
+    # Verify row count decreased
+    _, cells_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "table_cells",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert cells_result["table_rows"] == original_rows - 1
+
+
+@pytest.mark.asyncio
+async def test_delete_table_column(sample_docx):
+    """Test deleting a specific column."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+    original_cols = table_block["cols"]
+
+    # Delete first column (col index 0)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "delete_column",
+            "target_id": table_block["id"],
+            "col": 0,
+        },
+    )
+    assert edit_result["success"]
+    assert "Deleted column 0" in edit_result["message"]
+
+    # Verify column count decreased
+    _, cells_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(sample_docx),
+            "scope": "table_cells",
+            "target_id": edit_result["element_id"],
+        },
+    )
+    assert cells_result["table_cols"] == original_cols - 1
+
+    # Verify the remaining column has Header 2 content
+    doc = Document(str(sample_docx))
+    table = doc.tables[0]
+    assert table.cell(0, 0).text == "Header 2"
+
+
+# --- Page breaks tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_page_break(sample_docx):
+    """Test appending a page break to the document."""
+
+    _, blocks_before = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    initial_count = blocks_before["block_count"]
+
+    # Add page break
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_page_break",
+        },
+    )
+    assert edit_result["success"]
+    assert "Added page break" in edit_result["message"]
+    assert edit_result["element_id"].startswith("paragraph_")
+
+    # Verify block count increased
+    _, blocks_after = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    assert blocks_after["block_count"] == initial_count + 1
+
+    # Verify the page break exists in the document
+    doc = Document(str(sample_docx))
+    last_para = doc.paragraphs[-1]
+    # Check if there's a break in the runs
+    found_break = False
+    for run in last_para.runs:
+        for child in run._element:
+            if "br" in child.tag:
+                found_break = True
+                break
+    assert found_break
+
+
+@pytest.mark.asyncio
+async def test_add_break_after_paragraph(sample_docx):
+    """Test inserting a page break after a specific paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add break after paragraph
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_break",
+            "target_id": para_block["id"],
+            "content_data": "page",
+        },
+    )
+    assert edit_result["success"]
+    assert "Added page break" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_add_column_break(sample_docx):
+    """Test inserting a column break."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+
+    # Add column break after paragraph
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_break",
+            "target_id": para_block["id"],
+            "content_data": "column",
+        },
+    )
+    assert edit_result["success"]
+    assert "Added column break" in edit_result["message"]
+
+
+# --- Metadata writing tests ---
+
+
+@pytest.mark.asyncio
+async def test_set_document_title(sample_docx):
+    """Test updating document title."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_meta",
+            "content_data": '{"title": "New Document Title"}',
+        },
+    )
+    assert edit_result["success"]
+    assert "Updated document metadata" in edit_result["message"]
+
+    # Verify via read
+    _, meta_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "meta"}
+    )
+    assert meta_result["meta"]["title"] == "New Document Title"
+
+
+@pytest.mark.asyncio
+async def test_set_document_author(sample_docx):
+    """Test updating document author."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_meta",
+            "content_data": '{"author": "Test Author"}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify via read
+    _, meta_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "meta"}
+    )
+    assert meta_result["meta"]["author"] == "Test Author"
+
+
+@pytest.mark.asyncio
+async def test_set_multiple_metadata(sample_docx):
+    """Test updating multiple metadata properties at once."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_meta",
+            "content_data": '{"title": "Multi Test", "author": "Multi Author"}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify via python-docx directly
+    doc = Document(str(sample_docx))
+    assert doc.core_properties.title == "Multi Test"
+    assert doc.core_properties.author == "Multi Author"
+
+
+# --- First/Even page header tests ---
+
+
+@pytest.mark.asyncio
+async def test_set_first_page_header(sample_docx):
+    """Test setting a different first page header."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_first_page_header",
+            "section_index": 0,
+            "content_data": "First Page Header",
+        },
+    )
+    assert edit_result["success"]
+    assert "Set first page header" in edit_result["message"]
+
+    # Verify via read
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    assert result["headers_footers"][0]["has_different_first_page"] is True
+    assert result["headers_footers"][0]["first_page_header_text"] == "First Page Header"
+
+
+@pytest.mark.asyncio
+async def test_set_even_page_header(sample_docx):
+    """Test setting a different even page header."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_even_page_header",
+            "section_index": 0,
+            "content_data": "Even Page Header",
+        },
+    )
+    assert edit_result["success"]
+    assert "Set even page header" in edit_result["message"]
+
+    # Verify via read
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "headers_footers"}
+    )
+    assert result["headers_footers"][0]["has_different_odd_even"] is True
+    assert result["headers_footers"][0]["even_page_header_text"] == "Even Page Header"
+
+
+@pytest.mark.asyncio
+async def test_add_section_new_page(sample_docx):
+    """Test adding a new section with new_page start type."""
+    # Get initial section count
+    _, initial = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    initial_count = len(initial["page_setup"])
+
+    # Add section
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_section",
+            "content_data": "new_page",
+        },
+    )
+    assert edit_result["success"]
+    assert "new_page" in edit_result["message"]
+
+    # Verify section count increased
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    assert len(result["page_setup"]) == initial_count + 1
+
+
+@pytest.mark.asyncio
+async def test_add_section_continuous(sample_docx):
+    """Test adding a continuous section."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_section",
+            "content_data": "continuous",
+        },
+    )
+    assert edit_result["success"]
+    assert "continuous" in edit_result["message"]
+
+    # Verify section was added
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
+    )
+    assert len(result["page_setup"]) >= 2
