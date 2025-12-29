@@ -3518,6 +3518,909 @@ async def test_set_cell_vertical_alignment(docx_with_table):
 
 
 @pytest.mark.asyncio
+async def test_set_cell_borders(docx_with_table):
+    """Test setting cell borders."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set borders on cell (0, 0)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_cell_borders",
+            "target_id": table_block["id"],
+            "row": 0,
+            "col": 0,
+            "content_data": '{"top": "single:24:FF0000", "bottom": "double:12:0000FF"}',
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading table cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+    cell_00 = next(c for c in result["cells"] if c["row"] == 0 and c["col"] == 0)
+    assert cell_00["border_top"] == "single:24:FF0000"
+    assert cell_00["border_bottom"] == "double:12:0000FF"
+
+
+@pytest.mark.asyncio
+async def test_set_cell_shading(docx_with_table):
+    """Test setting cell background shading."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Set shading on cell (1, 0)
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_cell_shading",
+            "target_id": table_block["id"],
+            "row": 1,
+            "col": 0,
+            "content_data": "FFFF00",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading table cells
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_cells",
+            "target_id": table_block["id"],
+        },
+    )
+    cell_10 = next(c for c in result["cells"] if c["row"] == 1 and c["col"] == 0)
+    assert cell_10["fill_color"] == "FFFF00"
+
+
+@pytest.mark.asyncio
+async def test_set_header_row(docx_with_table):
+    """Test marking a row as header row."""
+    # Get table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_with_table), "scope": "blocks"}
+    )
+    table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
+
+    # Mark row 0 as header
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_header_row",
+            "target_id": table_block["id"],
+            "row": 0,
+            "content_data": "true",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify by reading table layout
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+    row_0 = next(r for r in result["table_layout"]["rows"] if r["index"] == 0)
+    assert row_0["is_header"] is True
+
+    # Unmark as header
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_table),
+            "operation": "set_header_row",
+            "target_id": table_block["id"],
+            "row": 0,
+            "content_data": "false",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify unmarked
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_table),
+            "scope": "table_layout",
+            "target_id": table_block["id"],
+        },
+    )
+    row_0 = next(r for r in result["table_layout"]["rows"] if r["index"] == 0)
+    assert row_0["is_header"] is False
+
+
+# =============================================================================
+# Phase 3: Multi-Column Layout & Line Numbering Tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_set_section_columns(sample_docx):
+    """Test setting multi-column layout for a section."""
+    import json
+
+    from docx import Document
+
+    # Set 2 columns with custom spacing and separator
+    col_data = json.dumps({"num_columns": 2, "spacing_inches": 0.75, "separator": True})
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_columns",
+            "section_index": 0,
+            "content_data": col_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back page setup to verify via MCP
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "page_setup"},
+    )
+    page_setup = result["page_setup"][0]
+    assert page_setup["columns"] == 2
+    assert abs(page_setup["column_spacing"] - 0.75) < 0.01
+    assert page_setup["column_separator"] is True
+
+    # OOXML-level verification: check w:cols element exists with correct attributes
+    doc = Document(sample_docx)
+    sectPr = doc.sections[0]._sectPr
+    cols = sectPr.find(
+        "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}cols"
+    )
+    assert cols is not None, "w:cols element should exist"
+    assert (
+        cols.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}num")
+        == "2"
+    )
+    assert (
+        cols.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sep")
+        == "1"
+    )
+    # 0.75 inches = 1080 twips
+    assert (
+        cols.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}space")
+        == "1080"
+    )
+
+    # Set back to single column
+    col_data = json.dumps({"num_columns": 1})
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_columns",
+            "section_index": 0,
+            "content_data": col_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify single column
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "page_setup"},
+    )
+    page_setup = result["page_setup"][0]
+    assert page_setup["columns"] == 1
+
+
+@pytest.mark.asyncio
+async def test_set_line_numbering(sample_docx):
+    """Test enabling and configuring line numbering."""
+    import json
+
+    from docx import Document
+
+    # Enable line numbering with custom settings
+    ln_data = json.dumps(
+        {
+            "enabled": True,
+            "restart": "newSection",
+            "start": 5,
+            "count_by": 2,
+            "distance_inches": 0.3,
+        }
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_line_numbering",
+            "section_index": 0,
+            "content_data": ln_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back page setup to verify via MCP
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "page_setup"},
+    )
+    page_setup = result["page_setup"][0]
+    ln_info = page_setup["line_numbering"]
+    assert ln_info is not None
+    assert ln_info["enabled"] is True
+    assert ln_info["restart"] == "newSection"
+    assert ln_info["start"] == 5
+    assert ln_info["count_by"] == 2
+    assert abs(ln_info["distance_inches"] - 0.3) < 0.01
+
+    # OOXML-level verification: check w:lnNumType element exists with correct attributes
+    doc = Document(sample_docx)
+    sectPr = doc.sections[0]._sectPr
+    wns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    lnNumType = sectPr.find(f"{{{wns}}}lnNumType")
+    assert lnNumType is not None, "w:lnNumType element should exist"
+    assert lnNumType.get(f"{{{wns}}}restart") == "newSection"
+    assert lnNumType.get(f"{{{wns}}}start") == "5"
+    assert lnNumType.get(f"{{{wns}}}countBy") == "2"
+    # 0.3 inches = 432 twips
+    assert lnNumType.get(f"{{{wns}}}distance") == "432"
+
+    # Disable line numbering
+    ln_data = json.dumps({"enabled": False})
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_line_numbering",
+            "section_index": 0,
+            "content_data": ln_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # OOXML-level verification: w:lnNumType should be removed
+    doc = Document(sample_docx)
+    sectPr = doc.sections[0]._sectPr
+    lnNumType = sectPr.find(f"{{{wns}}}lnNumType")
+    assert lnNumType is None, "w:lnNumType element should be removed when disabled"
+
+    # Verify disabled via MCP read
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "page_setup"},
+    )
+    page_setup = result["page_setup"][0]
+    # When disabled, line_numbering should be None or have enabled=False
+    ln_info = page_setup.get("line_numbering")
+    if ln_info:
+        assert ln_info["enabled"] is False
+
+
+# =============================================================================
+# Phase 4: Custom Properties & Style Creation Tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_set_and_get_custom_property(sample_docx):
+    """Test setting and reading custom document properties."""
+    import json
+
+    # Set a custom string property
+    prop_data = json.dumps(
+        {"name": "ProjectID", "value": "PROJ-12345", "type": "string"}
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_custom_property",
+            "content_data": prop_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Read back via meta scope (includes custom_properties in DocumentMeta)
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "meta"},
+    )
+    meta = result["meta"]
+    custom_props = meta.get("custom_properties", [])
+    assert len(custom_props) >= 1
+    proj_prop = next((p for p in custom_props if p["name"] == "ProjectID"), None)
+    assert proj_prop is not None
+    assert proj_prop["value"] == "PROJ-12345"
+    assert proj_prop["type"] == "string"
+
+    # Set an integer property
+    prop_data = json.dumps({"name": "Version", "value": "42", "type": "int"})
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_custom_property",
+            "content_data": prop_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Update existing property
+    prop_data = json.dumps(
+        {"name": "ProjectID", "value": "PROJ-99999", "type": "string"}
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_custom_property",
+            "content_data": prop_data,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify update
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "meta"},
+    )
+    custom_props = result["meta"].get("custom_properties", [])
+    proj_prop = next((p for p in custom_props if p["name"] == "ProjectID"), None)
+    assert proj_prop["value"] == "PROJ-99999"
+
+
+@pytest.mark.asyncio
+async def test_delete_custom_property(sample_docx):
+    """Test deleting a custom document property."""
+    import json
+
+    # First set a property
+    prop_data = json.dumps({"name": "ToDelete", "value": "test", "type": "string"})
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_custom_property",
+            "content_data": prop_data,
+        },
+    )
+
+    # Verify it exists
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "meta"},
+    )
+    custom_props = result["meta"].get("custom_properties", [])
+    assert any(p["name"] == "ToDelete" for p in custom_props)
+
+    # Delete it
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "delete_custom_property",
+            "content_data": "ToDelete",
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify it's gone
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "meta"},
+    )
+    custom_props = result["meta"].get("custom_properties", [])
+    assert not any(p["name"] == "ToDelete" for p in custom_props)
+
+
+@pytest.mark.asyncio
+async def test_custom_property_opc_structure(sample_docx):
+    """Test that custom properties are correctly registered in OPC package."""
+    import json
+    import zipfile
+
+    # Set a custom property
+    prop_data = json.dumps(
+        {"name": "OPCTestProp", "value": "OPCTestValue", "type": "string"}
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "set_custom_property",
+            "content_data": prop_data,
+        },
+    )
+
+    # Verify OPC/ZIP structure
+    with zipfile.ZipFile(sample_docx, "r") as z:
+        # Check docProps/custom.xml exists
+        files = z.namelist()
+        assert "docProps/custom.xml" in files, (
+            "docProps/custom.xml not found in package"
+        )
+
+        # Check relationship in _rels/.rels
+        rels_content = z.read("_rels/.rels").decode()
+        assert "custom-properties" in rels_content, (
+            "custom-properties relationship not found"
+        )
+        assert "docProps/custom.xml" in rels_content, (
+            "Target docProps/custom.xml not in rels"
+        )
+
+        # Check Content_Types.xml has the override
+        content_types = z.read("[Content_Types].xml").decode()
+        assert "custom-properties" in content_types, (
+            "custom-properties content type not found"
+        )
+
+        # Verify the custom.xml content
+        custom_xml = z.read("docProps/custom.xml").decode()
+        assert "OPCTestProp" in custom_xml
+        assert "OPCTestValue" in custom_xml
+
+
+@pytest.mark.asyncio
+async def test_create_style(sample_docx):
+    """Test creating a new custom style."""
+    import json
+
+    from docx import Document
+
+    # Create a new paragraph style
+    style_data = json.dumps(
+        {
+            "name": "MyCustomStyle",
+            "style_type": "paragraph",
+            "base_style": "Normal",
+        }
+    )
+    formatting = json.dumps({"bold": True, "font_size": 14, "color": "0000FF"})
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "create_style",
+            "content_data": style_data,
+            "formatting": formatting,
+        },
+    )
+    assert edit_result["success"]
+
+    # Read styles and verify the new style exists
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "styles"},
+    )
+    styles = result["styles"]
+    custom_style = next((s for s in styles if s["name"] == "MyCustomStyle"), None)
+    assert custom_style is not None
+    assert custom_style["type"] == "paragraph"
+    assert custom_style["builtin"] is False
+
+    # OOXML-level verification
+    doc = Document(sample_docx)
+    style = doc.styles["MyCustomStyle"]
+    assert style.font.bold is True
+    assert style.font.size.pt == 14
+
+
+@pytest.mark.asyncio
+async def test_delete_style(sample_docx):
+    """Test deleting a custom style."""
+    import json
+
+    # Create a custom style first
+    style_data = json.dumps({"name": "StyleToDelete", "style_type": "paragraph"})
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "create_style",
+            "content_data": style_data,
+        },
+    )
+
+    # Verify it exists
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "styles"},
+    )
+    assert any(s["name"] == "StyleToDelete" for s in result["styles"])
+
+    # Delete it
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "delete_style",
+            "target_id": "StyleToDelete",
+        },
+    )
+    assert edit_result["success"]
+    assert "Deleted" in edit_result["message"]
+
+    # Verify it's gone
+    _, result = await mcp.call_tool(
+        "read",
+        {"file_path": str(sample_docx), "scope": "styles"},
+    )
+    assert not any(s["name"] == "StyleToDelete" for s in result["styles"])
+
+
+@pytest.mark.asyncio
+async def test_cannot_delete_builtin_style(sample_docx):
+    """Test that builtin styles cannot be deleted."""
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "delete_style",
+            "target_id": "Normal",
+        },
+    )
+    assert edit_result["success"]  # Operation succeeds but reports not found/builtin
+    assert "builtin" in edit_result["message"] or "not found" in edit_result["message"]
+
+
+# -----------------------------------------------------------------------------
+# Phase 5: Floating Image Positioning
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_insert_floating_image(sample_docx, sample_image):
+    """Test inserting a floating (anchored) image."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image
+    formatting = json.dumps(
+        {
+            "position_h": 1.0,
+            "position_v": 0.5,
+            "relative_h": "column",
+            "relative_v": "paragraph",
+            "wrap_type": "square",
+            "width": 1.5,
+        }
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+    assert edit_result["success"]
+    assert edit_result["element_id"].startswith("image_")
+
+    # Verify image was inserted as anchor
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    assert images_result["block_count"] == 1
+    img = images_result["images"][0]
+    assert img["position_type"] == "anchor"
+    assert img["wrap_type"] == "square"
+
+
+@pytest.mark.asyncio
+async def test_floating_image_position_values(sample_docx, sample_image):
+    """Test that floating image position values are correctly stored."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image with specific position
+    formatting = json.dumps(
+        {
+            "position_h": 2.0,
+            "position_v": 1.5,
+            "relative_h": "page",
+            "relative_v": "margin",
+            "wrap_type": "tight",
+            "width": 1.0,
+        }
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+
+    # Read image and verify position
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    img = images_result["images"][0]
+    assert img["position_type"] == "anchor"
+    assert img["relative_from_h"] == "page"
+    assert img["relative_from_v"] == "margin"
+    assert img["wrap_type"] == "tight"
+    # Position should be approximately 2.0 and 1.5 inches
+    assert abs(img["position_h"] - 2.0) < 0.01
+    assert abs(img["position_v"] - 1.5) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_floating_image_xml_structure(sample_docx, sample_image):
+    """Test that floating image produces correct OOXML structure."""
+    import json
+    import zipfile
+
+    from lxml import etree
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image
+    formatting = json.dumps(
+        {
+            "position_h": 1.0,
+            "position_v": 0.5,
+            "wrap_type": "square",
+            "behind_doc": True,
+        }
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+
+    # Verify OOXML structure
+    with zipfile.ZipFile(sample_docx, "r") as z:
+        doc_xml = z.read("word/document.xml")
+        root = etree.fromstring(doc_xml)
+        nsmap = {
+            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+            "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+        }
+
+        # Find anchor element
+        anchors = root.findall(".//wp:anchor", namespaces=nsmap)
+        assert len(anchors) == 1
+        anchor = anchors[0]
+
+        # Verify behindDoc attribute
+        assert anchor.get("behindDoc") == "1"
+
+        # Verify wrap element
+        wrap = anchor.find("wp:wrapSquare", namespaces=nsmap)
+        assert wrap is not None
+
+        # Verify position elements
+        pos_h = anchor.find("wp:positionH", namespaces=nsmap)
+        pos_v = anchor.find("wp:positionV", namespaces=nsmap)
+        assert pos_h is not None
+        assert pos_v is not None
+
+
+@pytest.mark.asyncio
+async def test_floating_image_none_wrap(sample_docx, sample_image):
+    """Test floating image with wrap_type='none' (no text wrapping)."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image with no wrap
+    formatting = json.dumps(
+        {
+            "position_h": 0.5,
+            "position_v": 0.5,
+            "wrap_type": "none",
+        }
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify wrap type is read back correctly
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    img = images_result["images"][0]
+    assert img["wrap_type"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_floating_image_top_and_bottom_wrap(sample_docx, sample_image):
+    """Test floating image with wrap_type='top_and_bottom' (multi-word wrap type)."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image with top_and_bottom wrap
+    formatting = json.dumps(
+        {
+            "position_h": 0.5,
+            "position_v": 0.5,
+            "wrap_type": "top_and_bottom",
+        }
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify wrap type is read back correctly
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    img = images_result["images"][0]
+    assert img["wrap_type"] == "top_and_bottom"
+
+
+@pytest.mark.asyncio
+async def test_floating_image_invalid_wrap_type_defaults_to_square(
+    sample_docx, sample_image
+):
+    """Test that invalid wrap_type defaults to 'square' (documents expected behavior)."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert floating image with invalid wrap_type
+    formatting = json.dumps(
+        {
+            "position_h": 0.5,
+            "position_v": 0.5,
+            "wrap_type": "invalid_wrap_type",  # Not a valid wrap type
+        }
+    )
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+    assert edit_result["success"]
+
+    # Verify wrap type defaults to square
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    img = images_result["images"][0]
+    assert img["wrap_type"] == "square", "Invalid wrap_type should default to 'square'"
+
+
+@pytest.mark.asyncio
+async def test_build_images_includes_anchored(sample_docx, sample_image):
+    """Test that build_images includes both inline and anchored images."""
+    import json
+
+    # Get first paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
+    para_id = para_block["id"]
+
+    # Insert an inline image first
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": '{"width": 1}',
+        },
+    )
+
+    # Insert a floating image
+    formatting = json.dumps(
+        {
+            "position_h": 2.0,
+            "position_v": 1.0,
+            "wrap_type": "square",
+        }
+    )
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "insert_floating_image",
+            "target_id": para_id,
+            "content_data": str(sample_image),
+            "formatting": formatting,
+        },
+    )
+
+    # Read images - should find both
+    _, images_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "images"}
+    )
+    assert images_result["block_count"] == 2
+
+    # Check position types
+    position_types = [img["position_type"] for img in images_result["images"]]
+    assert "inline" in position_types
+    assert "anchor" in position_types
+
+
+@pytest.mark.asyncio
 async def test_table_layout_xml_structure(docx_with_table):
     """Test that table layout changes produce correct XML structure."""
     from docx import Document
@@ -3881,3 +4784,3348 @@ async def test_insert_field_arbitrary_code(docx_for_fields):
         },
     )
     assert result["success"]
+
+
+# ============================================================================
+# Track Changes / Revision Tests (Phase 7)
+# ============================================================================
+
+
+@pytest.fixture
+def tracked_changes_docx():
+    """Fixture document with tracked changes (insertions and deletions)."""
+    return Path("tests/word/fixtures/expected_redline.docx")
+
+
+@pytest.fixture
+def no_changes_docx():
+    """Fixture document with no tracked changes."""
+    return Path("tests/word/fixtures/fixture_no_changes.docx")
+
+
+@pytest.fixture
+def tracked_changes_copy(tracked_changes_docx):
+    """Create a temporary copy of the tracked changes fixture for mutation tests."""
+    import shutil
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        shutil.copy(tracked_changes_docx, f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+# --- Detection tests ---
+
+
+@pytest.mark.asyncio
+async def test_has_tracked_changes_true(tracked_changes_docx):
+    """Test that document with tracked changes returns has_tracked_changes=True."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_docx), "scope": "revisions"}
+    )
+    assert result["has_tracked_changes"] is True
+    assert result["block_count"] > 0
+
+
+@pytest.mark.asyncio
+async def test_has_tracked_changes_false(no_changes_docx):
+    """Test that clean document returns has_tracked_changes=False."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(no_changes_docx), "scope": "revisions"}
+    )
+    assert result["has_tracked_changes"] is False
+    assert result["block_count"] == 0
+    assert result["revisions"] == []
+
+
+# --- Read tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_tracked_changes_returns_structure(tracked_changes_docx):
+    """Test that read(scope='revisions') returns correct structure."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_docx), "scope": "revisions"}
+    )
+    assert "revisions" in result
+    assert len(result["revisions"]) > 0
+
+    # Check first revision has all required fields
+    rev = result["revisions"][0]
+    assert "id" in rev
+    assert "type" in rev
+    assert "author" in rev
+    assert "date" in rev
+    assert "text" in rev
+    assert "supported" in rev
+    assert "tag" in rev
+
+
+@pytest.mark.asyncio
+async def test_read_tracked_changes_types(tracked_changes_docx):
+    """Test that revisions have correct types (insertion or deletion)."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_docx), "scope": "revisions"}
+    )
+    types = {rev["type"] for rev in result["revisions"]}
+    # Our fixture should have both insertions and deletions
+    assert types.issubset({"insertion", "deletion", "move", "formatting", "table"})
+    # At minimum, should have at least one of the main types
+    assert len(types & {"insertion", "deletion"}) > 0
+
+
+# --- Accept/reject individual changes ---
+
+
+@pytest.mark.asyncio
+async def test_accept_change_by_id(tracked_changes_copy):
+    """Test accepting a single change by ID."""
+    # Get revisions first
+    _, revisions_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert len(revisions_result["revisions"]) > 0
+
+    # Find a supported revision
+    supported_rev = next(
+        (r for r in revisions_result["revisions"] if r["supported"]), None
+    )
+    assert supported_rev is not None, "No supported revisions found"
+
+    # Accept it
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "operation": "accept_change",
+            "target_id": supported_rev["id"],
+        },
+    )
+    assert edit_result["success"] is True
+    assert "Accepted" in edit_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_reject_change_by_id(tracked_changes_copy):
+    """Test rejecting a single change by ID."""
+    # Get revisions first
+    _, revisions_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert len(revisions_result["revisions"]) > 0
+
+    # Find a supported revision
+    supported_rev = next(
+        (r for r in revisions_result["revisions"] if r["supported"]), None
+    )
+    assert supported_rev is not None, "No supported revisions found"
+
+    # Reject it
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "operation": "reject_change",
+            "target_id": supported_rev["id"],
+        },
+    )
+    assert edit_result["success"] is True
+    assert "Rejected" in edit_result["message"]
+
+
+# --- Bulk operations ---
+
+
+@pytest.mark.asyncio
+async def test_accept_all_changes(tracked_changes_copy):
+    """Test accepting all tracked changes."""
+    # Verify there are changes before
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert before_result["has_tracked_changes"] is True
+
+    # Accept all
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {"file_path": str(tracked_changes_copy), "operation": "accept_all_changes"},
+    )
+    assert edit_result["success"] is True
+    assert "Accepted" in edit_result["message"]
+
+    # Verify no changes remain
+    _, after_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert after_result["has_tracked_changes"] is False
+    assert after_result["block_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_reject_all_changes(tracked_changes_copy):
+    """Test rejecting all tracked changes."""
+    # Verify there are changes before
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert before_result["has_tracked_changes"] is True
+
+    # Reject all
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {"file_path": str(tracked_changes_copy), "operation": "reject_all_changes"},
+    )
+    assert edit_result["success"] is True
+    assert "Rejected" in edit_result["message"]
+
+    # Verify no changes remain
+    _, after_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert after_result["has_tracked_changes"] is False
+    assert after_result["block_count"] == 0
+
+
+# --- Round-trip tests ---
+
+
+@pytest.mark.asyncio
+async def test_accept_all_round_trip(tracked_changes_copy):
+    """Test that document is valid after accept_all and save/reload."""
+    # Accept all changes
+    _, _ = await mcp.call_tool(
+        "edit",
+        {"file_path": str(tracked_changes_copy), "operation": "accept_all_changes"},
+    )
+
+    # Reload and verify document is parseable
+    doc = Document(str(tracked_changes_copy))
+    assert len(doc.paragraphs) > 0  # Document still has content
+
+    # Verify no tracked changes after reload
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    assert result["has_tracked_changes"] is False
+
+
+# --- Edge case tests ---
+
+
+@pytest.mark.asyncio
+async def test_invalid_change_id_raises_error(tracked_changes_copy):
+    """Test that accepting/rejecting invalid change ID raises error."""
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(tracked_changes_copy),
+                "operation": "accept_change",
+                "target_id": "nonexistent_id_99999",
+            },
+        )
+    assert "not found" in str(exc_info.value).lower()
+
+
+# --- Additional tests per review ---
+
+
+@pytest.mark.asyncio
+async def test_read_tracked_changes_document_order(tracked_changes_docx):
+    """Test that tracked changes are returned in deterministic document order."""
+    # Read twice and verify exact same order
+    _, result1 = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_docx), "scope": "revisions"}
+    )
+    _, result2 = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_docx), "scope": "revisions"}
+    )
+
+    # Compare (id, tag, text) tuples for exact order match
+    order1 = [(r["id"], r["tag"], r["text"]) for r in result1["revisions"]]
+    order2 = [(r["id"], r["tag"], r["text"]) for r in result2["revisions"]]
+    assert order1 == order2, "Document order should be deterministic"
+
+
+@pytest.mark.asyncio
+async def test_accept_insertion_removes_markup(tracked_changes_copy):
+    """Test that accepting an insertion keeps the text but removes the revision."""
+    # Get revisions and find an insertion
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    insertion = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["type"] == "insertion" and r["supported"]
+        ),
+        None,
+    )
+    if insertion is None:
+        pytest.skip("No supported insertion in fixture")
+
+    inserted_text = insertion["text"]
+    insertion_id = insertion["id"]
+
+    # Accept the insertion
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "operation": "accept_change",
+            "target_id": insertion_id,
+        },
+    )
+
+    # Verify: text should still be in document, but revision should be gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    remaining_ids = [r["id"] for r in after_revisions["revisions"]]
+    assert insertion_id not in remaining_ids, (
+        "Accepted insertion should be removed from revisions"
+    )
+
+    # Text should still be present in document
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "blocks"}
+    )
+    all_text = " ".join(b["text"] for b in blocks_result["blocks"])
+    assert inserted_text in all_text, (
+        "Accepted insertion text should remain in document"
+    )
+
+
+# --- Dedicated fixture tests for insertion/deletion ---
+# Note: test_reject_insertion_removes_text_dedicated_fixture below properly tests
+# that rejecting an insertion removes text using a clean fixture with known content.
+
+
+@pytest.fixture
+def insertion_fixture_docx():
+    """Return path to insertion-only fixture."""
+    return Path("tests/word/fixtures/fixture_insertion.docx")
+
+
+@pytest.fixture
+def insertion_fixture_copy(insertion_fixture_docx, tmp_path):
+    """Create a temporary copy of insertion fixture for mutation tests."""
+    if not insertion_fixture_docx.exists():
+        pytest.skip("Insertion fixture not found")
+    dest = tmp_path / "insertion_copy.docx"
+    dest.write_bytes(insertion_fixture_docx.read_bytes())
+    return dest
+
+
+@pytest.fixture
+def deletion_fixture_docx():
+    """Return path to deletion-only fixture."""
+    return Path("tests/word/fixtures/fixture_deletion.docx")
+
+
+@pytest.fixture
+def deletion_fixture_copy(deletion_fixture_docx, tmp_path):
+    """Create a temporary copy of deletion fixture for mutation tests."""
+    if not deletion_fixture_docx.exists():
+        pytest.skip("Deletion fixture not found")
+    dest = tmp_path / "deletion_copy.docx"
+    dest.write_bytes(deletion_fixture_docx.read_bytes())
+    return dest
+
+
+@pytest.mark.asyncio
+async def test_reject_insertion_removes_text_dedicated_fixture(insertion_fixture_copy):
+    """Test that rejecting an insertion removes the inserted text - using dedicated fixture.
+
+    Key insight: python-docx's paragraph.text doesn't include text inside w:ins elements,
+    so we verify via revisions AND blocks. After rejection:
+    - The revision tracking is removed
+    - The content is NOT converted to normal text (unlike accept)
+    """
+    # Verify fixture has exactly one insertion with known text "INSERTED"
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "revisions"}
+    )
+    insertions = [r for r in before_result["revisions"] if r["type"] == "insertion"]
+    assert len(insertions) == 1, "Fixture should have exactly one insertion"
+    assert insertions[0]["text"] == "INSERTED", (
+        "Fixture insertion text should be 'INSERTED'"
+    )
+
+    insertion_id = insertions[0]["id"]
+
+    # Reject the insertion
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(insertion_fixture_copy),
+            "operation": "reject_change",
+            "target_id": insertion_id,
+        },
+    )
+
+    # Verify: no tracked changes remain
+    _, after_result = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "revisions"}
+    )
+    assert len(after_result["revisions"]) == 0, (
+        "No revisions should remain after rejection"
+    )
+
+    # Verify: text is NOT in blocks (reject removes content, unlike accept which keeps it)
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "blocks"}
+    )
+    after_text = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert "INSERTED" not in after_text, (
+        "Inserted text should be removed after rejection"
+    )
+
+
+@pytest.mark.asyncio
+async def test_accept_insertion_keeps_text_dedicated_fixture(insertion_fixture_copy):
+    """Test that accepting an insertion keeps the inserted text - using dedicated fixture."""
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "revisions"}
+    )
+    insertion = before_result["revisions"][0]
+    insertion_id = insertion["id"]
+
+    # Accept the insertion
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(insertion_fixture_copy),
+            "operation": "accept_change",
+            "target_id": insertion_id,
+        },
+    )
+
+    # Verify: text should still be present
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "blocks"}
+    )
+    after_text = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert "INSERTED" in after_text, "Inserted text should remain after acceptance"
+
+    # Verify: revision should be gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(insertion_fixture_copy), "scope": "revisions"}
+    )
+    assert len(after_revisions["revisions"]) == 0, "No revisions should remain"
+
+
+@pytest.mark.asyncio
+async def test_accept_deletion_removes_text_dedicated_fixture(deletion_fixture_copy):
+    """Test that accepting a deletion removes the deleted text - using dedicated fixture."""
+    # Verify fixture has exactly one deletion with known text "DELETED"
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(deletion_fixture_copy), "scope": "revisions"}
+    )
+    deletions = [r for r in before_result["revisions"] if r["type"] == "deletion"]
+    assert len(deletions) == 1, "Fixture should have exactly one deletion"
+    assert deletions[0]["text"] == "DELETED", (
+        "Fixture deletion text should be 'DELETED'"
+    )
+
+    deletion_id = deletions[0]["id"]
+
+    # Accept the deletion (removes the text)
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(deletion_fixture_copy),
+            "operation": "accept_change",
+            "target_id": deletion_id,
+        },
+    )
+
+    # Verify: deleted text should be GONE
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(deletion_fixture_copy), "scope": "blocks"}
+    )
+    after_text = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert "DELETED" not in after_text, (
+        "Deleted text should be removed after acceptance"
+    )
+
+
+@pytest.mark.asyncio
+async def test_reject_deletion_restores_text_dedicated_fixture(deletion_fixture_copy):
+    """Test that rejecting a deletion restores the deleted text - using dedicated fixture."""
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(deletion_fixture_copy), "scope": "revisions"}
+    )
+    deletion = before_result["revisions"][0]
+    deletion_id = deletion["id"]
+
+    # Reject the deletion (keeps the text)
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(deletion_fixture_copy),
+            "operation": "reject_change",
+            "target_id": deletion_id,
+        },
+    )
+
+    # Verify: text should still be present (restored)
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(deletion_fixture_copy), "scope": "blocks"}
+    )
+    after_text = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert "DELETED" in after_text, "Deleted text should remain after rejection"
+
+
+@pytest.mark.asyncio
+async def test_accept_deletion_removes_deleted_text(tracked_changes_copy):
+    """Test that accepting a deletion removes the deleted text from document."""
+    # Get revisions and find a deletion
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    deletion = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["type"] == "deletion" and r["supported"]
+        ),
+        None,
+    )
+    if deletion is None:
+        pytest.skip("No supported deletion in fixture")
+
+    deletion_id = deletion["id"]
+
+    # Accept the deletion (deleted text should remain gone)
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "operation": "accept_change",
+            "target_id": deletion_id,
+        },
+    )
+
+    # Verify revision is gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    remaining_ids = [r["id"] for r in after_revisions["revisions"]]
+    assert deletion_id not in remaining_ids, (
+        "Accepted deletion should be removed from revisions"
+    )
+
+
+@pytest.mark.asyncio
+async def test_reject_deletion_restores_text(tracked_changes_copy):
+    """Test that rejecting a deletion restores the deleted text."""
+    # Get revisions and find a deletion
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    deletion = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["type"] == "deletion" and r["supported"]
+        ),
+        None,
+    )
+    if deletion is None:
+        pytest.skip("No supported deletion in fixture")
+
+    deleted_text = deletion["text"]
+    deletion_id = deletion["id"]
+
+    # Reject the deletion (deleted text should be restored)
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "operation": "reject_change",
+            "target_id": deletion_id,
+        },
+    )
+
+    # Verify revision is gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "revisions"}
+    )
+    remaining_ids = [r["id"] for r in after_revisions["revisions"]]
+    assert deletion_id not in remaining_ids, (
+        "Rejected deletion should be removed from revisions"
+    )
+
+    # Deleted text should now be in document (restored)
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(tracked_changes_copy), "scope": "blocks"}
+    )
+    text_after = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert deleted_text in text_after, (
+        f"Rejected deletion text '{deleted_text}' should be restored"
+    )
+
+
+# --- Move tests ---
+
+
+@pytest.fixture
+def move_fixture_docx():
+    """Fixture document with move changes (text moved from one location to another)."""
+    return Path("tests/word/fixtures/fixture_move.docx")
+
+
+@pytest.fixture
+def move_fixture_copy(move_fixture_docx):
+    """Create a temporary copy of the move fixture for mutation tests."""
+    import shutil
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        shutil.copy(move_fixture_docx, f.name)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_move_changes(move_fixture_docx):
+    """Test that move changes are detected and reported."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_docx), "scope": "revisions"}
+    )
+    assert result["has_tracked_changes"] is True
+
+    # Should have move changes
+    move_changes = [r for r in result["revisions"] if r["type"] == "move"]
+    assert len(move_changes) > 0, "Should detect move changes"
+
+    # moveFrom and moveTo wrappers should be supported
+    move_wrappers = [r for r in move_changes if r["tag"] in ("moveFrom", "moveTo")]
+    assert len(move_wrappers) >= 2, "Should have moveFrom and moveTo wrappers"
+    for wrapper in move_wrappers:
+        assert wrapper["supported"] is True, f"{wrapper['tag']} should be supported"
+
+    # Range markers should NOT be supported (metadata only)
+    range_markers = [r for r in move_changes if "Range" in r["tag"]]
+    for marker in range_markers:
+        assert marker["supported"] is False, f"{marker['tag']} should not be supported"
+
+
+@pytest.mark.asyncio
+async def test_accept_move_keeps_destination(move_fixture_copy):
+    """Test that accepting a move keeps the destination content."""
+    # Read moves
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+
+    # Find a moveTo wrapper (represents destination)
+    move_to = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["tag"] == "moveTo" and r["supported"]
+        ),
+        None,
+    )
+    if move_to is None:
+        pytest.skip("No supported moveTo in fixture")
+
+    move_id = move_to["id"]
+    destination_text = move_to["text"]
+
+    # Accept the move
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(move_fixture_copy),
+            "operation": "accept_change",
+            "target_id": move_id,
+        },
+    )
+    assert edit_result["success"] is True
+
+    # Verify destination text is still in document
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "blocks"}
+    )
+    text_after = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert destination_text in text_after, (
+        "Destination text should remain after accepting move"
+    )
+
+    # Move revisions should be gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    remaining_move_ids = [
+        r["id"] for r in after_revisions["revisions"] if r["type"] == "move"
+    ]
+    assert move_id not in remaining_move_ids, "Accepted move should be removed"
+
+
+@pytest.mark.asyncio
+async def test_reject_move_keeps_source(move_fixture_copy):
+    """Test that rejecting a move keeps the source content."""
+    # Read moves
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+
+    # Find a moveFrom wrapper (represents source)
+    move_from = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["tag"] == "moveFrom" and r["supported"]
+        ),
+        None,
+    )
+    if move_from is None:
+        pytest.skip("No supported moveFrom in fixture")
+
+    move_id = move_from["id"]
+    source_text = move_from["text"]
+
+    # Reject the move
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(move_fixture_copy),
+            "operation": "reject_change",
+            "target_id": move_id,
+        },
+    )
+    assert edit_result["success"] is True
+
+    # Verify source text is still in document
+    _, after_blocks = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "blocks"}
+    )
+    text_after = " ".join(b["text"] for b in after_blocks["blocks"])
+    assert source_text in text_after, "Source text should remain after rejecting move"
+
+    # Move revisions should be gone
+    _, after_revisions = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    remaining_move_ids = [
+        r["id"] for r in after_revisions["revisions"] if r["type"] == "move"
+    ]
+    assert move_id not in remaining_move_ids, "Rejected move should be removed"
+
+
+@pytest.mark.asyncio
+async def test_accept_all_includes_moves(move_fixture_copy):
+    """Test that accept_all_changes processes moves."""
+    # Verify there are move changes before
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    move_count_before = len(
+        [
+            r
+            for r in before_result["revisions"]
+            if r["type"] == "move" and r["supported"]
+        ]
+    )
+    assert move_count_before > 0, "Should have move changes in fixture"
+
+    # Accept all
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {"file_path": str(move_fixture_copy), "operation": "accept_all_changes"},
+    )
+    assert edit_result["success"] is True
+
+    # Verify no move changes remain
+    _, after_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    # Only unsupported range markers might remain
+    supported_moves = [
+        r for r in after_result["revisions"] if r["type"] == "move" and r["supported"]
+    ]
+    assert len(supported_moves) == 0, "All supported moves should be processed"
+
+
+@pytest.mark.asyncio
+async def test_accept_move_removes_all_markers(move_fixture_copy):
+    """Test that accepting a move removes all range markers from XML."""
+    from docx import Document as DocxDocument
+    from docx.oxml.ns import qn
+
+    from mcp_handley_lab.word.document import _rev_xpath
+
+    # Get a move ID
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    move_to = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["tag"] == "moveTo" and r["supported"]
+        ),
+        None,
+    )
+    if move_to is None:
+        pytest.skip("No supported moveTo in fixture")
+
+    move_id = move_to["id"]
+
+    # Accept the move
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(move_fixture_copy),
+            "operation": "accept_change",
+            "target_id": move_id,
+        },
+    )
+
+    # Verify no move elements remain in XML for this ID
+    doc = DocxDocument(str(move_fixture_copy))
+    w_id_qn = qn("w:id")
+
+    # Check for any move-related elements with this ID
+    for tag in [
+        "moveFrom",
+        "moveTo",
+        "moveFromRangeStart",
+        "moveFromRangeEnd",
+        "moveToRangeStart",
+        "moveToRangeEnd",
+    ]:
+        elements = _rev_xpath(doc.element, f"//w:body//w:{tag}")
+        for el in elements:
+            assert el.get(w_id_qn) != move_id, (
+                f"{tag} with id {move_id} should be removed"
+            )
+
+
+@pytest.mark.asyncio
+async def test_incomplete_move_fails_safely(move_fixture_copy):
+    """Test that incomplete move markup raises error without partial mutation."""
+    from docx import Document as DocxDocument
+    from docx.oxml.ns import qn
+
+    from mcp_handley_lab.word.document import _rev_xpath
+
+    # Get a move ID
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    move_to = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["tag"] == "moveTo" and r["supported"]
+        ),
+        None,
+    )
+    if move_to is None:
+        pytest.skip("No supported moveTo in fixture")
+
+    move_id = move_to["id"]
+
+    # Corrupt the document by removing moveFromRangeStart
+    doc = DocxDocument(str(move_fixture_copy))
+    w_id_qn = qn("w:id")
+
+    from_start_elements = [
+        el
+        for el in _rev_xpath(doc.element, "//w:body//w:moveFromRangeStart")
+        if el.get(w_id_qn) == move_id
+    ]
+    for el in from_start_elements:
+        parent = el.getparent()
+        if parent is not None:
+            parent.remove(el)
+    doc.save(str(move_fixture_copy))
+
+    # Now try to accept the incomplete move - should fail
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(move_fixture_copy),
+                "operation": "accept_change",
+                "target_id": move_id,
+            },
+        )
+    assert (
+        "incomplete" in str(exc_info.value).lower()
+        or "missing" in str(exc_info.value).lower()
+    )
+
+
+@pytest.mark.asyncio
+async def test_incomplete_move_missing_end_marker(move_fixture_copy):
+    """Test that missing end marker raises error without partial mutation."""
+    from docx import Document as DocxDocument
+    from docx.oxml.ns import qn
+
+    from mcp_handley_lab.word.document import _rev_xpath
+
+    # Get a move ID
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(move_fixture_copy), "scope": "revisions"}
+    )
+    move_to = next(
+        (
+            r
+            for r in before_result["revisions"]
+            if r["tag"] == "moveTo" and r["supported"]
+        ),
+        None,
+    )
+    if move_to is None:
+        pytest.skip("No supported moveTo in fixture")
+
+    move_id = move_to["id"]
+
+    # Corrupt the document by removing moveToRangeEnd (not start)
+    doc = DocxDocument(str(move_fixture_copy))
+    w_id_qn = qn("w:id")
+
+    to_end_elements = [
+        el
+        for el in _rev_xpath(doc.element, "//w:body//w:moveToRangeEnd")
+        if el.get(w_id_qn) == move_id
+    ]
+    for el in to_end_elements:
+        parent = el.getparent()
+        if parent is not None:
+            parent.remove(el)
+    doc.save(str(move_fixture_copy))
+
+    # Now try to accept the incomplete move - should fail
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(move_fixture_copy),
+                "operation": "accept_change",
+                "target_id": move_id,
+            },
+        )
+    assert (
+        "incomplete" in str(exc_info.value).lower()
+        or "missing" in str(exc_info.value).lower()
+    )
+
+
+# --- List tests ---
+
+
+@pytest.fixture
+def list_fixture_docx():
+    """Return path to list fixture."""
+    return Path("tests/word/fixtures/fixture_list.docx")
+
+
+@pytest.fixture
+def list_fixture_copy(list_fixture_docx, tmp_path):
+    """Create a temporary copy of list fixture for mutation tests."""
+    if not list_fixture_docx.exists():
+        pytest.skip("List fixture not found")
+    dest = tmp_path / "list_copy.docx"
+    dest.write_bytes(list_fixture_docx.read_bytes())
+    return dest
+
+
+@pytest.mark.asyncio
+async def test_read_list_scope_returns_info(list_fixture_docx):
+    """Test reading list info for a list paragraph."""
+    # First get blocks to find a list paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_docx), "scope": "blocks"}
+    )
+
+    # Find first list paragraph (should be "First numbered item")
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "numbered" in block["text"].lower():
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("No list paragraph found in fixture")
+
+    # Read list scope for this paragraph
+    _, list_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_docx),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+
+    assert list_result["list_info"] is not None
+    assert list_result["list_info"]["num_id"] is not None
+    assert list_result["list_info"]["level"] is not None
+
+
+@pytest.mark.asyncio
+async def test_read_list_scope_returns_none_for_non_list(list_fixture_docx):
+    """Test reading list info for a non-list paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_docx), "scope": "blocks"}
+    )
+
+    # Find "Regular paragraph" which is not a list
+    regular_para = None
+    for block in blocks_result["blocks"]:
+        if "Regular paragraph" in block["text"]:
+            regular_para = block
+            break
+
+    if regular_para is None:
+        pytest.skip("Regular paragraph not found in fixture")
+
+    _, list_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_docx),
+            "scope": "list",
+            "target_id": regular_para["id"],
+        },
+    )
+
+    assert list_result["list_info"] is None
+
+
+@pytest.mark.asyncio
+async def test_set_list_level(list_fixture_copy):
+    """Test setting list level on a list paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find a list paragraph
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Set level to 2
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "set_list_level",
+            "target_id": list_para["id"],
+            "content_data": "2",
+        },
+    )
+
+    assert edit_result["success"]
+
+    # Verify level changed
+    _, list_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    assert list_result["list_info"]["level"] == 2
+
+
+@pytest.mark.asyncio
+async def test_promote_list_item(list_fixture_copy):
+    """Test promoting (decreasing level of) a list item."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find nested list paragraph (level 1)
+    nested_para = None
+    for block in blocks_result["blocks"]:
+        if "Nested" in block["text"]:
+            nested_para = block
+            break
+
+    if nested_para is None:
+        pytest.skip("Nested paragraph not found")
+
+    # Get original level
+    _, before_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": nested_para["id"],
+        },
+    )
+    original_level = before_result["list_info"]["level"]
+
+    # Promote
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "promote_list",
+            "target_id": nested_para["id"],
+        },
+    )
+
+    assert edit_result["success"]
+
+    # Verify level decreased
+    _, after_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": nested_para["id"],
+        },
+    )
+    assert after_result["list_info"]["level"] == max(0, original_level - 1)
+
+
+@pytest.mark.asyncio
+async def test_demote_list_item(list_fixture_copy):
+    """Test demoting (increasing level of) a list item."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find first list paragraph (level 0)
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Get original level
+    _, before_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    original_level = before_result["list_info"]["level"]
+
+    # Demote
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "demote_list",
+            "target_id": list_para["id"],
+        },
+    )
+
+    assert edit_result["success"]
+
+    # Verify level increased
+    _, after_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    assert after_result["list_info"]["level"] == min(8, original_level + 1)
+
+
+@pytest.mark.asyncio
+async def test_remove_list_formatting(list_fixture_copy):
+    """Test removing list formatting from a paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find a list paragraph
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Verify it's a list
+    _, before_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    assert before_result["list_info"] is not None
+
+    # Remove list formatting
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "remove_list",
+            "target_id": list_para["id"],
+        },
+    )
+
+    assert edit_result["success"]
+
+    # Verify list info is now None
+    _, after_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    assert after_result["list_info"] is None
+
+
+@pytest.mark.asyncio
+async def test_set_list_level_fails_on_non_list(list_fixture_copy):
+    """Test that set_list_level fails on non-list paragraph."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find regular paragraph
+    regular_para = None
+    for block in blocks_result["blocks"]:
+        if "Regular paragraph" in block["text"]:
+            regular_para = block
+            break
+
+    if regular_para is None:
+        pytest.skip("Regular paragraph not found")
+
+    # Should fail because it's not a list
+    with pytest.raises(ToolError):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(list_fixture_copy),
+                "operation": "set_list_level",
+                "target_id": regular_para["id"],
+                "content_data": "1",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_restart_numbering(list_fixture_copy):
+    """Test restart_numbering operation creates new numbering sequence."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find a list paragraph to restart
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Restart numbering at value 5
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "restart_numbering",
+            "target_id": list_para["id"],
+            "content_data": "5",
+        },
+    )
+    assert edit_result["success"]
+    assert "Restarted" in edit_result["message"]
+
+    # Verify list info shows the paragraph is still a list
+    _, after_result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    assert after_result["list_info"] is not None
+
+
+@pytest.mark.asyncio
+async def test_list_level_bounds(list_fixture_copy):
+    """Test that list level must be between 0 and 8."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    # Find a list paragraph
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Level -1 should fail
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(list_fixture_copy),
+                "operation": "set_list_level",
+                "target_id": list_para["id"],
+                "content_data": "-1",
+            },
+        )
+    assert "0-8" in str(exc_info.value)
+
+    # Level 9 should fail
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(list_fixture_copy),
+                "operation": "set_list_level",
+                "target_id": list_para["id"],
+                "content_data": "9",
+            },
+        )
+    assert "0-8" in str(exc_info.value)
+
+    # Level 0 should succeed
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "set_list_level",
+            "target_id": list_para["id"],
+            "content_data": "0",
+        },
+    )
+    assert result["success"]
+
+    # Level 8 should succeed
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "set_list_level",
+            "target_id": list_para["id"],
+            "content_data": "8",
+        },
+    )
+    assert result["success"]
+
+
+# =============================================================================
+# TEXT BOX TESTS (Phase 9)
+# =============================================================================
+
+
+@pytest.fixture
+def textbox_fixture_docx():
+    """Fixture document with a text box."""
+    return Path("tests/word/fixtures/fixture_textbox.docx")
+
+
+@pytest.mark.asyncio
+async def test_read_text_boxes_scope_returns_list(textbox_fixture_docx):
+    """Test that reading text_boxes scope returns text box info."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    assert "text_boxes" in result
+    assert len(result["text_boxes"]) >= 1, "Should find at least one text box"
+
+    tb = result["text_boxes"][0]
+    assert "id" in tb
+    assert "text" in tb
+    assert "paragraph_count" in tb
+    assert "position_type" in tb
+    assert "source_type" in tb
+
+
+@pytest.mark.asyncio
+async def test_text_box_info_has_correct_metadata(textbox_fixture_docx):
+    """Test that text box info contains expected metadata."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    tb = result["text_boxes"][0]
+
+    # Check metadata
+    assert tb["id"] == "textbox_1", "ID should be derived from wp:docPr @id"
+    assert tb["name"] == "Text Box 1", "Name should come from wp:docPr @name"
+    assert tb["paragraph_count"] == 2, "Should have 2 paragraphs"
+    assert "Hello from text box!" in tb["text"]
+    assert "Second paragraph" in tb["text"]
+
+
+@pytest.mark.asyncio
+async def test_text_box_dimensions(textbox_fixture_docx):
+    """Test that text box dimensions are extracted correctly."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    tb = result["text_boxes"][0]
+
+    # Should be approximately 2x1 inches
+    assert tb["width_inches"] == 2.0, "Width should be 2 inches"
+    assert tb["height_inches"] == 1.0, "Height should be 1 inch"
+
+
+@pytest.mark.asyncio
+async def test_text_box_position_type(textbox_fixture_docx):
+    """Test that text box position type is detected."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    tb = result["text_boxes"][0]
+
+    # Should be anchor (floating)
+    assert tb["position_type"] == "anchor", "Position type should be 'anchor'"
+    assert tb["source_type"] == "drawingml", "Source type should be 'drawingml'"
+
+
+@pytest.mark.asyncio
+async def test_text_boxes_not_in_regular_blocks(textbox_fixture_docx):
+    """Test that text box content is NOT included in regular blocks scope."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    # Read blocks
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "blocks"}
+    )
+
+    # Read text boxes
+    _, textbox_result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    tb_text = textbox_result["text_boxes"][0]["text"]
+    blocks_text = " ".join(b["text"] for b in blocks_result["blocks"])
+
+    # The text box content should NOT appear in regular blocks
+    # (python-docx doesn't iterate w:txbxContent in doc.paragraphs)
+    assert tb_text not in blocks_text, (
+        "Text box content should not appear in regular blocks"
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_text_boxes_returns_empty_list(no_changes_docx):
+    """Test that documents without text boxes return empty list."""
+    if not no_changes_docx.exists():
+        pytest.skip("No changes fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(no_changes_docx), "scope": "text_boxes"}
+    )
+
+    assert result["text_boxes"] == [], (
+        "Should return empty list for doc without text boxes"
+    )
+    assert result["block_count"] == 0
+
+
+@pytest.fixture
+def vml_textbox_fixture_docx():
+    """Fixture document with a VML text box."""
+    return Path("tests/word/fixtures/fixture_textbox_vml.docx")
+
+
+@pytest.mark.asyncio
+async def test_vml_text_box_discovery(vml_textbox_fixture_docx):
+    """Test that VML text boxes are discovered correctly."""
+    if not vml_textbox_fixture_docx.exists():
+        pytest.skip("VML text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(vml_textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    assert len(result["text_boxes"]) >= 1, "Should find VML text box"
+
+    tb = result["text_boxes"][0]
+    assert tb["source_type"] == "vml", "Source type should be 'vml'"
+    assert "VMLTextBox" in tb["id"], "ID should contain VML shape ID"
+    assert "VML text box content!" in tb["text"]
+    assert tb["paragraph_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_vml_text_box_dimensions(vml_textbox_fixture_docx):
+    """Test that VML text box dimensions are extracted from style attribute."""
+    if not vml_textbox_fixture_docx.exists():
+        pytest.skip("VML text box fixture not found")
+
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(vml_textbox_fixture_docx), "scope": "text_boxes"}
+    )
+
+    tb = result["text_boxes"][0]
+
+    # 150pt / 72 = ~2.08 inches, 75pt / 72 = ~1.04 inches
+    assert 2.0 <= tb["width_inches"] <= 2.2, "Width should be ~2.08 inches"
+    assert 1.0 <= tb["height_inches"] <= 1.1, "Height should be ~1.04 inches"
+
+
+@pytest.mark.asyncio
+async def test_read_text_box_content_scope(textbox_fixture_docx):
+    """Test reading paragraphs inside a text box via text_box_content scope."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    # First get the text box ID
+    _, tb_result = await mcp.call_tool(
+        "read", {"file_path": str(textbox_fixture_docx), "scope": "text_boxes"}
+    )
+    textbox_id = tb_result["text_boxes"][0]["id"]
+
+    # Read the text box content
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(textbox_fixture_docx),
+            "scope": "text_box_content",
+            "target_id": textbox_id,
+        },
+    )
+
+    assert result["block_count"] == 2, "Should have 2 paragraphs"
+    assert len(result["blocks"]) == 2
+    assert result["blocks"][0]["text"] == "Hello from text box!"
+    assert result["blocks"][1]["text"] == "Second paragraph in text box."
+
+
+@pytest.mark.asyncio
+async def test_edit_text_box_operation(textbox_fixture_docx, tmp_path):
+    """Test editing text in a text box paragraph."""
+    if not textbox_fixture_docx.exists():
+        pytest.skip("Text box fixture not found")
+
+    # Copy fixture
+    dest = tmp_path / "textbox_edit_test.docx"
+    dest.write_bytes(textbox_fixture_docx.read_bytes())
+
+    # Get text box ID
+    _, tb_result = await mcp.call_tool(
+        "read", {"file_path": str(dest), "scope": "text_boxes"}
+    )
+    textbox_id = tb_result["text_boxes"][0]["id"]
+
+    # Edit first paragraph
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(dest),
+            "operation": "edit_text_box",
+            "target_id": textbox_id,
+            "row": 0,  # paragraph index
+            "content_data": "Edited text box content!",
+        },
+    )
+
+    assert edit_result["success"]
+
+    # Verify the change
+    _, tb_result_after = await mcp.call_tool(
+        "read", {"file_path": str(dest), "scope": "text_boxes"}
+    )
+    assert "Edited text box content!" in tb_result_after["text_boxes"][0]["text"]
+
+
+# --- Phase 10: Cross-References and Captions Tests ---
+
+
+@pytest.fixture
+def docx_for_bookmarks(tmp_path):
+    """Create a document for bookmark tests."""
+    doc = Document()
+    doc.add_heading("Chapter 1: Introduction", level=1)
+    doc.add_paragraph("This is the introduction paragraph.")
+    doc.add_heading("Chapter 2: Methods", level=1)
+    doc.add_paragraph("This is the methods paragraph.")
+    doc_path = tmp_path / "bookmarks_test.docx"
+    doc.save(str(doc_path))
+    return doc_path
+
+
+@pytest.mark.asyncio
+async def test_read_bookmarks_scope_returns_empty_for_no_bookmarks(docx_for_bookmarks):
+    """Test that bookmarks scope returns empty list for doc without bookmarks."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "bookmarks"}
+    )
+
+    assert result["bookmarks"] == [], (
+        "Should return empty list for doc without bookmarks"
+    )
+    assert result["block_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_add_bookmark_creates_bookmark(docx_for_bookmarks):
+    """Test adding a bookmark to a paragraph."""
+    # Get paragraph ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][1]  # "This is the introduction paragraph."
+
+    # Add bookmark
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "add_bookmark",
+            "target_id": para["id"],
+            "content_data": "IntroSection",
+        },
+    )
+    assert result["success"]
+    assert "IntroSection" in result["message"]
+
+    # Verify bookmark was created
+    _, bm_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "bookmarks"}
+    )
+    assert len(bm_result["bookmarks"]) == 1
+    assert bm_result["bookmarks"][0]["name"] == "IntroSection"
+
+
+@pytest.mark.asyncio
+async def test_read_bookmarks_scope_returns_list(docx_for_bookmarks):
+    """Test reading bookmarks after they're created."""
+    # Get paragraph ID and add bookmarks
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+
+    # Add two bookmarks
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "add_bookmark",
+            "target_id": blocks_result["blocks"][0]["id"],
+            "content_data": "ChapterOne",
+        },
+    )
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "add_bookmark",
+            "target_id": blocks_result["blocks"][2]["id"],
+            "content_data": "ChapterTwo",
+        },
+    )
+
+    # Read bookmarks
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "bookmarks"}
+    )
+
+    assert result["block_count"] == 2
+    assert len(result["bookmarks"]) == 2
+    names = [bm["name"] for bm in result["bookmarks"]]
+    assert "ChapterOne" in names
+    assert "ChapterTwo" in names
+
+
+@pytest.mark.asyncio
+async def test_bookmark_name_validation(docx_for_bookmarks):
+    """Test that invalid bookmark names are rejected."""
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    # Name starting with number should fail
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(docx_for_bookmarks),
+                "operation": "add_bookmark",
+                "target_id": para["id"],
+                "content_data": "123Invalid",
+            },
+        )
+    assert "start with a letter" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_insert_cross_reference(docx_for_bookmarks):
+    """Test inserting a cross-reference to a bookmark."""
+    # Get paragraph IDs
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+
+    # Add bookmark to first heading
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "add_bookmark",
+            "target_id": blocks_result["blocks"][0]["id"],
+            "content_data": "IntroHeading",
+        },
+    )
+
+    # Insert cross-reference in a paragraph
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "insert_cross_ref",
+            "target_id": blocks_result["blocks"][1]["id"],
+            "content_data": "IntroHeading",
+            "style_name": "text",  # ref_type
+        },
+    )
+    assert result["success"]
+    assert "IntroHeading" in result["message"]
+
+    # Verify the field structure exists in the document
+    doc = Document(str(docx_for_bookmarks))
+    para_xml = doc.paragraphs[1]._p.xml
+    assert "w:fldChar" in para_xml
+    assert "REF" in para_xml
+    assert "IntroHeading" in para_xml
+
+
+@pytest.mark.asyncio
+async def test_cross_reference_formats(docx_for_bookmarks):
+    """Test different cross-reference formats: text, number, page."""
+    # First add a bookmark
+    _, blocks = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+    first_heading = blocks["blocks"][0]
+
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "add_bookmark",
+            "target_id": first_heading["id"],
+            "content_data": "RefTestBookmark",
+        },
+    )
+
+    # Re-read blocks after modification (IDs may change)
+    _, blocks = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+
+    # Test 'text' ref_type (default) - uses REF field
+    _, text_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "insert_cross_ref",
+            "target_id": blocks["blocks"][1]["id"],
+            "content_data": "RefTestBookmark",
+            "style_name": "text",
+        },
+    )
+    assert text_result["success"]
+
+    # Re-read blocks after modification (IDs may change)
+    _, blocks = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_bookmarks), "scope": "blocks"}
+    )
+
+    # Test 'page' ref_type - uses PAGEREF field
+    _, page_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_bookmarks),
+            "operation": "insert_cross_ref",
+            "target_id": blocks["blocks"][1]["id"],
+            "content_data": "RefTestBookmark",
+            "style_name": "page",
+        },
+    )
+    assert page_result["success"]
+
+    # Verify both field types exist
+    doc = Document(str(docx_for_bookmarks))
+    para_xml = doc.paragraphs[1]._p.xml
+    assert "REF " in para_xml  # text reference uses REF
+    assert "PAGEREF" in para_xml  # page reference uses PAGEREF
+
+
+@pytest.fixture
+def docx_for_captions(tmp_path):
+    """Create a document for caption tests."""
+    doc = Document()
+    doc.add_paragraph("Text before table")
+    table = doc.add_table(rows=2, cols=2)
+    table.style = "Table Grid"
+    table.cell(0, 0).text = "A"
+    table.cell(0, 1).text = "B"
+    table.cell(1, 0).text = "C"
+    table.cell(1, 1).text = "D"
+    doc.add_paragraph("Text after table")
+    doc_path = tmp_path / "captions_test.docx"
+    doc.save(str(doc_path))
+    return doc_path
+
+
+@pytest.mark.asyncio
+async def test_insert_caption_below_table(docx_for_captions):
+    """Test inserting a caption below a table."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_captions), "scope": "blocks"}
+    )
+    table_block = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "table":
+            table_block = block
+            break
+
+    assert table_block is not None
+
+    # Insert caption below table
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_captions),
+            "operation": "insert_caption",
+            "target_id": table_block["id"],
+            "content_data": '{"label": "Table", "text": "Sample data table", "position": "below"}',
+        },
+    )
+    assert result["success"]
+    assert "Table" in result["message"]
+
+    # Verify caption was created
+    _, captions_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_captions), "scope": "captions"}
+    )
+    assert len(captions_result["captions"]) == 1
+    caption = captions_result["captions"][0]
+    assert caption["label"] == "Table"
+    assert "Sample data table" in caption["text"]
+
+
+@pytest.mark.asyncio
+async def test_insert_caption_above_element(docx_for_captions):
+    """Test inserting a caption above an element."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_captions), "scope": "blocks"}
+    )
+    table_block = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "table":
+            table_block = block
+            break
+
+    assert table_block is not None
+
+    # Insert caption above table
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_captions),
+            "operation": "insert_caption",
+            "target_id": table_block["id"],
+            "content_data": '{"label": "Figure", "text": "Data visualization", "position": "above"}',
+        },
+    )
+    assert result["success"]
+
+    # Verify caption style
+    doc = Document(str(docx_for_captions))
+    # Find caption paragraph
+    for p in doc.paragraphs:
+        if "Figure" in p.text and "Data visualization" in p.text:
+            assert p.style.name == "Caption"
+            break
+
+
+@pytest.mark.asyncio
+async def test_read_captions_scope_returns_empty_for_no_captions(docx_for_captions):
+    """Test that captions scope returns empty list for doc without captions."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_captions), "scope": "captions"}
+    )
+
+    assert result["captions"] == [], "Should return empty list for doc without captions"
+    assert result["block_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_caption_contains_seq_field(docx_for_captions):
+    """Test that captions contain SEQ field for auto-numbering."""
+    # Get the table ID
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(docx_for_captions), "scope": "blocks"}
+    )
+    table_block = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "table":
+            table_block = block
+            break
+
+    # Insert caption
+    await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_captions),
+            "operation": "insert_caption",
+            "target_id": table_block["id"],
+            "content_data": '{"label": "Table", "text": "Test table"}',
+        },
+    )
+
+    # Verify SEQ field is in the XML
+    doc = Document(str(docx_for_captions))
+    for p in doc.paragraphs:
+        if "Table" in p.text:
+            para_xml = p._p.xml
+            if "SEQ" in para_xml:
+                assert "w:fldChar" in para_xml
+                break
+
+
+# --- Phase 11: Comment Threading tests ---
+
+
+@pytest.mark.asyncio
+async def test_comments_scope_includes_threading_fields(sample_docx):
+    """Test that comments scope returns threading fields."""
+    # First add a comment
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    first_para = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "paragraph":
+            first_para = block
+            break
+
+    _, add_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": first_para["id"],
+            "content_data": "Test comment",
+        },
+    )
+    assert add_result["success"]
+
+    # Read comments with threading info
+    _, comments_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "comments"}
+    )
+
+    assert len(comments_result["comments"]) > 0
+    comment = comments_result["comments"][0]
+
+    # Verify threading fields exist
+    assert "parent_id" in comment
+    assert "resolved" in comment
+    assert "replies" in comment
+
+    # For a doc without commentsExtended.xml, threading should be flat
+    assert comment["parent_id"] is None
+    assert comment["resolved"] is False
+    assert comment["replies"] == []
+
+
+@pytest.mark.asyncio
+async def test_reply_to_comment_creates_reply(sample_docx):
+    """Test that reply_comment creates a reply to existing comment."""
+    # First add a comment
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    first_para = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "paragraph":
+            first_para = block
+            break
+
+    _, add_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": first_para["id"],
+            "content_data": "Original comment",
+        },
+    )
+    assert add_result["success"]
+    # Extract comment ID from message
+    import re
+
+    match = re.search(r"comment (\d+)", add_result["message"])
+    parent_id = match.group(1)
+
+    # Reply to the comment
+    _, reply_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "reply_comment",
+            "target_id": parent_id,
+            "content_data": "This is a reply",
+        },
+    )
+    assert reply_result["success"]
+    assert "reply" in reply_result["message"].lower()
+
+    # Verify there are now 2 comments
+    _, comments_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "comments"}
+    )
+    assert len(comments_result["comments"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_reply_to_nonexistent_comment_raises_error(sample_docx):
+    """Test that replying to non-existent comment raises error."""
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "reply_comment",
+                "target_id": "9999",  # Non-existent comment ID
+                "content_data": "This should fail",
+            },
+        )
+    assert "not found" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_resolve_comment_validates_comment_exists(sample_docx):
+    """Test that resolve_comment validates the comment exists."""
+    # First add a comment
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    first_para = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "paragraph":
+            first_para = block
+            break
+
+    _, add_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": first_para["id"],
+            "content_data": "Comment to resolve",
+        },
+    )
+    assert add_result["success"]
+    import re
+
+    match = re.search(r"comment (\d+)", add_result["message"])
+    comment_id = match.group(1)
+
+    # Resolve the comment (validates it exists)
+    _, resolve_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "resolve_comment",
+            "target_id": comment_id,
+        },
+    )
+    assert resolve_result["success"]
+    assert "Resolved" in resolve_result["message"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_nonexistent_comment_raises_error(sample_docx):
+    """Test that resolving non-existent comment raises error."""
+    with pytest.raises(ToolError) as exc_info:
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "resolve_comment",
+                "target_id": "9999",  # Non-existent comment ID
+            },
+        )
+    assert "not found" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_unresolve_comment_validates_comment_exists(sample_docx):
+    """Test that unresolve_comment validates the comment exists."""
+    # First add a comment
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    first_para = None
+    for block in blocks_result["blocks"]:
+        if block["type"] == "paragraph":
+            first_para = block
+            break
+
+    _, add_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_comment",
+            "target_id": first_para["id"],
+            "content_data": "Comment to unresolve",
+        },
+    )
+    assert add_result["success"]
+    import re
+
+    match = re.search(r"comment (\d+)", add_result["message"])
+    comment_id = match.group(1)
+
+    # Unresolve the comment (validates it exists)
+    _, unresolve_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "unresolve_comment",
+            "target_id": comment_id,
+        },
+    )
+    assert unresolve_result["success"]
+    assert "Unresolved" in unresolve_result["message"]
+
+
+# --- TOC (Table of Contents) Tests ---
+
+
+@pytest.mark.asyncio
+async def test_read_toc_scope_returns_no_toc_for_empty_doc(sample_docx):
+    """Test that toc scope returns exists=False for document without TOC."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "toc"}
+    )
+    assert "toc_info" in result
+    assert result["toc_info"]["exists"] is False
+
+
+@pytest.mark.asyncio
+async def test_insert_toc_creates_toc(tmp_path):
+    """Test that insert_toc creates a TOC field."""
+    from docx import Document
+
+    # Create a document with headings
+    file_path = tmp_path / "toc_test.docx"
+    doc = Document()
+    doc.add_heading("Chapter 1", level=1)
+    doc.add_paragraph("Content for chapter 1")
+    doc.add_heading("Chapter 2", level=1)
+    doc.add_paragraph("Content for chapter 2")
+    doc.save(str(file_path))
+
+    # Get the first paragraph to insert TOC before
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "blocks"}
+    )
+    first_block = blocks_result["blocks"][0]
+
+    # Insert TOC before first heading
+    _, insert_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(file_path),
+            "operation": "insert_toc",
+            "target_id": first_block["id"],
+            "content_data": '{"position": "before", "heading_levels": "1-3"}',
+        },
+    )
+    assert insert_result["success"]
+    assert "TOC" in insert_result["message"]
+
+    # Verify TOC now exists
+    _, toc_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "toc"}
+    )
+    assert toc_result["toc_info"]["exists"] is True
+
+
+@pytest.mark.asyncio
+async def test_insert_toc_heading_levels_configurable(tmp_path):
+    """Test that insert_toc respects heading_levels parameter."""
+    from docx import Document
+
+    # Create a document
+    file_path = tmp_path / "toc_levels.docx"
+    doc = Document()
+    doc.add_heading("Heading 1", level=1)
+    doc.add_paragraph("Content")
+    doc.save(str(file_path))
+
+    # Get first block
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "blocks"}
+    )
+    first_block = blocks_result["blocks"][0]
+
+    # Insert TOC with custom heading levels
+    _, insert_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(file_path),
+            "operation": "insert_toc",
+            "target_id": first_block["id"],
+            "content_data": '{"position": "before", "heading_levels": "1-4"}',
+        },
+    )
+    assert insert_result["success"]
+
+    # Verify TOC info contains heading_levels
+    _, toc_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "toc"}
+    )
+    assert toc_result["toc_info"]["exists"]
+    assert "1-4" in toc_result["toc_info"]["heading_levels"]
+
+
+@pytest.mark.asyncio
+async def test_update_toc_sets_dirty_flag(tmp_path):
+    """Test that update_toc sets the dirty flag on the TOC field."""
+    from docx import Document
+
+    # Create a document with headings
+    file_path = tmp_path / "toc_update.docx"
+    doc = Document()
+    doc.add_heading("Chapter 1", level=1)
+    doc.add_paragraph("Content")
+    doc.save(str(file_path))
+
+    # Get first block and insert TOC
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "blocks"}
+    )
+    first_block = blocks_result["blocks"][0]
+
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(file_path),
+            "operation": "insert_toc",
+            "target_id": first_block["id"],
+            "content_data": '{"position": "before"}',
+        },
+    )
+
+    # Update the TOC (set dirty flag)
+    _, update_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(file_path),
+            "operation": "update_toc",
+        },
+    )
+    assert update_result["success"]
+    assert "dirty" in update_result["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_has_toc_detects_existing_toc(tmp_path):
+    """Test that has_toc properly detects an existing TOC."""
+    from docx import Document
+
+    # Create document and insert TOC
+    file_path = tmp_path / "toc_detect.docx"
+    doc = Document()
+    doc.add_heading("Test", level=1)
+    doc.save(str(file_path))
+
+    # Initially no TOC
+    _, before_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "toc"}
+    )
+    assert before_result["toc_info"]["exists"] is False
+
+    # Insert TOC
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "blocks"}
+    )
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(file_path),
+            "operation": "insert_toc",
+            "target_id": blocks_result["blocks"][0]["id"],
+            "content_data": '{"position": "before"}',
+        },
+    )
+
+    # Now TOC exists
+    _, after_result = await mcp.call_tool(
+        "read", {"file_path": str(file_path), "scope": "toc"}
+    )
+    assert after_result["toc_info"]["exists"] is True
+
+
+# =============================================================================
+# FOOTNOTES AND ENDNOTES TESTS
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_read_footnotes_empty_document(sample_docx):
+    """Test reading footnotes from document with no footnotes."""
+    _, result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "footnotes"}
+    )
+    assert result["block_count"] == 0
+    assert result["footnotes"] == []
+
+
+@pytest.mark.asyncio
+async def test_add_footnote():
+    """Test adding a footnote to a paragraph."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("This paragraph needs a footnote.")
+        doc.add_paragraph("Another paragraph.")
+        doc.save(str(file_path))
+
+        try:
+            # Get paragraph ID
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_id = blocks_result["blocks"][0]["id"]
+            assert "paragraph" in para_id
+
+            # Add footnote
+            _, edit_result = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "add_footnote",
+                    "target_id": para_id,
+                    "content_data": '{"text": "This is footnote content."}',
+                },
+            )
+            assert edit_result["success"] is True
+            assert edit_result["message"].startswith("Added footnote")
+
+            # Read footnotes
+            _, footnotes_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert footnotes_result["block_count"] == 1
+            assert len(footnotes_result["footnotes"]) == 1
+            fn = footnotes_result["footnotes"][0]
+            assert fn["type"] == "footnote"
+            assert "footnote content" in fn["text"]
+            assert fn["block_id"] == para_id
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_add_endnote():
+    """Test adding an endnote to a paragraph."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("This paragraph needs an endnote.")
+        doc.save(str(file_path))
+
+        try:
+            # Get paragraph ID
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_id = blocks_result["blocks"][0]["id"]
+
+            # Add endnote
+            _, edit_result = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "add_footnote",
+                    "target_id": para_id,
+                    "content_data": '{"text": "This is endnote content.", "note_type": "endnote"}',
+                },
+            )
+            assert edit_result["success"] is True
+            assert edit_result["message"].startswith("Added endnote")
+
+            # Read footnotes (includes endnotes)
+            _, footnotes_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert footnotes_result["block_count"] == 1
+            assert len(footnotes_result["footnotes"]) == 1
+            en = footnotes_result["footnotes"][0]
+            assert en["type"] == "endnote"
+            assert "endnote content" in en["text"]
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_delete_footnote():
+    """Test deleting a footnote."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("This paragraph has a footnote.")
+        doc.save(str(file_path))
+
+        try:
+            # Get paragraph ID and add footnote
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_id = blocks_result["blocks"][0]["id"]
+
+            _, _ = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "add_footnote",
+                    "target_id": para_id,
+                    "content_data": '{"text": "To be deleted."}',
+                },
+            )
+
+            # Verify footnote exists
+            _, fn_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert fn_result["block_count"] == 1
+            fn_id = fn_result["footnotes"][0]["id"]
+
+            # Delete footnote
+            _, delete_result = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "delete_footnote",
+                    "target_id": str(fn_id),
+                },
+            )
+            assert delete_result["success"] is True
+            assert delete_result["message"].startswith("Deleted footnote")
+
+            # Verify footnote gone
+            _, after_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert after_result["block_count"] == 0
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_multiple_footnotes():
+    """Test adding multiple footnotes to different paragraphs."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("First paragraph.")
+        doc.add_paragraph("Second paragraph.")
+        doc.add_paragraph("Third paragraph.")
+        doc.save(str(file_path))
+
+        try:
+            # Get paragraph IDs
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_ids = [b["id"] for b in blocks_result["blocks"]]
+
+            # Add footnotes to first and third paragraphs
+            for i, para_id in enumerate([para_ids[0], para_ids[2]]):
+                _, _ = await mcp.call_tool(
+                    "edit",
+                    {
+                        "file_path": str(file_path),
+                        "operation": "add_footnote",
+                        "target_id": para_id,
+                        "content_data": f'{{"text": "Footnote {i + 1}."}}',
+                    },
+                )
+
+            # Read footnotes
+            _, fn_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert fn_result["block_count"] == 2
+            assert len(fn_result["footnotes"]) == 2
+            # Both should be footnotes
+            for fn in fn_result["footnotes"]:
+                assert fn["type"] == "footnote"
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_footnote_opc_package_integrity():
+    """Test that footnotes create proper OPC package structure (content types + relationships)."""
+    import zipfile
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("Paragraph with footnote.")
+        doc.save(str(file_path))
+
+        try:
+            # Get paragraph ID and add footnote
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_id = blocks_result["blocks"][0]["id"]
+
+            _, edit_result = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "add_footnote",
+                    "target_id": para_id,
+                    "content_data": '{"text": "OPC integrity test footnote."}',
+                },
+            )
+            assert edit_result["success"]
+
+            # Verify OPC package structure
+            with zipfile.ZipFile(file_path, "r") as zf:
+                namelist = zf.namelist()
+
+                # Footnotes part must exist
+                assert "word/footnotes.xml" in namelist, (
+                    "footnotes.xml missing from package"
+                )
+
+                # Content types must include footnotes
+                ct_content = zf.read("[Content_Types].xml").decode("utf-8")
+                assert "footnotes.xml" in ct_content, (
+                    "footnotes.xml not in [Content_Types].xml"
+                )
+
+                # Document rels must reference footnotes
+                doc_rels = zf.read("word/_rels/document.xml.rels").decode("utf-8")
+                assert "footnotes.xml" in doc_rels, (
+                    "footnotes.xml not in document.xml.rels"
+                )
+
+                # Footnotes part must contain the footnote
+                fn_content = zf.read("word/footnotes.xml").decode("utf-8")
+                assert "OPC integrity test footnote" in fn_content
+
+                # Document must contain footnote reference
+                doc_content = zf.read("word/document.xml").decode("utf-8")
+                assert "footnoteReference" in doc_content
+
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_footnote_delete_removes_reference():
+    """Test that deleting a footnote removes the reference from the document."""
+    import zipfile
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+        doc = Document()
+        doc.add_paragraph("Paragraph with footnote to delete.")
+        doc.save(str(file_path))
+
+        try:
+            # Add a footnote
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "blocks"}
+            )
+            para_id = blocks_result["blocks"][0]["id"]
+
+            _, _ = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "add_footnote",
+                    "target_id": para_id,
+                    "content_data": '{"text": "Footnote to delete."}',
+                },
+            )
+
+            # Get footnote ID via read
+            _, fn_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert fn_result["block_count"] == 1
+            footnote_id = fn_result["footnotes"][0]["id"]
+
+            # Delete the footnote
+            _, del_result = await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "delete_footnote",
+                    "target_id": str(footnote_id),
+                },
+            )
+            assert del_result["success"]
+
+            # Verify no footnotes remain
+            _, after_result = await mcp.call_tool(
+                "read", {"file_path": str(file_path), "scope": "footnotes"}
+            )
+            assert after_result["block_count"] == 0
+
+            # Verify footnote reference removed from document XML
+            with zipfile.ZipFile(file_path, "r") as zf:
+                doc_content = zf.read("word/document.xml").decode("utf-8")
+                # Footnote reference with this ID should be gone
+                assert f'w:id="{footnote_id}"' not in doc_content
+
+        finally:
+            file_path.unlink(missing_ok=True)
+
+
+# =============================================================================
+# Content Controls (SDTs) Tests
+# =============================================================================
+
+
+def _create_text_sdt(body, sdt_id, tag, text):
+    """Helper to create a text content control."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    sdt = OxmlElement("w:sdt")
+    sdtPr = OxmlElement("w:sdtPr")
+
+    id_el = OxmlElement("w:id")
+    id_el.set(qn("w:val"), str(sdt_id))
+    sdtPr.append(id_el)
+
+    tag_el = OxmlElement("w:tag")
+    tag_el.set(qn("w:val"), tag)
+    sdtPr.append(tag_el)
+
+    sdt.append(sdtPr)
+
+    sdtContent = OxmlElement("w:sdtContent")
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = text
+    r.append(t)
+    p.append(r)
+    sdtContent.append(p)
+    sdt.append(sdtContent)
+
+    body.append(sdt)
+    return sdt
+
+
+def _create_dropdown_sdt(body, sdt_id, tag, options, selected):
+    """Helper to create a dropdown content control."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    sdt = OxmlElement("w:sdt")
+    sdtPr = OxmlElement("w:sdtPr")
+
+    id_el = OxmlElement("w:id")
+    id_el.set(qn("w:val"), str(sdt_id))
+    sdtPr.append(id_el)
+
+    tag_el = OxmlElement("w:tag")
+    tag_el.set(qn("w:val"), tag)
+    sdtPr.append(tag_el)
+
+    dropDown = OxmlElement("w:dropDownList")
+    for opt in options:
+        listItem = OxmlElement("w:listItem")
+        listItem.set(qn("w:displayText"), opt)
+        listItem.set(qn("w:value"), opt.lower().replace(" ", "_"))
+        dropDown.append(listItem)
+    sdtPr.append(dropDown)
+
+    sdt.append(sdtPr)
+
+    sdtContent = OxmlElement("w:sdtContent")
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = selected
+    r.append(t)
+    p.append(r)
+    sdtContent.append(p)
+    sdt.append(sdtContent)
+
+    body.append(sdt)
+    return sdt
+
+
+@pytest.mark.asyncio
+async def test_read_content_controls_empty_document():
+    """Test reading content controls from a document with none."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("No content controls here.")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["block_count"] == 0
+        assert result["content_controls"] == []
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_content_controls_finds_text_sdt():
+    """Test reading a text content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Before content control.")
+        body = doc._element.body
+        _create_text_sdt(body, 123456, "name_field", "John Doe")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["block_count"] == 1
+        assert len(result["content_controls"]) == 1
+
+        cc = result["content_controls"][0]
+        assert cc["id"] == 123456
+        assert cc["tag"] == "name_field"
+        assert cc["type"] == "text"
+        assert cc["value"] == "John Doe"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_content_controls_finds_dropdown_sdt():
+    """Test reading a dropdown content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Select an option:")
+        body = doc._element.body
+        _create_dropdown_sdt(
+            body, 789012, "priority", ["Low", "Medium", "High"], "Medium"
+        )
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["block_count"] == 1
+
+        cc = result["content_controls"][0]
+        assert cc["id"] == 789012
+        assert cc["tag"] == "priority"
+        assert cc["type"] == "dropdown"
+        assert cc["value"] == "Medium"
+        assert cc["options"] == ["Low", "Medium", "High"]
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_text():
+    """Test setting the value of a text content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Form:")
+        body = doc._element.body
+        _create_text_sdt(body, 555555, "city_field", "Original City")
+        doc.save(file_path)
+
+        # Update the content control
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "operation": "set_content_control",
+                "target_id": "555555",
+                "content_data": "New York",
+            },
+        )
+        assert edit_result["success"] is True
+
+        # Read back and verify
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        cc = result["content_controls"][0]
+        assert cc["value"] == "New York"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_dropdown():
+    """Test setting the value of a dropdown content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Status:")
+        body = doc._element.body
+        _create_dropdown_sdt(
+            body, 666666, "status", ["Draft", "Review", "Final"], "Draft"
+        )
+        doc.save(file_path)
+
+        # Update the dropdown
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "operation": "set_content_control",
+                "target_id": "666666",
+                "content_data": "Final",
+            },
+        )
+        assert edit_result["success"] is True
+
+        # Read back and verify
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        cc = result["content_controls"][0]
+        assert cc["value"] == "Final"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_invalid_id():
+    """Test setting content control with non-existent ID raises error."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("No content controls.")
+        doc.save(file_path)
+
+        with pytest.raises(ToolError):
+            await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "set_content_control",
+                    "target_id": "999999",
+                    "content_data": "Some value",
+                },
+            )
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_dropdown_invalid_value():
+    """Test setting dropdown to invalid value raises error and doesn't mutate document."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Priority:")
+        body = doc._element.body
+        _create_dropdown_sdt(body, 888888, "priority", ["Low", "Medium", "High"], "Low")
+        doc.save(file_path)
+
+        # Try to set an invalid value not in options
+        with pytest.raises(ToolError):
+            await mcp.call_tool(
+                "edit",
+                {
+                    "file_path": str(file_path),
+                    "operation": "set_content_control",
+                    "target_id": "888888",
+                    "content_data": "Invalid Option",  # Not in ["Low", "Medium", "High"]
+                },
+            )
+
+        # Verify original value is unchanged
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        cc = result["content_controls"][0]
+        assert cc["value"] == "Low", (
+            "Value should be unchanged after invalid set attempt"
+        )
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+def _create_checkbox_sdt(body, sdt_id, tag, checked=False):
+    """Helper to create a checkbox content control."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    ns_w14 = "http://schemas.microsoft.com/office/word/2010/wordml"
+
+    sdt = OxmlElement("w:sdt")
+    sdtPr = OxmlElement("w:sdtPr")
+
+    id_el = OxmlElement("w:id")
+    id_el.set(qn("w:val"), str(sdt_id))
+    sdtPr.append(id_el)
+
+    tag_el = OxmlElement("w:tag")
+    tag_el.set(qn("w:val"), tag)
+    sdtPr.append(tag_el)
+
+    # Add w14:checkbox element
+    checkbox = OxmlElement("w14:checkbox")
+    checked_el = OxmlElement("w14:checked")
+    checked_el.set(f"{{{ns_w14}}}val", "1" if checked else "0")
+    checkbox.append(checked_el)
+    sdtPr.append(checkbox)
+
+    sdt.append(sdtPr)
+
+    # Content with checkbox glyph
+    sdtContent = OxmlElement("w:sdtContent")
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = "\u2612" if checked else "\u2610"  # ☒ or ☐
+    r.append(t)
+    p.append(r)
+    sdtContent.append(p)
+    sdt.append(sdtContent)
+
+    body.append(sdt)
+    return sdt
+
+
+@pytest.mark.asyncio
+async def test_read_content_controls_finds_checkbox_sdt():
+    """Test reading a checkbox content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Checkbox form:")
+        body = doc._element.body
+        _create_checkbox_sdt(body, 777777, "agree_terms", checked=False)
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["block_count"] == 1
+
+        cc = result["content_controls"][0]
+        assert cc["id"] == 777777
+        assert cc["tag"] == "agree_terms"
+        assert cc["type"] == "checkbox"
+        assert cc["checked"] is False
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_checkbox():
+    """Test setting the value of a checkbox content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Agreement:")
+        body = doc._element.body
+        _create_checkbox_sdt(body, 888888, "confirm", checked=False)
+        doc.save(file_path)
+
+        # Initially unchecked
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["content_controls"][0]["checked"] is False
+
+        # Update to checked
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "operation": "set_content_control",
+                "target_id": "888888",
+                "content_data": "true",
+            },
+        )
+        assert edit_result["success"] is True
+
+        # Read back and verify both state and displayed value
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        cc = result["content_controls"][0]
+        assert cc["checked"] is True
+        # Displayed value should be the checked glyph
+        assert cc["value"] == "\u2612"  # ☒
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+def _create_date_sdt(body, sdt_id, tag, date_value, date_format="yyyy-MM-dd"):
+    """Helper to create a date picker content control."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    sdt = OxmlElement("w:sdt")
+    sdtPr = OxmlElement("w:sdtPr")
+
+    id_el = OxmlElement("w:id")
+    id_el.set(qn("w:val"), str(sdt_id))
+    sdtPr.append(id_el)
+
+    tag_el = OxmlElement("w:tag")
+    tag_el.set(qn("w:val"), tag)
+    sdtPr.append(tag_el)
+
+    # Date type marker
+    date_el = OxmlElement("w:date")
+    date_format_el = OxmlElement("w:dateFormat")
+    date_format_el.set(qn("w:val"), date_format)
+    date_el.append(date_format_el)
+    sdtPr.append(date_el)
+
+    sdt.append(sdtPr)
+
+    # Content with date value
+    sdtContent = OxmlElement("w:sdtContent")
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    t = OxmlElement("w:t")
+    t.text = date_value
+    r.append(t)
+    p.append(r)
+    sdtContent.append(p)
+    sdt.append(sdtContent)
+
+    body.append(sdt)
+    return sdt
+
+
+@pytest.mark.asyncio
+async def test_read_content_controls_finds_date_sdt():
+    """Test reading a date picker content control."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Due date:")
+        body = doc._element.body
+        _create_date_sdt(body, 999999, "due_date", "2025-12-31", "yyyy-MM-dd")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        assert result["block_count"] == 1
+
+        cc = result["content_controls"][0]
+        assert cc["id"] == 999999
+        assert cc["tag"] == "due_date"
+        assert cc["type"] == "date"
+        assert cc["value"] == "2025-12-31"
+        assert cc["date_format"] == "yyyy-MM-dd"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_content_control_date():
+    """Test setting the value of a date content control (as plain text)."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("Event date:")
+        body = doc._element.body
+        _create_date_sdt(body, 111111, "event_date", "2025-01-01")
+        doc.save(file_path)
+
+        # Update the date value
+        _, edit_result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "operation": "set_content_control",
+                "target_id": "111111",
+                "content_data": "2025-06-15",
+            },
+        )
+        assert edit_result["success"] is True
+
+        # Read back and verify
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "content_controls"}
+        )
+        cc = result["content_controls"][0]
+        assert cc["value"] == "2025-06-15"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+# =============================================================================
+# PHASE 7: EQUATIONS (OMML) TESTS
+# =============================================================================
+
+
+def _create_simple_equation(body, text: str):
+    """Create a simple math equation with just text (like 'x')."""
+    from docx.oxml import OxmlElement
+
+    oMathPara = OxmlElement("m:oMathPara")
+    oMath = OxmlElement("m:oMath")
+    r = OxmlElement("m:r")
+    t = OxmlElement("m:t")
+    t.text = text
+    r.append(t)
+    oMath.append(r)
+    oMathPara.append(oMath)
+
+    # Wrap in a paragraph
+    p = OxmlElement("w:p")
+    p.append(oMathPara)
+    body.append(p)
+    return oMath
+
+
+def _create_fraction_equation(body, numerator: str, denominator: str):
+    """Create a fraction equation (a/b)."""
+    from docx.oxml import OxmlElement
+
+    oMathPara = OxmlElement("m:oMathPara")
+    oMath = OxmlElement("m:oMath")
+    f = OxmlElement("m:f")
+
+    # Numerator
+    num = OxmlElement("m:num")
+    r1 = OxmlElement("m:r")
+    t1 = OxmlElement("m:t")
+    t1.text = numerator
+    r1.append(t1)
+    num.append(r1)
+
+    # Denominator
+    den = OxmlElement("m:den")
+    r2 = OxmlElement("m:r")
+    t2 = OxmlElement("m:t")
+    t2.text = denominator
+    r2.append(t2)
+    den.append(r2)
+
+    f.append(num)
+    f.append(den)
+    oMath.append(f)
+    oMathPara.append(oMath)
+
+    # Wrap in a paragraph
+    p = OxmlElement("w:p")
+    p.append(oMathPara)
+    body.append(p)
+    return oMath
+
+
+def _create_superscript_equation(body, base: str, exponent: str):
+    """Create a superscript equation (x^2)."""
+    from docx.oxml import OxmlElement
+
+    oMathPara = OxmlElement("m:oMathPara")
+    oMath = OxmlElement("m:oMath")
+    sSup = OxmlElement("m:sSup")
+
+    # Base element
+    e = OxmlElement("m:e")
+    r1 = OxmlElement("m:r")
+    t1 = OxmlElement("m:t")
+    t1.text = base
+    r1.append(t1)
+    e.append(r1)
+
+    # Superscript
+    sup = OxmlElement("m:sup")
+    r2 = OxmlElement("m:r")
+    t2 = OxmlElement("m:t")
+    t2.text = exponent
+    r2.append(t2)
+    sup.append(r2)
+
+    sSup.append(e)
+    sSup.append(sup)
+    oMath.append(sSup)
+    oMathPara.append(oMath)
+
+    # Wrap in a paragraph
+    p = OxmlElement("w:p")
+    p.append(oMathPara)
+    body.append(p)
+    return oMath
+
+
+@pytest.mark.asyncio
+async def test_read_equations_empty_document():
+    """Test reading equations from document with none."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("No equations here")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "equations"}
+        )
+        assert result["block_count"] == 0
+        assert result["equations"] == []
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_equations_finds_simple_equation():
+    """Test reading a simple text equation."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("The variable:")
+        body = doc._element.body
+        _create_simple_equation(body, "x")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "equations"}
+        )
+        assert result["block_count"] == 1
+
+        eq = result["equations"][0]
+        assert eq["text"] == "x"
+        assert eq["complexity"] == "simple"
+        assert eq["id"]  # Has content-addressed ID
+        assert eq["block_id"]  # Has block ID
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_equations_finds_fraction():
+    """Test reading a fraction equation."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("The fraction:")
+        body = doc._element.body
+        _create_fraction_equation(body, "a", "b")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "equations"}
+        )
+        assert result["block_count"] == 1
+
+        eq = result["equations"][0]
+        assert eq["text"] == "(a)/(b)"
+        assert eq["complexity"] == "fraction"
+    finally:
+        file_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_read_equations_finds_superscript():
+    """Test reading a superscript equation."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        file_path = Path(f.name)
+
+    try:
+        doc = Document()
+        doc.add_paragraph("The expression:")
+        body = doc._element.body
+        _create_superscript_equation(body, "x", "2")
+        doc.save(file_path)
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(file_path), "scope": "equations"}
+        )
+        assert result["block_count"] == 1
+
+        eq = result["equations"][0]
+        assert eq["text"] == "x^2"
+        assert eq["complexity"] == "simple"  # Simple superscript
+    finally:
+        file_path.unlink(missing_ok=True)

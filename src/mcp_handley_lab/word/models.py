@@ -15,6 +15,14 @@ class Block(BaseModel):
     cols: int = 0  # Column count (tables only)
 
 
+class CustomPropertyInfo(BaseModel):
+    """A custom document property."""
+
+    name: str
+    value: str  # String representation
+    type: str  # "string", "datetime", "int", "bool", "float"
+
+
 class DocumentMeta(BaseModel):
     """Document metadata from core properties."""
 
@@ -24,6 +32,7 @@ class DocumentMeta(BaseModel):
     modified: str = ""
     revision: int = 0
     sections: int = 0
+    custom_properties: list[CustomPropertyInfo] = Field(default_factory=list)
 
 
 class CellInfo(BaseModel):
@@ -38,6 +47,12 @@ class CellInfo(BaseModel):
     is_merge_origin: bool = True  # False if this is a continuation cell
     width_inches: float | None = None  # Cell width
     vertical_alignment: str | None = None  # "top", "center", "bottom"
+    # Border properties (format: "style:size:color", e.g., "single:24:000000")
+    border_top: str | None = None
+    border_bottom: str | None = None
+    border_left: str | None = None
+    border_right: str | None = None
+    fill_color: str | None = None  # Hex background color (e.g., "FF0000")
 
 
 class RowInfo(BaseModel):
@@ -46,6 +61,7 @@ class RowInfo(BaseModel):
     index: int  # 0-based row index
     height_inches: float | None = None
     height_rule: str | None = None  # "auto", "at_least", "exactly"
+    is_header: bool = False  # True if marked with w:tblHeader (repeats on each page)
 
 
 class TableLayoutInfo(BaseModel):
@@ -105,6 +121,10 @@ class CommentInfo(BaseModel):
     initials: str | None = None
     timestamp: str | None = None  # ISO format
     text: str
+    # Threading fields (Word 2013+ via commentsExtended.xml)
+    parent_id: int | None = None  # ID of parent comment (if reply)
+    resolved: bool = False  # From commentsExtended.xml done state
+    replies: list[int] = Field(default_factory=list)  # IDs of replies (computed)
 
 
 class HeaderFooterInfo(BaseModel):
@@ -123,6 +143,16 @@ class HeaderFooterInfo(BaseModel):
     has_different_odd_even: bool = False
 
 
+class LineNumberingInfo(BaseModel):
+    """Line numbering settings for a section."""
+
+    enabled: bool = False
+    restart: str = "newPage"  # "newPage", "newSection", "continuous"
+    start: int = 1
+    count_by: int = 1  # Number every N lines
+    distance_inches: float = 0.5  # From margin
+
+
 class PageSetupInfo(BaseModel):
     """Page setup info for a document section."""
 
@@ -134,10 +164,16 @@ class PageSetupInfo(BaseModel):
     bottom_margin: float  # inches
     left_margin: float  # inches
     right_margin: float  # inches
+    # Multi-column layout
+    columns: int = 1  # Number of columns
+    column_spacing: float = 0.5  # Inches between columns
+    column_separator: bool = False  # Line between columns
+    # Line numbering
+    line_numbering: LineNumberingInfo | None = None
 
 
 class ImageInfo(BaseModel):
-    """Information about an embedded inline image."""
+    """Information about an embedded image (inline or floating)."""
 
     id: str  # image_{sha1[:8]}_{occurrence}
     width_inches: float
@@ -149,6 +185,16 @@ class ImageInfo(BaseModel):
     run_index: int  # 0-based index of run within paragraph
     image_index_in_run: int  # 0-based index among inline images in run
     filename: str  # Original filename if available
+    # Floating image positioning (Phase 5)
+    position_type: str = "inline"  # "inline" or "anchor"
+    position_h: float | None = None  # Horizontal position (inches)
+    position_v: float | None = None  # Vertical position (inches)
+    relative_from_h: str | None = None  # "column", "page", "margin", "character"
+    relative_from_v: str | None = None  # "paragraph", "page", "margin", "line"
+    wrap_type: str | None = (
+        None  # "square", "tight", "through", "top_and_bottom", "none"
+    )
+    behind_doc: bool = False  # True if behind text
 
 
 class StyleInfo(BaseModel):
@@ -207,6 +253,105 @@ class ParagraphFormatInfo(BaseModel):
     tab_stops: list[TabStopInfo] = Field(default_factory=list)
 
 
+class RevisionInfo(BaseModel):
+    """Information about a tracked change (revision) in the document."""
+
+    id: str  # w:id attribute (string, not int - IDs can have leading zeros)
+    type: str  # "insertion", "deletion", "move", "formatting", "table"
+    author: str  # Change author
+    date: str  # ISO date string
+    text: str  # Affected text (empty for formatting/move markers)
+    supported: bool = True  # Whether accept/reject is implemented for this change
+    tag: str = ""  # Original OOXML tag name (e.g., "ins", "del", "moveFrom")
+
+
+class ListInfo(BaseModel):
+    """List properties for a paragraph."""
+
+    num_id: int | None = None  # Numbering definition ID
+    abstract_num_id: int | None = None  # Abstract numbering definition ID
+    level: int | None = None  # Indentation level (0-8)
+    format_type: str | None = None  # e.g., "decimal", "bullet", "lowerLetter"
+    start_value: int | None = None  # Start value for this level
+    level_text: str | None = None  # e.g., "%1." from w:lvlText
+
+
+class TextBoxInfo(BaseModel):
+    """Information about a text box (floating content)."""
+
+    id: str  # From wp:docPr @id (stable) or fallback to content hash
+    name: str | None = None  # From wp:docPr @name
+    text: str  # Full text content
+    paragraph_count: int  # Number of paragraphs inside
+    width_inches: float = 0.0  # Width in inches
+    height_inches: float = 0.0  # Height in inches
+    position_type: str  # "anchor" (floating) or "inline"
+    source_type: str  # "drawingml" or "vml"
+    wrap_type: str | None = None  # "square", "tight", "none", etc.
+
+
+class BookmarkInfo(BaseModel):
+    """A named bookmark/anchor in the document."""
+
+    id: int  # w:id attribute
+    name: str  # w:name attribute (must be unique, no spaces, start with letter)
+    block_id: str  # Containing block
+
+
+class CaptionInfo(BaseModel):
+    """A caption with sequence number."""
+
+    id: str  # Content-addressed ID
+    label: str  # e.g., "Figure", "Table"
+    number: int  # Extracted from SEQ field result
+    text: str  # Caption text after number
+    block_id: str  # Block ID of caption paragraph
+    style: str  # Should be "Caption" for proper Word integration
+
+
+class TOCInfo(BaseModel):
+    """Table of Contents metadata."""
+
+    exists: bool
+    heading_levels: str = "1-3"  # Extracted from field switches if present
+    entry_count: int = 0  # Cached entries (may be stale - Word recalculates)
+    block_id: str | None = None  # ID of paragraph containing TOC field
+    has_sdt_wrapper: bool = False  # True if wrapped in SDT (optional)
+    is_dirty: bool = False  # True if w:dirty="true" set
+
+
+class ContentControlInfo(BaseModel):
+    """A content control (SDT) in the document."""
+
+    id: int  # w:id attribute
+    tag: str | None = None  # w:tag for automation
+    alias: str | None = None  # Display name
+    type: str  # "text", "dropdown", "checkbox", "date", "richText", "color"
+    value: str  # Current value/selection
+    options: list[str] = Field(default_factory=list)  # For dropdown
+    checked: bool | None = None  # For checkbox
+    date_format: str | None = None  # For date picker
+    block_id: str  # Containing block
+
+
+class FootnoteInfo(BaseModel):
+    """A footnote or endnote in the document."""
+
+    id: int  # w:id attribute
+    type: str  # "footnote" or "endnote"
+    text: str  # Content text
+    block_id: str  # Block containing reference
+
+
+class EquationInfo(BaseModel):
+    """A math equation (OMML) in the document."""
+
+    id: str  # Content-addressed ID
+    text: str  # Simplified text representation (a/b, x^2, etc.)
+    block_id: str  # Containing block
+    complexity: str  # "simple", "fraction", "matrix", "complex"
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -226,6 +371,20 @@ class DocumentReadResult(BaseModel):
     paragraph_format: ParagraphFormatInfo | None = None  # For runs scope
     style_format: "StyleFormatInfo | None" = None  # For style scope
     table_layout: "TableLayoutInfo | None" = None  # For table_layout scope
+    revisions: list[RevisionInfo] = Field(default_factory=list)  # For revisions scope
+    has_tracked_changes: bool = False  # True if document has any tracked changes
+    list_info: "ListInfo | None" = None  # For list scope
+    text_boxes: list["TextBoxInfo"] = Field(
+        default_factory=list
+    )  # For text_boxes scope
+    bookmarks: list["BookmarkInfo"] = Field(default_factory=list)  # For bookmarks scope
+    captions: list["CaptionInfo"] = Field(default_factory=list)  # For captions scope
+    toc_info: "TOCInfo | None" = None  # For toc scope
+    footnotes: list["FootnoteInfo"] = Field(default_factory=list)  # For footnotes scope
+    content_controls: list["ContentControlInfo"] = Field(
+        default_factory=list
+    )  # For content_controls scope
+    equations: list["EquationInfo"] = Field(default_factory=list)  # For equations scope
 
 
 class EditResult(BaseModel):

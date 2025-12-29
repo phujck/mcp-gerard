@@ -3,27 +3,41 @@
 import json
 
 from docx import Document
+from docx.text.paragraph import Paragraph
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.word import document as word_ops
-from mcp_handley_lab.word.models import DocumentReadResult, EditResult
+from mcp_handley_lab.word.models import (
+    BookmarkInfo,
+    CaptionInfo,
+    CommentInfo,
+    ContentControlInfo,
+    DocumentReadResult,
+    EditResult,
+    EquationInfo,
+    FootnoteInfo,
+    ListInfo,
+    RevisionInfo,
+    TextBoxInfo,
+    TOCInfo,
+)
 
 mcp = FastMCP("Word Document Tool")
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'table_layout', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles', 'style'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'table_layout', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles', 'style', 'revisions', 'list', 'text_boxes', 'text_box_content', 'bookmarks', 'captions', 'toc', 'footnotes', 'content_controls', 'equations'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID for table_cells/runs/table_layout scopes, or style name for 'style' scope",
+        description="Block ID for table_cells/runs/table_layout/list scopes, style name for 'style' scope, or text box ID for 'text_box_content' scope",
     ),
     search_query: str = Field("", description="Text to search for (scope='search')"),
     limit: int = Field(50, description="Max blocks to return"),
@@ -70,7 +84,8 @@ def read(
             block_count=len(runs), runs=runs, paragraph_format=paragraph_format
         )
     if scope == "comments":
-        comments = word_ops.build_comments(doc)
+        comments_data = word_ops.build_comments_with_threading(doc)
+        comments = [CommentInfo(**c) for c in comments_data]
         return DocumentReadResult(block_count=len(comments), comments=comments)
     if scope == "headers_footers":
         headers_footers = word_ops.build_headers_footers(doc)
@@ -92,21 +107,91 @@ def read(
     if scope == "style":
         style_format = word_ops.get_style_format(doc, target_id)
         return DocumentReadResult(block_count=1, style_format=style_format)
+    if scope == "revisions":
+        has_changes = word_ops.has_tracked_changes(doc)
+        revisions = (
+            [RevisionInfo(**r) for r in word_ops.read_tracked_changes(doc)]
+            if has_changes
+            else []
+        )
+        return DocumentReadResult(
+            block_count=len(revisions),
+            has_tracked_changes=has_changes,
+            revisions=revisions,
+        )
+    if scope == "list":
+        if not target_id:
+            raise ValueError("target_id required for list scope")
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        list_info_dict = word_ops.get_list_info(doc, paragraph)
+        list_info = ListInfo(**list_info_dict) if list_info_dict else None
+        return DocumentReadResult(
+            block_count=1 if list_info else 0, list_info=list_info
+        )
+    if scope == "text_boxes":
+        text_boxes_data = word_ops.build_text_boxes(doc)
+        text_boxes = [TextBoxInfo(**tb) for tb in text_boxes_data]
+        return DocumentReadResult(block_count=len(text_boxes), text_boxes=text_boxes)
+    if scope == "text_box_content":
+        if not target_id:
+            raise ValueError("target_id required for text_box_content scope")
+        paragraphs = word_ops.read_text_box_content(doc, target_id)
+        # Return paragraphs as blocks for consistency
+        from mcp_handley_lab.word.models import Block
+
+        blocks = [
+            Block(
+                id=p["id"],
+                type="paragraph",
+                text=p["text"],
+                style="Normal",
+            )
+            for p in paragraphs
+        ]
+        return DocumentReadResult(block_count=len(blocks), blocks=blocks)
+    if scope == "bookmarks":
+        bookmarks_data = word_ops.build_bookmarks(doc)
+        bookmarks = [BookmarkInfo(**bm) for bm in bookmarks_data]
+        return DocumentReadResult(block_count=len(bookmarks), bookmarks=bookmarks)
+    if scope == "captions":
+        captions_data = word_ops.build_captions(doc)
+        captions = [CaptionInfo(**c) for c in captions_data]
+        return DocumentReadResult(block_count=len(captions), captions=captions)
+    if scope == "toc":
+        toc_data = word_ops.get_toc_info(doc)
+        toc_info = TOCInfo(**toc_data)
+        return DocumentReadResult(
+            block_count=1 if toc_info.exists else 0, toc_info=toc_info
+        )
+    if scope == "footnotes":
+        footnotes_data = word_ops.build_footnotes(doc)
+        footnotes = [FootnoteInfo(**fn) for fn in footnotes_data]
+        return DocumentReadResult(block_count=len(footnotes), footnotes=footnotes)
+    if scope == "content_controls":
+        cc_data = word_ops.build_content_controls(doc)
+        controls = [ContentControlInfo(**cc) for cc in cc_data]
+        return DocumentReadResult(block_count=len(controls), content_controls=controls)
+    if scope == "equations":
+        eq_data = word_ops.build_equations(doc)
+        equations = [EquationInfo(**eq) for eq in eq_data]
+        return DocumentReadResult(block_count=len(equations), equations=equations)
     raise ValueError(f"Unknown scope: {scope}")
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'create_style', 'delete_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'",
     ),
     target_id: str = Field(
         "",
-        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment/insert_image and table operations. For edit_style: style name. For delete_image: the image ID.",
+        description="Block ID from read() - required for insert/delete/replace/style/edit_cell/edit_run/add_comment/insert_image/list operations and table operations. For edit_style: style name. For delete_style: style name to delete. For delete_image: the image ID. For accept_change/reject_change: the revision ID from read(scope='revisions'). For edit_text_box: the text box ID from read(scope='text_boxes'). For add_bookmark/insert_cross_ref/insert_caption/insert_toc: the paragraph or block ID. For reply_comment/resolve_comment/unresolve_comment: the comment ID. For add_footnote: the paragraph ID. For delete_footnote: the footnote ID (from read(scope='footnotes')). For set_content_control: the content control ID (from read(scope='content_controls')).",
     ),
     content_type: str = Field(
         "paragraph",
@@ -114,7 +199,7 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON. For set_table_alignment: 'left'/'center'/'right'. For set_table_autofit: 'true'/'false'. For set_table_fixed_layout: JSON array of widths. For set_row_height: JSON {height, rule}. For set_cell_width: width in inches. For set_cell_vertical_alignment: 'top'/'center'/'bottom'. For add_tab_stop: JSON {position, alignment, leader}. For insert_field: field code (PAGE, NUMPAGES, DATE, TIME). For insert_page_x_of_y: 'header' or 'footer'.",
+        description="Content: text or JSON. For set_table_alignment: 'left'/'center'/'right'. For set_table_autofit: 'true'/'false'. For set_table_fixed_layout: JSON array of widths. For set_row_height: JSON {height, rule}. For set_cell_width: width in inches. For set_cell_vertical_alignment: 'top'/'center'/'bottom'. For set_cell_borders: JSON {top?, bottom?, left?, right?} with values as 'style:size:color' (e.g., 'single:24:000000'). For set_cell_shading: hex color (e.g., 'FF0000'). For set_header_row: 'true'/'false' (mark row as header). For set_columns: JSON {num_columns, spacing_inches?, separator?}. For set_line_numbering: JSON {enabled?, restart?, start?, count_by?, distance_inches?}. For set_custom_property: JSON {name, value, type?} where type is 'string'/'int'/'bool'/'datetime'/'float' (default 'string'). For delete_custom_property: property name. For create_style: JSON {name, style_type?, base_style?} where style_type is 'paragraph'/'character'/'table' (default 'paragraph'), base_style is style to inherit from (default 'Normal'). For add_tab_stop: JSON {position, alignment, leader}. For insert_field: field code (PAGE, NUMPAGES, DATE, TIME). For insert_page_x_of_y: 'header' or 'footer'. For set_list_level: level 0-8. For restart_numbering: start value (default 1). For insert_toc: JSON {position: 'before'/'after', heading_levels: '1-3'}. For add_footnote: JSON {text, note_type?, position?} where note_type is 'footnote'/'endnote' (default 'footnote'), position is 'after'/'before' (default 'after'). For delete_footnote: JSON {note_type?} where note_type is 'footnote'/'endnote' (default 'footnote'). For set_content_control: the new value - for dropdown must match one of the options, for checkbox use 'true'/'false', for date use ISO format.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
@@ -258,6 +343,23 @@ def edit(
         )
         message = f"Added comment {comment_id} to {target_id}"
 
+    elif operation == "reply_comment":
+        parent_id = int(target_id)  # target_id is parent comment ID
+        comment_id = word_ops.reply_to_comment(
+            doc, parent_id, content_data, author, initials
+        )
+        message = f"Added reply {comment_id} to comment {parent_id}"
+
+    elif operation == "resolve_comment":
+        comment_id = int(target_id)
+        word_ops.resolve_comment(doc, comment_id)
+        message = f"Resolved comment {comment_id}"
+
+    elif operation == "unresolve_comment":
+        comment_id = int(target_id)
+        word_ops.unresolve_comment(doc, comment_id)
+        message = f"Unresolved comment {comment_id}"
+
     elif operation in (
         "set_header",
         "set_footer",
@@ -298,6 +400,70 @@ def edit(
         word_ops.set_page_orientation(doc, section_index, content_data)
         message = f"Set orientation to {content_data} for section {section_index}"
 
+    elif operation == "set_columns":
+        col_data = json.loads(content_data)
+        word_ops.set_section_columns(
+            doc,
+            section_index,
+            int(col_data["num_columns"]),
+            float(col_data.get("spacing_inches", 0.5)),
+            col_data.get("separator", False),
+        )
+        message = f"Set {col_data['num_columns']} columns for section {section_index}"
+
+    elif operation == "set_line_numbering":
+        ln_data = json.loads(content_data)
+        word_ops.set_line_numbering(
+            doc,
+            section_index,
+            enabled=ln_data.get("enabled", True),
+            restart=ln_data.get("restart", "newPage"),
+            start=int(ln_data.get("start", 1)),
+            count_by=int(ln_data.get("count_by", 1)),
+            distance_inches=float(ln_data.get("distance_inches", 0.5)),
+        )
+        enabled = ln_data.get("enabled", True)
+        action = "Enabled" if enabled else "Disabled"
+        message = f"{action} line numbering for section {section_index}"
+
+    elif operation == "set_custom_property":
+        prop_data = json.loads(content_data)
+        word_ops.set_custom_property(
+            doc,
+            name=prop_data["name"],
+            value=prop_data["value"],
+            prop_type=prop_data.get("type", "string"),
+        )
+        message = f"Set custom property '{prop_data['name']}'"
+
+    elif operation == "delete_custom_property":
+        prop_name = content_data
+        deleted = word_ops.delete_custom_property(doc, prop_name)
+        if deleted:
+            message = f"Deleted custom property '{prop_name}'"
+        else:
+            message = f"Custom property '{prop_name}' not found"
+
+    elif operation == "create_style":
+        style_data = json.loads(content_data)
+        formatting_dict = json.loads(formatting) if formatting else None
+        style_id = word_ops.create_style(
+            doc,
+            name=style_data["name"],
+            style_type=style_data.get("style_type", "paragraph"),
+            base_style=style_data.get("base_style", "Normal"),
+            formatting=formatting_dict,
+        )
+        element_id = style_id
+        message = f"Created style '{style_data['name']}'"
+
+    elif operation == "delete_style":
+        deleted = word_ops.delete_style(doc, target_id)
+        if deleted:
+            message = f"Deleted style '{target_id}'"
+        else:
+            message = f"Style '{target_id}' not found or is builtin"
+
     elif operation == "insert_image":
         fmt = json.loads(formatting) if formatting else {}
         element_id = word_ops.insert_image(
@@ -313,6 +479,26 @@ def edit(
     elif operation == "delete_image":
         word_ops.delete_image(doc, target_id)
         message = f"Deleted {target_id}"
+
+    elif operation == "insert_floating_image":
+        # content_data = image path
+        # formatting JSON: position_h, position_v, relative_h, relative_v, wrap_type,
+        #                  width, height, behind_doc
+        fmt = json.loads(formatting) if formatting else {}
+        element_id = word_ops.insert_floating_image(
+            doc,
+            content_data,
+            target_id,
+            position_h=float(fmt.get("position_h", 0)),
+            position_v=float(fmt.get("position_v", 0)),
+            relative_h=fmt.get("relative_h", "column"),
+            relative_v=fmt.get("relative_v", "paragraph"),
+            wrap_type=fmt.get("wrap_type", "square"),
+            width_inches=float(fmt.get("width", 0)),
+            height_inches=float(fmt.get("height", 0)),
+            behind_doc=bool(fmt.get("behind_doc", False)),
+        )
+        message = "Inserted floating image"
 
     elif operation == "add_row":
         t = word_ops.resolve_target(doc, target_id)
@@ -428,6 +614,32 @@ def edit(
         word_ops.set_cell_vertical_alignment(target.base_obj, row, col, content_data)
         message = f"Set cell ({row},{col}) vertical alignment to {content_data}"
 
+    elif operation == "set_cell_borders":
+        target = word_ops.resolve_target(doc, target_id)
+        border_data = json.loads(content_data)
+        word_ops.set_cell_borders(
+            target.base_obj,
+            row,
+            col,
+            top=border_data.get("top"),
+            bottom=border_data.get("bottom"),
+            left=border_data.get("left"),
+            right=border_data.get("right"),
+        )
+        message = f"Set borders on cell ({row},{col})"
+
+    elif operation == "set_cell_shading":
+        target = word_ops.resolve_target(doc, target_id)
+        word_ops.set_cell_shading(target.base_obj, row, col, content_data)
+        message = f"Set shading on cell ({row},{col}) to {content_data}"
+
+    elif operation == "set_header_row":
+        target = word_ops.resolve_target(doc, target_id)
+        is_header = content_data.lower() in ("true", "1", "yes")
+        word_ops.set_header_row(target.base_obj, row, is_header)
+        action = "marked as" if is_header else "unmarked as"
+        message = f"Row {row} {action} header row"
+
     elif operation == "add_tab_stop":
         target = word_ops.resolve_target(doc, target_id)
         para = (
@@ -469,6 +681,174 @@ def edit(
         location = content_data.strip().lower() or "footer"
         word_ops.insert_page_x_of_y(doc, section_index, location)
         message = f"Inserted 'Page X of Y' in {location} of section {section_index}"
+
+    elif operation == "accept_change":
+        word_ops.accept_change(doc, target_id)
+        message = f"Accepted change {target_id}"
+
+    elif operation == "reject_change":
+        word_ops.reject_change(doc, target_id)
+        message = f"Rejected change {target_id}"
+
+    elif operation == "accept_all_changes":
+        count = word_ops.accept_all_changes(doc)
+        message = f"Accepted {count} changes"
+
+    elif operation == "reject_all_changes":
+        count = word_ops.reject_all_changes(doc)
+        message = f"Rejected {count} changes"
+
+    elif operation == "set_list_level":
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        level = int(content_data) if content_data else 0
+        if level < 0 or level > 8:
+            raise ValueError("List level must be 0-8")
+        word_ops.set_list_level(paragraph, level)
+        message = f"Set list level to {level}"
+
+    elif operation == "promote_list":
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        word_ops.promote_list_item(paragraph)
+        message = "Promoted list item"
+
+    elif operation == "demote_list":
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        word_ops.demote_list_item(paragraph)
+        message = "Demoted list item"
+
+    elif operation == "restart_numbering":
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        start_value = int(content_data) if content_data else 1
+        word_ops.restart_numbering(doc, paragraph, start_value)
+        message = f"Restarted numbering at {start_value}"
+
+    elif operation == "remove_list":
+        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
+        if paragraph is None:
+            raise ValueError(f"Paragraph not found: {target_id}")
+        word_ops.remove_list_formatting(paragraph)
+        message = "Removed list formatting"
+
+    elif operation == "edit_text_box":
+        # target_id is the text box ID, row is the paragraph index, content_data is new text
+        if not target_id:
+            raise ValueError("target_id (text box ID) required for edit_text_box")
+        word_ops.edit_text_box_text(doc, target_id, row, content_data)
+        message = f"Edited text box {target_id} paragraph {row}"
+
+    elif operation == "add_bookmark":
+        # target_id is the paragraph/heading ID, content_data is the bookmark name
+        if not target_id:
+            raise ValueError("target_id (paragraph ID) required for add_bookmark")
+        if not content_data:
+            raise ValueError("content_data (bookmark name) required for add_bookmark")
+        target = word_ops.resolve_target(doc, target_id)
+        if not isinstance(target.leaf_obj, Paragraph):
+            raise ValueError(f"Target must be a paragraph or heading: {target_id}")
+        bm_id = word_ops.add_bookmark(doc, content_data, target.leaf_obj)
+        message = f"Added bookmark '{content_data}' with ID {bm_id}"
+
+    elif operation == "insert_cross_ref":
+        # target_id is the paragraph/heading ID, content_data is bookmark name, style_name is ref_type
+        if not target_id:
+            raise ValueError("target_id (paragraph ID) required for insert_cross_ref")
+        if not content_data:
+            raise ValueError(
+                "content_data (bookmark name) required for insert_cross_ref"
+            )
+        target = word_ops.resolve_target(doc, target_id)
+        if not isinstance(target.leaf_obj, Paragraph):
+            raise ValueError(f"Target must be a paragraph or heading: {target_id}")
+        ref_type = style_name if style_name else "text"
+        word_ops.insert_cross_reference(target.leaf_obj, content_data, ref_type)
+        message = f"Inserted cross-reference to '{content_data}' ({ref_type})"
+
+    elif operation == "insert_caption":
+        # target_id is the block to caption, content_data is JSON {label, text, position}
+        if not target_id:
+            raise ValueError("target_id (block ID) required for insert_caption")
+        if not content_data:
+            raise ValueError(
+                "content_data (JSON with label, text) required for insert_caption"
+            )
+        caption_data = json.loads(content_data)
+        label = caption_data.get("label", "Figure")
+        caption_text = caption_data.get("text", "")
+        position = caption_data.get("position", "below")
+        element_id = word_ops.insert_caption(
+            doc, target_id, label, caption_text, position
+        )
+        message = f"Inserted {label} caption {position} {target_id}"
+
+    elif operation == "insert_toc":
+        # target_id is the block to insert before/after, content_data is JSON {position, heading_levels}
+        if not target_id:
+            raise ValueError("target_id (block ID) required for insert_toc")
+        toc_data = json.loads(content_data) if content_data else {}
+        position = toc_data.get("position", "before")
+        heading_levels = toc_data.get("heading_levels", "1-3")
+        element_id = word_ops.insert_toc(doc, target_id, position, heading_levels)
+        message = f"Inserted TOC {position} {target_id}"
+
+    elif operation == "update_toc":
+        word_ops.update_toc_field(doc)
+        message = "Set TOC dirty flag for update on open"
+
+    elif operation == "add_footnote":
+        # target_id is the paragraph/block ID, content_data is JSON {text, note_type?, position?}
+        if not target_id:
+            raise ValueError("target_id (paragraph ID) required for add_footnote")
+        if not content_data:
+            raise ValueError("content_data (JSON with text) required for add_footnote")
+        fn_data = json.loads(content_data)
+        fn_text = fn_data.get("text", "")
+        note_type = fn_data.get("note_type", "footnote")
+        position = fn_data.get("position", "after")
+        # Footnotes require direct ZIP manipulation, so we save first and operate on file
+        doc.save(file_path)
+        fn_id = word_ops.add_footnote(
+            file_path, target_id, fn_text, note_type, position
+        )
+        element_id = str(fn_id)
+        message = f"Added {note_type} {fn_id} to {target_id}"
+        # Return early - don't save again
+        return EditResult(success=True, element_id=element_id, message=message)
+
+    elif operation == "delete_footnote":
+        # target_id is the footnote/endnote ID, content_data is optional JSON {note_type?}
+        if not target_id:
+            raise ValueError("target_id (footnote ID) required for delete_footnote")
+        fn_data = json.loads(content_data) if content_data else {}
+        note_type = fn_data.get("note_type", "footnote")
+        note_id = int(target_id)
+        # Footnotes require direct ZIP manipulation, so we save first and operate on file
+        doc.save(file_path)
+        word_ops.delete_footnote(file_path, note_id, note_type)
+        message = f"Deleted {note_type} {note_id}"
+        # Return early - don't save again
+        return EditResult(success=True, element_id=target_id, message=message)
+
+    elif operation == "set_content_control":
+        # target_id is the content control ID, content_data is the new value
+        if not target_id:
+            raise ValueError(
+                "target_id (content control ID) required for set_content_control"
+            )
+        if not content_data:
+            raise ValueError(
+                "content_data (new value) required for set_content_control"
+            )
+        sdt_id = int(target_id)
+        word_ops.set_content_control_value(doc, sdt_id, content_data)
+        message = f"Set content control {sdt_id} to '{content_data}'"
 
     else:
         raise ValueError(f"Unknown operation: {operation}")

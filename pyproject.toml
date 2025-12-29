@@ -129,6 +129,8 @@ ignore = ["E501", "B008"]  # Line too long, function call in default arguments (
 
 [tool.ruff.lint.per-file-ignores]
 "src/mcp_handley_lab/google_calendar/tool.py" = ["N815"]  # Allow mixedCase for Google Calendar API field names
+"src/mcp_handley_lab/word/*.py" = ["N802", "N803", "N806", "E402", "SIM102", "SIM105", "SIM108", "SIM117", "B007", "B904"]  # OOXML naming conventions
+"tests/word/*.py" = ["N806"]  # Allow OOXML element naming in tests
 
 [tool.coverage.run]
 omit = [
