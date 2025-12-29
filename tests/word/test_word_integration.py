@@ -1305,7 +1305,7 @@ async def test_hierarchical_path_from_paragraph_fails(sample_docx):
     para_id = para_block["id"]
 
     # Trying to use hierarchical path on a paragraph should fail
-    with pytest.raises(ToolError, match="table base blocks"):
+    with pytest.raises(ToolError, match="has no attribute 'cell'"):
         await mcp.call_tool(
             "read",
             {
@@ -1347,7 +1347,7 @@ async def test_hierarchical_path_cell_out_of_bounds(sample_docx):
     table_id = table_block["id"]
 
     # Row out of bounds (table has 2 rows: 0 and 1)
-    with pytest.raises(ToolError, match="out of bounds"):
+    with pytest.raises(ToolError, match="index out of range"):
         await mcp.call_tool(
             "read",
             {
@@ -1390,7 +1390,7 @@ async def test_hierarchical_transition_invalid_para_from_table(sample_docx):
     table_id = table_block["id"]
 
     # Invalid: p0 directly from table (must go through cell first)
-    with pytest.raises(ToolError, match="Cannot select paragraph"):
+    with pytest.raises(ToolError, match="has no attribute 'paragraphs'"):
         await mcp.call_tool(
             "read",
             {
@@ -3294,10 +3294,10 @@ async def test_edit_style_alignment_justify_roundtrip(docx_with_custom_style):
 
 @pytest.mark.asyncio
 async def test_edit_style_invalid_alignment_raises(docx_with_custom_style):
-    """Test that invalid alignment raises a helpful error."""
+    """Test that invalid alignment raises AttributeError (no defensive validation)."""
     from mcp.server.fastmcp.exceptions import ToolError
 
-    with pytest.raises(ToolError) as excinfo:
+    with pytest.raises(ToolError, match="has no attribute 'INVALID'"):
         await mcp.call_tool(
             "edit",
             {
@@ -3307,7 +3307,6 @@ async def test_edit_style_invalid_alignment_raises(docx_with_custom_style):
                 "formatting": json.dumps({"alignment": "invalid"}),
             },
         )
-    assert "Invalid alignment" in str(excinfo.value)
 
 
 # =============================================================================
@@ -3864,21 +3863,21 @@ async def test_insert_page_x_of_y_header(docx_for_fields):
 
 
 @pytest.mark.asyncio
-async def test_insert_field_invalid_code(docx_for_fields):
-    """Test that invalid field codes raise ValueError."""
+async def test_insert_field_arbitrary_code(docx_for_fields):
+    """Test that any field code is accepted (no artificial restrictions)."""
     _, blocks_result = await mcp.call_tool(
         "read", {"file_path": str(docx_for_fields), "scope": "blocks"}
     )
     para = blocks_result["blocks"][0]
 
-    with pytest.raises(Exception) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(docx_for_fields),
-                "operation": "insert_field",
-                "target_id": para["id"],
-                "content_data": "INVALID_FIELD",
-            },
-        )
-    assert "Invalid field code" in str(exc_info.value)
+    # AUTHOR is a valid Word field that was previously rejected
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_for_fields),
+            "operation": "insert_field",
+            "target_id": para["id"],
+            "content_data": "AUTHOR",
+        },
+    )
+    assert result["success"]

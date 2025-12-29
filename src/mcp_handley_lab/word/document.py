@@ -7,10 +7,28 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from docx import Document
+from docx.enum.section import WD_ORIENT, WD_SECTION
+from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.table import (
+    WD_CELL_VERTICAL_ALIGNMENT,
+    WD_ROW_HEIGHT_RULE,
+    WD_TABLE_ALIGNMENT,
+)
+from docx.enum.text import (
+    WD_ALIGN_PARAGRAPH,
+    WD_BREAK,
+    WD_COLOR_INDEX,
+    WD_TAB_ALIGNMENT,
+    WD_TAB_LEADER,
+)
+from docx.oxml import OxmlElement
 from docx.oxml.ns import nsmap as oxml_nsmap
+from docx.oxml.ns import qn
 from docx.oxml.table import CT_Tbl, CT_Tc
 from docx.oxml.text.paragraph import CT_P
+from docx.shared import Emu, Inches, Pt, RGBColor
 from docx.table import Table, _Cell
+from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.models import (
@@ -37,52 +55,66 @@ _IMAGE_ID_RE = re.compile(r"^image_([0-9a-f]{8})_(\d+)$")
 _EMU_PER_INCH = 914400
 
 # Highlight color mapping (WD_COLOR_INDEX enum)
-_HIGHLIGHT_MAP: dict[str, int] = {}  # Populated lazily
-_HIGHLIGHT_REVERSE: dict[int, str] = {}
+_HIGHLIGHT_MAP = {
+    "yellow": WD_COLOR_INDEX.YELLOW,
+    "green": WD_COLOR_INDEX.BRIGHT_GREEN,
+    "cyan": WD_COLOR_INDEX.TURQUOISE,
+    "pink": WD_COLOR_INDEX.PINK,
+    "blue": WD_COLOR_INDEX.BLUE,
+    "red": WD_COLOR_INDEX.RED,
+    "dark_blue": WD_COLOR_INDEX.DARK_BLUE,
+    "dark_red": WD_COLOR_INDEX.DARK_RED,
+    "dark_yellow": WD_COLOR_INDEX.DARK_YELLOW,
+    "gray": WD_COLOR_INDEX.GRAY_25,
+    "dark_gray": WD_COLOR_INDEX.GRAY_50,
+    "black": WD_COLOR_INDEX.BLACK,
+    "white": WD_COLOR_INDEX.WHITE,
+}
+_HIGHLIGHT_REVERSE = {v: k for k, v in _HIGHLIGHT_MAP.items()}
 
-
-def _init_highlight_maps() -> None:
-    """Initialize highlight color maps from WD_COLOR_INDEX enum."""
-    if _HIGHLIGHT_MAP:
-        return  # Already initialized
-    from docx.enum.text import WD_COLOR_INDEX
-
-    mappings = {
-        "yellow": WD_COLOR_INDEX.YELLOW,
-        "green": WD_COLOR_INDEX.BRIGHT_GREEN,
-        "cyan": WD_COLOR_INDEX.TURQUOISE,
-        "pink": WD_COLOR_INDEX.PINK,
-        "blue": WD_COLOR_INDEX.BLUE,
-        "red": WD_COLOR_INDEX.RED,
-        "dark_blue": WD_COLOR_INDEX.DARK_BLUE,
-        "dark_red": WD_COLOR_INDEX.DARK_RED,
-        "dark_yellow": WD_COLOR_INDEX.DARK_YELLOW,
-        "gray": WD_COLOR_INDEX.GRAY_25,
-        "dark_gray": WD_COLOR_INDEX.GRAY_50,
-        "black": WD_COLOR_INDEX.BLACK,
-        "white": WD_COLOR_INDEX.WHITE,
-    }
-    _HIGHLIGHT_MAP.update(mappings)
-    _HIGHLIGHT_REVERSE.update({v: k for k, v in mappings.items()})
-
+# Section start type mapping
+_SECTION_START_MAP = {
+    "new_page": WD_SECTION.NEW_PAGE,
+    "continuous": WD_SECTION.CONTINUOUS,
+    "even_page": WD_SECTION.EVEN_PAGE,
+    "odd_page": WD_SECTION.ODD_PAGE,
+    "new_column": WD_SECTION.NEW_COLUMN,
+}
 
 # Hierarchical path segment patterns (0-based indices)
 _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
 _TABLE_RE = re.compile(r"^tbl(\d+)$")
 
+# Run formatting attribute mappings (attr_path, transform)
+_RUN_ATTRS = {
+    "bold": "bold",
+    "italic": "italic",
+    "underline": "underline",
+    "strike": "font.strike",
+    "double_strike": "font.double_strike",
+    "subscript": "font.subscript",
+    "superscript": "font.superscript",
+    "all_caps": "font.all_caps",
+    "small_caps": "font.small_caps",
+    "hidden": "font.hidden",
+    "emboss": "font.emboss",
+    "imprint": "font.imprint",
+    "outline": "font.outline",
+    "shadow": "font.shadow",
+    "font_name": "font.name",
+}
 
-def _tri_bool(v):
-    """Convert to bool preserving None for tri-state font properties."""
-    return None if v is None else bool(v)
+
+def populate_table(table: Table, data: list[list]) -> None:
+    """Populate table cells from 2D list."""
+    for r, row in enumerate(data):
+        for c, val in enumerate(row):
+            table.cell(r, c).text = str(val)
 
 
-@dataclass
-class PathSegment:
-    """A segment in a hierarchical path (e.g., r0c1, p0, tbl0)."""
-
-    kind: str  # 'cell', 'para', 'tbl'
-    indices: tuple[int, ...]
+# PathSegment: (kind, indices) where kind='cell'|'para'|'tbl'
+PathSegment = tuple[str, tuple[int, ...]]
 
 
 @dataclass
@@ -143,6 +175,63 @@ def table_content_for_hash(table: Table) -> str:
     )
 
 
+def create_element(
+    doc: Document,
+    content_type: str,
+    content_data: str,
+    style_name: str = "",
+    heading_level: int = 0,
+) -> Paragraph | Table:
+    """Create a content element (paragraph, heading, or table)."""
+    if content_type == "paragraph":
+        return doc.add_paragraph(content_data, style_name or None)
+    if content_type == "heading":
+        return doc.add_heading(content_data, level=heading_level)
+    if content_type == "table":
+        table_data = json.loads(content_data)
+        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
+        tbl = doc.add_table(rows=rows, cols=cols)
+        tbl.style = style_name or "Table Grid"
+        populate_table(tbl, table_data)
+        return tbl
+    raise ValueError(f"Unknown content_type: {content_type}")
+
+
+def get_element_id(
+    doc: Document, obj: Paragraph | Table, heading_level: int = 0
+) -> str:
+    """Calculate content-addressed ID for an element."""
+    if isinstance(obj, Table):
+        block_type = "table"
+        content = table_content_for_hash(obj)
+        el = obj._tbl
+    else:
+        block_type, _ = paragraph_kind_and_level(obj)
+        # Override block_type if heading_level specified (for newly created headings)
+        if heading_level:
+            block_type = f"heading{heading_level}"
+        content = obj.text or ""
+        el = obj._element
+    occurrence = count_occurrence(doc, block_type, content, el)
+    return make_block_id(block_type, content, occurrence)
+
+
+def insert_content_relative(
+    doc: Document,
+    target_el: CT_P | CT_Tbl,
+    position: str,
+    content_type: str,
+    content_data: str,
+    style_name: str = "",
+    heading_level: int = 0,
+) -> Paragraph | Table:
+    """Insert content relative to a target element."""
+    obj = create_element(doc, content_type, content_data, style_name, heading_level)
+    el = obj._tbl if isinstance(obj, Table) else obj._element
+    _insert_at(target_el, el, position)
+    return obj
+
+
 def table_to_markdown(
     table: Table, max_chars: int = 500, max_rows: int = 20, max_cols: int = 10
 ) -> tuple[str, int, int]:
@@ -189,26 +278,12 @@ def get_document_meta(doc: Document) -> DocumentMeta:
     )
 
 
-def set_document_meta(
-    doc: Document,
-    title: str | None = None,
-    author: str | None = None,
-    subject: str | None = None,
-    keywords: str | None = None,
-    category: str | None = None,
-) -> None:
+def set_document_meta(doc: Document, **kwargs) -> None:
     """Update document core properties. Only updates non-None values."""
     cp = doc.core_properties
-    if title is not None:
-        cp.title = title
-    if author is not None:
-        cp.author = author
-    if subject is not None:
-        cp.subject = subject
-    if keywords is not None:
-        cp.keywords = keywords
-    if category is not None:
-        cp.category = category
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(cp, key, value)
 
 
 def build_blocks(
@@ -294,48 +369,21 @@ def parse_target_id(target_id: str) -> tuple[str, list[PathSegment]]:
     Supports hierarchical IDs: table_abc12345_0#r0c1/p0
     Returns (base_id, []) for simple IDs without path.
     """
-    if "#" not in target_id:
+    base_id, *rest = target_id.split("#", 1)
+    if not rest:
         return target_id, []
 
-    base_id, path_str = target_id.split("#", 1)
-    if not path_str:
-        raise ValueError("Empty path after '#'")
-
-    segments = []
-    for part in path_str.split("/"):
-        if not part:
-            raise ValueError("Empty path segment")
+    segments: list[PathSegment] = []
+    for part in rest[0].split("/"):
         if m := _CELL_RE.match(part):
-            segments.append(PathSegment("cell", (int(m[1]), int(m[2]))))
+            segments.append(("cell", (int(m[1]), int(m[2]))))
         elif m := _PARA_RE.match(part):
-            segments.append(PathSegment("para", (int(m[1]),)))
+            segments.append(("para", (int(m[1]),)))
         elif m := _TABLE_RE.match(part):
-            segments.append(PathSegment("tbl", (int(m[1]),)))
+            segments.append(("tbl", (int(m[1]),)))
         else:
             raise ValueError(f"Invalid path segment: {part}")
     return base_id, segments
-
-
-def _get_element(obj: Paragraph | Table | _Cell) -> CT_P | CT_Tbl | CT_Tc:
-    """Get XML element handle for an object."""
-    if isinstance(obj, Table):
-        return obj._tbl
-    if isinstance(obj, _Cell):
-        return obj._tc
-    if isinstance(obj, Paragraph):
-        return obj._element
-    raise ValueError(f"Unknown object type: {type(obj).__name__}")
-
-
-def _get_kind(obj: Paragraph | Table | _Cell) -> str:
-    """Get kind string for an object."""
-    if isinstance(obj, Table):
-        return "table"
-    if isinstance(obj, _Cell):
-        return "cell"
-    if isinstance(obj, Paragraph):
-        return "paragraph"
-    raise ValueError(f"Unknown object type: {type(obj).__name__}")
 
 
 def resolve_path(
@@ -350,47 +398,16 @@ def resolve_path(
     """
     current: Table | _Cell | Paragraph = container
 
-    for seg in segments:
-        if seg.kind == "cell":
-            if not isinstance(current, Table):
-                raise ValueError(f"Cannot select cell from {type(current).__name__}")
-            row, col = seg.indices
-            if row >= len(current.rows):
-                raise ValueError(
-                    f"Row {row} out of bounds (table has {len(current.rows)} rows)"
-                )
-            if col >= len(current.columns):
-                raise ValueError(
-                    f"Column {col} out of bounds (table has {len(current.columns)} cols)"
-                )
-            current = current.cell(row, col)
-
-        elif seg.kind == "para":
-            if not isinstance(current, _Cell):
-                raise ValueError(
-                    f"Cannot select paragraph from {type(current).__name__}"
-                )
-            idx = seg.indices[0]
-            if idx >= len(current.paragraphs):
-                raise ValueError(
-                    f"Paragraph {idx} out of bounds "
-                    f"(cell has {len(current.paragraphs)} paragraphs)"
-                )
-            current = current.paragraphs[idx]
-
-        elif seg.kind == "tbl":
-            if not isinstance(current, _Cell):
-                raise ValueError(
-                    f"Cannot select nested table from {type(current).__name__} "
-                    "(only valid from Cell)"
-                )
-            idx = seg.indices[0]
-            if idx >= len(current.tables):
-                raise ValueError(
-                    f"Nested table {idx} out of bounds "
-                    f"(cell has {len(current.tables)} tables)"
-                )
-            current = current.tables[idx]
+    for kind, indices in segments:
+        if kind == "cell":
+            row, col = indices
+            current = current.cell(
+                row, col
+            )  # AttributeError if not Table, IndexError if OOB
+        elif kind == "para":
+            current = current.paragraphs[indices[0]]  # AttributeError if not Cell
+        elif kind == "tbl":
+            current = current.tables[indices[0]]  # AttributeError if not Cell
 
     return current
 
@@ -403,10 +420,7 @@ def _resolve_base_block(
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     Searches all blocks for matching type+hash, then skips to Nth occurrence.
     """
-    m = _ID_RE.match(base_id)
-    if not m:
-        raise ValueError(f"Bad block id: {base_id}")
-    target_type, target_hash, occurrence_str = m.groups()
+    target_type, target_hash, occurrence_str = _ID_RE.match(base_id).groups()
     target_occurrence = int(occurrence_str)
 
     occurrence_count = 0
@@ -450,24 +464,39 @@ def resolve_target(doc: Document, target_id: str) -> ResolvedTarget:
             leaf_el=base_el,
         )
 
-    # Hierarchical paths only supported from table base blocks
-    if not isinstance(base_obj, Table):
-        raise ValueError(
-            f"Hierarchical paths are only supported from table base blocks "
-            f"(got {base_kind})"
-        )
-
-    # Resolve path within container
+    # Resolve path within container (AttributeError if base_obj not a Table)
     leaf_obj = resolve_path(base_obj, path_segments)
 
+    # Determine leaf kind and element based on type
+    if isinstance(leaf_obj, Table):
+        return ResolvedTarget(
+            base_id=base_id,
+            base_kind=base_kind,
+            base_obj=base_obj,
+            base_occurrence=base_occurrence,
+            leaf_kind="table",
+            leaf_obj=leaf_obj,
+            leaf_el=leaf_obj._tbl,
+        )
+    if isinstance(leaf_obj, _Cell):
+        return ResolvedTarget(
+            base_id=base_id,
+            base_kind=base_kind,
+            base_obj=base_obj,
+            base_occurrence=base_occurrence,
+            leaf_kind="cell",
+            leaf_obj=leaf_obj,
+            leaf_el=leaf_obj._tc,
+        )
+    # Paragraph
     return ResolvedTarget(
         base_id=base_id,
         base_kind=base_kind,
         base_obj=base_obj,
         base_occurrence=base_occurrence,
-        leaf_kind=_get_kind(leaf_obj),
+        leaf_kind="paragraph",
         leaf_obj=leaf_obj,
-        leaf_el=_get_element(leaf_obj),
+        leaf_el=leaf_obj._element,
     )
 
 
@@ -500,6 +529,11 @@ def count_occurrence(
     raise ValueError("target_el not found in document")
 
 
+def _insert_at(target_el, new_el, position: str) -> None:
+    """Insert new_el before or after target_el."""
+    (target_el.addprevious if position == "before" else target_el.addnext)(new_el)
+
+
 def insert_paragraph_relative(
     doc: Document,
     target_el: CT_P | CT_Tbl,
@@ -509,10 +543,7 @@ def insert_paragraph_relative(
 ) -> Paragraph:
     """Insert paragraph before/after target element."""
     new_p = doc.add_paragraph(text, style_name or None)
-    if position == "before":
-        target_el.addprevious(new_p._element)
-    else:
-        target_el.addnext(new_p._element)
+    _insert_at(target_el, new_p._element, position)
     return new_p
 
 
@@ -521,10 +552,7 @@ def insert_heading_relative(
 ) -> Paragraph:
     """Insert heading before/after target element."""
     new_p = doc.add_heading(text, level=level)
-    if position == "before":
-        target_el.addprevious(new_p._element)
-    else:
-        target_el.addnext(new_p._element)
+    _insert_at(target_el, new_p._element, position)
     return new_p
 
 
@@ -539,19 +567,13 @@ def insert_table_relative(
     rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
     tbl = doc.add_table(rows=rows, cols=cols)
     tbl.style = style_name
-    for r in range(rows):
-        for c in range(len(table_data[r])):
-            tbl.cell(r, c).text = str(table_data[r][c])
-    if position == "before":
-        target_el.addprevious(tbl._tbl)
-    else:
-        target_el.addnext(tbl._tbl)
+    populate_table(tbl, table_data)
+    _insert_at(target_el, tbl._tbl, position)
     return tbl
 
 
 def add_page_break(doc: Document) -> Paragraph:
     """Append a page break paragraph to the document. Returns the paragraph."""
-    from docx.enum.text import WD_BREAK
 
     p = doc.add_paragraph()
     run = p.add_run()
@@ -563,31 +585,22 @@ def add_break_after(
     doc: Document, target_el: CT_P | CT_Tbl, break_type: str
 ) -> Paragraph:
     """Insert break after target element. break_type: 'page', 'column', 'line'."""
-    from docx.enum.text import WD_BREAK
 
     break_map = {
         "page": WD_BREAK.PAGE,
         "column": WD_BREAK.COLUMN,
         "line": WD_BREAK.LINE,
     }
-    if break_type not in break_map:
-        raise ValueError(f"Unknown break_type: {break_type}")
-
     p = doc.add_paragraph()
     run = p.add_run()
-    run.add_break(break_map[break_type])
+    run.add_break(break_map[break_type])  # KeyError if invalid
     target_el.addnext(p._element)
     return p
 
 
-def delete_block(block_type: str, obj: Paragraph | Table) -> None:
+def delete_block(obj: Paragraph | Table) -> None:
     """Delete a block from the document."""
-    # block_type is "paragraph", "heading1", "heading2", etc., or "table"
-    el = (
-        obj._element
-        if block_type == "paragraph" or block_type.startswith("heading")
-        else obj._tbl
-    )
+    el = obj._element if isinstance(obj, Paragraph) else obj._tbl
     el.getparent().remove(el)
 
 
@@ -595,67 +608,39 @@ def replace_table(doc: Document, old_tbl: Table, table_data: list[list[str]]) ->
     """Replace table with new data."""
     rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
     new_tbl = doc.add_table(rows=rows, cols=cols)
-    for r in range(rows):
-        for c in range(len(table_data[r])):
-            new_tbl.cell(r, c).text = str(table_data[r][c])
+    populate_table(new_tbl, table_data)
     old_el = old_tbl._tbl
     old_el.addprevious(new_tbl._tbl)
     old_el.getparent().remove(old_el)
     return new_tbl
 
 
+_PARA_INCH_ATTRS = {"left_indent", "right_indent", "first_line_indent"}
+_PARA_PT_ATTRS = {"space_before", "space_after"}
+_PARA_DIRECT_ATTRS = {"keep_with_next", "page_break_before"}
+_RUN_FORMAT_KEYS = set(_RUN_ATTRS) | {"style", "font_size", "color", "highlight_color"}
+
+
 def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
     """Apply direct formatting to paragraph (affects all runs)."""
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches, Pt, RGBColor
-
-    alignment_map = {
-        "left": WD_ALIGN_PARAGRAPH.LEFT,
-        "center": WD_ALIGN_PARAGRAPH.CENTER,
-        "right": WD_ALIGN_PARAGRAPH.RIGHT,
-        "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
-    }
     if "alignment" in fmt:
-        p.alignment = alignment_map[fmt["alignment"].lower()]
+        p.alignment = getattr(WD_ALIGN_PARAGRAPH, fmt["alignment"].upper())
 
-    # Paragraph format properties (indentation, spacing, flow control)
     pf = p.paragraph_format
-    if "left_indent" in fmt:
-        pf.left_indent = Inches(fmt["left_indent"])
-    if "right_indent" in fmt:
-        pf.right_indent = Inches(fmt["right_indent"])
-    if "first_line_indent" in fmt:
-        pf.first_line_indent = Inches(fmt["first_line_indent"])  # negative = hanging
-    if "space_before" in fmt:
-        pf.space_before = Pt(fmt["space_before"])
-    if "space_after" in fmt:
-        pf.space_after = Pt(fmt["space_after"])
-    if "line_spacing" in fmt:
-        val = fmt["line_spacing"]
-        if val < 5:  # Multiplier (1.0, 1.5, 2.0, 3.0 triple-spacing)
-            pf.line_spacing = val
-        else:  # Points (6pt+)
-            pf.line_spacing = Pt(val)
-    if "keep_with_next" in fmt:
-        pf.keep_with_next = fmt["keep_with_next"]
-    if "page_break_before" in fmt:
-        pf.page_break_before = fmt["page_break_before"]
+    for key, value in fmt.items():
+        if key in _PARA_INCH_ATTRS:
+            setattr(pf, key, Inches(value))
+        elif key in _PARA_PT_ATTRS:
+            setattr(pf, key, Pt(value))
+        elif key == "line_spacing":
+            pf.line_spacing = value if value < 5 else Pt(value)
+        elif key in _PARA_DIRECT_ATTRS:
+            setattr(pf, key, value)
 
-    # Run-level formatting (font properties)
     for run in p.runs:
         for key, value in fmt.items():
-            if key == "bold":
-                run.bold = bool(value)
-            elif key == "italic":
-                run.italic = bool(value)
-            elif key == "underline":
-                run.underline = bool(value)
-            elif key == "font_name":
-                run.font.name = value
-            elif key == "font_size":
-                run.font.size = Pt(float(value))
-            elif key == "color":
-                run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
+            if key in _RUN_FORMAT_KEYS:
+                _set_run_attr(run, key, value)
 
 
 def _get_vmerge_val_from_tc(tc: CT_Tc) -> str | None:
@@ -664,7 +649,6 @@ def _get_vmerge_val_from_tc(tc: CT_Tc) -> str | None:
     Returns:
         'restart' for merge origin, 'continue' for continuation, None for no merge.
     """
-    from docx.oxml.ns import qn
 
     tc_pr = tc.find(qn("w:tcPr"))
     if tc_pr is None:
@@ -682,7 +666,6 @@ def _tc_at_grid_col(tr, grid_col: int):
 
     Returns the tc element or None if not found.
     """
-    from docx.oxml.ns import qn
 
     c = 0
     for tc in tr.findall(qn("w:tc")):
@@ -734,8 +717,6 @@ def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
     Returns:
         List of CellInfo with merge info for all grid positions
     """
-    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
-    from docx.oxml.ns import qn
 
     valign_map = {
         WD_CELL_VERTICAL_ALIGNMENT.TOP: "top",
@@ -853,7 +834,6 @@ def add_table_column(
     table: Table, width_inches: float = 1.0, data: list[str] | None = None
 ) -> int:
     """Add column to table. Width required by python-docx API. Returns new col index."""
-    from docx.shared import Inches
 
     table.add_column(Inches(width_inches))
     col_idx = len(table.columns) - 1
@@ -889,7 +869,6 @@ def delete_table_column(table: Table, col_index: int) -> None:
 
 def build_table_layout(table: Table, table_id: str) -> TableLayoutInfo:
     """Build table layout info including row heights and alignment."""
-    from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
 
     table_align_map = {
         WD_TABLE_ALIGNMENT.LEFT: "left",
@@ -922,37 +901,19 @@ def build_table_layout(table: Table, table_id: str) -> TableLayoutInfo:
 
 def set_table_alignment(table: Table, alignment: str) -> None:
     """Set table horizontal alignment."""
-    from docx.enum.table import WD_TABLE_ALIGNMENT
 
     alignment_map = {
         "left": WD_TABLE_ALIGNMENT.LEFT,
         "center": WD_TABLE_ALIGNMENT.CENTER,
         "right": WD_TABLE_ALIGNMENT.RIGHT,
     }
-    align_val = alignment.lower()
-    if align_val not in alignment_map:
-        raise ValueError(
-            f"Invalid table alignment: '{alignment}'. Valid: left, center, right"
-        )
-    table.alignment = alignment_map[align_val]
-
-
-def set_table_autofit(table: Table, autofit: bool) -> None:
-    """Set table autofit behavior."""
-    table.autofit = autofit
+    table.alignment = alignment_map[alignment.lower()]  # KeyError if invalid
 
 
 def set_row_height(
     table: Table, row_index: int, height_inches: float, rule: str = "at_least"
 ) -> None:
     """Set row height. Default rule is 'at_least' to prevent text clipping."""
-    from docx.enum.table import WD_ROW_HEIGHT_RULE
-    from docx.shared import Inches
-
-    # Bounds validation
-    num_rows = len(table.rows)
-    if row_index < 0 or row_index >= num_rows:
-        raise ValueError(f"row_index {row_index} out of bounds (0..{num_rows - 1})")
 
     rule_map = {
         "auto": WD_ROW_HEIGHT_RULE.AUTO,
@@ -960,42 +921,13 @@ def set_row_height(
         "exactly": WD_ROW_HEIGHT_RULE.EXACTLY,
     }
     rule_val = rule.lower()
-    if rule_val not in rule_map:
-        raise ValueError(
-            f"Invalid height rule: '{rule}'. Valid: auto, at_least, exactly"
-        )
-
-    row = table.rows[row_index]
-    if rule_val == "auto":
-        row.height = None
-    else:
-        if height_inches <= 0:
-            raise ValueError(f"height_inches must be positive, got {height_inches}")
-        row.height = Inches(height_inches)
-    row.height_rule = rule_map[rule_val]
+    row = table.rows[row_index]  # Let IndexError propagate
+    row.height = None if rule_val == "auto" else Inches(height_inches)
+    row.height_rule = rule_map[rule_val]  # KeyError if invalid
 
 
 def set_table_fixed_layout(table: Table, column_widths: list[float]) -> None:
-    """Set table to fixed layout with explicit column widths (inches).
-
-    This is the robust way to control table widths:
-    - Sets autofit=False
-    - Sets each column width
-    """
-    from docx.shared import Inches
-
-    # Type validation
-    if not isinstance(column_widths, list):
-        raise ValueError(
-            f"column_widths must be a list, got {type(column_widths).__name__}"
-        )
-    for i, width in enumerate(column_widths):
-        if not isinstance(width, int | float):
-            raise ValueError(
-                f"column_widths[{i}] must be a number, got {type(width).__name__}"
-            )
-        if width <= 0:
-            raise ValueError(f"column_widths[{i}] must be positive, got {width}")
+    """Set table to fixed layout with explicit column widths (inches)."""
 
     table.autofit = False
     for i, width in enumerate(column_widths):
@@ -1005,17 +937,6 @@ def set_table_fixed_layout(table: Table, column_widths: list[float]) -> None:
 
 def set_cell_width(table: Table, row: int, col: int, width_inches: float) -> None:
     """Set cell width."""
-    from docx.shared import Inches
-
-    # Bounds validation
-    num_rows = len(table.rows)
-    num_cols = len(table.columns)
-    if row < 0 or row >= num_rows:
-        raise ValueError(f"row {row} out of bounds (0..{num_rows - 1})")
-    if col < 0 or col >= num_cols:
-        raise ValueError(f"col {col} out of bounds (0..{num_cols - 1})")
-    if width_inches <= 0:
-        raise ValueError(f"width_inches must be positive, got {width_inches}")
 
     table.cell(row, col).width = Inches(width_inches)
 
@@ -1024,27 +945,13 @@ def set_cell_vertical_alignment(
     table: Table, row: int, col: int, alignment: str
 ) -> None:
     """Set cell vertical alignment."""
-    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
-
-    # Bounds validation
-    num_rows = len(table.rows)
-    num_cols = len(table.columns)
-    if row < 0 or row >= num_rows:
-        raise ValueError(f"row {row} out of bounds (0..{num_rows - 1})")
-    if col < 0 or col >= num_cols:
-        raise ValueError(f"col {col} out of bounds (0..{num_cols - 1})")
 
     valign_map = {
         "top": WD_CELL_VERTICAL_ALIGNMENT.TOP,
         "center": WD_CELL_VERTICAL_ALIGNMENT.CENTER,
         "bottom": WD_CELL_VERTICAL_ALIGNMENT.BOTTOM,
     }
-    align_val = alignment.lower()
-    if align_val not in valign_map:
-        raise ValueError(
-            f"Invalid vertical alignment: '{alignment}'. Valid: top, center, bottom"
-        )
-    table.cell(row, col).vertical_alignment = valign_map[align_val]
+    table.cell(row, col).vertical_alignment = valign_map[alignment.lower()]
 
 
 def _build_run_info(
@@ -1083,9 +990,7 @@ def _build_run_info(
 
 def build_runs(paragraph: Paragraph) -> list[RunInfo]:
     """Build list of RunInfo for all runs in a paragraph, including hyperlink runs."""
-    from docx.text.hyperlink import Hyperlink
 
-    _init_highlight_maps()
     result = []
     idx = 0
     for item in paragraph.iter_inner_content():
@@ -1104,7 +1009,6 @@ def build_runs(paragraph: Paragraph) -> list[RunInfo]:
 
 def build_hyperlinks(doc: Document) -> list[HyperlinkInfo]:
     """Build list of all hyperlinks in the document."""
-    from docx.text.hyperlink import Hyperlink
 
     result = []
     idx = 0
@@ -1127,7 +1031,6 @@ def build_hyperlinks(doc: Document) -> list[HyperlinkInfo]:
 
 def build_styles(doc: Document) -> list[StyleInfo]:
     """Build list of all styles in the document."""
-    from docx.enum.style import WD_STYLE_TYPE
 
     style_type_map = {
         WD_STYLE_TYPE.PARAGRAPH: "paragraph",
@@ -1161,8 +1064,6 @@ def build_styles(doc: Document) -> list[StyleInfo]:
 
 def get_style_format(doc: Document, style_name: str) -> StyleFormatInfo:
     """Get detailed formatting for a specific style."""
-    from docx.enum.style import WD_STYLE_TYPE
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     # Alignment normalization map (enum -> API value)
     alignment_to_api = {
@@ -1223,8 +1124,6 @@ def get_style_format(doc: Document, style_name: str) -> StyleFormatInfo:
 
 def edit_style(doc: Document, style_name: str, fmt: dict) -> None:
     """Modify a style definition."""
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches, Pt, RGBColor
 
     style = doc.styles[style_name]
     font = style.font
@@ -1235,9 +1134,9 @@ def edit_style(doc: Document, style_name: str, fmt: dict) -> None:
     if "font_size" in fmt:
         font.size = Pt(fmt["font_size"])
     if "bold" in fmt:
-        font.bold = _tri_bool(fmt["bold"])
+        font.bold = fmt["bold"]
     if "italic" in fmt:
-        font.italic = _tri_bool(fmt["italic"])
+        font.italic = fmt["italic"]
     if "color" in fmt:
         font.color.rgb = RGBColor.from_string(fmt["color"].lstrip("#"))
 
@@ -1245,19 +1144,7 @@ def edit_style(doc: Document, style_name: str, fmt: dict) -> None:
     pf = getattr(style, "paragraph_format", None)
     if pf:
         if "alignment" in fmt:
-            alignment_map = {
-                "left": WD_ALIGN_PARAGRAPH.LEFT,
-                "center": WD_ALIGN_PARAGRAPH.CENTER,
-                "right": WD_ALIGN_PARAGRAPH.RIGHT,
-                "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
-            }
-            align_val = fmt["alignment"].lower()
-            if align_val not in alignment_map:
-                raise ValueError(
-                    f"Invalid alignment: '{fmt['alignment']}'. "
-                    f"Valid: left, center, right, justify"
-                )
-            pf.alignment = alignment_map[align_val]
+            pf.alignment = getattr(WD_ALIGN_PARAGRAPH, fmt["alignment"].upper())
         if "left_indent" in fmt:
             pf.left_indent = Inches(fmt["left_indent"])
         if "space_before" in fmt:
@@ -1266,15 +1153,11 @@ def edit_style(doc: Document, style_name: str, fmt: dict) -> None:
             pf.space_after = Pt(fmt["space_after"])
         if "line_spacing" in fmt:
             val = fmt["line_spacing"]
-            if val < 5:  # Multiplier (1.0, 1.5, 2.0, etc.)
-                pf.line_spacing = val
-            else:  # Points (6pt+)
-                pf.line_spacing = Pt(val)
+            pf.line_spacing = val if val < 5 else Pt(val)
 
 
 def build_tab_stops(paragraph: Paragraph) -> list[TabStopInfo]:
     """Build list of tab stops for a paragraph."""
-    from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
 
     tab_align_map = {
         WD_TAB_ALIGNMENT.LEFT: "left",
@@ -1312,52 +1195,35 @@ def add_tab_stop(
     leader: str = "spaces",
 ) -> None:
     """Add a tab stop to a paragraph."""
-    from docx.enum.text import WD_TAB_ALIGNMENT, WD_TAB_LEADER
-    from docx.shared import Inches
 
-    # Validate alignment
     align_map = {
         "left": WD_TAB_ALIGNMENT.LEFT,
         "center": WD_TAB_ALIGNMENT.CENTER,
         "right": WD_TAB_ALIGNMENT.RIGHT,
         "decimal": WD_TAB_ALIGNMENT.DECIMAL,
     }
-    align_val = alignment.lower()
-    if align_val not in align_map:
-        raise ValueError(
-            f"Invalid tab alignment: '{alignment}'. Valid: left, center, right, decimal"
-        )
-
-    # Validate leader
     leader_map = {
         "spaces": WD_TAB_LEADER.SPACES,
         "dots": WD_TAB_LEADER.DOTS,
         "heavy": WD_TAB_LEADER.HEAVY,
         "middle_dot": WD_TAB_LEADER.MIDDLE_DOT,
     }
-    leader_val = leader.lower()
-    if leader_val not in leader_map:
-        raise ValueError(
-            f"Invalid tab leader: '{leader}'. Valid: spaces, dots, heavy, middle_dot"
-        )
-
-    # Validate position
-    if position_inches <= 0:
-        raise ValueError(f"position_inches must be positive, got {position_inches}")
-
     paragraph.paragraph_format.tab_stops.add_tab_stop(
         Inches(position_inches),
-        align_map[align_val],
-        leader_map[leader_val],
+        align_map[alignment.lower()],  # KeyError if invalid
+        leader_map[leader.lower()],  # KeyError if invalid
     )
 
 
-def clear_tab_stops(paragraph: Paragraph) -> None:
-    """Clear all tab stops from a paragraph."""
-    paragraph.paragraph_format.tab_stops.clear_all()
-
-
 # --- Document Fields ---
+
+
+def _make_run_with(*elements):
+    """Create a w:r element containing the given child elements."""
+    r = OxmlElement("w:r")
+    for elem in elements:
+        r.append(elem)
+    return r
 
 
 def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") -> None:
@@ -1365,52 +1231,36 @@ def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") 
 
     Creates proper OXML field structure with separate runs for each part:
     begin, instruction, separator, result, and end markers.
-    Common field codes: PAGE, NUMPAGES, DATE, TIME.
+    Supports any Word field code (PAGE, NUMPAGES, DATE, TIME, AUTHOR, etc.).
     """
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
-
-    valid_fields = {"PAGE", "NUMPAGES", "DATE", "TIME"}
     code_upper = field_code.strip().upper()
-    if code_upper not in valid_fields:
-        raise ValueError(
-            f"Invalid field code: '{field_code}'. Valid: {', '.join(sorted(valid_fields))}"
-        )
-
     p = paragraph._p
-
-    def make_run_with(*elements):
-        """Create a w:r element containing the given child elements."""
-        r = OxmlElement("w:r")
-        for elem in elements:
-            r.append(elem)
-        return r
 
     # Run 1: Field begin
     fld_char_begin = OxmlElement("w:fldChar")
     fld_char_begin.set(qn("w:fldCharType"), "begin")
-    p.append(make_run_with(fld_char_begin))
+    p.append(_make_run_with(fld_char_begin))
 
     # Run 2: Field instruction
     instr_text = OxmlElement("w:instrText")
     instr_text.set(qn("xml:space"), "preserve")
     instr_text.text = f" {code_upper} "
-    p.append(make_run_with(instr_text))
+    p.append(_make_run_with(instr_text))
 
     # Run 3: Field separator
     fld_char_sep = OxmlElement("w:fldChar")
     fld_char_sep.set(qn("w:fldCharType"), "separate")
-    p.append(make_run_with(fld_char_sep))
+    p.append(_make_run_with(fld_char_sep))
 
     # Run 4: Result text (placeholder shown before field updates)
     text_elem = OxmlElement("w:t")
     text_elem.text = display_text or "1"
-    p.append(make_run_with(text_elem))
+    p.append(_make_run_with(text_elem))
 
     # Run 5: Field end
     fld_char_end = OxmlElement("w:fldChar")
     fld_char_end.set(qn("w:fldCharType"), "end")
-    p.append(make_run_with(fld_char_end))
+    p.append(_make_run_with(fld_char_end))
 
 
 def insert_page_x_of_y(
@@ -1423,21 +1273,11 @@ def insert_page_x_of_y(
         section_index: 0-based section index
         location: 'header' or 'footer'
     """
-    if section_index < 0 or section_index >= len(doc.sections):
-        raise ValueError(
-            f"section_index {section_index} out of range (0-{len(doc.sections) - 1})"
-        )
-    if location not in ("header", "footer"):
-        raise ValueError(f"location must be 'header' or 'footer', got: {location}")
-
-    section = doc.sections[section_index]
-    if location == "footer":
-        hf = section.footer
-        hf.is_linked_to_previous = False
-    else:
-        hf = section.header
-        hf.is_linked_to_previous = False
-
+    section = doc.sections[section_index]  # Let IndexError propagate
+    hf = {"footer": section.footer, "header": section.header}[
+        location
+    ]  # KeyError if invalid
+    hf.is_linked_to_previous = False
     p = hf.add_paragraph()
     p.add_run("Page ")
     insert_field(p, "PAGE")
@@ -1447,7 +1287,6 @@ def insert_page_x_of_y(
 
 def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
     """Extract paragraph formatting properties."""
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     alignment_map = {
         WD_ALIGN_PARAGRAPH.LEFT: "left",
@@ -1481,7 +1320,6 @@ def _resolve_run_by_inner_index(paragraph: Paragraph, run_index: int):
     This ensures edit_run operations use the same indexing as read(scope='runs'),
     which includes runs inside hyperlinks.
     """
-    from docx.text.hyperlink import Hyperlink
 
     idx = 0
     for item in paragraph.iter_inner_content():
@@ -1503,52 +1341,27 @@ def edit_run_text(paragraph: Paragraph, run_index: int, text: str) -> None:
     run.text = text
 
 
+def _set_run_attr(run, key: str, value) -> None:
+    """Set a run attribute by key. Handles nested paths like 'font.bold'."""
+    if key == "style":
+        run.style = value
+    elif key == "font_size":
+        run.font.size = Pt(float(value))
+    elif key == "color":
+        run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
+    elif key == "highlight_color":
+        run.font.highlight_color = _HIGHLIGHT_MAP[value.lower()]
+    elif key in _RUN_ATTRS:
+        path = _RUN_ATTRS[key]
+        obj, attr = (run, path) if "." not in path else (run.font, path.split(".")[1])
+        setattr(obj, attr, value)
+
+
 def edit_run_formatting(paragraph: Paragraph, run_index: int, fmt: dict) -> None:
     """Apply formatting to a specific run. Uses iter_inner_content indexing."""
-    from docx.shared import Pt, RGBColor
-
-    _init_highlight_maps()
     run = _resolve_run_by_inner_index(paragraph, run_index)
     for key, value in fmt.items():
-        if key == "style":
-            run.style = value  # e.g., "Strong", "Emphasis"
-        elif key == "bold":
-            run.bold = _tri_bool(value)
-        elif key == "italic":
-            run.italic = _tri_bool(value)
-        elif key == "underline":
-            run.underline = _tri_bool(value)
-        elif key == "font_name":
-            run.font.name = value
-        elif key == "font_size":
-            run.font.size = Pt(float(value))
-        elif key == "color":
-            run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
-        elif key == "highlight_color":
-            run.font.highlight_color = _HIGHLIGHT_MAP.get(value.lower())
-        elif key == "strike":
-            run.font.strike = _tri_bool(value)
-        elif key == "double_strike":
-            run.font.double_strike = _tri_bool(value)
-        elif key == "subscript":
-            run.font.subscript = _tri_bool(value)
-        elif key == "superscript":
-            run.font.superscript = _tri_bool(value)
-        # Additional font properties
-        elif key == "all_caps":
-            run.font.all_caps = _tri_bool(value)
-        elif key == "small_caps":
-            run.font.small_caps = _tri_bool(value)
-        elif key == "hidden":
-            run.font.hidden = _tri_bool(value)
-        elif key == "emboss":
-            run.font.emboss = _tri_bool(value)
-        elif key == "imprint":
-            run.font.imprint = _tri_bool(value)
-        elif key == "outline":
-            run.font.outline = _tri_bool(value)
-        elif key == "shadow":
-            run.font.shadow = _tri_bool(value)
+        _set_run_attr(run, key, value)
 
 
 def build_comments(doc: Document) -> list[CommentInfo]:
@@ -1624,145 +1437,55 @@ def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
     return result
 
 
-def set_header_text(doc: Document, section_index: int, text: str) -> None:
-    """Set header text for a section."""
-    header = doc.sections[section_index].header
-    for p in list(header.paragraphs):
-        p._element.getparent().remove(p._element)
-    header.add_paragraph(text)
-
-
-def set_footer_text(doc: Document, section_index: int, text: str) -> None:
-    """Set footer text for a section."""
-    footer = doc.sections[section_index].footer
-    for p in list(footer.paragraphs):
-        p._element.getparent().remove(p._element)
-    footer.add_paragraph(text)
-
-
-def set_first_page_header(doc: Document, section_index: int, text: str) -> None:
-    """Set first page header text for a section. Enables different first page."""
+def set_header_footer_text(
+    doc: Document, section_index: int, text: str, location: str
+) -> None:
+    """Set header/footer text. Handles all types via location attribute name."""
     section = doc.sections[section_index]
-    section.different_first_page_header_footer = True
-    header = section.first_page_header
-    for p in list(header.paragraphs):
+    if location.startswith("first_page_"):
+        section.different_first_page_header_footer = True
+    elif location.startswith("even_page_"):
+        doc.settings.odd_and_even_pages_header_footer = True
+    hf = getattr(section, location)
+    for p in list(hf.paragraphs):
         p._element.getparent().remove(p._element)
-    header.add_paragraph(text)
+    hf.add_paragraph(text)
 
 
-def set_first_page_footer(doc: Document, section_index: int, text: str) -> None:
-    """Set first page footer text for a section. Enables different first page."""
-    section = doc.sections[section_index]
-    section.different_first_page_header_footer = True
-    footer = section.first_page_footer
-    for p in list(footer.paragraphs):
-        p._element.getparent().remove(p._element)
-    footer.add_paragraph(text)
-
-
-def set_even_page_header(doc: Document, section_index: int, text: str) -> None:
-    """Set even page header text for a section. Enables different odd/even pages."""
-    doc.settings.odd_and_even_pages_header_footer = True
-    section = doc.sections[section_index]
-    header = section.even_page_header
-    for p in list(header.paragraphs):
-        p._element.getparent().remove(p._element)
-    header.add_paragraph(text)
-
-
-def set_even_page_footer(doc: Document, section_index: int, text: str) -> None:
-    """Set even page footer text for a section. Enables different odd/even pages."""
-    doc.settings.odd_and_even_pages_header_footer = True
-    section = doc.sections[section_index]
-    footer = section.even_page_footer
-    for p in list(footer.paragraphs):
-        p._element.getparent().remove(p._element)
-    footer.add_paragraph(text)
-
-
-def append_to_header(
-    doc: Document, section_index: int, content_type: str, content_data: str
+def append_to_header_footer(
+    doc: Document,
+    section_index: int,
+    content_type: str,
+    content_data: str,
+    location: str,
 ) -> str:
-    """Append paragraph or table to header. Returns element_id.
-
-    If header is_linked_to_previous, this modifies the previous section's header.
-    Use clear_header first to unlink if independent content is needed.
-    """
-    from docx.shared import Inches
-
-    section = doc.sections[section_index]
-    header = section.header
+    """Append paragraph or table to header/footer. Returns element_id."""
+    hf = getattr(doc.sections[section_index], location)
     if content_type == "paragraph":
-        p = header.add_paragraph(content_data)
-        occurrence = sum(1 for para in header.paragraphs if para.text == p.text) - 1
-        return f"paragraph_{content_hash(p.text)}_{occurrence}"
+        p = hf.add_paragraph(content_data)
+        occurrence = sum(1 for para in hf.paragraphs if para.text == p.text) - 1
+        return make_block_id("paragraph", p.text, occurrence)
     if content_type == "table":
         table_data = json.loads(content_data)
         rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
-        # BlockItemContainer.add_table requires width parameter
-        tbl = header.add_table(rows=rows, cols=cols, width=Inches(6))
-        for r in range(rows):
-            for c in range(len(table_data[r])):
-                tbl.cell(r, c).text = str(table_data[r][c])
-        return f"table_{content_hash(table_content_for_hash(tbl))}_0"
+        tbl = hf.add_table(rows=rows, cols=cols, width=Inches(6))
+        populate_table(tbl, table_data)
+        return make_block_id("table", table_content_for_hash(tbl), 0)
     raise ValueError(f"Unknown content_type: {content_type}")
 
 
-def append_to_footer(
-    doc: Document, section_index: int, content_type: str, content_data: str
-) -> str:
-    """Append paragraph or table to footer. Returns element_id.
-
-    If footer is_linked_to_previous, this modifies the previous section's footer.
-    Use clear_footer first to unlink if independent content is needed.
-    """
-    from docx.shared import Inches
-
-    section = doc.sections[section_index]
-    footer = section.footer
-    if content_type == "paragraph":
-        p = footer.add_paragraph(content_data)
-        occurrence = sum(1 for para in footer.paragraphs if para.text == p.text) - 1
-        return f"paragraph_{content_hash(p.text)}_{occurrence}"
-    if content_type == "table":
-        table_data = json.loads(content_data)
-        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
-        # BlockItemContainer.add_table requires width parameter
-        tbl = footer.add_table(rows=rows, cols=cols, width=Inches(6))
-        for r in range(rows):
-            for c in range(len(table_data[r])):
-                tbl.cell(r, c).text = str(table_data[r][c])
-        return f"table_{content_hash(table_content_for_hash(tbl))}_0"
-    raise ValueError(f"Unknown content_type: {content_type}")
-
-
-def clear_header(doc: Document, section_index: int) -> None:
-    """Clear all header content. Unlinks from previous section first."""
-    section = doc.sections[section_index]
-    header = section.header
-    header.is_linked_to_previous = False
-    header_el = header._element
-    for child in list(header_el):
-        header_el.remove(child)
-    # Word requires at least one paragraph
-    header.add_paragraph("")
-
-
-def clear_footer(doc: Document, section_index: int) -> None:
-    """Clear all footer content. Unlinks from previous section first."""
-    section = doc.sections[section_index]
-    footer = section.footer
-    footer.is_linked_to_previous = False
-    footer_el = footer._element
-    for child in list(footer_el):
-        footer_el.remove(child)
-    # Word requires at least one paragraph
-    footer.add_paragraph("")
+def clear_header_footer(doc: Document, section_index: int, location: str) -> None:
+    """Clear header/footer content. Unlinks from previous section first."""
+    hf = getattr(doc.sections[section_index], location)
+    hf.is_linked_to_previous = False
+    hf_el = hf._element
+    for child in list(hf_el):
+        hf_el.remove(child)
+    hf.add_paragraph("")  # Word requires at least one paragraph
 
 
 def build_page_setup(doc: Document) -> list[PageSetupInfo]:
     """Build list of PageSetupInfo for all sections."""
-    from docx.enum.section import WD_ORIENT
 
     result = []
     for idx, section in enumerate(doc.sections):
@@ -1797,7 +1520,6 @@ def set_page_margins(
     right: float,
 ) -> None:
     """Set page margins for a section. Values in inches."""
-    from docx.shared import Emu
 
     section = doc.sections[section_index]
     section.top_margin = Emu(int(top * 914400))
@@ -1808,8 +1530,6 @@ def set_page_margins(
 
 def set_page_orientation(doc: Document, section_index: int, orientation: str) -> None:
     """Set page orientation for a section. 'portrait' or 'landscape'."""
-    from docx.enum.section import WD_ORIENT
-    from docx.shared import Emu
 
     section = doc.sections[section_index]
     w, h = section.page_width, section.page_height
@@ -1822,35 +1542,11 @@ def set_page_orientation(doc: Document, section_index: int, orientation: str) ->
         section.page_width, section.page_height = Emu(h), Emu(w)
 
 
-# Section start type mapping (lazy-initialized)
-_SECTION_START_MAP: dict[str, int] = {}
-
-
-def _init_section_start_map() -> None:
-    """Initialize section start type map from WD_SECTION enum."""
-    if _SECTION_START_MAP:
-        return
-    from docx.enum.section import WD_SECTION
-
-    _SECTION_START_MAP.update(
-        {
-            "new_page": WD_SECTION.NEW_PAGE,
-            "continuous": WD_SECTION.CONTINUOUS,
-            "even_page": WD_SECTION.EVEN_PAGE,
-            "odd_page": WD_SECTION.ODD_PAGE,
-            "new_column": WD_SECTION.NEW_COLUMN,
-        }
-    )
-
-
 def add_section(doc: Document, start_type: str = "new_page") -> int:
     """Add new section. Returns new section index (0-based).
 
     start_type: 'new_page', 'continuous', 'even_page', 'odd_page', 'new_column'.
     """
-    _init_section_start_map()
-    from docx.enum.section import WD_SECTION
-
     section_start = _SECTION_START_MAP.get(start_type.lower(), WD_SECTION.NEW_PAGE)
     doc.add_section(section_start)
     return len(doc.sections) - 1
@@ -1928,7 +1624,6 @@ def _extract_images_from_paragraph(
 
     Uses iter_inner_content() indexing to match build_runs() indexing.
     """
-    from docx.text.hyperlink import Hyperlink
 
     images: list[ImageInfo] = []
     run_idx = 0
@@ -2010,7 +1705,6 @@ def _iter_all_runs_in_paragraph(para):
 
     Uses iter_inner_content() to match build_runs() indexing.
     """
-    from docx.text.hyperlink import Hyperlink
 
     for item in para.iter_inner_content():
         if isinstance(item, Hyperlink):
@@ -2040,11 +1734,8 @@ def _find_image_in_paragraph(doc: Document, para, target_hash: str):
 
 def resolve_image(doc: Document, image_id: str) -> tuple:
     """Find embedded image by content-addressable ID. Returns (inline_el, para_el)."""
-    m = _IMAGE_ID_RE.match(image_id)
-    if not m:
-        raise ValueError(f"Bad image id: {image_id}")
-    target_hash, target_occurrence = m.groups()
-    target_occurrence = int(target_occurrence)
+    target_hash, occurrence_str = _IMAGE_ID_RE.match(image_id).groups()
+    target_occurrence = int(occurrence_str)
 
     occurrence_count = 0
     for para, para_el in _iter_all_paragraphs(doc):
@@ -2072,7 +1763,6 @@ def insert_image(
     - table_abc_0 -> Insert before/after table
     - paragraph_abc_0 -> Insert before/after paragraph
     """
-    from docx.shared import Inches
 
     target = resolve_target(doc, target_id)
 
