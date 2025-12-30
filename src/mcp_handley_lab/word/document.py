@@ -745,28 +745,6 @@ def _insert_at(target_el, new_el, position: str) -> None:
     (target_el.addprevious if position == "before" else target_el.addnext)(new_el)
 
 
-def insert_paragraph_relative(
-    doc: Document,
-    target_el: CT_P | CT_Tbl,
-    text: str,
-    position: str,
-    style_name: str = "",
-) -> Paragraph:
-    """Insert paragraph before/after target element."""
-    new_p = doc.add_paragraph(text, style_name or None)
-    _insert_at(target_el, new_p._element, position)
-    return new_p
-
-
-def insert_heading_relative(
-    doc: Document, target_el: CT_P | CT_Tbl, text: str, level: int, position: str
-) -> Paragraph:
-    """Insert heading before/after target element."""
-    new_p = doc.add_heading(text, level=level)
-    _insert_at(target_el, new_p._element, position)
-    return new_p
-
-
 def insert_table_relative(
     doc: Document,
     target_el: CT_P | CT_Tbl,
@@ -914,15 +892,10 @@ def _calculate_row_span_from_xml(table: Table, start_row: int, col: int) -> int:
 def _get_cell_border(tc, side: str) -> str | None:
     """Extract border info from tc element. Returns 'style:size:color' or None."""
     tcPr = tc.find(qn("w:tcPr"))
-    if tcPr is None:
-        return None
-    borders = tcPr.find(qn("w:tcBorders"))
-    if borders is None:
-        return None
-    border_el = borders.find(qn(f"w:{side}"))
+    borders = tcPr.find(qn("w:tcBorders")) if tcPr is not None else None
+    border_el = borders.find(qn(f"w:{side}")) if borders is not None else None
     if border_el is None:
         return None
-
     style = border_el.get(qn("w:val")) or "single"
     sz = border_el.get(qn("w:sz")) or "4"
     color = border_el.get(qn("w:color")) or "auto"
@@ -932,15 +905,11 @@ def _get_cell_border(tc, side: str) -> str | None:
 def _get_cell_shading(tc) -> str | None:
     """Extract fill color from tc element. Returns hex color or None."""
     tcPr = tc.find(qn("w:tcPr"))
-    if tcPr is None:
-        return None
-    shd = tcPr.find(qn("w:shd"))
+    shd = tcPr.find(qn("w:shd")) if tcPr is not None else None
     if shd is None:
         return None
     fill = shd.get(qn("w:fill"))
-    if fill and fill.lower() != "auto":
-        return fill.upper()
-    return None
+    return fill.upper() if fill and fill.lower() != "auto" else None
 
 
 def build_table_cells(table: Table, table_id: str = "") -> list[CellInfo]:
@@ -1849,6 +1818,13 @@ def add_comment_to_block(
     ).comment_id
 
 
+def _hf_text(hf) -> str | None:
+    """Extract header/footer text. Returns None if linked to previous section."""
+    return (
+        None if hf.is_linked_to_previous else "\n".join(p.text for p in hf.paragraphs)
+    )
+
+
 def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
     """Build list of HeaderFooterInfo for all sections."""
     result = []
@@ -1856,12 +1832,8 @@ def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
         hdr, ftr = section.header, section.footer
         info = HeaderFooterInfo(
             section_index=idx,
-            header_text=None
-            if hdr.is_linked_to_previous
-            else "\n".join(p.text for p in hdr.paragraphs),
-            footer_text=None
-            if ftr.is_linked_to_previous
-            else "\n".join(p.text for p in ftr.paragraphs),
+            header_text=_hf_text(hdr),
+            footer_text=_hf_text(ftr),
             header_is_linked=hdr.is_linked_to_previous,
             footer_is_linked=ftr.is_linked_to_previous,
             has_different_first_page=section.different_first_page_header_footer,
@@ -1869,28 +1841,12 @@ def build_headers_footers(doc: Document) -> list[HeaderFooterInfo]:
         )
         if section.different_first_page_header_footer:
             fp_hdr, fp_ftr = section.first_page_header, section.first_page_footer
-            info.first_page_header_text = (
-                None
-                if fp_hdr.is_linked_to_previous
-                else "\n".join(p.text for p in fp_hdr.paragraphs)
-            )
-            info.first_page_footer_text = (
-                None
-                if fp_ftr.is_linked_to_previous
-                else "\n".join(p.text for p in fp_ftr.paragraphs)
-            )
+            info.first_page_header_text = _hf_text(fp_hdr)
+            info.first_page_footer_text = _hf_text(fp_ftr)
         if doc.settings.odd_and_even_pages_header_footer:
             ev_hdr, ev_ftr = section.even_page_header, section.even_page_footer
-            info.even_page_header_text = (
-                None
-                if ev_hdr.is_linked_to_previous
-                else "\n".join(p.text for p in ev_hdr.paragraphs)
-            )
-            info.even_page_footer_text = (
-                None
-                if ev_ftr.is_linked_to_previous
-                else "\n".join(p.text for p in ev_ftr.paragraphs)
-            )
+            info.even_page_header_text = _hf_text(ev_hdr)
+            info.even_page_footer_text = _hf_text(ev_ftr)
         result.append(info)
     return result
 

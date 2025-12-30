@@ -26,6 +26,43 @@ from mcp_handley_lab.word.models import (
 mcp = FastMCP("Word Document Tool")
 
 
+# Helper dispatch dicts for header/footer operations
+_HF_SET_OPS = {
+    "set_header": "header",
+    "set_footer": "footer",
+    "set_first_page_header": "first_page_header",
+    "set_first_page_footer": "first_page_footer",
+    "set_even_page_header": "even_page_header",
+    "set_even_page_footer": "even_page_footer",
+}
+_HF_APPEND_OPS = {"append_header": "header", "append_footer": "footer"}
+_HF_CLEAR_OPS = {"clear_header": "header", "clear_footer": "footer"}
+
+
+def _recalc_table_id(doc, t) -> str:
+    """Recalculate table element ID after modification. Requires base_kind == 'table'."""
+    if t.base_kind != "table":
+        raise ValueError("Expected base_kind=table for table ID recalculation")
+    table = t.base_obj
+    content = word_ops.table_content_for_hash(table)
+    occurrence = word_ops.count_occurrence(doc, "table", content, table._tbl)
+    return word_ops.make_block_id("table", content, occurrence)
+
+
+def _recalc_block_id(doc, t) -> str:
+    """Recalculate block element ID after modification. Uses t.leaf_kind directly."""
+    text = t.leaf_obj.text or ""
+    occurrence = word_ops.count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
+    return word_ops.make_block_id(t.leaf_kind, text, occurrence)
+
+
+def _get_target_paragraph(target):
+    """Get paragraph from target. For cells, uses first paragraph (must exist)."""
+    return (
+        target.leaf_obj.paragraphs[0] if target.leaf_kind == "cell" else target.leaf_obj
+    )
+
+
 @mcp.tool(
     description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
 )
@@ -277,9 +314,7 @@ def edit(
         t = word_ops.resolve_target(doc, target_id)
         if t.leaf_kind.startswith("heading") or t.leaf_kind == "paragraph":
             t.leaf_obj.text = content_data
-            text = content_data
-            occurrence = word_ops.count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
-            element_id = word_ops.make_block_id(t.leaf_kind, text, occurrence)
+            element_id = _recalc_block_id(doc, t)
         elif t.leaf_kind == "table":
             table_data = json.loads(content_data)
             new_tbl = word_ops.replace_table(doc, t.leaf_obj, table_data)
@@ -296,27 +331,19 @@ def edit(
         t = word_ops.resolve_target(doc, target_id)
         if style_name:
             t.leaf_obj.style = style_name
-        if t.leaf_kind == "table":
-            table_content = word_ops.table_content_for_hash(t.leaf_obj)
-            occurrence = word_ops.count_occurrence(
-                doc, "table", table_content, t.leaf_el
-            )
-            element_id = word_ops.make_block_id("table", table_content, occurrence)
+        if t.base_kind == "table":
+            element_id = _recalc_table_id(doc, t)
         else:
             if formatting:
                 fmt = json.loads(formatting)
                 word_ops.apply_paragraph_formatting(t.leaf_obj, fmt)
-            text = t.leaf_obj.text or ""
-            occurrence = word_ops.count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
-            element_id = word_ops.make_block_id(t.leaf_kind, text, occurrence)
+            element_id = _recalc_block_id(doc, t)
         message = f"Applied style to {target_id}"
 
     elif operation == "edit_cell":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.replace_table_cell(t.leaf_obj, row, col, content_data)
-        table_content = word_ops.table_content_for_hash(t.leaf_obj)
-        occurrence = word_ops.count_occurrence(doc, "table", table_content, t.leaf_el)
-        element_id = word_ops.make_block_id("table", table_content, occurrence)
+        word_ops.replace_table_cell(t.base_obj, row, col, content_data)
+        element_id = _recalc_table_id(doc, t)
         message = f"Updated cell r{row}c{col}"
 
     elif operation == "edit_run":
@@ -326,9 +353,7 @@ def edit(
         if formatting:
             fmt = json.loads(formatting)
             word_ops.edit_run_formatting(t.leaf_obj, run_index, fmt)
-        text = t.leaf_obj.text or ""
-        occurrence = word_ops.count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
-        element_id = word_ops.make_block_id(t.leaf_kind, text, occurrence)
+        element_id = _recalc_block_id(doc, t)
         message = f"Updated run {run_index}"
 
     elif operation == "edit_style":
@@ -360,27 +385,20 @@ def edit(
         word_ops.unresolve_comment(doc, comment_id)
         message = f"Unresolved comment {comment_id}"
 
-    elif operation in (
-        "set_header",
-        "set_footer",
-        "set_first_page_header",
-        "set_first_page_footer",
-        "set_even_page_header",
-        "set_even_page_footer",
-    ):
-        location = operation[4:]  # Remove "set_" prefix
+    elif operation in _HF_SET_OPS:
+        location = _HF_SET_OPS[operation]
         word_ops.set_header_footer_text(doc, section_index, content_data, location)
         message = f"Set {location.replace('_', ' ')} for section {section_index}"
 
-    elif operation in ("append_header", "append_footer"):
-        location = operation[7:]  # Remove "append_" prefix
+    elif operation in _HF_APPEND_OPS:
+        location = _HF_APPEND_OPS[operation]
         element_id = word_ops.append_to_header_footer(
             doc, section_index, content_type, content_data, location
         )
         message = f"Appended {content_type} to {location} of section {section_index}"
 
-    elif operation in ("clear_header", "clear_footer"):
-        location = operation[6:]  # Remove "clear_" prefix
+    elif operation in _HF_CLEAR_OPS:
+        location = _HF_CLEAR_OPS[operation]
         word_ops.clear_header_footer(doc, section_index, location)
         message = f"Cleared {location} for section {section_index}"
 
@@ -503,10 +521,8 @@ def edit(
     elif operation == "add_row":
         t = word_ops.resolve_target(doc, target_id)
         data = json.loads(content_data) if content_data else None
-        row_idx = word_ops.add_table_row(t.leaf_obj, data)
-        table_content = word_ops.table_content_for_hash(t.leaf_obj)
-        occurrence = word_ops.count_occurrence(doc, "table", table_content, t.leaf_el)
-        element_id = word_ops.make_block_id("table", table_content, occurrence)
+        row_idx = word_ops.add_table_row(t.base_obj, data)
+        element_id = _recalc_table_id(doc, t)
         message = f"Added row {row_idx}"
 
     elif operation == "add_column":
@@ -514,26 +530,20 @@ def edit(
         fmt = json.loads(formatting) if formatting else {}
         width = float(fmt.get("width", 1.0))
         data = json.loads(content_data) if content_data else None
-        col_idx = word_ops.add_table_column(t.leaf_obj, width, data)
-        table_content = word_ops.table_content_for_hash(t.leaf_obj)
-        occurrence = word_ops.count_occurrence(doc, "table", table_content, t.leaf_el)
-        element_id = word_ops.make_block_id("table", table_content, occurrence)
+        col_idx = word_ops.add_table_column(t.base_obj, width, data)
+        element_id = _recalc_table_id(doc, t)
         message = f"Added column {col_idx}"
 
     elif operation == "delete_row":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_row(t.leaf_obj, row)
-        table_content = word_ops.table_content_for_hash(t.leaf_obj)
-        occurrence = word_ops.count_occurrence(doc, "table", table_content, t.leaf_el)
-        element_id = word_ops.make_block_id("table", table_content, occurrence)
+        word_ops.delete_table_row(t.base_obj, row)
+        element_id = _recalc_table_id(doc, t)
         message = f"Deleted row {row}"
 
     elif operation == "delete_column":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_column(t.leaf_obj, col)
-        table_content = word_ops.table_content_for_hash(t.leaf_obj)
-        occurrence = word_ops.count_occurrence(doc, "table", table_content, t.leaf_el)
-        element_id = word_ops.make_block_id("table", table_content, occurrence)
+        word_ops.delete_table_column(t.base_obj, col)
+        element_id = _recalc_table_id(doc, t)
         message = f"Deleted column {col}"
 
     elif operation == "add_page_break":
@@ -642,11 +652,7 @@ def edit(
 
     elif operation == "add_tab_stop":
         target = word_ops.resolve_target(doc, target_id)
-        para = (
-            target.leaf_obj.paragraphs[0]
-            if target.leaf_kind == "cell"
-            else target.leaf_obj
-        )
+        para = _get_target_paragraph(target)
         tab_data = json.loads(content_data)
         word_ops.add_tab_stop(
             para,
@@ -658,21 +664,13 @@ def edit(
 
     elif operation == "clear_tab_stops":
         target = word_ops.resolve_target(doc, target_id)
-        para = (
-            target.leaf_obj.paragraphs[0]
-            if target.leaf_kind == "cell"
-            else target.leaf_obj
-        )
+        para = _get_target_paragraph(target)
         para.paragraph_format.tab_stops.clear_all()
         message = "Cleared all tab stops"
 
     elif operation == "insert_field":
         target = word_ops.resolve_target(doc, target_id)
-        para = (
-            target.leaf_obj.paragraphs[0]
-            if target.leaf_kind == "cell"
-            else target.leaf_obj
-        )
+        para = _get_target_paragraph(target)
         field_code = content_data.strip().upper()
         word_ops.insert_field(para, field_code)
         message = f"Inserted {field_code} field"
