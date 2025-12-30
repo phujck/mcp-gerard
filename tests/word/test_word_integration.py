@@ -844,22 +844,17 @@ async def test_set_orientation_landscape(sample_docx):
 
 @pytest.mark.asyncio
 async def test_set_orientation_invalid(sample_docx):
-    """Test that invalid orientation defaults to portrait."""
-    _, result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "set_orientation",
-            "section_index": 0,
-            "content_data": "diagonal",
-        },
-    )
-    assert result["success"]
-    # Invalid value defaults to portrait
-    _, read_result = await mcp.call_tool(
-        "read", {"file_path": str(sample_docx), "scope": "page_setup"}
-    )
-    assert read_result["page_setup"][0]["orientation"] == "portrait"
+    """Test that invalid orientation raises an error with valid options."""
+    with pytest.raises(ToolError, match="Invalid orientation"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "set_orientation",
+                "section_index": 0,
+                "content_data": "diagonal",
+            },
+        )
 
 
 @pytest.mark.asyncio

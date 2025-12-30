@@ -154,12 +154,16 @@ def set_page_margins(
 
 
 def set_page_orientation(doc: Document, section_index: int, orientation: str) -> None:
-    """Set page orientation for a section. 'portrait' or 'landscape'."""
+    """Set page orientation for a section. Valid: 'portrait' or 'landscape'."""
+    orient_lower = orientation.lower()
+    if orient_lower not in ("portrait", "landscape"):
+        raise ValueError(
+            f"Invalid orientation '{orientation}'. Valid: ['portrait', 'landscape']"
+        )
 
     section = doc.sections[section_index]
     w, h = section.page_width, section.page_height
 
-    orient_lower = orientation.lower()
     section.orientation = (
         WD_ORIENT.LANDSCAPE if orient_lower == "landscape" else WD_ORIENT.PORTRAIT
     )
@@ -172,8 +176,12 @@ def add_section(doc: Document, start_type: str = "new_page") -> int:
 
     start_type: 'new_page', 'continuous', 'even_page', 'odd_page', 'new_column'.
     """
-    section_start = _SECTION_START_MAP.get(start_type.lower(), WD_SECTION.NEW_PAGE)
-    doc.add_section(section_start)
+    start_type_lower = start_type.lower()
+    if start_type_lower not in _SECTION_START_MAP:
+        raise ValueError(
+            f"Invalid start_type '{start_type}'. Valid: {list(_SECTION_START_MAP.keys())}"
+        )
+    doc.add_section(_SECTION_START_MAP[start_type_lower])
     return len(doc.sections) - 1
 
 

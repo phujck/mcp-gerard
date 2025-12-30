@@ -337,7 +337,25 @@ def replace_table(doc: Document, old_tbl: Table, table_data: list[list[str]]) ->
 def merge_cells(
     table: Table, start_row: int, start_col: int, end_row: int, end_col: int
 ) -> None:
-    """Merge a rectangular region of cells."""
+    """Merge a rectangular region of cells. All indices are 0-based."""
+    rows, cols = len(table.rows), len(table.columns)
+
+    # Validate bounds
+    if not (0 <= start_row < rows and 0 <= end_row < rows):
+        raise ValueError(
+            f"Row indices must be 0-{rows - 1}, got start_row={start_row}, end_row={end_row}"
+        )
+    if not (0 <= start_col < cols and 0 <= end_col < cols):
+        raise ValueError(
+            f"Column indices must be 0-{cols - 1}, got start_col={start_col}, end_col={end_col}"
+        )
+
+    # Validate ordering
+    if start_row > end_row or start_col > end_col:
+        raise ValueError(
+            f"Start must be <= end: ({start_row},{start_col}) to ({end_row},{end_col})"
+        )
+
     start_cell = table.cell(start_row, start_col)
     end_cell = table.cell(end_row, end_col)
     start_cell.merge(end_cell)
@@ -396,28 +414,35 @@ def delete_table_column(table: Table, col_index: int) -> None:
 
 
 def set_table_alignment(table: Table, alignment: str) -> None:
-    """Set table horizontal alignment."""
+    """Set table horizontal alignment. Valid: left, center, right."""
     alignment_map = {
         "left": WD_TABLE_ALIGNMENT.LEFT,
         "center": WD_TABLE_ALIGNMENT.CENTER,
         "right": WD_TABLE_ALIGNMENT.RIGHT,
     }
-    table.alignment = alignment_map[alignment.lower()]  # KeyError if invalid
+    alignment_lower = alignment.lower()
+    if alignment_lower not in alignment_map:
+        raise ValueError(
+            f"Invalid alignment '{alignment}'. Valid: {list(alignment_map.keys())}"
+        )
+    table.alignment = alignment_map[alignment_lower]
 
 
 def set_row_height(
     table: Table, row_index: int, height_inches: float, rule: str = "at_least"
 ) -> None:
-    """Set row height. Default rule is 'at_least' to prevent text clipping."""
+    """Set row height. Rule: auto, at_least, exactly. Default 'at_least' prevents clipping."""
     rule_map = {
         "auto": WD_ROW_HEIGHT_RULE.AUTO,
         "at_least": WD_ROW_HEIGHT_RULE.AT_LEAST,
         "exactly": WD_ROW_HEIGHT_RULE.EXACTLY,
     }
     rule_val = rule.lower()
+    if rule_val not in rule_map:
+        raise ValueError(f"Invalid rule '{rule}'. Valid: {list(rule_map.keys())}")
     row = table.rows[row_index]  # Let IndexError propagate
     row.height = None if rule_val == "auto" else Inches(height_inches)
-    row.height_rule = rule_map[rule_val]  # KeyError if invalid
+    row.height_rule = rule_map[rule_val]
 
 
 def set_table_fixed_layout(table: Table, column_widths: list[float]) -> None:
@@ -436,13 +461,18 @@ def set_cell_width(table: Table, row: int, col: int, width_inches: float) -> Non
 def set_cell_vertical_alignment(
     table: Table, row: int, col: int, alignment: str
 ) -> None:
-    """Set cell vertical alignment."""
+    """Set cell vertical alignment. Valid: top, center, bottom."""
     valign_map = {
         "top": WD_CELL_VERTICAL_ALIGNMENT.TOP,
         "center": WD_CELL_VERTICAL_ALIGNMENT.CENTER,
         "bottom": WD_CELL_VERTICAL_ALIGNMENT.BOTTOM,
     }
-    table.cell(row, col).vertical_alignment = valign_map[alignment.lower()]
+    alignment_lower = alignment.lower()
+    if alignment_lower not in valign_map:
+        raise ValueError(
+            f"Invalid alignment '{alignment}'. Valid: {list(valign_map.keys())}"
+        )
+    table.cell(row, col).vertical_alignment = valign_map[alignment_lower]
 
 
 def set_cell_borders(

@@ -64,7 +64,7 @@ def _get_target_paragraph(target):
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and stable across structural edits."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and CHANGE when content changes or after inserts/deletes shift occurrence index - use element_id from edit response for chaining."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
@@ -218,7 +218,7 @@ def read(
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and stable across structural edits. Returns new ID after content changes."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Note: 'create' makes a doc with an initial empty paragraph (python-docx behavior). 'update_toc' sets dirty flag; Word updates content on open."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
@@ -581,11 +581,33 @@ def edit(
 
     elif operation == "merge_cells":
         target = word_ops.resolve_target(doc, target_id)
-        end_data = json.loads(content_data)
-        word_ops.merge_cells(
-            target.base_obj, row, col, end_data["end_row"], end_data["end_col"]
+
+        # Accept JSON with all coords, or use row/col params as fallback for start
+        if not content_data:
+            raise ValueError(
+                "merge_cells requires content_data JSON with end_row, end_col"
+            )
+        try:
+            merge_data = json.loads(content_data)
+        except json.JSONDecodeError:
+            raise ValueError(
+                "merge_cells content_data must be valid JSON with end_row, end_col"
+            )
+
+        # Accept both naming conventions for start coordinates
+        start_row = merge_data.get("start_row", merge_data.get("row", row))
+        start_col = merge_data.get("start_col", merge_data.get("col", col))
+
+        # end_row and end_col are required
+        end_row = merge_data.get("end_row")
+        end_col = merge_data.get("end_col")
+        if end_row is None or end_col is None:
+            raise ValueError("merge_cells requires end_row and end_col in content_data")
+
+        word_ops.merge_cells(target.base_obj, start_row, start_col, end_row, end_col)
+        message = (
+            f"Merged cells from ({start_row},{start_col}) to ({end_row},{end_col})"
         )
-        message = f"Merged cells from ({row},{col}) to ({end_data['end_row']},{end_data['end_col']})"
 
     elif operation == "set_table_alignment":
         target = word_ops.resolve_target(doc, target_id)
@@ -770,17 +792,32 @@ def edit(
         message = f"Inserted cross-reference to '{content_data}' ({ref_type})"
 
     elif operation == "insert_caption":
-        # target_id is the block to caption, content_data is JSON {label, text, position}
+        # target_id is the block to caption
+        # content_data can be JSON {label, text, position} or plain string (caption text)
         if not target_id:
             raise ValueError("target_id (block ID) required for insert_caption")
-        if not content_data:
+
+        # Accept plain string OR JSON dict
+        try:
+            caption_data = json.loads(content_data) if content_data else {}
+            if not isinstance(caption_data, dict):
+                # JSON parsed to non-dict (e.g., string, list, number)
+                raise TypeError("Expected dict")
+            label = caption_data.get("label", "Figure")
+            caption_text = caption_data.get("text", "")
+            position = caption_data.get("position", "below")
+        except (json.JSONDecodeError, TypeError):
+            # Plain string: use as caption text with default label
+            label = "Figure"
+            caption_text = content_data if content_data else ""
+            position = "below"
+
+        # Validate position
+        if position not in ("above", "below"):
             raise ValueError(
-                "content_data (JSON with label, text) required for insert_caption"
+                f"Invalid position '{position}'. Valid: ['above', 'below']"
             )
-        caption_data = json.loads(content_data)
-        label = caption_data.get("label", "Figure")
-        caption_text = caption_data.get("text", "")
-        position = caption_data.get("position", "below")
+
         element_id = word_ops.insert_caption(
             doc, target_id, label, caption_text, position
         )

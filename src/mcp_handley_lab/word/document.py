@@ -322,15 +322,19 @@ def add_break_after(
     doc: Document, target_el: CT_P | CT_Tbl, break_type: str
 ) -> Paragraph:
     """Insert break after target element. break_type: 'page', 'column', 'line'."""
-
     break_map = {
         "page": WD_BREAK.PAGE,
         "column": WD_BREAK.COLUMN,
         "line": WD_BREAK.LINE,
     }
+    break_type_lower = break_type.lower()
+    if break_type_lower not in break_map:
+        raise ValueError(
+            f"Invalid break_type '{break_type}'. Valid: {list(break_map.keys())}"
+        )
     p = doc.add_paragraph()
     run = p.add_run()
-    run.add_break(break_map[break_type])  # KeyError if invalid
+    run.add_break(break_map[break_type_lower])
     target_el.addnext(p._element)
     return p
 

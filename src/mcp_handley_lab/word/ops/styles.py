@@ -416,23 +416,48 @@ def add_tab_stop(
     alignment: str = "left",
     leader: str = "spaces",
 ) -> None:
-    """Add a tab stop to a paragraph."""
+    """Add a tab stop to a paragraph.
+
+    Args:
+        paragraph: The paragraph to add the tab stop to
+        position_inches: Position from left margin (must be positive)
+        alignment: Tab alignment - left, center, right, decimal
+        leader: Tab leader character - spaces, dots, heavy, middle_dot
+            Aliases: dot->dots, space->spaces, mid_dot->middle_dot
+    """
+    # Validate position
+    if position_inches <= 0:
+        raise ValueError(f"position_inches must be positive, got {position_inches}")
+
+    # Alignment with validation
     align_map = {
         "left": WD_TAB_ALIGNMENT.LEFT,
         "center": WD_TAB_ALIGNMENT.CENTER,
         "right": WD_TAB_ALIGNMENT.RIGHT,
         "decimal": WD_TAB_ALIGNMENT.DECIMAL,
     }
+    alignment_lower = alignment.lower()
+    if alignment_lower not in align_map:
+        raise ValueError(
+            f"Invalid alignment '{alignment}'. Valid: {list(align_map.keys())}"
+        )
+
+    # Leader with aliases and validation
+    leader_aliases = {"dot": "dots", "space": "spaces", "mid_dot": "middle_dot"}
     leader_map = {
         "spaces": WD_TAB_LEADER.SPACES,
         "dots": WD_TAB_LEADER.DOTS,
         "heavy": WD_TAB_LEADER.HEAVY,
         "middle_dot": WD_TAB_LEADER.MIDDLE_DOT,
     }
+    leader_lower = leader_aliases.get(leader.lower(), leader.lower())
+    if leader_lower not in leader_map:
+        raise ValueError(f"Invalid leader '{leader}'. Valid: {list(leader_map.keys())}")
+
     paragraph.paragraph_format.tab_stops.add_tab_stop(
         Inches(position_inches),
-        align_map[alignment.lower()],
-        leader_map[leader.lower()],
+        align_map[alignment_lower],
+        leader_map[leader_lower],
     )
 
 
