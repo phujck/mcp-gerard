@@ -94,6 +94,13 @@ _WRAP_API_TO_XML = {
 }
 _WRAP_XML_TO_API = {v: k for k, v in _WRAP_API_TO_XML.items()}
 
+# Extended namespace map for SDT content controls (Word 2010/2012 extensions)
+_SDT_NSMAP = {
+    **oxml_nsmap,
+    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+    "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+}
+
 # Hierarchical path segment patterns (0-based indices)
 _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
@@ -306,8 +313,6 @@ def set_document_meta(doc: Document, **kwargs) -> None:
 
 def get_custom_properties(doc: Document) -> list[CustomPropertyInfo]:
     """Get all custom document properties from docProps/custom.xml."""
-    from lxml import etree
-
     props = []
     # Custom properties are in docProps/custom.xml
     for part in doc.part.package.iter_parts():
@@ -356,8 +361,6 @@ def set_custom_property(
         value: Property value as string
         prop_type: One of "string", "int", "bool", "datetime", "float"
     """
-    from lxml import etree
-
     ns_custom = (
         "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
     )
@@ -461,8 +464,6 @@ def delete_custom_property(doc: Document, name: str) -> bool:
     Returns:
         True if property was found and deleted, False if not found
     """
-    from lxml import etree
-
     ns_custom = (
         "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
     )
@@ -1202,8 +1203,6 @@ def set_cell_borders(
             - size: in eighths of a point (24 = 3pt)
             - color: hex color (e.g., '000000' for black)
     """
-    from lxml import etree
-
     cell = table.cell(row, col)
     tc = cell._tc
 
@@ -1246,8 +1245,6 @@ def set_cell_shading(table: Table, row: int, col: int, fill_color: str) -> None:
         col: 0-based column index
         fill_color: Hex color (e.g., 'FF0000' for red)
     """
-    from lxml import etree
-
     cell = table.cell(row, col)
     tc = cell._tc
 
@@ -1274,8 +1271,6 @@ def set_header_row(table: Table, row_index: int, is_header: bool = True) -> None
         row_index: 0-based row index
         is_header: True to mark as header, False to unmark
     """
-    from lxml import etree
-
     row = table.rows[row_index]
     tr = row._tr
 
@@ -1653,14 +1648,26 @@ def _make_run_with(*elements):
     return r
 
 
-def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") -> None:
+def insert_field(
+    paragraph: Paragraph,
+    field_code: str,
+    display_text: str = "",
+    *,
+    uppercase: bool = True,
+    placeholder: str = "1",
+) -> None:
     """Insert a Word field into a paragraph.
 
     Creates proper OXML field structure with separate runs for each part:
     begin, instruction, separator, result, and end markers.
     Supports any Word field code (PAGE, NUMPAGES, DATE, TIME, AUTHOR, etc.).
+
+    Args:
+        uppercase: If True (default), uppercases field_code. Set False for case-sensitive
+            fields like bookmark names in cross-references.
+        placeholder: Default result text shown before field updates.
     """
-    code_upper = field_code.strip().upper()
+    code = field_code.strip().upper() if uppercase else field_code
     p = paragraph._p
 
     # Run 1: Field begin
@@ -1671,7 +1678,7 @@ def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") 
     # Run 2: Field instruction
     instr_text = OxmlElement("w:instrText")
     instr_text.set(qn("xml:space"), "preserve")
-    instr_text.text = f" {code_upper} "
+    instr_text.text = f" {code} "
     p.append(_make_run_with(instr_text))
 
     # Run 3: Field separator
@@ -1681,7 +1688,7 @@ def insert_field(paragraph: Paragraph, field_code: str, display_text: str = "") 
 
     # Run 4: Result text (placeholder shown before field updates)
     text_elem = OxmlElement("w:t")
-    text_elem.text = display_text or "1"
+    text_elem.text = display_text or placeholder
     p.append(_make_run_with(text_elem))
 
     # Run 5: Field end
@@ -2070,8 +2077,6 @@ def set_section_columns(
         spacing_inches: Space between columns in inches
         separator: True to show line between columns
     """
-    from lxml import etree
-
     section = doc.sections[section_index]
     sectPr = section._sectPr
 
@@ -2107,8 +2112,6 @@ def set_line_numbering(
         count_by: Show number every N lines
         distance_inches: Distance from margin in inches
     """
-    from lxml import etree
-
     section = doc.sections[section_index]
     sectPr = section._sectPr
 
@@ -3923,50 +3926,6 @@ def add_bookmark(doc: Document, name: str, paragraph: Paragraph) -> int:
     return bm_id
 
 
-def insert_field_raw(
-    paragraph: Paragraph, instr_text: str, display_text: str = ""
-) -> None:
-    """Insert field with arbitrary instruction text (preserves case).
-
-    Unlike insert_field(), this does NOT uppercase the instruction text,
-    which is important for bookmark names (case-sensitive in practice).
-
-    Creates proper OXML field structure:
-    - Run 1: w:fldChar[@begin]
-    - Run 2: w:instrText (with leading/trailing spaces, xml:space="preserve")
-    - Run 3: w:fldChar[@separate]
-    - Run 4: w:t (display text placeholder)
-    - Run 5: w:fldChar[@end]
-    """
-    p = paragraph._p
-
-    # Run 1: Field begin
-    fld_char_begin = OxmlElement("w:fldChar")
-    fld_char_begin.set(qn("w:fldCharType"), "begin")
-    p.append(_make_run_with(fld_char_begin))
-
-    # Run 2: Field instruction (preserve case and spacing)
-    instr_elem = OxmlElement("w:instrText")
-    instr_elem.set(qn("xml:space"), "preserve")
-    instr_elem.text = f" {instr_text} "
-    p.append(_make_run_with(instr_elem))
-
-    # Run 3: Field separator
-    fld_char_sep = OxmlElement("w:fldChar")
-    fld_char_sep.set(qn("w:fldCharType"), "separate")
-    p.append(_make_run_with(fld_char_sep))
-
-    # Run 4: Result text (placeholder)
-    text_elem = OxmlElement("w:t")
-    text_elem.text = display_text or "?"
-    p.append(_make_run_with(text_elem))
-
-    # Run 5: Field end
-    fld_char_end = OxmlElement("w:fldChar")
-    fld_char_end.set(qn("w:fldCharType"), "end")
-    p.append(_make_run_with(fld_char_end))
-
-
 def insert_cross_reference(
     paragraph: Paragraph, bookmark_name: str, ref_type: str = "text"
 ) -> None:
@@ -3990,7 +3949,7 @@ def insert_cross_reference(
             f"Unknown ref_type: {ref_type}. Use 'text', 'number', or 'page'"
         )
 
-    insert_field_raw(paragraph, instr, display_text="[ref]")
+    insert_field(paragraph, instr, uppercase=False, placeholder="[ref]")
 
 
 def insert_caption(
@@ -4025,7 +3984,7 @@ def insert_caption(
     caption_p.add_run(f"{label} ")
 
     # Add SEQ field for auto-numbering
-    insert_field_raw(caption_p, f"SEQ {label}", "1")
+    insert_field(caption_p, f"SEQ {label}", uppercase=False)
 
     # Add separator and caption text
     caption_p.add_run(f": {caption_text}")
@@ -4144,8 +4103,6 @@ def _parse_comment_threading(doc: Document) -> dict:
         return result
 
     try:
-        from lxml import etree
-
         root = etree.fromstring(ext_part.blob)
 
         # commentsExtended contains w15:commentEx elements
@@ -4185,8 +4142,6 @@ def _get_comment_para_id_map(doc: Document) -> dict:
         comments_part = doc.part._comments_part
         if comments_part is None:
             return para_id_to_comment_id
-
-        from lxml import etree
 
         root = etree.fromstring(comments_part.blob)
         ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
@@ -4600,8 +4555,6 @@ def build_footnotes(doc: Document) -> list[dict]:
     matching references in the document body. Returns list of dicts with
     id, type, text, block_id.
     """
-    from lxml import etree
-
     result = []
     ns = {"w": _FN_W_NS}
 
@@ -4706,8 +4659,6 @@ def _get_safe_note_id(notes_root, ns: dict) -> int:
 
 def _ensure_note_content_types(ct_xml: bytes, note_type: str) -> bytes:
     """Ensure content types include footnotes/endnotes."""
-    from lxml import etree
-
     ct_root = etree.fromstring(ct_xml)
     ns = {"ct": _FN_CT_NS}
 
@@ -4734,8 +4685,6 @@ def _ensure_note_content_types(ct_xml: bytes, note_type: str) -> bytes:
 
 def _ensure_note_relationship(rels_xml: bytes, note_type: str) -> bytes:
     """Ensure document relationships include footnotes/endnotes."""
-    from lxml import etree
-
     rels_root = etree.fromstring(rels_xml)
     ns = {"r": _FN_REL_NS}
 
@@ -4797,8 +4746,6 @@ def _create_minimal_notes_xml(note_type: str) -> bytes:
 
 def _ensure_note_styles(styles_root, note_type: str) -> None:
     """Ensure footnote/endnote styles exist."""
-    from lxml import etree
-
     ns = {"w": _FN_W_NS}
     ref_style_id = f"{note_type.title()}Reference"
     text_style_id = f"{note_type.title()}Text"
@@ -4871,8 +4818,6 @@ def add_footnote(
     """
     import os
     import zipfile
-
-    from lxml import etree
 
     if not os.path.exists(doc_path):
         raise FileNotFoundError(f"Document not found: {doc_path}")
@@ -5052,8 +4997,6 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
     import os
     import zipfile
 
-    from lxml import etree
-
     if not os.path.exists(doc_path):
         raise FileNotFoundError(f"Document not found: {doc_path}")
 
@@ -5128,27 +5071,22 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
 
 def _get_sdt_type(sdt_pr) -> str:
     """Determine the type of content control from its properties."""
-    # Extended namespace map for SDT types (w14/w15 for newer Word versions)
-    sdt_nsmap = dict(oxml_nsmap)
-    sdt_nsmap["w14"] = "http://schemas.microsoft.com/office/word/2010/wordml"
-    sdt_nsmap["w15"] = "http://schemas.microsoft.com/office/word/2012/wordml"
-
     # Check for specific type elements - w14:checkbox for newer Word versions
-    if sdt_pr.find("w14:checkbox", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w14:checkbox", namespaces=_SDT_NSMAP) is not None:
         return "checkbox"
-    if sdt_pr.find("w:checkbox", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:checkbox", namespaces=_SDT_NSMAP) is not None:
         return "checkbox"
-    if sdt_pr.find("w:dropDownList", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:dropDownList", namespaces=_SDT_NSMAP) is not None:
         return "dropdown"
-    if sdt_pr.find("w:comboBox", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:comboBox", namespaces=_SDT_NSMAP) is not None:
         return "dropdown"
-    if sdt_pr.find("w:date", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:date", namespaces=_SDT_NSMAP) is not None:
         return "date"
-    if sdt_pr.find("w15:color", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w15:color", namespaces=_SDT_NSMAP) is not None:
         return "color"
-    if sdt_pr.find("w:richText", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:richText", namespaces=_SDT_NSMAP) is not None:
         return "richText"
-    if sdt_pr.find("w:text", namespaces=sdt_nsmap) is not None:
+    if sdt_pr.find("w:text", namespaces=_SDT_NSMAP) is not None:
         return "text"
     # Default to text for unrecognized types
     return "text"
@@ -5174,19 +5112,15 @@ def _get_sdt_value(sdt) -> str:
 
 def _get_sdt_checked_state(sdt_pr) -> bool | None:
     """Get checkbox checked state from SDT properties."""
-    # Extended namespace map for SDT types (w14 for Word 2010+)
-    sdt_nsmap = dict(oxml_nsmap)
-    sdt_nsmap["w14"] = "http://schemas.microsoft.com/office/word/2010/wordml"
-
-    checkbox = sdt_pr.find("w14:checkbox", namespaces=sdt_nsmap)
+    checkbox = sdt_pr.find("w14:checkbox", namespaces=_SDT_NSMAP)
     if checkbox is None:
         # Try w:checkbox for older format
-        checkbox = sdt_pr.find("w:checkbox", namespaces=sdt_nsmap)
+        checkbox = sdt_pr.find("w:checkbox", namespaces=_SDT_NSMAP)
 
     if checkbox is not None:
-        checked = checkbox.find("w14:checked", namespaces=sdt_nsmap)
+        checked = checkbox.find("w14:checked", namespaces=_SDT_NSMAP)
         if checked is None:
-            checked = checkbox.find("w:checked", namespaces=sdt_nsmap)
+            checked = checkbox.find("w:checked", namespaces=_SDT_NSMAP)
         if checked is not None:
             # w14:val attribute
             ns_w14 = "http://schemas.microsoft.com/office/word/2010/wordml"
@@ -5380,22 +5314,18 @@ def _set_checkbox_value(sdt, sdt_pr, value: str) -> None:
     """Set checkbox checked state and update displayed content."""
     is_checked = value.lower() in ("true", "1", "yes")
     checked_val = "1" if is_checked else "0"
-
-    # Extended namespace map for w14
-    sdt_nsmap = dict(oxml_nsmap)
-    sdt_nsmap["w14"] = "http://schemas.microsoft.com/office/word/2010/wordml"
     ns_w14 = "http://schemas.microsoft.com/office/word/2010/wordml"
 
     # Find or create checkbox element
-    checkbox = sdt_pr.find("w14:checkbox", namespaces=sdt_nsmap)
+    checkbox = sdt_pr.find("w14:checkbox", namespaces=_SDT_NSMAP)
     if checkbox is None:
-        checkbox = sdt_pr.find("w:checkbox", namespaces=sdt_nsmap)
+        checkbox = sdt_pr.find("w:checkbox", namespaces=_SDT_NSMAP)
 
     if checkbox is not None:
         # Find or create checked element
-        checked = checkbox.find("w14:checked", namespaces=sdt_nsmap)
+        checked = checkbox.find("w14:checked", namespaces=_SDT_NSMAP)
         if checked is None:
-            checked = checkbox.find("w:checked", namespaces=sdt_nsmap)
+            checked = checkbox.find("w:checked", namespaces=_SDT_NSMAP)
 
         if checked is not None:
             # Update existing - use explicit namespace URI
