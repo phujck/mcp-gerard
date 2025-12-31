@@ -595,6 +595,58 @@ async def test_edit_run_on_table_fails(sample_docx):
         )
 
 
+@pytest.mark.asyncio
+async def test_read_runs_with_tab_and_linebreak():
+    """Test that runs correctly handle tabs and line breaks in text."""
+    from lxml import etree
+
+    from mcp_handley_lab.word.opc.constants import qn
+
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        para = doc.add_paragraph()
+        # Add run with text, tab, more text, line break, and final text
+        run = para.add_run("Before tab")
+        # Add tab element using lxml
+        r_el = run._element
+        etree.SubElement(r_el, qn("w:tab"))
+        t2 = etree.SubElement(r_el, qn("w:t"))
+        t2.text = "After tab"
+        etree.SubElement(r_el, qn("w:br"))
+        t3 = etree.SubElement(r_el, qn("w:t"))
+        t3.text = "After break"
+        doc.save(f.name)
+
+        try:
+            # Read blocks to get paragraph ID
+            _, blocks_result = await mcp.call_tool(
+                "read", {"file_path": f.name, "scope": "blocks"}
+            )
+            para_block = next(
+                b for b in blocks_result["blocks"] if b["type"] == "paragraph"
+            )
+
+            # Read runs
+            _, runs_result = await mcp.call_tool(
+                "read",
+                {
+                    "file_path": f.name,
+                    "scope": "runs",
+                    "target_id": para_block["id"],
+                },
+            )
+            assert runs_result["block_count"] == 1
+            run_text = runs_result["runs"][0]["text"]
+            # Verify tab and line break are represented
+            assert "\t" in run_text, "Tab should be represented as \\t"
+            assert "\n" in run_text, "Line break should be represented as \\n"
+            assert "Before tab" in run_text
+            assert "After tab" in run_text
+            assert "After break" in run_text
+        finally:
+            Path(f.name).unlink(missing_ok=True)
+
+
 # --- Comment tests ---
 
 

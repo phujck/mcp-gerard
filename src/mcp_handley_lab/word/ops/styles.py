@@ -86,11 +86,187 @@ _RUN_FORMAT_KEYS = set(_RUN_ATTRS) | {"style", "font_size", "color", "highlight_
 # Run Building
 # =============================================================================
 
+# OOXML highlight color mapping (w:highlight/@w:val -> API string)
+_HIGHLIGHT_OOXML_MAP = {
+    "yellow": "yellow",
+    "green": "green",
+    "cyan": "cyan",
+    "magenta": "pink",
+    "blue": "blue",
+    "red": "red",
+    "darkBlue": "dark_blue",
+    "darkCyan": "cyan",
+    "darkGreen": "green",
+    "darkMagenta": "pink",
+    "darkRed": "dark_red",
+    "darkYellow": "dark_yellow",
+    "lightGray": "gray",
+    "darkGray": "dark_gray",
+    "black": "black",
+    "white": "white",
+}
+
+
+def _parse_bool_prop(rPr, tag: str) -> bool | None:
+    """Parse boolean property from w:rPr (presence or w:val != '0')."""
+    el = rPr.find(qn(tag)) if rPr is not None else None
+    if el is None:
+        return None
+    val = el.get(qn("w:val"))
+    return val != "0" if val else True
+
+
+def _build_run_info_ooxml(
+    run_el,
+    index: int,
+    is_hyperlink: bool = False,
+    hyperlink_url: str | None = None,
+) -> RunInfo:
+    """Build RunInfo from a w:r element (pure OOXML)."""
+    # Extract text from run content in document order
+    # Handle: w:t (text), w:tab (tab), w:br/w:cr (line break), special chars
+    text_parts = []
+    for child in run_el:
+        tag = child.tag
+        if tag == qn("w:t"):
+            if child.text is not None:
+                text_parts.append(child.text)
+        elif tag == qn("w:tab"):
+            text_parts.append("\t")
+        elif tag in (qn("w:br"), qn("w:cr")):
+            text_parts.append("\n")
+        elif tag == qn("w:noBreakHyphen"):
+            text_parts.append("\u2011")  # Non-breaking hyphen
+        elif tag == qn("w:softHyphen"):
+            text_parts.append("\u00ad")  # Soft hyphen
+    text = "".join(text_parts)
+
+    # Get run properties
+    rPr = run_el.find(qn("w:rPr"))
+
+    # Font name (w:rFonts/@w:ascii)
+    font_name = None
+    if rPr is not None:
+        rFonts = rPr.find(qn("w:rFonts"))
+        if rFonts is not None:
+            font_name = rFonts.get(qn("w:ascii"))
+
+    # Font size (w:sz/@w:val in half-points)
+    font_size = None
+    if rPr is not None:
+        sz = rPr.find(qn("w:sz"))
+        if sz is not None:
+            val = sz.get(qn("w:val"))
+            font_size = int(val) / 2 if val else None
+
+    # Color (w:color/@w:val)
+    color = None
+    if rPr is not None:
+        color_el = rPr.find(qn("w:color"))
+        if color_el is not None:
+            val = color_el.get(qn("w:val"))
+            if val and val != "auto":
+                color = val.upper()
+
+    # Highlight (w:highlight/@w:val)
+    highlight_color = None
+    if rPr is not None:
+        highlight = rPr.find(qn("w:highlight"))
+        if highlight is not None:
+            val = highlight.get(qn("w:val"))
+            highlight_color = _HIGHLIGHT_OOXML_MAP.get(val)
+
+    # Underline (w:u presence with @w:val != "none")
+    underline = None
+    if rPr is not None:
+        u = rPr.find(qn("w:u"))
+        if u is not None:
+            val = u.get(qn("w:val"))
+            underline = val not in (None, "none", "0", "false")
+
+    # Vertical alignment (subscript/superscript)
+    subscript = None
+    superscript = None
+    if rPr is not None:
+        vertAlign = rPr.find(qn("w:vertAlign"))
+        if vertAlign is not None:
+            val = vertAlign.get(qn("w:val"))
+            subscript = val == "subscript"
+            superscript = val == "superscript"
+
+    # Character style (w:rStyle/@w:val)
+    style = None
+    if rPr is not None:
+        rStyle = rPr.find(qn("w:rStyle"))
+        if rStyle is not None:
+            style = rStyle.get(qn("w:val"))
+
+    return RunInfo(
+        index=index,
+        text=text,
+        bold=_parse_bool_prop(rPr, "w:b"),
+        italic=_parse_bool_prop(rPr, "w:i"),
+        underline=underline,
+        font_name=font_name,
+        font_size=font_size,
+        color=color,
+        highlight_color=highlight_color,
+        strike=_parse_bool_prop(rPr, "w:strike"),
+        double_strike=_parse_bool_prop(rPr, "w:dstrike"),
+        subscript=subscript,
+        superscript=superscript,
+        style=style,
+        is_hyperlink=is_hyperlink,
+        hyperlink_url=hyperlink_url,
+        all_caps=_parse_bool_prop(rPr, "w:caps"),
+        small_caps=_parse_bool_prop(rPr, "w:smallCaps"),
+        hidden=_parse_bool_prop(rPr, "w:vanish"),
+        emboss=_parse_bool_prop(rPr, "w:emboss"),
+        imprint=_parse_bool_prop(rPr, "w:imprint"),
+        outline=_parse_bool_prop(rPr, "w:outline"),
+        shadow=_parse_bool_prop(rPr, "w:shadow"),
+    )
+
+
+def _build_runs_ooxml(p_el, doc_rels) -> list[RunInfo]:
+    """Build runs list from a w:p element (pure OOXML)."""
+    result = []
+    idx = 0
+
+    # Iterate direct children to maintain order (w:r and w:hyperlink)
+    for child in p_el:
+        tag = child.tag
+        if tag == qn("w:r"):
+            result.append(_build_run_info_ooxml(child, idx))
+            idx += 1
+        elif tag == qn("w:hyperlink"):
+            # Get hyperlink URL from relationships
+            rId = child.get(qn("r:id"))
+            anchor = child.get(qn("w:anchor"))
+            url = None
+            if rId and doc_rels:
+                rel = doc_rels.get(rId)
+                if rel and rel.is_external:
+                    url = rel.target
+            elif anchor:
+                url = f"#{anchor}"
+
+            # Process runs inside hyperlink (use iter for nested runs in smartTag/sdt)
+            for run_el in child.iter(qn("w:r")):
+                result.append(
+                    _build_run_info_ooxml(
+                        run_el, idx, is_hyperlink=True, hyperlink_url=url
+                    )
+                )
+                idx += 1
+
+    return result
+
 
 def _build_run_info(
     run, index: int, is_hyperlink: bool = False, hyperlink_url: str | None = None
 ) -> RunInfo:
-    """Build RunInfo from a Run object."""
+    """Build RunInfo from a python-docx Run object."""
     return RunInfo(
         index=index,
         text=run.text or "",
@@ -120,8 +296,18 @@ def _build_run_info(
     )
 
 
-def build_runs(paragraph: Paragraph) -> list[RunInfo]:
-    """Build list of RunInfo for all runs in a paragraph, including hyperlink runs."""
+def build_runs(paragraph, doc_rels=None) -> list[RunInfo]:
+    """Build list of RunInfo for all runs in a paragraph.
+
+    Args:
+        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
+        doc_rels: Relationships collection (required for OOXML path)
+    """
+    # Check if it's an lxml element (pure OOXML path)
+    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
+        return _build_runs_ooxml(paragraph, doc_rels)
+
+    # python-docx Paragraph path (legacy)
     result = []
     idx = 0
     for item in paragraph.iter_inner_content():
@@ -721,8 +907,153 @@ def apply_paragraph_formatting(p: Paragraph, fmt: dict) -> None:
                 _set_run_attr(run, key, value)
 
 
-def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
-    """Extract paragraph formatting properties."""
+def _build_tab_stops_ooxml(p_el) -> list[TabStopInfo]:
+    """Build tab stops from w:p element (pure OOXML)."""
+    # OOXML alignment mapping (w:tab/@w:val)
+    tab_align_ooxml = {
+        "left": "left",
+        "center": "center",
+        "right": "right",
+        "decimal": "decimal",
+        "bar": "bar",
+        "clear": "clear",  # Clears inherited tab
+        "num": "left",  # Number tab (treated as left)
+    }
+    # OOXML leader mapping (w:tab/@w:leader)
+    tab_leader_ooxml = {
+        "none": "spaces",
+        "dot": "dots",
+        "hyphen": "heavy",
+        "underscore": "heavy",
+        "heavy": "heavy",
+        "middleDot": "middle_dot",
+    }
+
+    result = []
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is not None:
+        tabs = pPr.find(qn("w:tabs"))
+        if tabs is not None:
+            for tab in tabs.findall(qn("w:tab")):
+                pos = tab.get(qn("w:pos"))
+                val = tab.get(qn("w:val"))
+                leader = tab.get(qn("w:leader"))
+
+                if pos and val != "clear":
+                    alignment = tab_align_ooxml.get(val, "left")
+                    leader_str = tab_leader_ooxml.get(leader, "spaces")
+                    result.append(
+                        TabStopInfo(
+                            position_inches=round(
+                                int(pos) / 1440, 4
+                            ),  # twips to inches
+                            alignment=alignment,
+                            leader=leader_str,
+                        )
+                    )
+    return result
+
+
+def _build_paragraph_format_ooxml(p_el) -> ParagraphFormatInfo:
+    """Extract paragraph formatting from w:p element (pure OOXML)."""
+    # OOXML alignment mapping (w:jc/@w:val)
+    align_ooxml = {
+        "left": "left",
+        "center": "center",
+        "right": "right",
+        "both": "justify",
+        "distribute": "justify",
+    }
+
+    alignment = None
+    left_indent = None
+    right_indent = None
+    first_line_indent = None
+    space_before = None
+    space_after = None
+    line_spacing = None
+    keep_with_next = None
+    page_break_before = None
+
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is not None:
+        # Alignment (w:jc/@w:val)
+        jc = pPr.find(qn("w:jc"))
+        if jc is not None:
+            alignment = align_ooxml.get(jc.get(qn("w:val")))
+
+        # Indentation (w:ind)
+        ind = pPr.find(qn("w:ind"))
+        if ind is not None:
+            left_val = ind.get(qn("w:left"))
+            right_val = ind.get(qn("w:right"))
+            first_line = ind.get(qn("w:firstLine"))
+            hanging = ind.get(qn("w:hanging"))
+
+            if left_val:
+                left_indent = int(left_val) / 1440  # twips to inches
+            if right_val:
+                right_indent = int(right_val) / 1440
+            if first_line:
+                first_line_indent = int(first_line) / 1440
+            elif hanging:
+                first_line_indent = -int(hanging) / 1440  # Negative for hanging
+
+        # Spacing (w:spacing)
+        spacing = pPr.find(qn("w:spacing"))
+        if spacing is not None:
+            before = spacing.get(qn("w:before"))
+            after = spacing.get(qn("w:after"))
+            line = spacing.get(qn("w:line"))
+            line_rule = spacing.get(qn("w:lineRule"))
+
+            if before:
+                space_before = int(before) / 20  # twips to points
+            if after:
+                space_after = int(after) / 20
+            if line:
+                if line_rule in ("exact", "atLeast"):
+                    line_spacing = int(line) / 20  # twips to points
+                else:
+                    line_spacing = int(line) / 240  # 240ths to multiplier
+
+        # Keep with next (w:keepNext)
+        keep_next = pPr.find(qn("w:keepNext"))
+        if keep_next is not None:
+            val = keep_next.get(qn("w:val"))
+            keep_with_next = val != "0" if val else True
+
+        # Page break before (w:pageBreakBefore)
+        pb_before = pPr.find(qn("w:pageBreakBefore"))
+        if pb_before is not None:
+            val = pb_before.get(qn("w:val"))
+            page_break_before = val != "0" if val else True
+
+    return ParagraphFormatInfo(
+        alignment=alignment,
+        left_indent=left_indent,
+        right_indent=right_indent,
+        first_line_indent=first_line_indent,
+        space_before=space_before,
+        space_after=space_after,
+        line_spacing=line_spacing,
+        keep_with_next=keep_with_next,
+        page_break_before=page_break_before,
+        tab_stops=_build_tab_stops_ooxml(p_el),
+    )
+
+
+def build_paragraph_format(paragraph) -> ParagraphFormatInfo:
+    """Extract paragraph formatting properties.
+
+    Args:
+        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
+    """
+    # Check if it's an lxml element (pure OOXML path)
+    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
+        return _build_paragraph_format_ooxml(paragraph)
+
+    # python-docx Paragraph path (legacy)
     alignment_map = {
         WD_ALIGN_PARAGRAPH.LEFT: "left",
         WD_ALIGN_PARAGRAPH.CENTER: "center",
@@ -754,8 +1085,17 @@ def build_paragraph_format(paragraph: Paragraph) -> ParagraphFormatInfo:
 # =============================================================================
 
 
-def build_tab_stops(paragraph: Paragraph) -> list[TabStopInfo]:
-    """Build list of tab stops for a paragraph."""
+def build_tab_stops(paragraph) -> list[TabStopInfo]:
+    """Build list of tab stops for a paragraph.
+
+    Args:
+        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
+    """
+    # Check if it's an lxml element (pure OOXML path)
+    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
+        return _build_tab_stops_ooxml(paragraph)
+
+    # python-docx Paragraph path (legacy)
     tab_align_map = {
         WD_TAB_ALIGNMENT.LEFT: "left",
         WD_TAB_ALIGNMENT.CENTER: "center",

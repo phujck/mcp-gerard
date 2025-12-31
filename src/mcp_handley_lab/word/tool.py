@@ -64,22 +64,6 @@ def _get_target_paragraph(target):
     )
 
 
-def _find_paragraph_docx(doc: Document, target_id: str) -> Paragraph:
-    """Find paragraph by ID in python-docx Document (for legacy functions).
-
-    Used for functions that still require Paragraph wrapper (build_runs, etc.).
-    Uses resolve_target for hierarchical path support and proper validation.
-    """
-    t = word_ops.resolve_target(doc, target_id)
-    if t.leaf_kind != "paragraph":
-        raise ValueError(
-            f"Target is not a paragraph: {target_id} (resolved to {t.leaf_kind})"
-        )
-    if t.leaf_obj is None:
-        raise ValueError(f"Paragraph wrapper not found for: {target_id}")
-    return t.leaf_obj
-
-
 @mcp.tool(
     description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and CHANGE when content changes or after inserts/deletes shift occurrence index - use element_id from edit response for chaining."
 )
@@ -120,13 +104,13 @@ def read(
         "page_setup",
         "styles",
         "style",
+        "runs",
     }
     # Scopes that need python-docx Document (for now)
     _DOC_SCOPES = {
         "comments",
         "headers_footers",
         "images",
-        "runs",  # build_runs/build_paragraph_format still need Paragraph
     }
 
     # Load appropriate object(s) - meta needs both
@@ -173,10 +157,16 @@ def read(
         table_layout = word_ops.build_table_layout(tbl_el, t.base_id)
         return DocumentReadResult(block_count=1, table_layout=table_layout)
     if scope == "runs":
-        # Still uses python-docx since build_runs expects Paragraph
-        para = _find_paragraph_docx(doc, target_id)
-        runs = word_ops.build_runs(para)
-        paragraph_format = word_ops.build_paragraph_format(para)
+        # Pure OOXML path - find paragraph element, get doc rels for hyperlink URLs
+        t = word_ops.resolve_target(pkg, target_id)
+        if t.leaf_kind != "paragraph":
+            raise ValueError(
+                f"Target is not a paragraph: {target_id} (resolved to {t.leaf_kind})"
+            )
+        p_el = t.leaf_el
+        doc_rels = pkg.get_rels("/word/document.xml")
+        runs = word_ops.build_runs(p_el, doc_rels)
+        paragraph_format = word_ops.build_paragraph_format(p_el)
         return DocumentReadResult(
             block_count=len(runs), runs=runs, paragraph_format=paragraph_format
         )
