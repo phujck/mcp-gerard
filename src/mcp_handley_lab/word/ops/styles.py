@@ -18,12 +18,11 @@ from docx.enum.text import (
     WD_TAB_ALIGNMENT,
     WD_TAB_LEADER,
 )
-from docx.opc.constants import RELATIONSHIP_TYPE
-from docx.oxml import OxmlElement
 from docx.shared import Inches, Pt, RGBColor
 from docx.text.hyperlink import Hyperlink
+from lxml import etree
 
-from mcp_handley_lab.word.opc.constants import qn
+from mcp_handley_lab.word.opc.constants import RT, qn
 
 if TYPE_CHECKING:
     from docx import Document
@@ -209,14 +208,14 @@ def add_hyperlink(
         raise ValueError("Fragment cannot be empty for internal links")
 
     # Create the w:hyperlink element
-    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink = etree.Element(qn("w:hyperlink"))
 
     if address:
         # External link - create relationship
         # Use _parent.part for stability across python-docx versions
         part = paragraph._parent.part
         full_url = f"{address}#{fragment}" if fragment else address
-        r_id = part.relate_to(full_url, RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+        r_id = part.relate_to(full_url, RT.HYPERLINK, is_external=True)
         # Note: qn("r:id") is correct - CT_Hyperlink uses OptionalAttribute("r:id", ...)
         hyperlink.set(qn("r:id"), r_id)
     else:
@@ -230,8 +229,8 @@ def add_hyperlink(
     hyperlink.set(qn("w:history"), "1")
 
     # Create run with text
-    run = OxmlElement("w:r")
-    run_text = OxmlElement("w:t")
+    run = etree.Element(qn("w:r"))
+    run_text = etree.Element(qn("w:t"))
     # Preserve whitespace if needed
     if text[:1].isspace() or text[-1:].isspace() or "  " in text:
         run_text.set(qn("xml:space"), "preserve")

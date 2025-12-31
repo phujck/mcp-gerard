@@ -13,7 +13,6 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from docx.oxml import OxmlElement
 from docx.shared import Inches
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
@@ -890,13 +889,13 @@ def edit_text_box_text(
             t_elements[0].text = new_text
         else:
             # Create w:t element
-            t = OxmlElement("w:t")
+            t = etree.Element(qn("w:t"))
             t.text = new_text
             first_run.append(t)
     else:
         # No runs - create one
-        run = OxmlElement("w:r")
-        t = OxmlElement("w:t")
+        run = etree.Element(qn("w:r"))
+        t = etree.Element(qn("w:t"))
         t.text = new_text
         run.append(t)
         p.append(run)
