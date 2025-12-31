@@ -120,7 +120,7 @@ from mcp_handley_lab.word.ops.lists import (
     _ensure_numPr,
     _ensure_pPr,
     _get_max_num_id,
-    _get_numbering_part,
+    _numbering_xpath,
     _resolve_abstract_num_id,
     _resolve_level_format,
     demote_list_item,
@@ -325,7 +325,7 @@ __all__ = [
     "edit_run_text",
     "edit_run_formatting",
     # Lists
-    "_get_numbering_part",
+    "_numbering_xpath",
     "_resolve_abstract_num_id",
     "_resolve_level_format",
     "_ensure_pPr",

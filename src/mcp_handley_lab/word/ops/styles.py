@@ -20,9 +20,10 @@ from docx.enum.text import (
 )
 from docx.opc.constants import RELATIONSHIP_TYPE
 from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from docx.text.hyperlink import Hyperlink
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document
@@ -36,7 +37,6 @@ from mcp_handley_lab.word.models import (
     StyleInfo,
     TabStopInfo,
 )
-from mcp_handley_lab.word.ops.core import _iter_all_paragraphs
 
 # =============================================================================
 # Constants
@@ -141,9 +141,25 @@ def build_runs(paragraph: Paragraph) -> list[RunInfo]:
 
 def build_hyperlinks(doc: Document) -> list[HyperlinkInfo]:
     """Build list of all hyperlinks in the document."""
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph as DocxParagraph
+
+    def iter_all_paragraphs_docx():
+        """Iterate paragraphs using python-docx (for Hyperlink support)."""
+        for child in doc.element.body.iterchildren():
+            if isinstance(child, CT_P):
+                yield DocxParagraph(child, doc)
+            elif isinstance(child, CT_Tbl):
+                tbl = Table(child, doc)
+                for row in tbl.rows:
+                    for cell in row.cells:
+                        yield from cell.paragraphs
+
     result = []
     idx = 0
-    for para, _el in _iter_all_paragraphs(doc):
+    for para in iter_all_paragraphs_docx():
         for item in para.iter_inner_content():
             if isinstance(item, Hyperlink):
                 result.append(

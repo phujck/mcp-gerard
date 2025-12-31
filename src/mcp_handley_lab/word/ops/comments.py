@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from lxml import etree
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document

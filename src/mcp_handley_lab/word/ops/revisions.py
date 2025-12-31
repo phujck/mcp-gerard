@@ -5,18 +5,22 @@ Contains functions for:
 - Accepting/rejecting individual changes
 - Accepting/rejecting all changes
 - Move handling (source/destination pairing)
+
+Pure OOXML implementation - works directly with lxml elements.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
+from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
 
+from mcp_handley_lab.word.opc.constants import qn
+from mcp_handley_lab.word.ops.core import mark_dirty
+
 if TYPE_CHECKING:
-    from docx import Document
+    pass
 
 
 # =============================================================================
@@ -65,12 +69,18 @@ _ALL_REVISION_TAGS = (
 # =============================================================================
 
 
-def _rev_xpath(element, expr: str) -> list:
-    """Execute XPath with revision namespace on python-docx element.
+def _get_document_xml(pkg) -> etree._Element:
+    """Get document.xml root from WordPackage or Document (duck-typed)."""
+    if hasattr(pkg, "document_xml"):
+        return pkg.document_xml  # WordPackage
+    return pkg.element  # Document
 
-    Uses lxml's ElementBase.xpath() directly rather than compiled XPath,
-    since python-docx elements inherit from lxml but their .xpath() wrapper
-    doesn't support the namespaces argument.
+
+def _rev_xpath(element, expr: str) -> list:
+    """Execute XPath with revision namespace.
+
+    Duck-typed: Works with lxml elements or python-docx BaseOxmlElement.
+    Uses lxml ElementBase.xpath to ensure namespaces param works.
     """
     return _LxmlElementBase.xpath(element, expr, namespaces=_REV_NS)
 
@@ -80,13 +90,15 @@ def _rev_xpath(element, expr: str) -> list:
 # =============================================================================
 
 
-def has_tracked_changes(doc: Document) -> bool:
+def has_tracked_changes(pkg) -> bool:
     """Check if document body has any tracked changes.
 
+    Duck-typed: Takes WordPackage or Document.
     Searches only within w:body (not headers/footers/footnotes).
     """
+    doc_xml = _get_document_xml(pkg)
     xpath_expr = " | ".join(f"//w:body//{tag}" for tag in _ALL_REVISION_TAGS)
-    return bool(_rev_xpath(doc.element, xpath_expr))
+    return bool(_rev_xpath(doc_xml, xpath_expr))
 
 
 def _get_revision_text(element, tag: str) -> str:
@@ -148,8 +160,10 @@ def _has_field_deletion(element) -> bool:
     return bool(_rev_xpath(element, ".//w:delInstrText"))
 
 
-def read_tracked_changes(doc: Document) -> list[dict]:
+def read_tracked_changes(pkg) -> list[dict]:
     """List all tracked changes in document body.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Searches only within w:body (consistent with has_tracked_changes).
     Returns list in document order (no deduplication - same w:id may appear
@@ -164,6 +178,7 @@ def read_tracked_changes(doc: Document) -> list[dict]:
     - supported: bool (whether accept/reject is implemented)
     - tag: str (original tag name for disambiguation)
     """
+    doc_xml = _get_document_xml(pkg)
     results = []
 
     # Include all revision elements (content, moves, formatting)
@@ -176,7 +191,7 @@ def read_tracked_changes(doc: Document) -> list[dict]:
     )
     xpath_expr = " | ".join(f"//w:body//{tag}" for tag in all_elements)
 
-    for el in _rev_xpath(doc.element, xpath_expr):
+    for el in _rev_xpath(doc_xml, xpath_expr):
         change_id = el.get(qn("w:id"))
         if not change_id:
             continue
@@ -265,18 +280,17 @@ def _drop_tag_keep_content(element) -> None:
     parent.remove(element)
 
 
-def _convert_deltext_to_text(element) -> None:
+def _convert_deltext_to_text(element: etree._Element) -> None:
     """Convert w:delText elements to w:t elements within element.
 
-    Creates new w:t elements rather than renaming tags in-place
-    to avoid python-docx element class issues.
+    Pure OOXML: Works with lxml elements.
 
     Used when rejecting a deletion - the deleted text must be restored
     as normal text (w:t) rather than deleted text (w:delText).
     """
     for dt in _rev_xpath(element, ".//w:delText"):
         # Create new w:t element
-        new_t = OxmlElement("w:t")
+        new_t = etree.Element(qn("w:t"))
         new_t.text = dt.text
         # Preserve xml:space if present
         space_attr = dt.get("{http://www.w3.org/XML/1998/namespace}space")
@@ -322,15 +336,18 @@ def _remove_element_preserve_tail(element) -> None:
 # =============================================================================
 
 
-def _find_elements_by_id(doc: Document, change_id: str, tags: tuple) -> list:
+def _find_elements_by_id(pkg, change_id: str, tags: tuple) -> list:
     """Find all elements with given w:id in document body.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Uses Python filtering instead of XPath interpolation to avoid
     potential issues with special characters in change_id.
     """
+    doc_xml = _get_document_xml(pkg)
     # Select all elements by tag, then filter by w:id in Python
     xpath_expr = " | ".join(f"//w:body//{tag}" for tag in tags)
-    all_elements = _rev_xpath(doc.element, xpath_expr)
+    all_elements = _rev_xpath(doc_xml, xpath_expr)
     w_id_qn = qn("w:id")
     return [el for el in all_elements if el.get(w_id_qn) == change_id]
 
@@ -340,17 +357,19 @@ def _find_elements_by_id(doc: Document, change_id: str, tags: tuple) -> list:
 # =============================================================================
 
 
-def _find_move_range_markers(doc: Document, move_id: str) -> dict:
+def _find_move_range_markers(pkg, move_id: str) -> dict:
     """Find all range markers for a move operation.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Returns dict with keys: from_start, from_end, to_start, to_end
     Each value is a list of matching elements (usually 0 or 1).
     """
     return {
-        "from_start": _find_elements_by_id(doc, move_id, ("w:moveFromRangeStart",)),
-        "from_end": _find_elements_by_id(doc, move_id, ("w:moveFromRangeEnd",)),
-        "to_start": _find_elements_by_id(doc, move_id, ("w:moveToRangeStart",)),
-        "to_end": _find_elements_by_id(doc, move_id, ("w:moveToRangeEnd",)),
+        "from_start": _find_elements_by_id(pkg, move_id, ("w:moveFromRangeStart",)),
+        "from_end": _find_elements_by_id(pkg, move_id, ("w:moveFromRangeEnd",)),
+        "to_start": _find_elements_by_id(pkg, move_id, ("w:moveToRangeStart",)),
+        "to_end": _find_elements_by_id(pkg, move_id, ("w:moveToRangeEnd",)),
     }
 
 
@@ -380,8 +399,10 @@ def _validate_move_completeness(move_from: list, move_to: list, markers: dict) -
         raise ValueError("Move is incomplete: missing moveToRangeEnd")
 
 
-def _accept_move(doc: Document, move_id: str, move_from: list, move_to: list) -> None:
+def _accept_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
     """Accept a move: keep destination content, remove source.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Processing:
     1. Validate move completeness
@@ -390,7 +411,7 @@ def _accept_move(doc: Document, move_id: str, move_from: list, move_to: list) ->
     4. Remove range markers
     """
     # Validate completeness before mutating
-    markers = _find_move_range_markers(doc, move_id)
+    markers = _find_move_range_markers(pkg, move_id)
     _validate_move_completeness(move_from, move_to, markers)
 
     # Process deepest first
@@ -411,8 +432,10 @@ def _accept_move(doc: Document, move_id: str, move_from: list, move_to: list) ->
             _remove_element_preserve_tail(marker)
 
 
-def _reject_move(doc: Document, move_id: str, move_from: list, move_to: list) -> None:
+def _reject_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
     """Reject a move: keep source content, remove destination.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Processing:
     1. Validate move completeness
@@ -421,7 +444,7 @@ def _reject_move(doc: Document, move_id: str, move_from: list, move_to: list) ->
     4. Remove range markers
     """
     # Validate completeness before mutating
-    markers = _find_move_range_markers(doc, move_id)
+    markers = _find_move_range_markers(pkg, move_id)
     _validate_move_completeness(move_from, move_to, markers)
 
     # Process deepest first
@@ -447,8 +470,10 @@ def _reject_move(doc: Document, move_id: str, move_from: list, move_to: list) ->
 # =============================================================================
 
 
-def accept_change(doc: Document, change_id: str) -> None:
+def accept_change(pkg, change_id: str) -> None:
     """Accept a specific tracked change by ID.
+
+    Duck-typed: Takes WordPackage or Document.
 
     - Insertions (w:ins): Unwrap content, remove tag
     - Deletions (w:del): Remove entirely
@@ -456,18 +481,19 @@ def accept_change(doc: Document, change_id: str) -> None:
     - Formatting: Raises ValueError (not supported)
     """
     # Find all elements with this ID
-    ins_elements = _find_elements_by_id(doc, change_id, ("w:ins",))
-    del_elements = _find_elements_by_id(doc, change_id, ("w:del",))
-    move_from = _find_elements_by_id(doc, change_id, ("w:moveFrom",))
-    move_to = _find_elements_by_id(doc, change_id, ("w:moveTo",))
-    formatting = _find_elements_by_id(doc, change_id, _FORMATTING_REVISIONS)
+    ins_elements = _find_elements_by_id(pkg, change_id, ("w:ins",))
+    del_elements = _find_elements_by_id(pkg, change_id, ("w:del",))
+    move_from = _find_elements_by_id(pkg, change_id, ("w:moveFrom",))
+    move_to = _find_elements_by_id(pkg, change_id, ("w:moveTo",))
+    formatting = _find_elements_by_id(pkg, change_id, _FORMATTING_REVISIONS)
 
     if formatting:
         raise ValueError(f"Cannot accept formatting change {change_id} (not supported)")
 
     # Handle moves
     if move_from or move_to:
-        _accept_move(doc, change_id, move_from, move_to)
+        _accept_move(pkg, change_id, move_from, move_to)
+        mark_dirty(pkg)
         return
 
     if not ins_elements and not del_elements:
@@ -487,9 +513,14 @@ def accept_change(doc: Document, change_id: str) -> None:
             if parent is not None:
                 parent.remove(el)
 
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(pkg)
 
-def reject_change(doc: Document, change_id: str) -> None:
+
+def reject_change(pkg, change_id: str) -> None:
     """Reject a specific tracked change by ID.
+
+    Duck-typed: Takes WordPackage or Document.
 
     - Insertions (w:ins): Remove entirely
     - Deletions (w:del): Convert delText to t, unwrap
@@ -497,18 +528,19 @@ def reject_change(doc: Document, change_id: str) -> None:
     - Formatting: Raises ValueError (not supported)
     """
     # Find all elements with this ID
-    ins_elements = _find_elements_by_id(doc, change_id, ("w:ins",))
-    del_elements = _find_elements_by_id(doc, change_id, ("w:del",))
-    move_from = _find_elements_by_id(doc, change_id, ("w:moveFrom",))
-    move_to = _find_elements_by_id(doc, change_id, ("w:moveTo",))
-    formatting = _find_elements_by_id(doc, change_id, _FORMATTING_REVISIONS)
+    ins_elements = _find_elements_by_id(pkg, change_id, ("w:ins",))
+    del_elements = _find_elements_by_id(pkg, change_id, ("w:del",))
+    move_from = _find_elements_by_id(pkg, change_id, ("w:moveFrom",))
+    move_to = _find_elements_by_id(pkg, change_id, ("w:moveTo",))
+    formatting = _find_elements_by_id(pkg, change_id, _FORMATTING_REVISIONS)
 
     if formatting:
         raise ValueError(f"Cannot reject formatting change {change_id} (not supported)")
 
     # Handle moves
     if move_from or move_to:
-        _reject_move(doc, change_id, move_from, move_to)
+        _reject_move(pkg, change_id, move_from, move_to)
+        mark_dirty(pkg)
         return
 
     if not ins_elements and not del_elements:
@@ -536,14 +568,19 @@ def reject_change(doc: Document, change_id: str) -> None:
             _convert_deltext_to_text(el)
             _drop_tag_keep_content(el)
 
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(pkg)
 
-def accept_all_changes(doc: Document) -> int:
+
+def accept_all_changes(pkg) -> int:
     """Accept all supported tracked changes. Returns count.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Gathers all change IDs first, then processes to avoid
     iteration invalidation during tree mutation.
     """
-    changes = read_tracked_changes(doc)
+    changes = read_tracked_changes(pkg)
     # Filter to supported changes and get unique IDs (preserving order)
     seen = set()
     supported_ids = []
@@ -555,7 +592,7 @@ def accept_all_changes(doc: Document) -> int:
     count = 0
     for change_id in supported_ids:
         try:
-            accept_change(doc, change_id)
+            accept_change(pkg, change_id)
             count += 1
         except ValueError:
             # Skip unsupported changes (shouldn't happen but be safe)
@@ -564,9 +601,12 @@ def accept_all_changes(doc: Document) -> int:
     return count
 
 
-def reject_all_changes(doc: Document) -> int:
-    """Reject all supported tracked changes. Returns count."""
-    changes = read_tracked_changes(doc)
+def reject_all_changes(pkg) -> int:
+    """Reject all supported tracked changes. Returns count.
+
+    Duck-typed: Takes WordPackage or Document.
+    """
+    changes = read_tracked_changes(pkg)
     # Filter to supported changes and get unique IDs (preserving order)
     seen = set()
     supported_ids = []
@@ -578,7 +618,7 @@ def reject_all_changes(doc: Document) -> int:
     count = 0
     for change_id in supported_ids:
         try:
-            reject_change(doc, change_id)
+            reject_change(pkg, change_id)
             count += 1
         except ValueError:
             # Skip unsupported changes (e.g., field deletions)

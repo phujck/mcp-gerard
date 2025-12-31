@@ -1300,7 +1300,8 @@ async def test_hierarchical_path_from_paragraph_fails(sample_docx):
     para_id = para_block["id"]
 
     # Trying to use hierarchical path on a paragraph should fail
-    with pytest.raises(ToolError, match="has no attribute 'cell'"):
+    # (paragraph has no rows/cells to navigate to)
+    with pytest.raises(ToolError, match="list index out of range"):
         await mcp.call_tool(
             "read",
             {
@@ -1385,7 +1386,8 @@ async def test_hierarchical_transition_invalid_para_from_table(sample_docx):
     table_id = table_block["id"]
 
     # Invalid: p0 directly from table (must go through cell first)
-    with pytest.raises(ToolError, match="has no attribute 'paragraphs'"):
+    # Table has rows not paragraphs, so list index fails
+    with pytest.raises(ToolError, match="list index out of range"):
         await mcp.call_tool(
             "read",
             {

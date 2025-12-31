@@ -6,6 +6,9 @@ Contains functions for:
 - Adding sections
 - Multi-column layout
 - Line numbering
+
+Note: These functions still use python-docx Document for section access.
+The plan is to migrate to pure OOXML in a future phase.
 """
 
 from __future__ import annotations
@@ -13,14 +16,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from docx.enum.section import WD_ORIENT, WD_SECTION
-from docx.oxml.ns import qn
-from docx.shared import Emu
 from lxml import etree
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document
 
 from mcp_handley_lab.word.models import LineNumberingInfo, PageSetupInfo
+
+# EMU per inch for unit conversions
+_EMU_PER_INCH = 914400
 
 # =============================================================================
 # Constants
@@ -145,12 +151,12 @@ def set_page_margins(
     right: float,
 ) -> None:
     """Set page margins for a section. Values in inches."""
-
     section = doc.sections[section_index]
-    section.top_margin = Emu(int(top * 914400))
-    section.bottom_margin = Emu(int(bottom * 914400))
-    section.left_margin = Emu(int(left * 914400))
-    section.right_margin = Emu(int(right * 914400))
+    # Set margins in EMU (914400 EMU = 1 inch)
+    section.top_margin = int(top * _EMU_PER_INCH)
+    section.bottom_margin = int(bottom * _EMU_PER_INCH)
+    section.left_margin = int(left * _EMU_PER_INCH)
+    section.right_margin = int(right * _EMU_PER_INCH)
 
 
 def set_page_orientation(doc: Document, section_index: int, orientation: str) -> None:
@@ -167,8 +173,9 @@ def set_page_orientation(doc: Document, section_index: int, orientation: str) ->
     section.orientation = (
         WD_ORIENT.LANDSCAPE if orient_lower == "landscape" else WD_ORIENT.PORTRAIT
     )
+    # Swap dimensions if needed - python-docx accepts raw EMU values
     if orient_lower == "landscape" and h > w or orient_lower == "portrait" and w > h:
-        section.page_width, section.page_height = Emu(h), Emu(w)
+        section.page_width, section.page_height = h, w
 
 
 def add_section(doc: Document, start_type: str = "new_page") -> int:

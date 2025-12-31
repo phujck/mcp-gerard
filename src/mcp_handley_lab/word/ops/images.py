@@ -14,13 +14,14 @@ import random
 from typing import TYPE_CHECKING
 
 from docx.oxml import OxmlElement
-from docx.oxml.ns import nsmap as oxml_nsmap
-from docx.oxml.ns import qn
 from docx.shared import Inches
 from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
+
+from mcp_handley_lab.word.opc.constants import NSMAP as OXML_NSMAP
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document
@@ -32,8 +33,8 @@ from mcp_handley_lab.word.ops.core import (
     _iter_all_paragraphs,
     _iter_all_runs_in_paragraph,
     content_hash,
-    iter_body_blocks,
     make_block_id,
+    mark_dirty,
     paragraph_kind_and_level,
     resolve_target,
     table_content_for_hash,
@@ -66,6 +67,26 @@ _TEXTBOX_NS = {
 
 
 # =============================================================================
+# XPath Helpers (duck-typed for lxml compatibility)
+# =============================================================================
+
+
+def _img_xpath(element, expr: str, ns: dict | None = None) -> list:
+    """XPath using ElementBase.xpath for namespace compatibility.
+
+    Uses lxml ElementBase.xpath to ensure namespaces parameter works
+    correctly with both raw lxml elements and python-docx BaseOxmlElement.
+    """
+    return _LxmlElementBase.xpath(element, expr, namespaces=ns or OXML_NSMAP)
+
+
+def _img_find(element, expr: str, ns: dict | None = None):
+    """Find first matching element or None (like lxml.find but using xpath helper)."""
+    results = _img_xpath(element, expr, ns)
+    return results[0] if results else None
+
+
+# =============================================================================
 # Image Hash and Extraction Helpers
 # =============================================================================
 
@@ -94,24 +115,24 @@ def _extract_anchor_position(anchor) -> dict:
     result["behind_doc"] = behind == "1" if behind else False
 
     # Horizontal position
-    pos_h = anchor.find("wp:positionH", namespaces=oxml_nsmap)
+    pos_h = _img_find(anchor, "./wp:positionH")
     if pos_h is not None:
         result["relative_from_h"] = pos_h.get("relativeFrom")
-        offset_h = pos_h.find("wp:posOffset", namespaces=oxml_nsmap)
+        offset_h = _img_find(pos_h, "./wp:posOffset")
         if offset_h is not None and offset_h.text:
             result["position_h"] = int(offset_h.text) / _EMU_PER_INCH
 
     # Vertical position
-    pos_v = anchor.find("wp:positionV", namespaces=oxml_nsmap)
+    pos_v = _img_find(anchor, "./wp:positionV")
     if pos_v is not None:
         result["relative_from_v"] = pos_v.get("relativeFrom")
-        offset_v = pos_v.find("wp:posOffset", namespaces=oxml_nsmap)
+        offset_v = _img_find(pos_v, "./wp:posOffset")
         if offset_v is not None and offset_v.text:
             result["position_v"] = int(offset_v.text) / _EMU_PER_INCH
 
     # Wrap type (use mapping for consistent API values)
     for xml_name, api_value in _WRAP_XML_TO_API.items():
-        wrap_el = anchor.find(f"wp:{xml_name}", namespaces=oxml_nsmap)
+        wrap_el = _img_find(anchor, f"./wp:{xml_name}")
         if wrap_el is not None:
             result["wrap_type"] = api_value
             break
@@ -129,10 +150,10 @@ def _extract_images_from_run(
 ) -> None:
     """Extract images from a single run (both inline and anchored)."""
     image_idx_in_run = 0
-    for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
+    for drawing in _img_xpath(run._element, ".//w:drawing"):
         # Check for both inline and anchor images
-        inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
-        anchor = drawing.find(".//wp:anchor", namespaces=oxml_nsmap)
+        inline = _img_find(drawing, ".//wp:inline")
+        anchor = _img_find(drawing, ".//wp:anchor")
 
         container = inline if inline is not None else anchor
         if container is None:
@@ -145,7 +166,7 @@ def _extract_images_from_run(
         except AttributeError:
             # Raw lxml element - use XPath (lowercase 'ml' in namespace)
             blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
-            blip_list = container.findall(".//a:blip", namespaces=blip_ns)
+            blip_list = _img_xpath(container, ".//a:blip", blip_ns)
             if not blip_list:
                 continue
             blip = blip_list[0]
@@ -173,7 +194,7 @@ def _extract_images_from_run(
             height_emu = extent.cy if extent is not None else 0
         except AttributeError:
             # Raw lxml element - find wp:extent element directly
-            extent_el = container.find("wp:extent", namespaces=oxml_nsmap)
+            extent_el = _img_find(container, "./wp:extent")
             if extent_el is not None:
                 width_emu = int(extent_el.get("cx", 0))
                 height_emu = int(extent_el.get("cy", 0))
@@ -234,41 +255,49 @@ def _extract_images_from_paragraph(
 
 
 def build_images(doc: Document) -> list[ImageInfo]:
-    """Build list of ImageInfo from document body, including tables."""
+    """Build list of ImageInfo from document body, including tables.
+
+    Uses python-docx iteration directly for access to wrapper objects.
+    """
+    from docx.oxml.table import CT_Tbl
+    from docx.oxml.text.paragraph import CT_P
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
     images = []
     block_hash_counts: dict[str, int] = {}  # For block_id computation
     image_hash_counts: dict[str, int] = {}  # For image occurrence
 
-    for kind, obj, _el in iter_body_blocks(doc):
-        if kind == "paragraph":
-            # Use SAME logic as build_blocks for block_id
-            block_type, _ = paragraph_kind_and_level(obj)
-            text = obj.text or ""
+    # Iterate body blocks directly using python-docx
+    for child in doc.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            para = Paragraph(child, doc)
+            block_type, _ = paragraph_kind_and_level(child)
+            text = para.text or ""
             block_hash_key = f"{block_type}_{content_hash(text)}"
             block_occurrence = block_hash_counts.get(block_hash_key, 0)
             block_id = make_block_id(block_type, text, block_occurrence)
             block_hash_counts[block_hash_key] = block_occurrence + 1
 
             images.extend(
-                _extract_images_from_paragraph(doc, obj, block_id, image_hash_counts)
+                _extract_images_from_paragraph(doc, para, block_id, image_hash_counts)
             )
 
-        elif kind == "table":
-            # Compute table's block_id
-            table_content = table_content_for_hash(obj)
+        elif isinstance(child, CT_Tbl):
+            tbl = Table(child, doc)
+            # Use element for hash computation
+            table_content = table_content_for_hash(child)
             block_hash_key = f"table_{content_hash(table_content)}"
             block_occurrence = block_hash_counts.get(block_hash_key, 0)
             table_block_id = make_block_id("table", table_content, block_occurrence)
             block_hash_counts[block_hash_key] = block_occurrence + 1
 
             # Search all cells for images with hierarchical block_id
-            # Use true grid coordinates to handle merged cells correctly
-            rows, cols = len(obj.rows), len(obj.columns)
+            rows, cols = len(tbl.rows), len(tbl.columns)
             for r in range(rows):
                 for c in range(cols):
-                    cell = obj.cell(r, c)
+                    cell = tbl.cell(r, c)
                     for p_idx, para in enumerate(cell.paragraphs):
-                        # Hierarchical block_id: table_abc_0#r0c0/p0
                         hier_block_id = f"{table_block_id}#r{r}c{c}/p{p_idx}"
                         images.extend(
                             _extract_images_from_paragraph(
@@ -284,10 +313,12 @@ def _find_image_in_paragraph(doc: Document, para, target_hash: str):
 
     Uses iter_inner_content() traversal to match build_images() indexing.
     """
-    for run in _iter_all_runs_in_paragraph(para):
-        for drawing in run._element.findall(".//w:drawing", namespaces=oxml_nsmap):
-            inline = drawing.find(".//wp:inline", namespaces=oxml_nsmap)
-            anchor = drawing.find(".//wp:anchor", namespaces=oxml_nsmap)
+    # Pass element to _iter_all_runs_in_paragraph, handle both wrapper and element
+    p_el = para._element if hasattr(para, "_element") else para
+    for run_el in _iter_all_runs_in_paragraph(p_el):
+        for drawing in _img_xpath(run_el, ".//w:drawing"):
+            inline = _img_find(drawing, ".//wp:inline")
+            anchor = _img_find(drawing, ".//wp:anchor")
             container = inline if inline is not None else anchor
             if container is None:
                 continue
@@ -297,7 +328,7 @@ def _find_image_in_paragraph(doc: Document, para, target_hash: str):
             except AttributeError:
                 # Raw lxml element - use XPath (lowercase 'ml' in namespace)
                 blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
-                blip_list = container.findall(".//a:blip", namespaces=blip_ns)
+                blip_list = _img_xpath(container, ".//a:blip", blip_ns)
                 if not blip_list:
                     continue
                 blip = blip_list[0]
@@ -312,10 +343,10 @@ def resolve_image(doc: Document, image_id: str) -> tuple:
     target_occurrence = int(occurrence_str)
 
     occurrence_count = 0
-    for para, para_el in _iter_all_paragraphs(doc):
-        for inline in _find_image_in_paragraph(doc, para, target_hash):
+    for p_el in _iter_all_paragraphs(doc):  # Now yields only elements
+        for inline in _find_image_in_paragraph(doc, p_el, target_hash):
             if occurrence_count == target_occurrence:
-                return inline, para_el
+                return inline, p_el
             occurrence_count += 1
 
     raise ValueError(f"Image not found: {image_id}")
@@ -324,9 +355,9 @@ def resolve_image(doc: Document, image_id: str) -> tuple:
 def count_image_occurrence(doc: Document, target_hash: str, target_para_el) -> int:
     """Count embedded images with same hash before target paragraph."""
     occurrence = 0
-    for para, para_el in _iter_all_paragraphs(doc):
-        for _inline in _find_image_in_paragraph(doc, para, target_hash):
-            if para_el is target_para_el:
+    for p_el in _iter_all_paragraphs(doc):  # Now yields only elements
+        for _inline in _find_image_in_paragraph(doc, p_el, target_hash):
+            if p_el is target_para_el:
                 return occurrence
             occurrence += 1
     raise ValueError("Target paragraph not found")
@@ -368,6 +399,7 @@ def insert_image(
         para = target.leaf_obj
         run = para.add_run()
         run.add_picture(image_path, width, height)
+        mark_dirty(doc)
         occurrence = count_image_occurrence(doc, h, para._element)
         return f"image_{h}_{occurrence}"
 
@@ -377,6 +409,7 @@ def insert_image(
         para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
         run = para.add_run()
         run.add_picture(image_path, width, height)
+        mark_dirty(doc)
         occurrence = count_image_occurrence(doc, h, para._element)
         return f"image_{h}_{occurrence}"
 
@@ -390,6 +423,7 @@ def insert_image(
     else:
         target.leaf_el.addnext(new_para._element)
 
+    mark_dirty(doc)
     occurrence = count_image_occurrence(doc, h, new_para._element)
     return f"image_{h}_{occurrence}"
 
@@ -406,17 +440,19 @@ def delete_image(doc: Document, image_id: str) -> None:
     para = Paragraph(para_el, doc)
     has_content = bool(para.text.strip())
     if not has_content:
-        for run in _iter_all_runs_in_paragraph(para):
+        for run_el in _iter_all_runs_in_paragraph(
+            para_el
+        ):  # Pass element, returns elements
             # Check for drawings, fields, or other significant content
-            run_el = run._element
-            if run_el.findall(".//w:drawing", namespaces=oxml_nsmap) or run_el.findall(
-                ".//w:fldChar", namespaces=oxml_nsmap
-            ):
+            if _img_xpath(run_el, ".//w:drawing") or _img_xpath(run_el, ".//w:fldChar"):
                 has_content = True
                 break
 
     if not has_content:
         para_el.getparent().remove(para_el)
+
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(doc)
 
 
 def insert_floating_image(
@@ -563,6 +599,9 @@ def insert_floating_image(
     # Add run with drawing
     run = para.add_run()
     run._element.append(drawing_el)
+
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(doc)
 
     occurrence = count_image_occurrence(doc, h, para._element)
     return f"image_{h}_{occurrence}"
@@ -861,3 +900,6 @@ def edit_text_box_text(
         t.text = new_text
         run.append(t)
         p.append(run)
+
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(doc)

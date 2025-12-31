@@ -5,6 +5,8 @@ Contains shared helpers used across all ops modules:
 - Block iteration and traversal
 - Target resolution for hierarchical addressing
 - Common XML element operations
+
+Supports both python-docx Document and pure OOXML WordPackage.
 """
 
 from __future__ import annotations
@@ -16,22 +18,29 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from docx import Document
-from docx.oxml import OxmlElement
-from docx.oxml.ns import nsmap as oxml_nsmap
-from docx.oxml.table import CT_Tbl, CT_Tc
-from docx.oxml.text.paragraph import CT_P
-from docx.table import Table, _Cell
-from docx.text.hyperlink import Hyperlink
-from docx.text.paragraph import Paragraph
-
-if TYPE_CHECKING:
-    from docx.text.run import Run
+from lxml import etree
 
 from mcp_handley_lab.word.models import Block
+from mcp_handley_lab.word.opc.constants import NSMAP, qn
+
+if TYPE_CHECKING:
+    pass
+
+# Element tag constants for pure OOXML
+_W_P = qn("w:p")
+_W_TBL = qn("w:tbl")
+_W_TR = qn("w:tr")
+_W_TC = qn("w:tc")
+_W_R = qn("w:r")
+_W_T = qn("w:t")
+_W_PPR = qn("w:pPr")
+_W_PSTYLE = qn("w:pStyle")
+_W_VAL = qn("w:val")
 
 # Regexes for parsing IDs and styles
-_HEADING_RE = re.compile(r"^Heading ([1-9])$")
+_HEADING_RE = re.compile(
+    r"^Heading ?([1-9])$"
+)  # Matches both "Heading1" and "Heading 1"
 _ID_RE = re.compile(r"^(paragraph|heading[1-9]|table)_([0-9a-f]{8})_(\d+)$")
 _IMAGE_ID_RE = re.compile(r"^image_([0-9a-f]{8})_(\d+)$")
 
@@ -49,15 +58,21 @@ PathSegment = tuple[str, tuple[int, ...]]
 
 @dataclass
 class ResolvedTarget:
-    """Result of resolving a hierarchical target ID."""
+    """Result of resolving a hierarchical target ID.
+
+    Pure OOXML: Works with lxml elements directly.
+    Also includes wrapper objects for transitional python-docx compatibility.
+    """
 
     base_id: str
     base_kind: str  # 'table' | 'paragraph' | 'heading1' etc
-    base_obj: Paragraph | Table
+    base_el: etree._Element  # w:p or w:tbl element
     base_occurrence: int
     leaf_kind: str  # 'table' | 'cell' | 'paragraph'
-    leaf_obj: Paragraph | Table | _Cell
-    leaf_el: CT_P | CT_Tbl | CT_Tc  # XML element (Paragraph, Table, or Cell)
+    leaf_el: etree._Element  # w:p, w:tbl, or w:tc element
+    # Wrapper objects for transitional python-docx compatibility (may be None)
+    base_obj: any = None  # Table or Paragraph wrapper
+    leaf_obj: any = None  # Table, Paragraph, or _Cell wrapper
 
 
 # =============================================================================
@@ -76,21 +91,59 @@ def make_block_id(block_type: str, text: str, occurrence: int) -> str:
     return f"{block_type}_{content_hash(text)}_{occurrence}"
 
 
-def table_content_for_hash(table: Table) -> str:
-    """Get full table content as canonical string for hashing."""
-    return json.dumps(
-        [[c.text for c in r.cells] for r in table.rows],
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
+# =============================================================================
+# Pure OOXML Element Helpers
+# =============================================================================
 
 
-def paragraph_kind_and_level(p: Paragraph) -> tuple[str, int]:
+def get_paragraph_text(p_el: etree._Element) -> str:
+    """Extract text from w:p element."""
+    texts = []
+    for t_el in p_el.iter(_W_T):
+        if t_el.text:
+            texts.append(t_el.text)
+    return "".join(texts)
+
+
+def get_paragraph_style(p_el: etree._Element) -> str:
+    """Get paragraph style name from w:p element."""
+    pPr = p_el.find(_W_PPR)
+    if pPr is not None:
+        pStyle = pPr.find(_W_PSTYLE)
+        if pStyle is not None:
+            return pStyle.get(_W_VAL, "Normal")
+    return "Normal"
+
+
+def get_cell_text(tc_el: etree._Element) -> str:
+    """Extract text from w:tc element."""
+    texts = []
+    for p_el in tc_el.iter(_W_P):
+        texts.append(get_paragraph_text(p_el))
+    return "\n".join(texts)
+
+
+def table_content_for_hash(tbl_el: etree._Element) -> str:
+    """Get full table content as canonical string for hashing.
+
+    Pure OOXML: Takes w:tbl element.
+    """
+    rows_data = []
+    for tr_el in tbl_el.findall(_W_TR):
+        cells_data = []
+        for tc_el in tr_el.findall(_W_TC):
+            cells_data.append(get_cell_text(tc_el))
+        rows_data.append(cells_data)
+    return json.dumps(rows_data, ensure_ascii=False, separators=(",", ":"))
+
+
+def paragraph_kind_and_level(p_el: etree._Element) -> tuple[str, int]:
     """Detect if paragraph is a heading and return (kind, level).
 
+    Pure OOXML: Takes w:p element.
     For content-hash IDs, kind includes level: 'heading1', 'heading2', etc.
     """
-    style_name = p.style.name if p.style else "Normal"
+    style_name = get_paragraph_style(p_el)
     m = _HEADING_RE.match(style_name)
     if m:
         level = int(m.group(1))
@@ -99,44 +152,67 @@ def paragraph_kind_and_level(p: Paragraph) -> tuple[str, int]:
 
 
 # =============================================================================
+# Duck-Typed Helpers
+# =============================================================================
+
+
+def mark_dirty(pkg, partname: str = "/word/document.xml") -> None:
+    """Mark an XML part as modified (only needed for WordPackage).
+
+    Duck-typed: Safe to call with either WordPackage or Document.
+    For Document, modifications to lxml elements persist automatically.
+    For WordPackage, must call this after modifying cached XML so save() serializes it.
+    """
+    if hasattr(pkg, "mark_xml_dirty"):
+        pkg.mark_xml_dirty(partname)
+
+
+# =============================================================================
 # Block Iteration
 # =============================================================================
 
 
 def iter_body_blocks(
-    doc: Document,
-) -> Iterator[tuple[str, Paragraph | Table, CT_P | CT_Tbl]]:
-    """Yield (block_kind, block_obj, element) in true document order."""
-    body = doc.element.body
-    for child in body.iterchildren():
-        if isinstance(child, CT_P):
-            yield ("paragraph", Paragraph(child, doc), child)
-        elif isinstance(child, CT_Tbl):
-            yield ("table", Table(child, doc), child)
+    pkg,  # WordPackage or Document (duck-typed for transitional period)
+) -> Iterator[tuple[str, etree._Element]]:
+    """Yield (block_kind, element) in true document order.
 
-
-def _iter_all_paragraphs(doc: Document) -> Iterator[tuple[Paragraph, CT_P]]:
-    """Iterate over all paragraphs in document body and tables."""
-    for kind, obj, el in iter_body_blocks(doc):
-        if kind == "paragraph":
-            yield obj, el
-        elif kind == "table":
-            for row in obj.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        yield para, para._element
-
-
-def _iter_all_runs_in_paragraph(para: Paragraph) -> Iterator[Run]:
-    """Iterate all runs in paragraph including those inside hyperlinks.
-
-    Uses iter_inner_content() to match build_runs() indexing.
+    Pure OOXML: Works with WordPackage and lxml elements.
+    Also accepts python-docx Document during transitional period.
     """
-    for item in para.iter_inner_content():
-        if isinstance(item, Hyperlink):
-            yield from item.runs
-        else:  # Run
-            yield item
+    # Duck-type: WordPackage has .body, Document has .element.body
+    if hasattr(pkg, "body"):
+        body = pkg.body
+    elif hasattr(pkg, "element"):
+        body = pkg.element.body
+    else:
+        raise TypeError(f"Expected WordPackage or Document, got {type(pkg)}")
+
+    for child in body.iterchildren():
+        if child.tag == _W_P:
+            yield ("paragraph", child)
+        elif child.tag == _W_TBL:
+            yield ("table", child)
+
+
+def _iter_all_paragraphs(pkg) -> Iterator[etree._Element]:
+    """Iterate over all paragraphs in document body and tables.
+
+    Duck-typed: Yields w:p elements.
+    """
+    for kind, el in iter_body_blocks(pkg):
+        if kind == "paragraph":
+            yield el
+        elif kind == "table":
+            yield from el.iter(_W_P)
+
+
+def _iter_all_runs_in_paragraph(p_el: etree._Element) -> Iterator[etree._Element]:
+    """Iterate all w:r elements in paragraph including those inside hyperlinks.
+
+    Pure OOXML: Yields w:r elements.
+    """
+    yield from p_el.iter(_W_R)
 
 
 # =============================================================================
@@ -167,156 +243,216 @@ def parse_target_id(target_id: str) -> tuple[str, list[PathSegment]]:
     return base_id, segments
 
 
-def resolve_path(
-    container: Table | _Cell, segments: list[PathSegment]
-) -> Paragraph | Table | _Cell:
-    """Resolve path segments from container. Returns leaf object.
+def get_table_cell(tbl_el: etree._Element, row: int, col: int) -> etree._Element:
+    """Get cell element at (row, col) from table element.
 
+    Simple positional lookup. Does not account for grid spans or merges.
+    """
+    rows = tbl_el.findall(_W_TR)
+    tr_el = rows[row]
+    cells = tr_el.findall(_W_TC)
+    return cells[col]
+
+
+def get_cell_paragraphs(tc_el: etree._Element) -> list[etree._Element]:
+    """Get all paragraph elements within a cell."""
+    return tc_el.findall(_W_P)
+
+
+def get_cell_tables(tc_el: etree._Element) -> list[etree._Element]:
+    """Get all nested table elements within a cell."""
+    return tc_el.findall(_W_TBL)
+
+
+def resolve_path(
+    container_el: etree._Element, segments: list[PathSegment]
+) -> etree._Element:
+    """Resolve path segments from container element. Returns leaf element.
+
+    Pure OOXML: Works with lxml elements directly.
     Transition rules:
     - From Table -> cell (r,c) only
     - From Cell -> para (p) or tbl (tbl)
     - From nested Table -> cell (r,c)
     """
-    current: Table | _Cell | Paragraph = container
+    current = container_el
 
     for kind, indices in segments:
         if kind == "cell":
             row, col = indices
-            current = current.cell(
-                row, col
-            )  # AttributeError if not Table, IndexError if OOB
+            current = get_table_cell(current, row, col)
         elif kind == "para":
-            current = current.paragraphs[indices[0]]  # AttributeError if not Cell
+            current = get_cell_paragraphs(current)[indices[0]]
         elif kind == "tbl":
-            current = current.tables[indices[0]]  # AttributeError if not Cell
+            current = get_cell_tables(current)[indices[0]]
 
     return current
 
 
-def _resolve_base_block(
-    doc: Document, base_id: str
-) -> tuple[str, Paragraph | Table, CT_P | CT_Tbl, int]:
-    """Resolve base block ID to (block_type, obj, element, occurrence).
+def _resolve_base_block(pkg, base_id: str) -> tuple[str, etree._Element, int]:
+    """Resolve base block ID to (block_type, element, occurrence).
 
+    Duck-typed: Returns lxml element.
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     Searches all blocks for matching type+hash, then skips to Nth occurrence.
     """
-    target_type, target_hash, occurrence_str = _ID_RE.match(base_id).groups()
+    match = _ID_RE.match(base_id)
+    if not match:
+        raise ValueError(f"Invalid block ID format: {base_id}")
+    target_type, target_hash, occurrence_str = match.groups()
     target_occurrence = int(occurrence_str)
 
     occurrence_count = 0
-    for kind, obj, el in iter_body_blocks(doc):
+    for kind, el in iter_body_blocks(pkg):
         if kind == "table":
             if target_type == "table":
-                table_content = table_content_for_hash(obj)
+                table_content = table_content_for_hash(el)
                 if content_hash(table_content) == target_hash:
                     if occurrence_count == target_occurrence:
-                        return "table", obj, el, occurrence_count
+                        return "table", el, occurrence_count
                     occurrence_count += 1
         else:
-            block_type, _ = paragraph_kind_and_level(obj)
+            block_type, _ = paragraph_kind_and_level(el)
             if target_type == block_type:
-                text = obj.text or ""
+                text = get_paragraph_text(el)
                 if content_hash(text) == target_hash:
                     if occurrence_count == target_occurrence:
-                        return block_type, obj, el, occurrence_count
+                        return block_type, el, occurrence_count
                     occurrence_count += 1
     raise ValueError(f"Block not found: {base_id}")
 
 
-def resolve_target(doc: Document, target_id: str) -> ResolvedTarget:
+def _find_wrapper_for_element(doc, el: etree._Element):
+    """Find python-docx wrapper object for an lxml element.
+
+    Used during transitional period to populate base_obj/leaf_obj in ResolvedTarget.
+    Returns Paragraph, Table, or _Cell wrapper, or None if not found.
+    """
+
+    if el.tag == _W_P:
+        for para in doc.paragraphs:
+            if para._element is el:
+                return para
+        # Also check tables for paragraphs in cells
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if para._element is el:
+                            return para
+    elif el.tag == _W_TBL:
+        for table in doc.tables:
+            if table._tbl is el:
+                return table
+    elif el.tag == _W_TC:
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell._tc is el:
+                        return cell
+    return None
+
+
+def resolve_target(pkg, target_id: str) -> ResolvedTarget:
     """Resolve target_id to ResolvedTarget with base and leaf info.
 
+    Duck-typed: Works with WordPackage or Document.
     Supports hierarchical IDs: table_abc12345_0#r0c1/p0
+    When Document is passed, also populates base_obj/leaf_obj wrapper objects.
     """
     base_id, path_segments = parse_target_id(target_id)
 
     # Resolve base block
-    base_kind, base_obj, base_el, base_occurrence = _resolve_base_block(doc, base_id)
+    base_kind, base_el, base_occurrence = _resolve_base_block(pkg, base_id)
+
+    # Find wrapper object if Document is passed (for edit operations)
+    base_obj = None
+    is_document = hasattr(
+        pkg, "paragraphs"
+    )  # Document has .paragraphs, WordPackage doesn't
+    if is_document:
+        base_obj = _find_wrapper_for_element(pkg, base_el)
 
     if not path_segments:
         return ResolvedTarget(
             base_id=base_id,
             base_kind=base_kind,
-            base_obj=base_obj,
+            base_el=base_el,
             base_occurrence=base_occurrence,
             leaf_kind=base_kind,
-            leaf_obj=base_obj,
             leaf_el=base_el,
+            base_obj=base_obj,
+            leaf_obj=base_obj,  # Same as base when no path
         )
 
-    # Resolve path within container (AttributeError if base_obj not a Table)
-    leaf_obj = resolve_path(base_obj, path_segments)
+    # Resolve path within container
+    leaf_el = resolve_path(base_el, path_segments)
 
-    # Determine leaf kind and element based on type
-    if isinstance(leaf_obj, Table):
-        return ResolvedTarget(
-            base_id=base_id,
-            base_kind=base_kind,
-            base_obj=base_obj,
-            base_occurrence=base_occurrence,
-            leaf_kind="table",
-            leaf_obj=leaf_obj,
-            leaf_el=leaf_obj._tbl,
-        )
-    if isinstance(leaf_obj, _Cell):
-        return ResolvedTarget(
-            base_id=base_id,
-            base_kind=base_kind,
-            base_obj=base_obj,
-            base_occurrence=base_occurrence,
-            leaf_kind="cell",
-            leaf_obj=leaf_obj,
-            leaf_el=leaf_obj._tc,
-        )
-    # Paragraph
+    # Determine leaf kind based on element tag
+    if leaf_el.tag == _W_TBL:
+        leaf_kind = "table"
+    elif leaf_el.tag == _W_TC:
+        leaf_kind = "cell"
+    else:
+        leaf_kind = "paragraph"
+
+    # Find leaf wrapper object if Document is passed
+    leaf_obj = None
+    if is_document:
+        leaf_obj = _find_wrapper_for_element(pkg, leaf_el)
+
     return ResolvedTarget(
         base_id=base_id,
         base_kind=base_kind,
-        base_obj=base_obj,
+        base_el=base_el,
         base_occurrence=base_occurrence,
-        leaf_kind="paragraph",
+        leaf_kind=leaf_kind,
+        leaf_el=leaf_el,
+        base_obj=base_obj,
         leaf_obj=leaf_obj,
-        leaf_el=leaf_obj._element,
     )
 
 
-def find_paragraph_by_id(doc: Document, target_id: str) -> Paragraph | None:
+def find_paragraph_by_id(pkg, target_id: str) -> etree._Element | None:
     """Find a paragraph by its block ID.
 
-    Returns the Paragraph object if found and is a paragraph, None otherwise.
+    Duck-typed: Returns w:p element if found, None otherwise.
     """
     try:
-        target = resolve_target(doc, target_id)
-        if target.leaf_kind == "paragraph" and isinstance(target.leaf_obj, Paragraph):
-            return target.leaf_obj
+        target = resolve_target(pkg, target_id)
+        if target.leaf_kind == "paragraph":
+            return target.leaf_el
         return None
     except ValueError:
         return None
 
 
 def count_occurrence(
-    doc: Document, block_type: str, text: str, target_el: CT_P | CT_Tbl
+    pkg,
+    block_type: str,
+    text: str,
+    target_el: etree._Element,  # pkg: WordPackage or Document
 ) -> int:
     """Count how many blocks with same type+hash appear before target_el.
 
+    Takes WordPackage or Document (duck-typed) and lxml element.
     Used after edits to compute the correct occurrence index for returned ID.
     For tables, 'text' should be the full table content (from table_content_for_hash).
     """
     target_hash = content_hash(text)
     occurrence = 0
-    for kind, obj, el in iter_body_blocks(doc):
+    for kind, el in iter_body_blocks(pkg):
         if kind == "table":
             if block_type == "table":
-                table_content = table_content_for_hash(obj)
+                table_content = table_content_for_hash(el)
                 if content_hash(table_content) == target_hash:
                     if el is target_el:
                         return occurrence
                     occurrence += 1
         else:
-            actual_type, _ = paragraph_kind_and_level(obj)
+            actual_type, _ = paragraph_kind_and_level(el)
             if block_type == actual_type:
-                block_text = obj.text or ""
+                block_text = get_paragraph_text(el)
                 if content_hash(block_text) == target_hash:
                     if el is target_el:
                         return occurrence
@@ -330,7 +466,7 @@ def count_occurrence(
 
 
 def build_blocks(
-    doc: Document,
+    pkg,
     offset: int = 0,
     limit: int = 50,
     heading_only: bool = False,
@@ -338,6 +474,7 @@ def build_blocks(
 ) -> tuple[list[Block], int]:
     """Build list of Block objects from document body.
 
+    Duck-typed: Works with WordPackage or Document.
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     """
     # Import here to avoid circular dependency (table_to_markdown is in tables.py)
@@ -348,11 +485,11 @@ def build_blocks(
     query_lower = search_query.lower() if search_query else ""
     hash_counts: dict[str, int] = {}  # {type_hash: count} for occurrence tracking
 
-    for kind, obj, _el in iter_body_blocks(doc):
+    for kind, el in iter_body_blocks(pkg):
         if kind == "paragraph":
-            block_type, level = paragraph_kind_and_level(obj)
-            text = obj.text or ""
-            style = obj.style.name if obj.style else "Normal"
+            block_type, level = paragraph_kind_and_level(el)
+            text = get_paragraph_text(el)
+            style = get_paragraph_style(el)
 
             # Track occurrence for this type+hash combination
             hash_key = f"{block_type}_{content_hash(text)}"
@@ -377,10 +514,9 @@ def build_blocks(
             matched += 1
 
         elif kind == "table":
-            md, rows, cols = table_to_markdown(obj)
-            style = obj.style.name if obj.style else ""
+            md, rows, cols = table_to_markdown(el)
             # Use full content for hash (not truncated markdown)
-            table_content = table_content_for_hash(obj)
+            table_content = table_content_for_hash(el)
 
             # Track occurrence for this type+hash combination
             hash_key = f"table_{content_hash(table_content)}"
@@ -399,7 +535,7 @@ def build_blocks(
                         id=make_block_id("table", table_content, occurrence),
                         type="table",
                         text=md,  # Keep markdown for display
-                        style=style,
+                        style="",  # Table style not easily available in pure OOXML
                         rows=rows,
                         cols=cols,
                     )
@@ -414,15 +550,36 @@ def build_blocks(
 # =============================================================================
 
 
-def _make_run_with(*elements) -> OxmlElement:
+def make_element(
+    tag: str, nsmap_override: dict | None = None, **attrs: str
+) -> etree._Element:
+    """Create element with namespace handling.
+
+    Args:
+        tag: Namespace-prefixed tag like "w:p"
+        nsmap_override: Optional namespace map (only needed at root elements)
+        **attrs: Attributes as namespace:name=value pairs
+    """
+    el = etree.Element(qn(tag), nsmap=nsmap_override)
+    for attr, value in attrs.items():
+        if ":" in attr:
+            el.set(qn(attr), value)
+        else:
+            el.set(attr, value)
+    return el
+
+
+def _make_run_with(*elements) -> etree._Element:
     """Create a w:r element containing the given child elements."""
-    r = OxmlElement("w:r")
+    r = etree.Element(_W_R)
     for elem in elements:
         r.append(elem)
     return r
 
 
-def _insert_at(target_el, new_el, position: str) -> None:
+def _insert_at(
+    target_el: etree._Element, new_el: etree._Element, position: str
+) -> None:
     """Insert new_el before or after target_el."""
     (target_el.addprevious if position == "before" else target_el.addnext)(new_el)
 
@@ -431,5 +588,5 @@ def _insert_at(target_el, new_el, position: str) -> None:
 # Re-exports for convenience
 # =============================================================================
 
-# Make oxml_nsmap available for other ops modules
-nsmap = oxml_nsmap
+# Make NSMAP available for other ops modules (replaces docx.oxml.ns.nsmap)
+nsmap = NSMAP

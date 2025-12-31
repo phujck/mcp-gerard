@@ -5,20 +5,21 @@ Contains functions for:
 - Getting SDT properties (type, value, options, etc.)
 - Setting content control values
 - Type-specific handlers (checkbox, dropdown, text)
+
+Pure OOXML implementation - works directly with lxml elements.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.oxml import OxmlElement
-from docx.oxml.ns import nsmap as oxml_nsmap
-from docx.oxml.ns import qn
+from lxml import etree
+
+from mcp_handley_lab.word.opc.constants import NSMAP, qn
+from mcp_handley_lab.word.ops.core import content_hash, make_block_id, mark_dirty
 
 if TYPE_CHECKING:
-    from docx import Document
-
-from mcp_handley_lab.word.ops.core import content_hash, make_block_id
+    pass
 
 # =============================================================================
 # Constants
@@ -26,10 +27,22 @@ from mcp_handley_lab.word.ops.core import content_hash, make_block_id
 
 # Extended namespace map for SDT content controls (Word 2010/2012 extensions)
 _SDT_NSMAP = {
-    **oxml_nsmap,
+    **NSMAP,
     "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
     "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
 }
+
+
+# =============================================================================
+# Duck-Typed Helpers
+# =============================================================================
+
+
+def _get_body(pkg) -> etree._Element:
+    """Get body element from WordPackage or Document (duck-typed)."""
+    if hasattr(pkg, "body"):
+        return pkg.body  # WordPackage
+    return pkg.element.body  # Document
 
 
 # =============================================================================
@@ -60,9 +73,9 @@ def _get_sdt_type(sdt_pr) -> str:
     return "text"
 
 
-def _get_sdt_value(sdt) -> str:
+def _get_sdt_value(sdt: etree._Element) -> str:
     """Extract the current value from a content control."""
-    sdt_content = sdt.find("w:sdtContent", namespaces=oxml_nsmap)
+    sdt_content = sdt.find("w:sdtContent", namespaces=NSMAP)
     if sdt_content is None:
         return ""
 
@@ -99,17 +112,17 @@ def _get_sdt_checked_state(sdt_pr) -> bool | None:
     return None
 
 
-def _get_sdt_dropdown_options(sdt_pr) -> list[str]:
+def _get_sdt_dropdown_options(sdt_pr: etree._Element) -> list[str]:
     """Get dropdown/combobox options from SDT properties."""
     options = []
 
     # Check dropDownList
-    dropdown = sdt_pr.find("w:dropDownList", namespaces=oxml_nsmap)
+    dropdown = sdt_pr.find("w:dropDownList", namespaces=NSMAP)
     if dropdown is None:
-        dropdown = sdt_pr.find("w:comboBox", namespaces=oxml_nsmap)
+        dropdown = sdt_pr.find("w:comboBox", namespaces=NSMAP)
 
     if dropdown is not None:
-        for list_item in dropdown.findall("w:listItem", namespaces=oxml_nsmap):
+        for list_item in dropdown.findall("w:listItem", namespaces=NSMAP):
             display_text = list_item.get(qn("w:displayText"))
             value = list_item.get(qn("w:value"))
             options.append(display_text or value or "")
@@ -117,11 +130,11 @@ def _get_sdt_dropdown_options(sdt_pr) -> list[str]:
     return options
 
 
-def _get_sdt_date_format(sdt_pr) -> str | None:
+def _get_sdt_date_format(sdt_pr: etree._Element) -> str | None:
     """Get date format from SDT properties."""
-    date = sdt_pr.find("w:date", namespaces=oxml_nsmap)
+    date = sdt_pr.find("w:date", namespaces=NSMAP)
     if date is not None:
-        date_format = date.find("w:dateFormat", namespaces=oxml_nsmap)
+        date_format = date.find("w:dateFormat", namespaces=NSMAP)
         if date_format is not None:
             return date_format.get(qn("w:val"))
     return None
@@ -133,17 +146,18 @@ def _get_sdt_date_format(sdt_pr) -> str | None:
 
 
 def build_block_id_from_element(
-    element, block_hash_counts: dict[str, int], para_cache: dict
+    element: etree._Element, block_hash_counts: dict[str, int], para_cache: dict
 ) -> str:
     """Build block ID from an element using consistent ID system with build_blocks().
 
+    Pure OOXML: Takes w:p element.
     Uses content_hash() for normalization and tracks occurrence by block_type + hash.
     """
     # Determine block type - check if it's a heading by looking at pPr/pStyle
     block_type = "paragraph"
-    pPr = element.find("w:pPr", namespaces=oxml_nsmap)
+    pPr = element.find("w:pPr", namespaces=NSMAP)
     if pPr is not None:
-        pStyle = pPr.find("w:pStyle", namespaces=oxml_nsmap)
+        pStyle = pPr.find("w:pStyle", namespaces=NSMAP)
         if pStyle is not None:
             style_val = pStyle.get(qn("w:val"), "")
             # Check for heading styles (Heading1, Heading 1, heading1, etc.)
@@ -181,32 +195,35 @@ def build_block_id_from_element(
 # =============================================================================
 
 
-def build_content_controls(doc: Document) -> list[dict]:
-    """Build list of all content controls (SDTs) in the document."""
+def build_content_controls(pkg) -> list[dict]:
+    """Build list of all content controls (SDTs) in the document.
+
+    Duck-typed: Takes WordPackage or Document.
+    """
     content_controls: list[dict] = []
     block_hash_counts: dict[str, int] = {}
 
     # Find all SDTs in document body
-    body = doc._element.find("w:body", namespaces=oxml_nsmap)
+    body = _get_body(pkg)
     if body is None:
         return content_controls
 
     # Track parent paragraph for block_id
     for sdt in body.iter(qn("w:sdt")):
-        sdt_pr = sdt.find("w:sdtPr", namespaces=oxml_nsmap)
+        sdt_pr = sdt.find("w:sdtPr", namespaces=NSMAP)
         if sdt_pr is None:
             continue
 
         # Get ID
-        id_el = sdt_pr.find("w:id", namespaces=oxml_nsmap)
+        id_el = sdt_pr.find("w:id", namespaces=NSMAP)
         sdt_id = int(id_el.get(qn("w:val"))) if id_el is not None else 0
 
         # Get tag
-        tag_el = sdt_pr.find("w:tag", namespaces=oxml_nsmap)
+        tag_el = sdt_pr.find("w:tag", namespaces=NSMAP)
         tag = tag_el.get(qn("w:val")) if tag_el is not None else None
 
         # Get alias
-        alias_el = sdt_pr.find("w:alias", namespaces=oxml_nsmap)
+        alias_el = sdt_pr.find("w:alias", namespaces=NSMAP)
         alias = alias_el.get(qn("w:val")) if alias_el is not None else None
 
         # Determine type
@@ -252,25 +269,27 @@ def build_content_controls(doc: Document) -> list[dict]:
 # =============================================================================
 
 
-def set_content_control_value(doc: Document, sdt_id: int, value: str) -> None:
+def set_content_control_value(pkg, sdt_id: int, value: str) -> None:
     """Set the value of a content control.
+
+    Duck-typed: Takes WordPackage or Document.
 
     For dropdown: value must match one of the options
     For checkbox: value should be "true" or "false"
     For date: value should be ISO date string
     For text: value is the text content
     """
-    body = doc._element.find("w:body", namespaces=oxml_nsmap)
+    body = _get_body(pkg)
     if body is None:
         raise ValueError("Document has no body")
 
     # Find SDT with matching ID
     for sdt in body.iter(qn("w:sdt")):
-        sdt_pr = sdt.find("w:sdtPr", namespaces=oxml_nsmap)
+        sdt_pr = sdt.find("w:sdtPr", namespaces=NSMAP)
         if sdt_pr is None:
             continue
 
-        id_el = sdt_pr.find("w:id", namespaces=oxml_nsmap)
+        id_el = sdt_pr.find("w:id", namespaces=NSMAP)
         if id_el is None:
             continue
 
@@ -288,12 +307,16 @@ def set_content_control_value(doc: Document, sdt_id: int, value: str) -> None:
             # Text, richText, date, etc.
             _set_text_value(sdt, value)
 
+        # Mark document.xml as modified for WordPackage
+        mark_dirty(pkg)
         return
 
     raise ValueError(f"Content control with ID {sdt_id} not found")
 
 
-def _set_checkbox_value(sdt, sdt_pr, value: str) -> None:
+def _set_checkbox_value(
+    sdt: etree._Element, sdt_pr: etree._Element, value: str
+) -> None:
     """Set checkbox checked state and update displayed content."""
     is_checked = value.lower() in ("true", "1", "yes")
     checked_val = "1" if is_checked else "0"
@@ -321,7 +344,7 @@ def _set_checkbox_value(sdt, sdt_pr, value: str) -> None:
                 checked.set(val_attr_w14, checked_val)
         else:
             # Create new checked element
-            checked = OxmlElement("w14:checked")
+            checked = etree.Element(f"{{{ns_w14}}}checked")
             checked.set(f"{{{ns_w14}}}val", checked_val)
             checkbox.append(checked)
 
@@ -331,7 +354,9 @@ def _set_checkbox_value(sdt, sdt_pr, value: str) -> None:
     _set_text_value(sdt, display_char)
 
 
-def _set_dropdown_value(sdt, sdt_pr, value: str) -> None:
+def _set_dropdown_value(
+    sdt: etree._Element, sdt_pr: etree._Element, value: str
+) -> None:
     """Set dropdown selected value."""
     # Verify value is in options
     options = _get_sdt_dropdown_options(sdt_pr)
@@ -342,32 +367,29 @@ def _set_dropdown_value(sdt, sdt_pr, value: str) -> None:
     _set_text_value(sdt, value)
 
 
-def _set_text_value(sdt, value: str) -> None:
+def _set_text_value(sdt: etree._Element, value: str) -> None:
     """Set text content of an SDT."""
-    sdt_content = sdt.find("w:sdtContent", namespaces=oxml_nsmap)
+    sdt_content = sdt.find("w:sdtContent", namespaces=NSMAP)
     if sdt_content is None:
         return
 
     # Find first paragraph and set its text
-    for p in sdt_content.findall("w:p", namespaces=oxml_nsmap):
+    for p in sdt_content.findall("w:p", namespaces=NSMAP):
         # Clear existing runs
-        for r in list(p.findall("w:r", namespaces=oxml_nsmap)):
+        for r in list(p.findall("w:r", namespaces=NSMAP)):
             p.remove(r)
 
         # Add new run with text
-        run = OxmlElement("w:r")
-        text = OxmlElement("w:t")
+        run = etree.Element(qn("w:r"))
+        text = etree.SubElement(run, qn("w:t"))
         text.text = value
-        run.append(text)
         p.append(run)
 
         return  # Only update first paragraph
 
     # No paragraph found, create one
-    p = OxmlElement("w:p")
-    run = OxmlElement("w:r")
-    text = OxmlElement("w:t")
+    p = etree.Element(qn("w:p"))
+    run = etree.SubElement(p, qn("w:r"))
+    text = etree.SubElement(run, qn("w:t"))
     text.text = value
-    run.append(text)
-    p.append(run)
     sdt_content.append(p)

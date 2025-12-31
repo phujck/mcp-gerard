@@ -13,13 +13,13 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from docx.shared import Inches
+from lxml import etree
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document
-    from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.models import HeaderFooterInfo
 from mcp_handley_lab.word.ops.core import (
@@ -29,13 +29,16 @@ from mcp_handley_lab.word.ops.core import (
 )
 from mcp_handley_lab.word.ops.tables import populate_table
 
+# EMU per inch for dimension calculations
+_EMU_PER_INCH = 914400
+
 # =============================================================================
 # Field Insertion
 # =============================================================================
 
 
 def insert_field(
-    paragraph: Paragraph,
+    p_el,
     field_code: str,
     display_text: str = "",
     *,
@@ -44,41 +47,46 @@ def insert_field(
 ) -> None:
     """Insert a Word field into a paragraph.
 
+    Pure OOXML: Takes w:p element (or Paragraph wrapper for backwards compat).
+
     Creates proper OXML field structure with separate runs for each part:
     begin, instruction, separator, result, and end markers.
     Supports any Word field code (PAGE, NUMPAGES, DATE, TIME, AUTHOR, etc.).
 
     Args:
+        p_el: Paragraph element (w:p) or Paragraph wrapper (for backwards compat)
         uppercase: If True (default), uppercases field_code. Set False for case-sensitive
             fields like bookmark names in cross-references.
         placeholder: Default result text shown before field updates.
     """
     code = field_code.strip().upper() if uppercase else field_code
-    p = paragraph._p
+
+    # Support both lxml element and Paragraph wrapper (backwards compat)
+    p = getattr(p_el, "_p", p_el)
 
     # Run 1: Field begin
-    fld_char_begin = OxmlElement("w:fldChar")
+    fld_char_begin = etree.Element(qn("w:fldChar"))
     fld_char_begin.set(qn("w:fldCharType"), "begin")
     p.append(_make_run_with(fld_char_begin))
 
     # Run 2: Field instruction
-    instr_text = OxmlElement("w:instrText")
-    instr_text.set(qn("xml:space"), "preserve")
+    instr_text = etree.Element(qn("w:instrText"))
+    instr_text.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
     instr_text.text = f" {code} "
     p.append(_make_run_with(instr_text))
 
     # Run 3: Field separator
-    fld_char_sep = OxmlElement("w:fldChar")
+    fld_char_sep = etree.Element(qn("w:fldChar"))
     fld_char_sep.set(qn("w:fldCharType"), "separate")
     p.append(_make_run_with(fld_char_sep))
 
     # Run 4: Result text (placeholder shown before field updates)
-    text_elem = OxmlElement("w:t")
+    text_elem = etree.Element(qn("w:t"))
     text_elem.text = display_text or placeholder
     p.append(_make_run_with(text_elem))
 
     # Run 5: Field end
-    fld_char_end = OxmlElement("w:fldChar")
+    fld_char_end = etree.Element(qn("w:fldChar"))
     fld_char_end.set(qn("w:fldCharType"), "end")
     p.append(_make_run_with(fld_char_end))
 
@@ -180,8 +188,8 @@ def append_to_header_footer(
         table_data = json.loads(content_data)
         rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
         tbl = hf.add_table(rows=rows, cols=cols, width=Inches(6))
-        populate_table(tbl, table_data)
-        return make_block_id("table", table_content_for_hash(tbl), 0)
+        populate_table(tbl._tbl, table_data)  # Pass element, not wrapper
+        return make_block_id("table", table_content_for_hash(tbl._tbl), 0)
     raise ValueError(f"Unknown content_type: {content_type}")
 
 

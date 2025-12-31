@@ -14,9 +14,10 @@ import zipfile
 from typing import TYPE_CHECKING
 
 from docx import Document
-from docx.oxml.ns import qn
-from docx.text.paragraph import Paragraph
 from lxml import etree
+from lxml.etree import ElementBase as _LxmlElementBase
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     pass
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 from mcp_handley_lab.word.ops.core import (
     count_occurrence,
     find_paragraph_by_id,
+    get_paragraph_text,
     make_block_id,
     paragraph_kind_and_level,
 )
@@ -40,6 +42,20 @@ _FN_XML_NS = "http://www.w3.org/XML/1998/namespace"
 
 # Reserved footnote/endnote IDs (separators only, user notes use 1+)
 _RESERVED_NOTE_IDS = {-1, 0}
+
+
+# =============================================================================
+# XPath Helper (duck-typed for lxml compatibility)
+# =============================================================================
+
+
+def _fn_xpath(element: etree._Element, expr: str, ns: dict) -> list:
+    """XPath using ElementBase.xpath for namespace compatibility.
+
+    Uses lxml ElementBase.xpath to ensure namespaces parameter works
+    correctly with both raw lxml elements and python-docx BaseOxmlElement.
+    """
+    return _LxmlElementBase.xpath(element, expr, namespaces=ns)
 
 
 # =============================================================================
@@ -61,16 +77,15 @@ def build_footnotes(doc: Document) -> list[dict]:
     ref_locations: dict[tuple[str, int], str] = {}  # (type, id) -> block_id
 
     # Find footnote references in document body
-    for fn_ref in doc.element.findall(".//w:footnoteReference", namespaces=ns):
+    for fn_ref in _fn_xpath(doc.element, ".//w:footnoteReference", ns):
         fn_id = fn_ref.get(qn("w:id"))
         if fn_id:
             # Find containing block
             parent = fn_ref.getparent()
             while parent is not None:
                 if parent.tag == qn("w:p"):
-                    p = Paragraph(parent, doc)
-                    kind, level = paragraph_kind_and_level(p)
-                    text = p.text or ""
+                    kind, level = paragraph_kind_and_level(parent)
+                    text = get_paragraph_text(parent)
                     occurrence = count_occurrence(doc, kind, text, parent)
                     block_id = make_block_id(kind, text, occurrence)
                     ref_locations[("footnote", int(fn_id))] = block_id
@@ -78,15 +93,14 @@ def build_footnotes(doc: Document) -> list[dict]:
                 parent = parent.getparent()
 
     # Find endnote references
-    for en_ref in doc.element.findall(".//w:endnoteReference", namespaces=ns):
+    for en_ref in _fn_xpath(doc.element, ".//w:endnoteReference", ns):
         en_id = en_ref.get(qn("w:id"))
         if en_id:
             parent = en_ref.getparent()
             while parent is not None:
                 if parent.tag == qn("w:p"):
-                    p = Paragraph(parent, doc)
-                    kind, level = paragraph_kind_and_level(p)
-                    text = p.text or ""
+                    kind, level = paragraph_kind_and_level(parent)
+                    text = get_paragraph_text(parent)
                     occurrence = count_occurrence(doc, kind, text, parent)
                     block_id = make_block_id(kind, text, occurrence)
                     ref_locations[("endnote", int(en_id))] = block_id
@@ -98,14 +112,14 @@ def build_footnotes(doc: Document) -> list[dict]:
         partname = part.partname
         if partname == "/word/footnotes.xml":
             fn_root = etree.fromstring(part.blob)
-            for fn in fn_root.xpath("//w:footnote", namespaces=ns):
+            for fn in _fn_xpath(fn_root, "//w:footnote", ns):
                 fn_id_str = fn.get(f"{{{_FN_W_NS}}}id")
                 if fn_id_str:
                     fn_id = int(fn_id_str)
                     if fn_id in _RESERVED_NOTE_IDS:
                         continue  # Skip separators
                     # Extract text content
-                    text_parts = fn.xpath(".//w:t/text()", namespaces=ns)
+                    text_parts = _fn_xpath(fn, ".//w:t/text()", ns)
                     text = "".join(text_parts).strip()
                     block_id = ref_locations.get(("footnote", fn_id), "")
                     result.append(
@@ -118,13 +132,13 @@ def build_footnotes(doc: Document) -> list[dict]:
                     )
         elif partname == "/word/endnotes.xml":
             en_root = etree.fromstring(part.blob)
-            for en in en_root.xpath("//w:endnote", namespaces=ns):
+            for en in _fn_xpath(en_root, "//w:endnote", ns):
                 en_id_str = en.get(f"{{{_FN_W_NS}}}id")
                 if en_id_str:
                     en_id = int(en_id_str)
                     if en_id in _RESERVED_NOTE_IDS:
                         continue  # Skip separators
-                    text_parts = en.xpath(".//w:t/text()", namespaces=ns)
+                    text_parts = _fn_xpath(en, ".//w:t/text()", ns)
                     text = "".join(text_parts).strip()
                     block_id = ref_locations.get(("endnote", en_id), "")
                     result.append(
@@ -147,7 +161,7 @@ def build_footnotes(doc: Document) -> list[dict]:
 def _get_safe_note_id(notes_root, ns: dict) -> int:
     """Get a safe footnote/endnote ID avoiding reserved values."""
     used_ids: set[int] = set()
-    for fn in notes_root.xpath("//w:footnote | //w:endnote", namespaces=ns):
+    for fn in _fn_xpath(notes_root, "//w:footnote | //w:endnote", ns):
         fn_id = fn.get(f"{{{_FN_W_NS}}}id")
         if fn_id:
             try:
@@ -172,7 +186,7 @@ def _ensure_note_content_types(ct_xml: bytes, note_type: str) -> bytes:
     else:
         content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml"
 
-    existing = ct_root.xpath(f"//ct:Override[@PartName='{part_name}']", namespaces=ns)
+    existing = _fn_xpath(ct_root, f"//ct:Override[@PartName='{part_name}']", ns)
     if existing:
         return ct_xml
 
@@ -193,14 +207,14 @@ def _ensure_note_relationship(rels_xml: bytes, note_type: str) -> bytes:
     ns = {"r": _FN_REL_NS}
 
     rel_type = f"http://schemas.openxmlformats.org/officeDocument/2006/relationships/{note_type}s"
-    existing = rels_root.xpath(
-        f"//r:Relationship[contains(@Type, '{note_type}s')]", namespaces=ns
+    existing = _fn_xpath(
+        rels_root, f"//r:Relationship[contains(@Type, '{note_type}s')]", ns
     )
     if existing:
         return rels_xml
 
     # Generate unique rId
-    all_rels = rels_root.xpath("//r:Relationship", namespaces=ns)
+    all_rels = _fn_xpath(rels_root, "//r:Relationship", ns)
     existing_ids = {rel.get("Id") for rel in all_rels if rel.get("Id")}
     rid_num = 1
     while f"rId{rid_num}" in existing_ids:
@@ -255,9 +269,7 @@ def _ensure_note_styles(styles_root, note_type: str) -> None:
     text_style_id = f"{note_type.title()}Text"
 
     # Check for reference style
-    ref_style = styles_root.xpath(
-        f'//w:style[@w:styleId="{ref_style_id}"]', namespaces=ns
-    )
+    ref_style = _fn_xpath(styles_root, f'//w:style[@w:styleId="{ref_style_id}"]', ns)
     if not ref_style:
         style = etree.Element(
             f"{{{_FN_W_NS}}}style",
@@ -276,9 +288,7 @@ def _ensure_note_styles(styles_root, note_type: str) -> None:
         styles_root.append(style)
 
     # Check for text style
-    text_style = styles_root.xpath(
-        f'//w:style[@w:styleId="{text_style_id}"]', namespaces=ns
-    )
+    text_style = _fn_xpath(styles_root, f'//w:style[@w:styleId="{text_style_id}"]', ns)
     if not text_style:
         style = etree.Element(
             f"{{{_FN_W_NS}}}style",
@@ -359,19 +369,19 @@ def add_footnote(
     # Load document with python-docx to find target paragraph
     temp_doc = Document(doc_path)
 
-    # Use find_paragraph_by_id which handles all paragraph types
-    target_para_obj = find_paragraph_by_id(temp_doc, target_id)
-    if target_para_obj is None:
+    # Use find_paragraph_by_id which returns lxml element (or None)
+    target_para_el = find_paragraph_by_id(temp_doc, target_id)
+    if target_para_el is None:
         raise ValueError(f"Target block not found: {target_id}")
 
     # Get all paragraphs from both python-docx body and raw XML
     # Use index-based matching (more robust than text matching for duplicates)
     all_paras_docx = list(temp_doc.element.body.iter(qn("w:p")))
-    all_paras_xml = doc_root.xpath("//w:body//w:p", namespaces=ns)
+    all_paras_xml = _fn_xpath(doc_root, "//w:body//w:p", ns)
 
     # Find index of target in python-docx element tree
     try:
-        target_idx = all_paras_docx.index(target_para_obj._element)
+        target_idx = all_paras_docx.index(target_para_el)  # Element, not wrapper
     except ValueError:
         raise ValueError(f"Target element not found in document structure: {target_id}")
 
@@ -391,7 +401,7 @@ def add_footnote(
     note_id = _get_safe_note_id(notes_root, ns)
 
     # Find insertion position in paragraph
-    runs = target_para.xpath(".//w:r", namespaces=ns)
+    runs = _fn_xpath(target_para, ".//w:r", ns)
     if position == "after" and runs:
         last_run = runs[-1]
         insert_pos = list(target_para).index(last_run) + 1
@@ -519,8 +529,8 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
 
     # Remove reference from document
     refs_removed = 0
-    for fn_ref in doc_root.xpath(
-        f"//w:{note_type}Reference[@w:id='{note_id}']", namespaces=ns
+    for fn_ref in _fn_xpath(
+        doc_root, f"//w:{note_type}Reference[@w:id='{note_id}']", ns
     ):
         run = fn_ref.getparent()
         if run is not None and run.tag == f"{{{_FN_W_NS}}}r":
@@ -533,7 +543,7 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
         raise ValueError(f"{note_type.title()} {note_id} not found")
 
     # Remove note content
-    for fn in notes_root.xpath(f"//w:{note_type}[@w:id='{note_id}']", namespaces=ns):
+    for fn in _fn_xpath(notes_root, f"//w:{note_type}[@w:id='{note_id}']", ns):
         notes_root.remove(fn)
 
     # Write modified document

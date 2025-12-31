@@ -22,6 +22,7 @@ from mcp_handley_lab.word.models import (
     TextBoxInfo,
     TOCInfo,
 )
+from mcp_handley_lab.word.opc import WordPackage
 
 mcp = FastMCP("Word Document Tool")
 
@@ -43,9 +44,9 @@ def _recalc_table_id(doc, t) -> str:
     """Recalculate table element ID after modification. Requires base_kind == 'table'."""
     if t.base_kind != "table":
         raise ValueError("Expected base_kind=table for table ID recalculation")
-    table = t.base_obj
-    content = word_ops.table_content_for_hash(table)
-    occurrence = word_ops.count_occurrence(doc, "table", content, table._tbl)
+    tbl_el = t.base_el  # Use element, not wrapper
+    content = word_ops.table_content_for_hash(tbl_el)
+    occurrence = word_ops.count_occurrence(doc, "table", content, tbl_el)
     return word_ops.make_block_id("table", content, occurrence)
 
 
@@ -61,6 +62,22 @@ def _get_target_paragraph(target):
     return (
         target.leaf_obj.paragraphs[0] if target.leaf_kind == "cell" else target.leaf_obj
     )
+
+
+def _find_paragraph_docx(doc: Document, target_id: str) -> Paragraph:
+    """Find paragraph by ID in python-docx Document (for legacy functions).
+
+    Used for functions that still require Paragraph wrapper (build_runs, etc.).
+    Uses resolve_target for hierarchical path support and proper validation.
+    """
+    t = word_ops.resolve_target(doc, target_id)
+    if t.leaf_kind != "paragraph":
+        raise ValueError(
+            f"Target is not a paragraph: {target_id} (resolved to {t.leaf_kind})"
+        )
+    if t.leaf_obj is None:
+        raise ValueError(f"Paragraph wrapper not found for: {target_id}")
+    return t.leaf_obj
 
 
 @mcp.tool(
@@ -81,42 +98,85 @@ def read(
     offset: int = Field(0, description="Pagination offset"),
 ) -> DocumentReadResult:
     """Read Word document content."""
-    doc = Document(file_path)
+    # Scopes that need WordPackage (pure OOXML)
+    _PKG_SCOPES = {
+        "meta",
+        "outline",
+        "blocks",
+        "search",
+        "table_cells",
+        "table_layout",
+        "revisions",
+        "list",
+        "bookmarks",
+        "captions",
+        "toc",
+        "content_controls",
+        "equations",
+    }
+    # Scopes that need python-docx Document (for now)
+    _DOC_SCOPES = {
+        "comments",
+        "headers_footers",
+        "page_setup",
+        "images",
+        "hyperlinks",
+        "styles",
+        "style",
+        "text_boxes",
+        "text_box_content",
+        "footnotes",
+        "runs",  # build_runs/build_paragraph_format still need Paragraph
+    }
+
+    # Load appropriate object(s) - meta needs both
+    pkg = (
+        WordPackage.open(file_path) if scope in _PKG_SCOPES or scope == "meta" else None
+    )
+    doc = Document(file_path) if scope in _DOC_SCOPES or scope == "meta" else None
 
     if scope == "meta":
         meta = word_ops.get_document_meta(doc)
-        _, block_count = word_ops.build_blocks(doc, offset=0, limit=0)
+        _, block_count = word_ops.build_blocks(pkg, offset=0, limit=0)
         return DocumentReadResult(block_count=block_count, meta=meta)
     if scope == "outline":
         blocks, block_count = word_ops.build_blocks(
-            doc, offset=offset, limit=limit, heading_only=True
+            pkg, offset=offset, limit=limit, heading_only=True
         )
         return DocumentReadResult(block_count=block_count, blocks=blocks)
     if scope == "blocks":
-        blocks, block_count = word_ops.build_blocks(doc, offset=offset, limit=limit)
+        blocks, block_count = word_ops.build_blocks(pkg, offset=offset, limit=limit)
         return DocumentReadResult(block_count=block_count, blocks=blocks)
     if scope == "search":
         blocks, block_count = word_ops.build_blocks(
-            doc, offset=offset, limit=limit, search_query=search_query
+            pkg, offset=offset, limit=limit, search_query=search_query
         )
         return DocumentReadResult(block_count=block_count, blocks=blocks)
     if scope == "table_cells":
-        t = word_ops.resolve_target(doc, target_id)
-        cells = word_ops.build_table_cells(t.leaf_obj, t.base_id)
+        from mcp_handley_lab.word.opc.constants import qn
+
+        t = word_ops.resolve_target(pkg, target_id)
+        tbl_el = t.base_el if t.base_kind == "table" else t.leaf_el
+        cells = word_ops.build_table_cells(tbl_el, t.base_id)
+        # Count rows/cols from element
+        rows = tbl_el.findall(qn("w:tr"))
+        max_cols = max((len(tr.findall(qn("w:tc"))) for tr in rows), default=0)
         return DocumentReadResult(
             block_count=len(cells),
             cells=cells,
-            table_rows=len(t.leaf_obj.rows),
-            table_cols=len(t.leaf_obj.columns),
+            table_rows=len(rows),
+            table_cols=max_cols,
         )
     if scope == "table_layout":
-        t = word_ops.resolve_target(doc, target_id)
-        table_layout = word_ops.build_table_layout(t.leaf_obj, t.base_id)
+        t = word_ops.resolve_target(pkg, target_id)
+        tbl_el = t.base_el if t.base_kind == "table" else t.leaf_el
+        table_layout = word_ops.build_table_layout(tbl_el, t.base_id)
         return DocumentReadResult(block_count=1, table_layout=table_layout)
     if scope == "runs":
-        t = word_ops.resolve_target(doc, target_id)
-        runs = word_ops.build_runs(t.leaf_obj)
-        paragraph_format = word_ops.build_paragraph_format(t.leaf_obj)
+        # Still uses python-docx since build_runs expects Paragraph
+        para = _find_paragraph_docx(doc, target_id)
+        runs = word_ops.build_runs(para)
+        paragraph_format = word_ops.build_paragraph_format(para)
         return DocumentReadResult(
             block_count=len(runs), runs=runs, paragraph_format=paragraph_format
         )
@@ -145,9 +205,9 @@ def read(
         style_format = word_ops.get_style_format(doc, target_id)
         return DocumentReadResult(block_count=1, style_format=style_format)
     if scope == "revisions":
-        has_changes = word_ops.has_tracked_changes(doc)
+        has_changes = word_ops.has_tracked_changes(pkg)
         revisions = (
-            [RevisionInfo(**r) for r in word_ops.read_tracked_changes(doc)]
+            [RevisionInfo(**r) for r in word_ops.read_tracked_changes(pkg)]
             if has_changes
             else []
         )
@@ -159,10 +219,10 @@ def read(
     if scope == "list":
         if not target_id:
             raise ValueError("target_id required for list scope")
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
+        p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+        if p_el is None:
             raise ValueError(f"Paragraph not found: {target_id}")
-        list_info_dict = word_ops.get_list_info(doc, paragraph)
+        list_info_dict = word_ops.get_list_info(pkg, p_el)
         list_info = ListInfo(**list_info_dict) if list_info_dict else None
         return DocumentReadResult(
             block_count=1 if list_info else 0, list_info=list_info
@@ -189,15 +249,15 @@ def read(
         ]
         return DocumentReadResult(block_count=len(blocks), blocks=blocks)
     if scope == "bookmarks":
-        bookmarks_data = word_ops.build_bookmarks(doc)
+        bookmarks_data = word_ops.build_bookmarks(pkg)
         bookmarks = [BookmarkInfo(**bm) for bm in bookmarks_data]
         return DocumentReadResult(block_count=len(bookmarks), bookmarks=bookmarks)
     if scope == "captions":
-        captions_data = word_ops.build_captions(doc)
+        captions_data = word_ops.build_captions(pkg)
         captions = [CaptionInfo(**c) for c in captions_data]
         return DocumentReadResult(block_count=len(captions), captions=captions)
     if scope == "toc":
-        toc_data = word_ops.get_toc_info(doc)
+        toc_data = word_ops.get_toc_info(pkg)
         toc_info = TOCInfo(**toc_data)
         return DocumentReadResult(
             block_count=1 if toc_info.exists else 0, toc_info=toc_info
@@ -207,11 +267,11 @@ def read(
         footnotes = [FootnoteInfo(**fn) for fn in footnotes_data]
         return DocumentReadResult(block_count=len(footnotes), footnotes=footnotes)
     if scope == "content_controls":
-        cc_data = word_ops.build_content_controls(doc)
+        cc_data = word_ops.build_content_controls(pkg)
         controls = [ContentControlInfo(**cc) for cc in cc_data]
         return DocumentReadResult(block_count=len(controls), content_controls=controls)
     if scope == "equations":
-        eq_data = word_ops.build_equations(doc)
+        eq_data = word_ops.build_equations(pkg)
         equations = [EquationInfo(**eq) for eq in eq_data]
         return DocumentReadResult(block_count=len(equations), equations=equations)
     raise ValueError(f"Unknown scope: {scope}")
@@ -317,10 +377,13 @@ def edit(
             element_id = _recalc_block_id(doc, t)
         elif t.leaf_kind == "table":
             table_data = json.loads(content_data)
-            new_tbl = word_ops.replace_table(doc, t.leaf_obj, table_data)
-            table_content = word_ops.table_content_for_hash(new_tbl)
+            new_tbl_el = word_ops.replace_table(t.leaf_el, table_data)  # Takes element
+            table_content = word_ops.table_content_for_hash(new_tbl_el)
             occurrence = word_ops.count_occurrence(
-                doc, "table", table_content, new_tbl._tbl
+                doc,
+                "table",
+                table_content,
+                new_tbl_el,  # Element, not wrapper
             )
             element_id = word_ops.make_block_id("table", table_content, occurrence)
         else:
@@ -342,7 +405,7 @@ def edit(
 
     elif operation == "edit_cell":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.replace_table_cell(t.base_obj, row, col, content_data)
+        word_ops.replace_table_cell(t.base_el, row, col, content_data)  # Takes element
         element_id = _recalc_table_id(doc, t)
         message = f"Updated cell r{row}c{col}"
 
@@ -521,7 +584,7 @@ def edit(
     elif operation == "add_row":
         t = word_ops.resolve_target(doc, target_id)
         data = json.loads(content_data) if content_data else None
-        row_idx = word_ops.add_table_row(t.base_obj, data)
+        row_idx = word_ops.add_table_row(t.base_el, data)  # Takes element
         element_id = _recalc_table_id(doc, t)
         message = f"Added row {row_idx}"
 
@@ -530,19 +593,19 @@ def edit(
         fmt = json.loads(formatting) if formatting else {}
         width = float(fmt.get("width", 1.0))
         data = json.loads(content_data) if content_data else None
-        col_idx = word_ops.add_table_column(t.base_obj, width, data)
+        col_idx = word_ops.add_table_column(t.base_el, width, data)  # Takes element
         element_id = _recalc_table_id(doc, t)
         message = f"Added column {col_idx}"
 
     elif operation == "delete_row":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_row(t.base_obj, row)
+        word_ops.delete_table_row(t.base_el, row)  # Takes element
         element_id = _recalc_table_id(doc, t)
         message = f"Deleted row {row}"
 
     elif operation == "delete_column":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_column(t.base_obj, col)
+        word_ops.delete_table_column(t.base_el, col)  # Takes element
         element_id = _recalc_table_id(doc, t)
         message = f"Deleted column {col}"
 
@@ -604,32 +667,34 @@ def edit(
         if end_row is None or end_col is None:
             raise ValueError("merge_cells requires end_row and end_col in content_data")
 
-        word_ops.merge_cells(target.base_obj, start_row, start_col, end_row, end_col)
+        word_ops.merge_cells(
+            target.base_el, start_row, start_col, end_row, end_col
+        )  # Takes element
         message = (
             f"Merged cells from ({start_row},{start_col}) to ({end_row},{end_col})"
         )
 
     elif operation == "set_table_alignment":
         target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_table_alignment(target.base_obj, content_data)
+        word_ops.set_table_alignment(target.base_el, content_data)  # Takes element
         message = f"Set table alignment to {content_data}"
 
     elif operation == "set_table_autofit":
         target = word_ops.resolve_target(doc, target_id)
-        target.base_obj.autofit = json.loads(content_data.lower())
+        target.base_obj.autofit = json.loads(content_data.lower())  # Needs wrapper
         message = f"Set table autofit to {target.base_obj.autofit}"
 
     elif operation == "set_table_fixed_layout":
         target = word_ops.resolve_target(doc, target_id)
         widths = json.loads(content_data)
-        word_ops.set_table_fixed_layout(target.base_obj, widths)
+        word_ops.set_table_fixed_layout(target.base_el, widths)  # Takes element
         message = f"Set table fixed layout with {len(widths)} columns"
 
     elif operation == "set_row_height":
         target = word_ops.resolve_target(doc, target_id)
         height_data = json.loads(content_data)
         word_ops.set_row_height(
-            target.base_obj,
+            target.base_el,  # Takes element
             row,
             height_data["height"],
             height_data.get("rule", "at_least"),
@@ -638,19 +703,23 @@ def edit(
 
     elif operation == "set_cell_width":
         target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_width(target.base_obj, row, col, float(content_data))
+        word_ops.set_cell_width(
+            target.base_el, row, col, float(content_data)
+        )  # Takes element
         message = f"Set cell ({row},{col}) width to {content_data} inches"
 
     elif operation == "set_cell_vertical_alignment":
         target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_vertical_alignment(target.base_obj, row, col, content_data)
+        word_ops.set_cell_vertical_alignment(
+            target.base_el, row, col, content_data
+        )  # Takes element
         message = f"Set cell ({row},{col}) vertical alignment to {content_data}"
 
     elif operation == "set_cell_borders":
         target = word_ops.resolve_target(doc, target_id)
         border_data = json.loads(content_data)
         word_ops.set_cell_borders(
-            target.base_obj,
+            target.base_el,  # Takes element
             row,
             col,
             top=border_data.get("top"),
@@ -662,13 +731,15 @@ def edit(
 
     elif operation == "set_cell_shading":
         target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_shading(target.base_obj, row, col, content_data)
+        word_ops.set_cell_shading(
+            target.base_el, row, col, content_data
+        )  # Takes element
         message = f"Set shading on cell ({row},{col}) to {content_data}"
 
     elif operation == "set_header_row":
         target = word_ops.resolve_target(doc, target_id)
         is_header = content_data.lower() in ("true", "1", "yes")
-        word_ops.set_header_row(target.base_obj, row, is_header)
+        word_ops.set_header_row(target.base_el, row, is_header)  # Takes element
         action = "marked as" if is_header else "unmarked as"
         message = f"Row {row} {action} header row"
 
@@ -725,21 +796,21 @@ def edit(
         level = int(content_data) if content_data else 0
         if level < 0 or level > 8:
             raise ValueError("List level must be 0-8")
-        word_ops.set_list_level(paragraph, level)
+        word_ops.set_list_level(doc, paragraph, level)
         message = f"Set list level to {level}"
 
     elif operation == "promote_list":
         paragraph = word_ops.find_paragraph_by_id(doc, target_id)
         if paragraph is None:
             raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.promote_list_item(paragraph)
+        word_ops.promote_list_item(doc, paragraph)
         message = "Promoted list item"
 
     elif operation == "demote_list":
         paragraph = word_ops.find_paragraph_by_id(doc, target_id)
         if paragraph is None:
             raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.demote_list_item(paragraph)
+        word_ops.demote_list_item(doc, paragraph)
         message = "Demoted list item"
 
     elif operation == "restart_numbering":
@@ -754,7 +825,7 @@ def edit(
         paragraph = word_ops.find_paragraph_by_id(doc, target_id)
         if paragraph is None:
             raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.remove_list_formatting(paragraph)
+        word_ops.remove_list_formatting(doc, paragraph)
         message = "Removed list formatting"
 
     elif operation == "edit_text_box":

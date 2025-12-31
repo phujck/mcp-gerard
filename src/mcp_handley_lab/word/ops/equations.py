@@ -4,17 +4,23 @@ Contains functions for:
 - Extracting text representation from OMML structures
 - Determining equation complexity
 - Building list of all equations in document
+
+Pure OOXML implementation - works directly with lxml elements.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lxml import etree
+
 if TYPE_CHECKING:
-    from docx import Document
+    pass
 
 from mcp_handley_lab.word.ops.core import (
     content_hash,
+    count_occurrence,
+    get_paragraph_text,
     iter_body_blocks,
     make_block_id,
     paragraph_kind_and_level,
@@ -251,11 +257,14 @@ def _get_equation_complexity(omath) -> str:
 
 
 def _extract_equations_from_paragraph(
-    para, block_id: str, equation_hash_counts: dict[str, int]
+    p_el: etree._Element, block_id: str, equation_hash_counts: dict[str, int]
 ) -> list[dict]:
-    """Extract all equations from a paragraph element."""
+    """Extract all equations from a paragraph element.
+
+    Pure OOXML: Takes w:p element.
+    """
     equations = []
-    for omath in para._element.iter(f"{{{_MATH_NS}}}oMath"):
+    for omath in p_el.iter(f"{{{_MATH_NS}}}oMath"):
         text = _get_equation_text(omath)
         eq_hash = content_hash(text)
         occurrence = equation_hash_counts.get(eq_hash, 0)
@@ -278,51 +287,53 @@ def _extract_equations_from_paragraph(
 # =============================================================================
 
 
-def build_equations(doc: Document) -> list[dict]:
-    """Build list of all math equations (OMML) in the document."""
+def build_equations(pkg) -> list[dict]:
+    """Build list of all math equations (OMML) in the document.
+
+    Duck-typed: Takes WordPackage or Document.
+    """
+    from mcp_handley_lab.word.opc.constants import qn
+
     equations: list[dict] = []
-    block_hash_counts: dict[str, int] = {}
     equation_hash_counts: dict[str, int] = {}
 
     # Use iter_body_blocks to match build_blocks() block ID computation
-    for kind, obj, _el in iter_body_blocks(doc):
+    for kind, p_el in iter_body_blocks(pkg):
         if kind == "paragraph":
             # Use SAME logic as build_blocks for block_id
-            block_type, _ = paragraph_kind_and_level(obj)
-            text = obj.text or ""
-            block_hash_key = f"{block_type}_{content_hash(text)}"
-            block_occurrence = block_hash_counts.get(block_hash_key, 0)
-            block_id = make_block_id(block_type, text, block_occurrence)
-            block_hash_counts[block_hash_key] = block_occurrence + 1
+            block_type, _ = paragraph_kind_and_level(p_el)
+            text = get_paragraph_text(p_el)
+            occurrence = count_occurrence(pkg, block_type, text, p_el)
+            block_id = make_block_id(block_type, text, occurrence)
 
             equations.extend(
-                _extract_equations_from_paragraph(obj, block_id, equation_hash_counts)
+                _extract_equations_from_paragraph(p_el, block_id, equation_hash_counts)
             )
 
         elif kind == "table":
             # Compute table's block_id
-            table_content = table_content_for_hash(obj)
-            block_hash_key = f"table_{content_hash(table_content)}"
-            block_occurrence = block_hash_counts.get(block_hash_key, 0)
-            table_block_id = make_block_id("table", table_content, block_occurrence)
-            block_hash_counts[block_hash_key] = block_occurrence + 1
+            tbl_el = p_el  # In table case, p_el is actually tbl_el
+            table_content = table_content_for_hash(tbl_el)
+            occurrence = count_occurrence(pkg, "table", table_content, tbl_el)
+            table_block_id = make_block_id("table", table_content, occurrence)
 
             # Search all cells for equations with hierarchical block_id
             visited_cells: set = set()  # Track processed cell elements (merged cells)
-            rows, cols = len(obj.rows), len(obj.columns)
-            for r in range(rows):
-                for c in range(cols):
-                    cell = obj.cell(r, c)
+            rows = tbl_el.findall(qn("w:tr"))
+            for r_idx, tr in enumerate(rows):
+                cells = tr.findall(qn("w:tc"))
+                for c_idx, tc in enumerate(cells):
                     # Skip if we've already processed this cell (handles merged cells)
-                    if cell._element in visited_cells:
+                    if tc in visited_cells:
                         continue
-                    visited_cells.add(cell._element)
+                    visited_cells.add(tc)
 
-                    for p_idx, para in enumerate(cell.paragraphs):
-                        hier_block_id = f"{table_block_id}#r{r}c{c}/p{p_idx}"
+                    paras = tc.findall(qn("w:p"))
+                    for p_idx, para_el in enumerate(paras):
+                        hier_block_id = f"{table_block_id}#r{r_idx}c{c_idx}/p{p_idx}"
                         equations.extend(
                             _extract_equations_from_paragraph(
-                                para, hier_block_id, equation_hash_counts
+                                para_el, hier_block_id, equation_hash_counts
                             )
                         )
 

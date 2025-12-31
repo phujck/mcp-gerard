@@ -128,7 +128,6 @@ from mcp_handley_lab.word.ops.lists import (  # noqa: F401
     _ensure_numPr,
     _ensure_pPr,
     _get_max_num_id,
-    _get_numbering_part,
     _resolve_abstract_num_id,
     _resolve_level_format,
     demote_list_item,
@@ -270,7 +269,7 @@ def create_element(
         rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
         tbl = doc.add_table(rows=rows, cols=cols)
         tbl.style = style_name or "Table Grid"
-        populate_table(tbl, table_data)
+        populate_table(tbl._tbl, table_data)  # Pass element, not wrapper
         return tbl
     raise ValueError(f"Unknown content_type: {content_type}")
 
@@ -281,15 +280,15 @@ def get_element_id(
     """Calculate content-addressed ID for an element."""
     if isinstance(obj, Table):
         block_type = "table"
-        content = table_content_for_hash(obj)
         el = obj._tbl
+        content = table_content_for_hash(el)  # Pass element, not wrapper
     else:
-        block_type, _ = paragraph_kind_and_level(obj)
+        el = obj._element
+        block_type, _ = paragraph_kind_and_level(el)  # Pass element, not wrapper
         # Override block_type if heading_level specified (for newly created headings)
         if heading_level:
             block_type = f"heading{heading_level}"
         content = obj.text or ""
-        el = obj._element
     occurrence = count_occurrence(doc, block_type, content, el)
     return make_block_id(block_type, content, occurrence)
 

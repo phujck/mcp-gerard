@@ -4,6 +4,8 @@ Contains functions for:
 - Listing and adding bookmarks
 - Inserting cross-references
 - Creating and listing captions
+
+Pure OOXML implementation - works directly with lxml elements.
 """
 
 from __future__ import annotations
@@ -11,17 +13,20 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.text.paragraph import Paragraph
+from lxml import etree
+
+from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
-    from docx import Document
+    pass
 
 from mcp_handley_lab.word.ops.core import (
     count_occurrence,
+    get_paragraph_style,
+    get_paragraph_text,
     iter_body_blocks,
     make_block_id,
+    mark_dirty,
     paragraph_kind_and_level,
     resolve_target,
 )
@@ -39,6 +44,13 @@ _RESERVED_BOOKMARK_PREFIXES = ("_Toc", "_Ref", "_Hlt", "_GoBack")
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+
+def _get_document_xml(pkg) -> etree._Element:
+    """Get document.xml root from WordPackage or Document (duck-typed)."""
+    if hasattr(pkg, "document_xml"):
+        return pkg.document_xml  # WordPackage
+    return pkg.element  # Document
 
 
 def _validate_bookmark_name(name: str) -> None:
@@ -59,10 +71,14 @@ def _validate_bookmark_name(name: str) -> None:
         raise ValueError("Bookmark name cannot exceed 40 characters")
 
 
-def _get_next_bookmark_id(doc: Document) -> int:
-    """Get next available bookmark ID."""
+def _get_next_bookmark_id(pkg) -> int:
+    """Get next available bookmark ID.
+
+    Duck-typed: Takes WordPackage or Document.
+    """
+    doc_xml = _get_document_xml(pkg)
     max_id = 0
-    for start in _rev_xpath(doc.element, "//w:bookmarkStart"):
+    for start in _rev_xpath(doc_xml, "//w:bookmarkStart"):
         bm_id = start.get(qn("w:id"))
         if bm_id:
             max_id = max(max_id, int(bm_id))
@@ -79,16 +95,19 @@ def _is_reserved_bookmark(name: str) -> bool:
 # =============================================================================
 
 
-def build_bookmarks(doc: Document) -> list[dict]:
+def build_bookmarks(pkg) -> list[dict]:
     """List all bookmarks in document.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Skips reserved bookmarks (_Toc*, _Ref*, etc.) used internally by Word.
     Returns list of dicts with: id, name, block_id.
     """
+    doc_xml = _get_document_xml(pkg)
     results = []
     seen_names = set()
 
-    for start in _rev_xpath(doc.element, "//w:body//w:bookmarkStart"):
+    for start in _rev_xpath(doc_xml, "//w:body//w:bookmarkStart"):
         bm_id = start.get(qn("w:id"))
         bm_name = start.get(qn("w:name"))
 
@@ -109,10 +128,10 @@ def build_bookmarks(doc: Document) -> list[dict]:
         parent = start.getparent()
         while parent is not None:
             if parent.tag == qn("w:p"):
-                p = Paragraph(parent, doc)
-                kind, level = paragraph_kind_and_level(p)
-                text = p.text or ""
-                occurrence = count_occurrence(doc, kind, text, parent)
+                p_el = parent
+                kind, _ = paragraph_kind_and_level(p_el)
+                text = get_paragraph_text(p_el)
+                occurrence = count_occurrence(pkg, kind, text, p_el)
                 block_id = make_block_id(kind, text, occurrence)
                 break
             parent = parent.getparent()
@@ -128,8 +147,11 @@ def build_bookmarks(doc: Document) -> list[dict]:
     return results
 
 
-def add_bookmark(doc: Document, name: str, paragraph: Paragraph) -> int:
+def add_bookmark(pkg, name: str, para) -> int:
     """Add bookmark at paragraph. Returns bookmark ID.
+
+    Duck-typed: Takes WordPackage or Document.
+    para: lxml element (w:p) or Paragraph wrapper.
 
     Validates:
     - Name starts with letter
@@ -138,24 +160,29 @@ def add_bookmark(doc: Document, name: str, paragraph: Paragraph) -> int:
     """
     _validate_bookmark_name(name)
 
+    # Get element from wrapper if needed
+    p_el = para._element if hasattr(para, "_element") else para
+
     # Check uniqueness
-    for bm in build_bookmarks(doc):
+    for bm in build_bookmarks(pkg):
         if bm["name"] == name:
             raise ValueError(f"Bookmark name already exists: {name}")
 
-    bm_id = _get_next_bookmark_id(doc)
-    p_el = paragraph._element
+    bm_id = _get_next_bookmark_id(pkg)
 
     # Insert bookmarkStart at beginning of paragraph
-    bookmark_start = OxmlElement("w:bookmarkStart")
+    bookmark_start = etree.Element(qn("w:bookmarkStart"))
     bookmark_start.set(qn("w:id"), str(bm_id))
     bookmark_start.set(qn("w:name"), name)
     p_el.insert(0, bookmark_start)
 
     # Insert bookmarkEnd at end of paragraph
-    bookmark_end = OxmlElement("w:bookmarkEnd")
+    bookmark_end = etree.Element(qn("w:bookmarkEnd"))
     bookmark_end.set(qn("w:id"), str(bm_id))
     p_el.append(bookmark_end)
+
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(pkg)
 
     return bm_id
 
@@ -166,9 +193,11 @@ def add_bookmark(doc: Document, name: str, paragraph: Paragraph) -> int:
 
 
 def insert_cross_reference(
-    paragraph: Paragraph, bookmark_name: str, ref_type: str = "text"
+    p_el: etree._Element, bookmark_name: str, ref_type: str = "text"
 ) -> None:
     """Insert cross-reference field.
+
+    Pure OOXML: Takes w:p element.
 
     ref_type options:
     - 'text': REF <bookmark> field (bookmark text)
@@ -188,7 +217,7 @@ def insert_cross_reference(
             f"Unknown ref_type: {ref_type}. Use 'text', 'number', or 'page'"
         )
 
-    insert_field(paragraph, instr, uppercase=False, placeholder="[ref]")
+    insert_field(p_el, instr, uppercase=False, placeholder="[ref]")
 
 
 # =============================================================================
@@ -196,14 +225,29 @@ def insert_cross_reference(
 # =============================================================================
 
 
+def _create_run_with_text(text: str) -> etree._Element:
+    """Create a w:r element containing text.
+
+    Pure OOXML helper.
+    """
+    r = etree.Element(qn("w:r"))
+    t = etree.SubElement(r, qn("w:t"))
+    t.text = text
+    # Preserve spaces
+    t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    return r
+
+
 def insert_caption(
-    doc: Document,
+    pkg,
     target_id: str,
     label: str,
     caption_text: str,
     position: str = "below",
 ) -> str:
     """Insert caption for table/image. Returns caption block ID.
+
+    Duck-typed: Takes WordPackage or Document.
 
     Creates paragraph with:
     1. Style "Caption"
@@ -213,32 +257,35 @@ def insert_caption(
     5. Caption text
 
     Args:
-        doc: Document to modify
+        pkg: Package to modify
         target_id: Block ID of element to caption
         label: Caption label (e.g., "Figure", "Table")
         caption_text: Text after the number
         position: "below" or "above" the target element
     """
-    target = resolve_target(doc, target_id)
+    target = resolve_target(pkg, target_id)
 
-    # Create caption paragraph
-    caption_p = doc.add_paragraph(style="Caption")
+    # Create caption paragraph element
+    caption_el = etree.Element(qn("w:p"))
 
-    # Add label text
-    caption_p.add_run(f"{label} ")
+    # Add paragraph properties with Caption style
+    pPr = etree.SubElement(caption_el, qn("w:pPr"))
+    pStyle = etree.SubElement(pPr, qn("w:pStyle"))
+    pStyle.set(qn("w:val"), "Caption")
+
+    # Add label text run
+    caption_el.append(_create_run_with_text(f"{label} "))
 
     # Add SEQ field for auto-numbering
-    insert_field(caption_p, f"SEQ {label}", uppercase=False)
+    insert_field(caption_el, f"SEQ {label}", uppercase=False)
 
-    # Add separator and caption text
-    caption_p.add_run(f": {caption_text}")
+    # Add separator and caption text run
+    caption_el.append(_create_run_with_text(f": {caption_text}"))
 
     # Move paragraph to correct position
-    # For tables (even with hierarchical targets like table_X#r0c0), caption should be
-    # relative to the table itself, not a cell paragraph inside it
-    caption_el = caption_p._element
+    # For tables, caption should be relative to the table itself
     if target.base_kind == "table":
-        target_el = target.base_obj._tbl
+        target_el = target.base_el  # w:tbl element
     else:
         target_el = target.leaf_el
 
@@ -247,31 +294,35 @@ def insert_caption(
     else:  # below
         target_el.addnext(caption_el)
 
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(pkg)
+
     # Generate block ID for the caption
-    text = caption_p.text or ""
-    occurrence = count_occurrence(doc, "paragraph", text, caption_el)
+    text = get_paragraph_text(caption_el)
+    occurrence = count_occurrence(pkg, "paragraph", text, caption_el)
     return make_block_id("paragraph", text, occurrence)
 
 
-def build_captions(doc: Document) -> list[dict]:
+def build_captions(pkg) -> list[dict]:
     """List all captions (paragraphs with style "Caption" containing SEQ fields).
+
+    Duck-typed: Takes WordPackage or Document.
 
     Returns list of dicts with: id, label, number, text, block_id, style.
     """
     results = []
 
-    for kind, block_obj, element in iter_body_blocks(doc):
+    for kind, p_el in iter_body_blocks(pkg):
         if kind != "paragraph":
             continue
 
-        p = block_obj
-        style_name = p.style.name if p.style else ""
+        style_name = get_paragraph_style(p_el)
 
         if style_name != "Caption":
             continue
 
         # Extract text and look for SEQ field pattern
-        full_text = p.text or ""
+        full_text = get_paragraph_text(p_el)
 
         # Parse the caption: "Label N: text" or "Label N – text"
         # The SEQ field result is embedded in the text
@@ -286,7 +337,7 @@ def build_captions(doc: Document) -> list[dict]:
             caption_text = full_text
 
         # Generate block ID
-        occurrence = count_occurrence(doc, kind, full_text, element)
+        occurrence = count_occurrence(pkg, kind, full_text, p_el)
         block_id = make_block_id(kind, full_text, occurrence)
 
         results.append(
