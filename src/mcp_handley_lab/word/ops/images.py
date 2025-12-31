@@ -712,19 +712,28 @@ def _get_wrap_type(ancestor) -> str | None:
     return None
 
 
-def build_text_boxes(doc: Document) -> list[dict]:
+def build_text_boxes(pkg) -> list[dict]:
     """Build list of all text boxes from both DrawingML and VML.
 
     Discovery strategy (per OpenAI review):
     1. Search for ALL w:txbxContent elements in document
     2. Classify source by ancestor chain (w:drawing = DrawingML, w:pict = VML)
     3. Handle mc:AlternateContent (both mc:Choice and mc:Fallback)
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
     """
     text_boxes = []
     seen_ids = set()
 
+    # Get document element (duck-typed for WordPackage vs Document)
+    if hasattr(pkg, "document_xml"):
+        doc_element = pkg.document_xml
+    else:
+        doc_element = pkg.element
+
     # Search for all w:txbxContent elements
-    txbx_contents = _textbox_xpath(doc.element, "//w:txbxContent")
+    txbx_contents = _textbox_xpath(doc_element, "//w:txbxContent")
 
     for idx, txbx in enumerate(txbx_contents):
         # Determine source type by ancestor chain
@@ -790,13 +799,23 @@ def build_text_boxes(doc: Document) -> list[dict]:
     return text_boxes
 
 
-def _find_textbox_content_by_id(doc: Document, textbox_id: str):
-    """Find w:txbxContent element by text box ID."""
-    text_boxes = build_text_boxes(doc)
+def _find_textbox_content_by_id(pkg, textbox_id: str):
+    """Find w:txbxContent element by text box ID.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+    """
+    # Get document element (duck-typed)
+    if hasattr(pkg, "document_xml"):
+        doc_element = pkg.document_xml
+    else:
+        doc_element = pkg.element
+
+    text_boxes = build_text_boxes(pkg)
     for idx, tb in enumerate(text_boxes):
         if tb["id"] == textbox_id:
             # Re-find the actual element
-            txbx_contents = _textbox_xpath(doc.element, "//w:txbxContent")
+            txbx_contents = _textbox_xpath(doc_element, "//w:txbxContent")
             # Need to find the matching one by index
             # Since build_text_boxes filters duplicates, we track which we've seen
             seen_ids = set()
@@ -832,12 +851,15 @@ def _find_textbox_content_by_id(doc: Document, textbox_id: str):
     return None
 
 
-def read_text_box_content(doc: Document, textbox_id: str) -> list[dict]:
+def read_text_box_content(pkg, textbox_id: str) -> list[dict]:
     """Read paragraphs inside a text box.
 
     Returns list of dicts with 'index', 'text', and basic formatting info.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
     """
-    txbx = _find_textbox_content_by_id(doc, textbox_id)
+    txbx = _find_textbox_content_by_id(pkg, textbox_id)
     if txbx is None:
         raise ValueError(f"Text box not found: {textbox_id}")
 

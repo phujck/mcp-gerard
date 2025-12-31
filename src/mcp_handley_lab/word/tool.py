@@ -113,6 +113,10 @@ def read(
         "toc",
         "content_controls",
         "equations",
+        "footnotes",
+        "hyperlinks",
+        "text_boxes",
+        "text_box_content",
     }
     # Scopes that need python-docx Document (for now)
     _DOC_SCOPES = {
@@ -120,12 +124,8 @@ def read(
         "headers_footers",
         "page_setup",
         "images",
-        "hyperlinks",
         "styles",
         "style",
-        "text_boxes",
-        "text_box_content",
-        "footnotes",
         "runs",  # build_runs/build_paragraph_format still need Paragraph
     }
 
@@ -196,7 +196,7 @@ def read(
         images = word_ops.build_images(doc)
         return DocumentReadResult(block_count=len(images), images=images)
     if scope == "hyperlinks":
-        hyperlinks = word_ops.build_hyperlinks(doc)
+        hyperlinks = word_ops.build_hyperlinks(pkg)
         return DocumentReadResult(block_count=len(hyperlinks), hyperlinks=hyperlinks)
     if scope == "styles":
         styles = word_ops.build_styles(doc)
@@ -228,13 +228,13 @@ def read(
             block_count=1 if list_info else 0, list_info=list_info
         )
     if scope == "text_boxes":
-        text_boxes_data = word_ops.build_text_boxes(doc)
+        text_boxes_data = word_ops.build_text_boxes(pkg)
         text_boxes = [TextBoxInfo(**tb) for tb in text_boxes_data]
         return DocumentReadResult(block_count=len(text_boxes), text_boxes=text_boxes)
     if scope == "text_box_content":
         if not target_id:
             raise ValueError("target_id required for text_box_content scope")
-        paragraphs = word_ops.read_text_box_content(doc, target_id)
+        paragraphs = word_ops.read_text_box_content(pkg, target_id)
         # Return paragraphs as blocks for consistency
         from mcp_handley_lab.word.models import Block
 
@@ -263,7 +263,7 @@ def read(
             block_count=1 if toc_info.exists else 0, toc_info=toc_info
         )
     if scope == "footnotes":
-        footnotes_data = word_ops.build_footnotes(doc)
+        footnotes_data = word_ops.build_footnotes(pkg)
         footnotes = [FootnoteInfo(**fn) for fn in footnotes_data]
         return DocumentReadResult(block_count=len(footnotes), footnotes=footnotes)
     if scope == "content_controls":

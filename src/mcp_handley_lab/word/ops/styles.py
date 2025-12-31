@@ -138,8 +138,77 @@ def build_runs(paragraph: Paragraph) -> list[RunInfo]:
     return result
 
 
-def build_hyperlinks(doc: Document) -> list[HyperlinkInfo]:
-    """Build list of all hyperlinks in the document."""
+def build_hyperlinks(pkg) -> list[HyperlinkInfo]:
+    """Build list of all hyperlinks in the document.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+    """
+    # Get document element and relationships (duck-typed)
+    if hasattr(pkg, "document_xml"):
+        # WordPackage
+        doc_element = pkg.document_xml
+        doc_rels = pkg.get_rels("/word/document.xml")
+        return _build_hyperlinks_ooxml(doc_element, doc_rels)
+    else:
+        # python-docx Document - use legacy implementation
+        return _build_hyperlinks_docx(pkg)
+
+
+def _build_hyperlinks_ooxml(doc_element, doc_rels) -> list[HyperlinkInfo]:
+    """Build hyperlinks using pure OOXML."""
+    result = []
+
+    # Find all w:hyperlink elements in body (including in tables)
+    for idx, hyperlink in enumerate(doc_element.iter(qn("w:hyperlink"))):
+        # Get rId for external links
+        rId = hyperlink.get(qn("r:id"))
+        # Get anchor for internal bookmarks
+        anchor = hyperlink.get(qn("w:anchor"))
+
+        # Extract text from all runs
+        text_parts = []
+        for t in hyperlink.iter(qn("w:t")):
+            if t.text:
+                text_parts.append(t.text)
+        text = "".join(text_parts)
+
+        # Resolve URL from relationships
+        address = ""
+        is_external = False
+        if rId:
+            rel = doc_rels.get(rId)
+            if rel:
+                # Only use target as URL if it's an external relationship
+                if rel.is_external:
+                    address = rel.target
+                    is_external = True
+                # Non-external hyperlinks (rare) - rel.target is a part path, not URL
+
+        # Build URL (external address or internal #fragment)
+        if address:
+            url = f"{address}#{anchor}" if anchor else address
+        elif anchor:
+            url = f"#{anchor}"
+        else:
+            url = ""
+
+        result.append(
+            HyperlinkInfo(
+                index=idx,
+                text=text,
+                url=url,
+                address=address,
+                fragment=anchor or "",
+                is_external=is_external,
+            )
+        )
+
+    return result
+
+
+def _build_hyperlinks_docx(doc) -> list[HyperlinkInfo]:
+    """Build hyperlinks using python-docx (legacy)."""
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
     from docx.table import Table
