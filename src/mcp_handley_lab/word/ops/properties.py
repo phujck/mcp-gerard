@@ -7,41 +7,118 @@ Contains functions for:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from lxml import etree
 
-if TYPE_CHECKING:
-    from docx import Document
-
 from mcp_handley_lab.word.models import CustomPropertyInfo, DocumentMeta
+from mcp_handley_lab.word.opc.constants import qn
+
+# Namespaces for properties
+_NS_CP = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+_NS_DC = "http://purl.org/dc/elements/1.1/"
+_NS_DCTERMS = "http://purl.org/dc/terms/"
+_NS_CUSTOM = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+_NS_VT = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
 
 # =============================================================================
 # Core Properties
 # =============================================================================
 
 
-def get_document_meta(doc: Document) -> DocumentMeta:
-    """Extract document metadata from core properties and custom properties."""
-    cp = doc.core_properties
-    custom_props = get_custom_properties(doc)
+def get_document_meta(pkg) -> DocumentMeta:
+    """Extract document metadata from core properties and custom properties.
+
+    Args:
+        pkg: WordPackage
+    """
+    title = author = created = modified = ""
+    revision = 0
+
+    if pkg.has_part("/docProps/core.xml"):
+        core_xml = pkg.get_xml("/docProps/core.xml")
+
+        # Title from dc:title
+        title_el = core_xml.find(f"{{{_NS_DC}}}title")
+        if title_el is not None and title_el.text:
+            title = title_el.text
+
+        # Author from dc:creator
+        author_el = core_xml.find(f"{{{_NS_DC}}}creator")
+        if author_el is not None and author_el.text:
+            author = author_el.text
+
+        # Created from dcterms:created
+        created_el = core_xml.find(f"{{{_NS_DCTERMS}}}created")
+        if created_el is not None and created_el.text:
+            created = created_el.text
+
+        # Modified from dcterms:modified
+        modified_el = core_xml.find(f"{{{_NS_DCTERMS}}}modified")
+        if modified_el is not None and modified_el.text:
+            modified = modified_el.text
+
+        # Revision from cp:revision
+        rev_el = core_xml.find(f"{{{_NS_CP}}}revision")
+        if rev_el is not None and rev_el.text:
+            revision = int(rev_el.text)
+
+    # Count sections from document.xml
+    sections = 0
+    body = pkg.body
+    # Section breaks in paragraphs
+    for p in body.findall(qn("w:p")):
+        pPr = p.find(qn("w:pPr"))
+        if pPr is not None and pPr.find(qn("w:sectPr")) is not None:
+            sections += 1
+    # Final section (w:body/w:sectPr)
+    if body.find(qn("w:sectPr")) is not None:
+        sections += 1
+
+    custom_props = get_custom_properties(pkg)
+
     return DocumentMeta(
-        title=cp.title or "",
-        author=cp.author or "",
-        created=cp.created.isoformat() if cp.created else "",
-        modified=cp.modified.isoformat() if cp.modified else "",
-        revision=cp.revision or 0,
-        sections=len(doc.sections),
+        title=title,
+        author=author,
+        created=created,
+        modified=modified,
+        revision=revision,
+        sections=sections,
         custom_properties=custom_props,
     )
 
 
-def set_document_meta(doc: Document, **kwargs) -> None:
-    """Update document core properties. Only updates non-None values."""
-    cp = doc.core_properties
+def set_document_meta(pkg, **kwargs) -> None:
+    """Update document core properties. Only updates non-None values.
+
+    Args:
+        pkg: WordPackage
+        **kwargs: Properties to update (title, author, etc.)
+    """
+    if not pkg.has_part("/docProps/core.xml"):
+        return  # No core.xml to update
+
+    core_xml = pkg.get_xml("/docProps/core.xml")
+
+    # Mapping from kwargs to XML elements
+    prop_map = {
+        "title": (f"{{{_NS_DC}}}title", None),
+        "author": (f"{{{_NS_DC}}}creator", None),
+        "subject": (f"{{{_NS_DC}}}subject", None),
+        "keywords": (f"{{{_NS_CP}}}keywords", None),
+        "category": (f"{{{_NS_CP}}}category", None),
+        "comments": (f"{{{_NS_DC}}}description", None),
+    }
+
     for key, value in kwargs.items():
-        if value is not None:
-            setattr(cp, key, value)
+        if value is None or key not in prop_map:
+            continue
+
+        tag, _ = prop_map[key]
+        el = core_xml.find(tag)
+        if el is None:
+            el = etree.SubElement(core_xml, tag)
+        el.text = str(value)
+
+    pkg.mark_xml_dirty("/docProps/core.xml")
 
 
 # =============================================================================
@@ -49,174 +126,135 @@ def set_document_meta(doc: Document, **kwargs) -> None:
 # =============================================================================
 
 
-def get_custom_properties(doc: Document) -> list[CustomPropertyInfo]:
-    """Get all custom document properties from docProps/custom.xml."""
-    props = []
-    # Custom properties are in docProps/custom.xml
-    for part in doc.part.package.iter_parts():
-        if part.partname == "/docProps/custom.xml":
-            root = etree.fromstring(part.blob)
-            ns_custom = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+def _parse_custom_property(prop) -> CustomPropertyInfo:
+    """Parse a single custom property element."""
+    name = prop.get("name", "")
+    value = ""
+    prop_type = "string"
 
-            for prop in root.findall(f"{{{ns_custom}}}property"):
-                name = prop.get("name", "")
-                # Find value element - could be vt:lpwstr, vt:i4, vt:bool, vt:filetime, etc.
-                value = ""
-                prop_type = "string"
-                for child in prop:
-                    local_tag = (
-                        child.tag.split("}")[-1] if "}" in child.tag else child.tag
-                    )
-                    if local_tag == "lpwstr":
-                        value = child.text or ""
-                        prop_type = "string"
-                    elif local_tag == "i4":
-                        value = child.text or "0"
-                        prop_type = "int"
-                    elif local_tag == "bool":
-                        value = child.text or "false"
-                        prop_type = "bool"
-                    elif local_tag == "filetime":
-                        value = child.text or ""
-                        prop_type = "datetime"
-                    elif local_tag == "r8":
-                        value = child.text or "0.0"
-                        prop_type = "float"
-                    break
-                props.append(CustomPropertyInfo(name=name, value=value, type=prop_type))
-            break
-    return props
+    for child in prop:
+        local_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+        if local_tag == "lpwstr":
+            value = child.text or ""
+            prop_type = "string"
+        elif local_tag == "i4":
+            value = child.text or "0"
+            prop_type = "int"
+        elif local_tag == "bool":
+            value = child.text or "false"
+            prop_type = "bool"
+        elif local_tag == "filetime":
+            value = child.text or ""
+            prop_type = "datetime"
+        elif local_tag == "r8":
+            value = child.text or "0.0"
+            prop_type = "float"
+        break
+
+    return CustomPropertyInfo(name=name, value=value, type=prop_type)
 
 
-def set_custom_property(
-    doc: Document, name: str, value: str, prop_type: str = "string"
-) -> None:
+def get_custom_properties(pkg) -> list[CustomPropertyInfo]:
+    """Get all custom document properties from docProps/custom.xml.
+
+    Args:
+        pkg: WordPackage
+    """
+    if not pkg.has_part("/docProps/custom.xml"):
+        return []
+
+    custom_xml = pkg.get_xml("/docProps/custom.xml")
+    return [
+        _parse_custom_property(prop)
+        for prop in custom_xml.findall(f"{{{_NS_CUSTOM}}}property")
+    ]
+
+
+def set_custom_property(pkg, name: str, value: str, prop_type: str = "string") -> None:
     """Set or update a custom document property.
 
     Args:
-        doc: The Document object
+        pkg: WordPackage
         name: Property name (must be unique)
         value: Property value as string
         prop_type: One of "string", "int", "bool", "datetime", "float"
     """
-    ns_custom = (
-        "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
-    )
-    ns_vt = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
-
     # Type to element tag mapping
     type_map = {
-        "string": f"{{{ns_vt}}}lpwstr",
-        "int": f"{{{ns_vt}}}i4",
-        "bool": f"{{{ns_vt}}}bool",
-        "datetime": f"{{{ns_vt}}}filetime",
-        "float": f"{{{ns_vt}}}r8",
+        "string": f"{{{_NS_VT}}}lpwstr",
+        "int": f"{{{_NS_VT}}}i4",
+        "bool": f"{{{_NS_VT}}}bool",
+        "datetime": f"{{{_NS_VT}}}filetime",
+        "float": f"{{{_NS_VT}}}r8",
     }
-
     value_tag = type_map.get(prop_type, type_map["string"])
 
-    # Find or create custom.xml part
-    custom_part = None
-    for part in doc.part.package.iter_parts():
-        if part.partname == "/docProps/custom.xml":
-            custom_part = part
-            break
-
-    if custom_part is None:
-        # Create new custom.xml using python-docx's internal mechanisms
-        from docx.opc.packuri import PackURI
-        from docx.opc.part import Part
-
-        root = etree.Element(
-            f"{{{ns_custom}}}Properties",
-            nsmap={None: ns_custom, "vt": ns_vt},
+    # Create or update custom.xml
+    if pkg.has_part("/docProps/custom.xml"):
+        custom_xml = pkg.get_xml("/docProps/custom.xml")
+    else:
+        # Create new custom.xml
+        custom_xml = etree.Element(
+            f"{{{_NS_CUSTOM}}}Properties",
+            nsmap={None: _NS_CUSTOM, "vt": _NS_VT},
         )
-        # Add property element
-        prop = etree.SubElement(root, f"{{{ns_custom}}}property")
+        pkg.set_xml(
+            "/docProps/custom.xml",
+            custom_xml,
+            "application/vnd.openxmlformats-officedocument.custom-properties+xml",
+        )
+        # Add package relationship
+        pkg._pkg_rels.add(
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
+            "docProps/custom.xml",
+        )
+
+    # Find existing property or create new
+    existing = None
+    max_pid = 1
+    for prop in custom_xml.findall(f"{{{_NS_CUSTOM}}}property"):
+        pid = int(prop.get("pid", "1"))
+        if pid > max_pid:
+            max_pid = pid
+        if prop.get("name") == name:
+            existing = prop
+
+    if existing is not None:
+        # Update existing property
+        for child in list(existing):
+            existing.remove(child)
+        value_el = etree.SubElement(existing, value_tag)
+        value_el.text = value
+    else:
+        # Add new property
+        prop = etree.SubElement(custom_xml, f"{{{_NS_CUSTOM}}}property")
         prop.set("fmtid", "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}")
-        prop.set("pid", "2")
+        prop.set("pid", str(max_pid + 1))
         prop.set("name", name)
         value_el = etree.SubElement(prop, value_tag)
         value_el.text = value
 
-        # Save - need to add the part to the package
-        xml_bytes = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
-        # Create custom properties part using the package's load method
-        content_type = (
-            "application/vnd.openxmlformats-officedocument.custom-properties+xml"
-        )
-        part_uri = PackURI("/docProps/custom.xml")
-
-        # Create the part and add to package properly
-        custom_part = Part.load(part_uri, content_type, xml_bytes, doc.part.package)
-
-        # Add relationship from package to this part
-        doc.part.package.relate_to(
-            custom_part,
-            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties",
-        )
-    else:
-        # Update existing custom.xml
-        root = etree.fromstring(custom_part.blob)
-
-        # Find property with this name
-        existing = None
-        for prop in root.findall(f"{{{ns_custom}}}property"):
-            if prop.get("name") == name:
-                existing = prop
-                break
-
-        if existing is not None:
-            # Update existing property
-            for child in list(existing):
-                existing.remove(child)
-            value_el = etree.SubElement(existing, value_tag)
-            value_el.text = value
-        else:
-            # Add new property - find next pid
-            max_pid = 1
-            for prop in root.findall(f"{{{ns_custom}}}property"):
-                pid = int(prop.get("pid", "1"))
-                if pid > max_pid:
-                    max_pid = pid
-            new_pid = max_pid + 1
-
-            prop = etree.SubElement(root, f"{{{ns_custom}}}property")
-            prop.set("fmtid", "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}")
-            prop.set("pid", str(new_pid))
-            prop.set("name", name)
-            value_el = etree.SubElement(prop, value_tag)
-            value_el.text = value
-
-        # Save updated XML back to part
-        custom_part._blob = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+    pkg.mark_xml_dirty("/docProps/custom.xml")
 
 
-def delete_custom_property(doc: Document, name: str) -> bool:
+def delete_custom_property(pkg, name: str) -> bool:
     """Delete a custom document property.
 
     Args:
-        doc: The Document object
+        pkg: WordPackage
         name: Property name to delete
 
     Returns:
         True if property was found and deleted, False if not found
     """
-    ns_custom = (
-        "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
-    )
+    if not pkg.has_part("/docProps/custom.xml"):
+        return False
 
-    for part in doc.part.package.iter_parts():
-        if part.partname == "/docProps/custom.xml":
-            root = etree.fromstring(part.blob)
+    custom_xml = pkg.get_xml("/docProps/custom.xml")
+    for prop in custom_xml.findall(f"{{{_NS_CUSTOM}}}property"):
+        if prop.get("name") == name:
+            custom_xml.remove(prop)
+            pkg.mark_xml_dirty("/docProps/custom.xml")
+            return True
 
-            # Find property with this name
-            for prop in root.findall(f"{{{ns_custom}}}property"):
-                if prop.get("name") == name:
-                    root.remove(prop)
-                    part._blob = etree.tostring(
-                        root, xml_declaration=True, encoding="UTF-8"
-                    )
-                    return True
-            break
     return False

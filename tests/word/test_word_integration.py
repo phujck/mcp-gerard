@@ -3651,20 +3651,34 @@ async def test_edit_style_alignment_justify_roundtrip(docx_with_custom_style):
 
 
 @pytest.mark.asyncio
-async def test_edit_style_invalid_alignment_raises(docx_with_custom_style):
-    """Test that invalid alignment raises AttributeError (no defensive validation)."""
-    from mcp.server.fastmcp.exceptions import ToolError
+async def test_edit_style_invalid_alignment_written_directly(docx_with_custom_style):
+    """Test that invalid alignment values are written directly (no validation).
 
-    with pytest.raises(ToolError, match="has no attribute 'INVALID'"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(docx_with_custom_style),
-                "operation": "edit_style",
-                "target_id": "TestStyle",
-                "formatting": json.dumps({"alignment": "invalid"}),
-            },
-        )
+    Pure OOXML approach: values written as-is, Word handles unknown values.
+    """
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(docx_with_custom_style),
+            "operation": "edit_style",
+            "target_id": "TestStyle",
+            "formatting": json.dumps({"alignment": "invalid"}),
+        },
+    )
+    # Pure OOXML writes the value directly without validation
+    assert edit_result["success"]
+
+    # The value is written as-is (not mapped)
+    _, result = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(docx_with_custom_style),
+            "scope": "style",
+            "target_id": "TestStyle",
+        },
+    )
+    # Unknown OOXML values return None from the reader (no mapping found)
+    assert result["style_format"]["alignment"] is None
 
 
 # =============================================================================

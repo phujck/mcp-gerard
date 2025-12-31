@@ -11,17 +11,12 @@ from __future__ import annotations
 
 import os
 import zipfile
-from typing import TYPE_CHECKING
 
-from docx import Document
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
 
 from mcp_handley_lab.word.opc.constants import qn
-
-if TYPE_CHECKING:
-    pass
-
+from mcp_handley_lab.word.opc.package import WordPackage
 from mcp_handley_lab.word.ops.core import (
     count_occurrence,
     find_paragraph_by_id,
@@ -415,22 +410,22 @@ def add_footnote(
     notes_root = etree.fromstring(doc_parts["notes"])
     styles_root = etree.fromstring(doc_parts["styles"])
 
-    # Load document with python-docx to find target paragraph
-    temp_doc = Document(doc_path)
+    # Load document with WordPackage to find target paragraph
+    pkg = WordPackage.open(doc_path)
 
     # Use find_paragraph_by_id which returns lxml element (or None)
-    target_para_el = find_paragraph_by_id(temp_doc, target_id)
+    target_para_el = find_paragraph_by_id(pkg, target_id)
     if target_para_el is None:
         raise ValueError(f"Target block not found: {target_id}")
 
-    # Get all paragraphs from both python-docx body and raw XML
+    # Get all paragraphs from both WordPackage body and raw XML
     # Use index-based matching (more robust than text matching for duplicates)
-    all_paras_docx = list(temp_doc.element.body.iter(qn("w:p")))
+    all_paras_pkg = list(pkg.body.iter(qn("w:p")))
     all_paras_xml = _fn_xpath(doc_root, "//w:body//w:p", ns)
 
-    # Find index of target in python-docx element tree
+    # Find index of target in WordPackage element tree
     try:
-        target_idx = all_paras_docx.index(target_para_el)  # Element, not wrapper
+        target_idx = all_paras_pkg.index(target_para_el)
     except ValueError:
         raise ValueError(f"Target element not found in document structure: {target_id}")
 

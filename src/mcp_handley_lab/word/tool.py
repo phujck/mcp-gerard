@@ -125,10 +125,7 @@ def read(
     )
 
     if scope == "meta":
-        from docx import Document
-
-        doc = Document(file_path)
-        meta = word_ops.get_document_meta(doc)
+        meta = word_ops.get_document_meta(pkg)
         _, block_count = word_ops.build_blocks(pkg, offset=0, limit=0)
         return DocumentReadResult(block_count=block_count, meta=meta)
     if scope == "outline":
@@ -320,434 +317,825 @@ def edit(
     ),
 ) -> EditResult:
     """Edit Word document."""
+    # WordPackage-based operations (pure OOXML, no python-docx)
+    _PKG_OPERATIONS = {
+        "edit_style",
+        "delete",
+        "replace",
+        "edit_cell",
+        # Content creation/insertion operations
+        "create",
+        "insert_before",
+        "insert_after",
+        "append",
+        # Table structure operations
+        "add_row",
+        "add_column",
+        "delete_row",
+        "delete_column",
+        "merge_cells",
+        # Table formatting operations
+        "set_table_alignment",
+        "set_table_autofit",
+        "set_table_fixed_layout",
+        "set_row_height",
+        "set_cell_width",
+        "set_cell_vertical_alignment",
+        "set_cell_borders",
+        "set_cell_shading",
+        "set_header_row",
+        # Break operations
+        "add_page_break",
+        "add_break",
+        # Revision operations
+        "accept_change",
+        "reject_change",
+        "accept_all_changes",
+        "reject_all_changes",
+        # List operations
+        "set_list_level",
+        "promote_list",
+        "demote_list",
+        "restart_numbering",
+        "remove_list",
+        # Properties operations (duck-typed)
+        "set_custom_property",
+        "delete_custom_property",
+        "set_meta",
+        # Run editing operations (duck-typed)
+        "edit_run",
+        # Style/formatting operations (duck-typed)
+        "style",
+        # Text box and content control operations (duck-typed)
+        "edit_text_box",
+        "set_content_control",
+        # Section operations (duck-typed)
+        "set_margins",
+        "set_orientation",
+        "set_columns",
+        "set_line_numbering",
+        # Bookmark and cross-reference operations (duck-typed)
+        "add_bookmark",
+        "insert_cross_ref",
+        # Caption and TOC operations (duck-typed)
+        "insert_caption",
+        "insert_toc",
+        "update_toc",
+        # Footnote operations (file-based, already pure OOXML)
+        "add_footnote",
+        "delete_footnote",
+        # Section structure operations (duck-typed)
+        "add_section",
+        # Comment operations (pure OOXML)
+        "add_comment",
+        "reply_comment",
+        "resolve_comment",
+        "unresolve_comment",
+        # Hyperlink operations (pure OOXML)
+        "add_hyperlink",
+        # Header/footer operations (duck-typed)
+        "set_header",
+        "set_footer",
+        "set_first_page_header",
+        "set_first_page_footer",
+        "set_even_page_header",
+        "set_even_page_footer",
+        "append_header",
+        "append_footer",
+        "clear_header",
+        "clear_footer",
+        "insert_page_x_of_y",
+        # Style operations (duck-typed)
+        "create_style",
+        "delete_style",
+        # Image operations (duck-typed)
+        "insert_image",
+        "delete_image",
+        "insert_floating_image",
+    }
+    if operation in _PKG_OPERATIONS:
+        # Create uses WordPackage.new(), others use WordPackage.open()
+        if operation == "create":
+            pkg = WordPackage.new()
+        else:
+            pkg = WordPackage.open(file_path)
+        element_id = target_id
+        message = f"Completed {operation}"
+
+        if operation == "create":
+            from mcp_handley_lab.word.opc.constants import qn
+
+            # Create new document - if content_type provided, replace default paragraph
+            if content_type:
+                # Replace the empty placeholder paragraph with actual content
+                body = pkg.body
+                # Find and remove the empty placeholder paragraph
+                for p in list(body.findall(qn("w:p"))):
+                    body.remove(p)
+                el = word_ops.append_content_ooxml(
+                    pkg, content_type, content_data, style_name, heading_level
+                )
+                level = heading_level if content_type == "heading" else 0
+                element_id = word_ops.get_element_id_ooxml(pkg, el, level)
+            else:
+                # Empty document - use the default empty paragraph
+                el = pkg.body.find(qn("w:p"))
+                element_id = word_ops.get_element_id_ooxml(pkg, el, 0)
+            pkg.save(file_path)
+            return EditResult(
+                success=True, element_id=element_id, message=f"Created: {file_path}"
+            )
+
+        elif operation in ("insert_before", "insert_after"):
+            t = word_ops.resolve_target(pkg, target_id)
+            position = "before" if operation == "insert_before" else "after"
+            el = word_ops.insert_content_ooxml(
+                pkg,
+                t.leaf_el,
+                position,
+                content_type,
+                content_data,
+                style_name,
+                heading_level,
+            )
+            level = heading_level if content_type == "heading" else 0
+            element_id = word_ops.get_element_id_ooxml(pkg, el, level)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Inserted {content_type} {position} {target_id}"
+
+        elif operation == "append":
+            el = word_ops.append_content_ooxml(
+                pkg, content_type, content_data, style_name, heading_level
+            )
+            level = heading_level if content_type == "heading" else 0
+            element_id = word_ops.get_element_id_ooxml(pkg, el, level)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Appended {content_type} to document"
+
+        elif operation == "edit_style":
+            fmt = json.loads(formatting)
+            word_ops.edit_style(pkg, target_id, fmt)
+            message = f"Modified style: {target_id}"
+
+        elif operation == "delete":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.delete_element(t.base_el)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Deleted block {target_id}"
+
+        elif operation == "replace":
+            t = word_ops.resolve_target(pkg, target_id)
+            if t.leaf_kind.startswith("heading") or t.leaf_kind == "paragraph":
+                word_ops.set_paragraph_text_ooxml(t.leaf_el, content_data)
+                element_id = _recalc_block_id(pkg, t)
+            elif t.leaf_kind == "table":
+                table_data = json.loads(content_data)
+                new_tbl_el = word_ops.replace_table(t.leaf_el, table_data)
+                table_content = word_ops.table_content_for_hash(new_tbl_el)
+                occurrence = word_ops.count_occurrence(
+                    pkg, "table", table_content, new_tbl_el
+                )
+                element_id = word_ops.make_block_id("table", table_content, occurrence)
+            else:
+                raise ValueError(f"Unsupported leaf_kind: {t.leaf_kind}")
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Replaced content of {target_id}"
+
+        elif operation == "edit_cell":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.replace_table_cell(t.base_el, row, col, content_data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            element_id = _recalc_table_id(pkg, t)
+            message = f"Updated cell r{row}c{col}"
+
+        elif operation == "add_row":
+            t = word_ops.resolve_target(pkg, target_id)
+            data = json.loads(content_data) if content_data else None
+            row_idx = word_ops.add_table_row(t.base_el, data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            element_id = _recalc_table_id(pkg, t)
+            message = f"Added row {row_idx}"
+
+        elif operation == "add_column":
+            t = word_ops.resolve_target(pkg, target_id)
+            fmt = json.loads(formatting) if formatting else {}
+            width = float(fmt.get("width", 1.0))
+            data = json.loads(content_data) if content_data else None
+            col_idx = word_ops.add_table_column(t.base_el, width, data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            element_id = _recalc_table_id(pkg, t)
+            message = f"Added column {col_idx}"
+
+        elif operation == "delete_row":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.delete_table_row(t.base_el, row)
+            pkg.mark_xml_dirty("/word/document.xml")
+            element_id = _recalc_table_id(pkg, t)
+            message = f"Deleted row {row}"
+
+        elif operation == "delete_column":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.delete_table_column(t.base_el, col)
+            pkg.mark_xml_dirty("/word/document.xml")
+            element_id = _recalc_table_id(pkg, t)
+            message = f"Deleted column {col}"
+
+        elif operation == "merge_cells":
+            t = word_ops.resolve_target(pkg, target_id)
+            if not content_data:
+                raise ValueError(
+                    "merge_cells requires content_data JSON with end_row, end_col"
+                )
+            try:
+                merge_data = json.loads(content_data)
+            except json.JSONDecodeError:
+                raise ValueError(
+                    "merge_cells content_data must be valid JSON with end_row, end_col"
+                )
+            start_row = merge_data.get("start_row", merge_data.get("row", row))
+            start_col = merge_data.get("start_col", merge_data.get("col", col))
+            end_row = merge_data.get("end_row")
+            end_col = merge_data.get("end_col")
+            if end_row is None or end_col is None:
+                raise ValueError(
+                    "merge_cells requires end_row and end_col in content_data"
+                )
+            word_ops.merge_cells(t.base_el, start_row, start_col, end_row, end_col)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = (
+                f"Merged cells from ({start_row},{start_col}) to ({end_row},{end_col})"
+            )
+
+        elif operation == "set_table_alignment":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.set_table_alignment(t.base_el, content_data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set table alignment to {content_data}"
+
+        elif operation == "set_table_autofit":
+            t = word_ops.resolve_target(pkg, target_id)
+            autofit_value = json.loads(content_data.lower())
+            word_ops.set_table_autofit(t.base_el, autofit_value)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set table autofit to {autofit_value}"
+
+        elif operation == "set_table_fixed_layout":
+            t = word_ops.resolve_target(pkg, target_id)
+            widths = json.loads(content_data)
+            word_ops.set_table_fixed_layout(t.base_el, widths)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set table fixed layout with {len(widths)} columns"
+
+        elif operation == "set_row_height":
+            t = word_ops.resolve_target(pkg, target_id)
+            height_data = json.loads(content_data)
+            word_ops.set_row_height(
+                t.base_el,
+                row,
+                height_data["height"],
+                height_data.get("rule", "at_least"),
+            )
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set row {row} height to {height_data['height']} inches"
+
+        elif operation == "set_cell_width":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.set_cell_width(t.base_el, row, col, float(content_data))
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set cell ({row},{col}) width to {content_data} inches"
+
+        elif operation == "set_cell_vertical_alignment":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.set_cell_vertical_alignment(t.base_el, row, col, content_data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set cell ({row},{col}) vertical alignment to {content_data}"
+
+        elif operation == "set_cell_borders":
+            t = word_ops.resolve_target(pkg, target_id)
+            border_data = json.loads(content_data)
+            word_ops.set_cell_borders(
+                t.base_el,
+                row,
+                col,
+                top=border_data.get("top"),
+                bottom=border_data.get("bottom"),
+                left=border_data.get("left"),
+                right=border_data.get("right"),
+            )
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set borders on cell ({row},{col})"
+
+        elif operation == "set_cell_shading":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.set_cell_shading(t.base_el, row, col, content_data)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Set shading on cell ({row},{col}) to {content_data}"
+
+        elif operation == "set_header_row":
+            t = word_ops.resolve_target(pkg, target_id)
+            is_header = content_data.lower() in ("true", "1", "yes")
+            word_ops.set_header_row(t.base_el, row, is_header)
+            pkg.mark_xml_dirty("/word/document.xml")
+            action = "marked as" if is_header else "unmarked as"
+            message = f"Row {row} {action} header row"
+
+        elif operation == "add_page_break":
+            body = pkg.body
+            p_el = word_ops.add_page_break_ooxml(body)
+            pkg.mark_xml_dirty("/word/document.xml")
+            text = word_ops.get_paragraph_text_ooxml(p_el)
+            occurrence = word_ops.count_occurrence(pkg, "paragraph", text, p_el)
+            element_id = word_ops.make_block_id("paragraph", text, occurrence)
+            message = "Added page break"
+
+        elif operation == "add_break":
+            t = word_ops.resolve_target(pkg, target_id)
+            break_type = content_data or "page"
+            p_el = word_ops.add_break_after_ooxml(t.leaf_el, break_type)
+            pkg.mark_xml_dirty("/word/document.xml")
+            text = word_ops.get_paragraph_text_ooxml(p_el)
+            occurrence = word_ops.count_occurrence(pkg, "paragraph", text, p_el)
+            element_id = word_ops.make_block_id("paragraph", text, occurrence)
+            message = f"Added {break_type} break after {target_id}"
+
+        elif operation == "accept_change":
+            word_ops.accept_change(pkg, target_id)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Accepted change {target_id}"
+
+        elif operation == "reject_change":
+            word_ops.reject_change(pkg, target_id)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Rejected change {target_id}"
+
+        elif operation == "accept_all_changes":
+            count = word_ops.accept_all_changes(pkg)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Accepted {count} changes"
+
+        elif operation == "reject_all_changes":
+            count = word_ops.reject_all_changes(pkg)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Rejected {count} changes"
+
+        elif operation == "set_list_level":
+            p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+            if p_el is None:
+                raise ValueError(f"Paragraph not found: {target_id}")
+            level = int(content_data) if content_data else 0
+            if level < 0 or level > 8:
+                raise ValueError("List level must be 0-8")
+            word_ops.set_list_level(pkg, p_el, level)
+            message = f"Set list level to {level}"
+
+        elif operation == "promote_list":
+            p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+            if p_el is None:
+                raise ValueError(f"Paragraph not found: {target_id}")
+            word_ops.promote_list_item(pkg, p_el)
+            message = "Promoted list item"
+
+        elif operation == "demote_list":
+            p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+            if p_el is None:
+                raise ValueError(f"Paragraph not found: {target_id}")
+            word_ops.demote_list_item(pkg, p_el)
+            message = "Demoted list item"
+
+        elif operation == "restart_numbering":
+            p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+            if p_el is None:
+                raise ValueError(f"Paragraph not found: {target_id}")
+            start_value = int(content_data) if content_data else 1
+            word_ops.restart_numbering(pkg, p_el, start_value)
+            message = f"Restarted numbering at {start_value}"
+
+        elif operation == "remove_list":
+            p_el = word_ops.find_paragraph_by_id(pkg, target_id)
+            if p_el is None:
+                raise ValueError(f"Paragraph not found: {target_id}")
+            word_ops.remove_list_formatting(pkg, p_el)
+            message = "Removed list formatting"
+
+        elif operation == "set_custom_property":
+            prop_data = json.loads(content_data)
+            word_ops.set_custom_property(
+                pkg,
+                name=prop_data["name"],
+                value=prop_data["value"],
+                prop_type=prop_data.get("type", "string"),
+            )
+            message = f"Set custom property '{prop_data['name']}'"
+
+        elif operation == "delete_custom_property":
+            prop_name = content_data
+            deleted = word_ops.delete_custom_property(pkg, prop_name)
+            if deleted:
+                message = f"Deleted custom property '{prop_name}'"
+            else:
+                message = f"Custom property '{prop_name}' not found"
+
+        elif operation == "set_meta":
+            meta_data = json.loads(content_data) if content_data else {}
+            word_ops.set_document_meta(
+                pkg,
+                title=meta_data.get("title"),
+                author=meta_data.get("author"),
+                subject=meta_data.get("subject"),
+                keywords=meta_data.get("keywords"),
+                category=meta_data.get("category"),
+            )
+            message = "Updated document metadata"
+
+        elif operation == "edit_run":
+            t = word_ops.resolve_target(pkg, target_id)
+            # Ensure target is a paragraph, not a table
+            if t.leaf_kind not in (
+                "paragraph",
+                "heading1",
+                "heading2",
+                "heading3",
+                "heading4",
+                "heading5",
+                "heading6",
+                "heading7",
+                "heading8",
+                "heading9",
+            ):
+                from mcp_handley_lab.word.opc.constants import qn
+
+                if t.leaf_el.tag != qn("w:p"):
+                    raise ValueError(
+                        f"edit_run requires a paragraph target, got {t.leaf_kind}"
+                    )
+            if content_data:
+                word_ops.edit_run_text(t.leaf_el, run_index, content_data)
+            if formatting:
+                fmt = json.loads(formatting)
+                word_ops.edit_run_formatting(t.leaf_el, run_index, fmt)
+            element_id = word_ops.get_element_id_ooxml(pkg, t.leaf_el, 0)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Updated run {run_index}"
+
+        elif operation == "style":
+            t = word_ops.resolve_target(pkg, target_id)
+            if style_name:
+                word_ops.set_paragraph_style_ooxml(t.leaf_el, style_name)
+            if t.base_kind == "table":
+                # Table formatting handled separately
+                element_id = target_id
+            else:
+                if formatting:
+                    fmt = json.loads(formatting)
+                    word_ops.apply_paragraph_formatting(t.leaf_el, fmt)
+                element_id = word_ops.get_element_id_ooxml(pkg, t.leaf_el, 0)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Applied style to {target_id}"
+
+        elif operation == "edit_text_box":
+            if not target_id:
+                raise ValueError("target_id (text box ID) required for edit_text_box")
+            word_ops.edit_text_box_text(pkg, target_id, row, content_data)
+            message = f"Edited text box {target_id} paragraph {row}"
+
+        elif operation == "set_content_control":
+            if not target_id:
+                raise ValueError(
+                    "target_id (content control ID) required for set_content_control"
+                )
+            if not content_data:
+                raise ValueError(
+                    "content_data (new value) required for set_content_control"
+                )
+            sdt_id = int(target_id)
+            word_ops.set_content_control_value(pkg, sdt_id, content_data)
+            message = f"Set content control {sdt_id} to '{content_data}'"
+
+        elif operation == "set_margins":
+            margins = json.loads(formatting)
+            word_ops.set_page_margins(
+                pkg,
+                section_index,
+                top=margins["top"],
+                bottom=margins["bottom"],
+                left=margins["left"],
+                right=margins["right"],
+            )
+            message = f"Set margins for section {section_index}"
+
+        elif operation == "set_orientation":
+            word_ops.set_page_orientation(pkg, section_index, content_data)
+            message = f"Set orientation to {content_data} for section {section_index}"
+
+        elif operation == "set_columns":
+            col_data = json.loads(content_data)
+            word_ops.set_section_columns(
+                pkg,
+                section_index,
+                int(col_data["num_columns"]),
+                float(col_data.get("spacing_inches", 0.5)),
+                col_data.get("separator", False),
+            )
+            message = (
+                f"Set {col_data['num_columns']} columns for section {section_index}"
+            )
+
+        elif operation == "set_line_numbering":
+            ln_data = json.loads(content_data)
+            word_ops.set_line_numbering(
+                pkg,
+                section_index,
+                enabled=ln_data.get("enabled", True),
+                restart=ln_data.get("restart", "newPage"),
+                start=int(ln_data.get("start", 1)),
+                count_by=int(ln_data.get("count_by", 1)),
+                distance_inches=float(ln_data.get("distance_inches", 0.5)),
+            )
+            enabled = ln_data.get("enabled", True)
+            action = "Enabled" if enabled else "Disabled"
+            message = f"{action} line numbering for section {section_index}"
+
+        elif operation == "add_bookmark":
+            # target_id is the paragraph/heading ID, content_data is the bookmark name
+            if not target_id:
+                raise ValueError("target_id (paragraph ID) required for add_bookmark")
+            if not content_data:
+                raise ValueError(
+                    "content_data (bookmark name) required for add_bookmark"
+                )
+            target = word_ops.resolve_target(pkg, target_id)
+            # WordPackage uses leaf_el (lxml element)
+            bm_id = word_ops.add_bookmark(pkg, content_data, target.leaf_el)
+            message = f"Added bookmark '{content_data}' with ID {bm_id}"
+
+        elif operation == "insert_cross_ref":
+            # target_id is the paragraph/heading ID, content_data is bookmark name
+            if not target_id:
+                raise ValueError(
+                    "target_id (paragraph ID) required for insert_cross_ref"
+                )
+            if not content_data:
+                raise ValueError(
+                    "content_data (bookmark name) required for insert_cross_ref"
+                )
+            target = word_ops.resolve_target(pkg, target_id)
+            ref_type = style_name if style_name else "text"
+            word_ops.insert_cross_reference(target.leaf_el, content_data, ref_type)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Inserted cross-reference to '{content_data}' ({ref_type})"
+
+        elif operation == "insert_caption":
+            # target_id is the block to caption
+            if not target_id:
+                raise ValueError("target_id (block ID) required for insert_caption")
+            # Accept plain string OR JSON dict
+            try:
+                caption_data = json.loads(content_data) if content_data else {}
+                if not isinstance(caption_data, dict):
+                    raise TypeError("Expected dict")
+                label = caption_data.get("label", "Figure")
+                caption_text = caption_data.get("text", "")
+                position = caption_data.get("position", "below")
+            except (json.JSONDecodeError, TypeError):
+                label = "Figure"
+                caption_text = content_data if content_data else ""
+                position = "below"
+            if position not in ("above", "below"):
+                raise ValueError(
+                    f"Invalid position '{position}'. Valid: ['above', 'below']"
+                )
+            element_id = word_ops.insert_caption(
+                pkg, target_id, label, caption_text, position
+            )
+            message = f"Inserted {label} caption {position} {target_id}"
+
+        elif operation == "insert_toc":
+            # target_id is the block to insert before/after
+            if not target_id:
+                raise ValueError("target_id (block ID) required for insert_toc")
+            toc_data = json.loads(content_data) if content_data else {}
+            position = toc_data.get("position", "before")
+            heading_levels = toc_data.get("heading_levels", "1-3")
+            element_id = word_ops.insert_toc(pkg, target_id, position, heading_levels)
+            message = f"Inserted TOC {position} {target_id}"
+
+        elif operation == "update_toc":
+            word_ops.update_toc_field(pkg)
+            message = "Set TOC dirty flag for update on open"
+
+        elif operation == "add_footnote":
+            # Save first since footnotes use direct file manipulation
+            pkg.save(file_path)
+            if not target_id:
+                raise ValueError("target_id (paragraph ID) required for add_footnote")
+            if not content_data:
+                raise ValueError(
+                    "content_data (JSON with text) required for add_footnote"
+                )
+            fn_data = json.loads(content_data)
+            fn_text = fn_data.get("text", "")
+            note_type = fn_data.get("note_type", "footnote")
+            position = fn_data.get("position", "after")
+            fn_id = word_ops.add_footnote(
+                file_path, target_id, fn_text, note_type, position
+            )
+            message = f"Added {note_type} {fn_id}"
+            # Already saved, return early
+            return EditResult(success=True, element_id=element_id, message=message)
+
+        elif operation == "delete_footnote":
+            # Save first since footnotes use direct file manipulation
+            pkg.save(file_path)
+            if not target_id:
+                raise ValueError("target_id (note ID) required for delete_footnote")
+            note_id = int(target_id)
+            note_type = content_data.strip() if content_data else "footnote"
+            word_ops.delete_footnote(file_path, note_id, note_type)
+            message = f"Deleted {note_type} {note_id}"
+            # Already saved, return early
+            return EditResult(success=True, element_id=element_id, message=message)
+
+        elif operation == "add_section":
+            start_type = content_data.strip().lower() if content_data else "new_page"
+            new_idx = word_ops.add_section(pkg, start_type)
+            message = f"Added section {new_idx} ({start_type})"
+
+        elif operation == "add_comment":
+            if not target_id:
+                raise ValueError("target_id (paragraph ID) required for add_comment")
+            target = word_ops.resolve_target(pkg, target_id)
+            # Comments can only be added to paragraphs, not tables
+            from mcp_handley_lab.word.opc.constants import qn as _qn
+
+            if target.leaf_el.tag != _qn("w:p"):
+                raise ValueError(
+                    f"Cannot add comment to {target.leaf_kind}. "
+                    "Comments can only be added to paragraphs."
+                )
+            new_comment_id = word_ops.add_comment_to_block(
+                pkg, target.leaf_el, content_data, author, initials
+            )
+            pkg.save(file_path)
+            message = f"Added comment {new_comment_id} to {target_id}"
+            return EditResult(
+                success=True,
+                element_id=element_id,
+                message=message,
+                comment_id=new_comment_id,
+            )
+
+        elif operation == "reply_comment":
+            parent_id = int(target_id)
+            new_comment_id = word_ops.reply_to_comment(
+                pkg, parent_id, content_data, author, initials
+            )
+            pkg.save(file_path)
+            message = f"Added reply {new_comment_id} to comment {parent_id}"
+            return EditResult(
+                success=True,
+                element_id=element_id,
+                message=message,
+                comment_id=new_comment_id,
+            )
+
+        elif operation == "resolve_comment":
+            cid = int(target_id)
+            word_ops.resolve_comment(pkg, cid)
+            message = f"Resolved comment {cid}"
+
+        elif operation == "unresolve_comment":
+            cid = int(target_id)
+            word_ops.unresolve_comment(pkg, cid)
+            message = f"Unresolved comment {cid}"
+
+        elif operation == "add_hyperlink":
+            if not target_id:
+                raise ValueError("target_id required for add_hyperlink")
+            if not content_data:
+                raise ValueError(
+                    "content_data (JSON with text, address/fragment) required"
+                )
+            try:
+                link_data = json.loads(content_data)
+            except json.JSONDecodeError:
+                raise ValueError(
+                    "content_data must be valid JSON: {text, address?, fragment?}"
+                )
+            text = link_data.get("text", "")
+            address = link_data.get("address", "")
+            fragment = link_data.get("fragment", "")
+            target = word_ops.resolve_target(pkg, target_id)
+            from mcp_handley_lab.word.opc.constants import qn as _qn
+
+            # Get target paragraph - for cells, use first paragraph inside cell
+            if target.leaf_kind == "cell":
+                p_el = target.leaf_el.find(_qn("w:p"))
+                if p_el is None:
+                    raise ValueError("Cell has no paragraph to add hyperlink to")
+            elif target.leaf_el.tag == _qn("w:p"):
+                p_el = target.leaf_el
+            else:
+                raise ValueError(
+                    f"Cannot add hyperlink to {target.leaf_kind}. "
+                    "Hyperlinks can only be added to paragraphs or table cells."
+                )
+            word_ops.add_hyperlink(pkg, p_el, text, address, fragment)
+            # Return table ID for cells, paragraph ID otherwise
+            if target.leaf_kind == "cell":
+                element_id = word_ops.get_element_id_ooxml(pkg, target.base_el)
+            else:
+                element_id = word_ops.get_element_id_ooxml(pkg, p_el)
+            message = f"Added hyperlink '{text}' to {address or '#' + fragment}"
+
+        elif operation in _HF_SET_OPS:
+            location = _HF_SET_OPS[operation]
+            word_ops.set_header_footer_text(pkg, section_index, content_data, location)
+            message = f"Set {location.replace('_', ' ')} for section {section_index}"
+
+        elif operation in _HF_APPEND_OPS:
+            location = _HF_APPEND_OPS[operation]
+            element_id = word_ops.append_to_header_footer(
+                pkg, section_index, content_type, content_data, location
+            )
+            message = (
+                f"Appended {content_type} to {location} for section {section_index}"
+            )
+
+        elif operation in _HF_CLEAR_OPS:
+            location = _HF_CLEAR_OPS[operation]
+            word_ops.clear_header_footer(pkg, section_index, location)
+            message = f"Cleared {location} for section {section_index}"
+
+        elif operation == "insert_page_x_of_y":
+            location = content_data.strip().lower() or "footer"
+            word_ops.insert_page_x_of_y(pkg, section_index, location)
+            message = f"Inserted 'Page X of Y' in {location} of section {section_index}"
+
+        elif operation == "create_style":
+            style_data = json.loads(content_data)
+            formatting_dict = json.loads(formatting) if formatting else None
+            style_id = word_ops.create_style(
+                pkg,
+                name=style_data["name"],
+                style_type=style_data.get("style_type", "paragraph"),
+                base_style=style_data.get("base_style", "Normal"),
+                formatting=formatting_dict,
+            )
+            element_id = style_id
+            message = f"Created style '{style_data['name']}'"
+
+        elif operation == "delete_style":
+            deleted = word_ops.delete_style(pkg, target_id)
+            if deleted:
+                message = f"Deleted style '{target_id}'"
+            else:
+                message = f"Style '{target_id}' not found or is builtin"
+
+        elif operation == "insert_image":
+            fmt = json.loads(formatting) if formatting else {}
+            element_id = word_ops.insert_image(
+                pkg,
+                content_data,
+                target_id,
+                "after",
+                width_inches=float(fmt.get("width", 0)),
+                height_inches=float(fmt.get("height", 0)),
+            )
+            message = "Inserted image"
+
+        elif operation == "delete_image":
+            word_ops.delete_image(pkg, target_id)
+            message = f"Deleted {target_id}"
+
+        elif operation == "insert_floating_image":
+            fmt = json.loads(formatting) if formatting else {}
+            element_id = word_ops.insert_floating_image(
+                pkg,
+                content_data,
+                target_id,
+                position_h=float(fmt.get("position_h", 0)),
+                position_v=float(fmt.get("position_v", 0)),
+                relative_h=fmt.get("relative_h", "column"),
+                relative_v=fmt.get("relative_v", "paragraph"),
+                wrap_type=fmt.get("wrap_type", "square"),
+                width_inches=float(fmt.get("width", 0)),
+                height_inches=float(fmt.get("height", 0)),
+                behind_doc=bool(fmt.get("behind_doc", False)),
+            )
+            message = "Inserted floating image"
+
+        pkg.save(file_path)
+        return EditResult(success=True, element_id=element_id, message=message)
+
+    # All other operations work on existing document (python-docx)
     from docx import Document
-    from docx.text.paragraph import Paragraph
 
-    # Create operation is special - creates new document
-    if operation == "create":
-        doc = Document()
-        obj = word_ops.create_element(
-            doc, content_type, content_data, style_name, heading_level
-        )
-        level = heading_level if content_type == "heading" else 0
-        element_id = word_ops.get_element_id(doc, obj, level)
-        doc.save(file_path)
-        return EditResult(
-            success=True, element_id=element_id, message=f"Created: {file_path}"
-        )
-
-    # All other operations work on existing document
     doc = Document(file_path)
     element_id = target_id
     comment_id = None
     message = f"Completed {operation}"
 
-    if operation in ("insert_before", "insert_after"):
-        t = word_ops.resolve_target(doc, target_id)
-        position = "before" if operation == "insert_before" else "after"
-        obj = word_ops.insert_content_relative(
-            doc,
-            t.leaf_el,
-            position,
-            content_type,
-            content_data,
-            style_name,
-            heading_level,
-        )
-        level = heading_level if content_type == "heading" else 0
-        element_id = word_ops.get_element_id(doc, obj, level)
-        message = f"Inserted {content_type} {position} {target_id}"
-
-    elif operation == "append":
-        obj = word_ops.create_element(
-            doc, content_type, content_data, style_name, heading_level
-        )
-        level = heading_level if content_type == "heading" else 0
-        element_id = word_ops.get_element_id(doc, obj, level)
-        message = f"Appended {content_type} to document"
-
-    elif operation == "delete":
-        t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_element(t.base_el)  # Pure OOXML
-        message = f"Deleted block {target_id}"
-
-    elif operation == "replace":
-        t = word_ops.resolve_target(doc, target_id)
-        if t.leaf_kind.startswith("heading") or t.leaf_kind == "paragraph":
-            word_ops.set_paragraph_text_ooxml(t.leaf_el, content_data)  # Pure OOXML
-            element_id = _recalc_block_id(doc, t)
-        elif t.leaf_kind == "table":
-            table_data = json.loads(content_data)
-            new_tbl_el = word_ops.replace_table(t.leaf_el, table_data)  # Takes element
-            table_content = word_ops.table_content_for_hash(new_tbl_el)
-            occurrence = word_ops.count_occurrence(
-                doc,
-                "table",
-                table_content,
-                new_tbl_el,  # Element, not wrapper
-            )
-            element_id = word_ops.make_block_id("table", table_content, occurrence)
-        else:
-            raise ValueError(f"Unsupported leaf_kind: {t.leaf_kind}")
-        message = f"Replaced content of {target_id}"
-
-    elif operation == "style":
-        t = word_ops.resolve_target(doc, target_id)
-        if style_name:
-            word_ops.set_paragraph_style_ooxml(t.leaf_el, style_name)  # Pure OOXML
-        if t.base_kind == "table":
-            element_id = _recalc_table_id(doc, t)
-        else:
-            if formatting:
-                fmt = json.loads(formatting)
-                word_ops.apply_paragraph_formatting(t.leaf_obj, fmt)
-            element_id = _recalc_block_id(doc, t)
-        message = f"Applied style to {target_id}"
-
-    elif operation == "edit_cell":
-        t = word_ops.resolve_target(doc, target_id)
-        word_ops.replace_table_cell(t.base_el, row, col, content_data)  # Takes element
-        element_id = _recalc_table_id(doc, t)
-        message = f"Updated cell r{row}c{col}"
-
-    elif operation == "edit_run":
-        t = word_ops.resolve_target(doc, target_id)
-        if content_data:
-            word_ops.edit_run_text(t.leaf_obj, run_index, content_data)
-        if formatting:
-            fmt = json.loads(formatting)
-            word_ops.edit_run_formatting(t.leaf_obj, run_index, fmt)
-        element_id = _recalc_block_id(doc, t)
-        message = f"Updated run {run_index}"
-
-    elif operation == "edit_style":
-        fmt = json.loads(formatting)
-        word_ops.edit_style(doc, target_id, fmt)
-        message = f"Modified style: {target_id}"
-
-    elif operation == "add_comment":
-        t = word_ops.resolve_target(doc, target_id)
-        comment_id = word_ops.add_comment_to_block(
-            doc, t.leaf_obj, content_data, author, initials
-        )
-        message = f"Added comment {comment_id} to {target_id}"
-
-    elif operation == "reply_comment":
-        parent_id = int(target_id)  # target_id is parent comment ID
-        comment_id = word_ops.reply_to_comment(
-            doc, parent_id, content_data, author, initials
-        )
-        message = f"Added reply {comment_id} to comment {parent_id}"
-
-    elif operation == "resolve_comment":
-        comment_id = int(target_id)
-        word_ops.resolve_comment(doc, comment_id)
-        message = f"Resolved comment {comment_id}"
-
-    elif operation == "unresolve_comment":
-        comment_id = int(target_id)
-        word_ops.unresolve_comment(doc, comment_id)
-        message = f"Unresolved comment {comment_id}"
-
-    elif operation in _HF_SET_OPS:
-        location = _HF_SET_OPS[operation]
-        word_ops.set_header_footer_text(doc, section_index, content_data, location)
-        message = f"Set {location.replace('_', ' ')} for section {section_index}"
-
-    elif operation in _HF_APPEND_OPS:
-        location = _HF_APPEND_OPS[operation]
-        element_id = word_ops.append_to_header_footer(
-            doc, section_index, content_type, content_data, location
-        )
-        message = f"Appended {content_type} to {location} of section {section_index}"
-
-    elif operation in _HF_CLEAR_OPS:
-        location = _HF_CLEAR_OPS[operation]
-        word_ops.clear_header_footer(doc, section_index, location)
-        message = f"Cleared {location} for section {section_index}"
-
-    elif operation == "set_margins":
-        margins = json.loads(formatting)
-        word_ops.set_page_margins(
-            doc,
-            section_index,
-            top=margins["top"],
-            bottom=margins["bottom"],
-            left=margins["left"],
-            right=margins["right"],
-        )
-        message = f"Set margins for section {section_index}"
-
-    elif operation == "set_orientation":
-        word_ops.set_page_orientation(doc, section_index, content_data)
-        message = f"Set orientation to {content_data} for section {section_index}"
-
-    elif operation == "set_columns":
-        col_data = json.loads(content_data)
-        word_ops.set_section_columns(
-            doc,
-            section_index,
-            int(col_data["num_columns"]),
-            float(col_data.get("spacing_inches", 0.5)),
-            col_data.get("separator", False),
-        )
-        message = f"Set {col_data['num_columns']} columns for section {section_index}"
-
-    elif operation == "set_line_numbering":
-        ln_data = json.loads(content_data)
-        word_ops.set_line_numbering(
-            doc,
-            section_index,
-            enabled=ln_data.get("enabled", True),
-            restart=ln_data.get("restart", "newPage"),
-            start=int(ln_data.get("start", 1)),
-            count_by=int(ln_data.get("count_by", 1)),
-            distance_inches=float(ln_data.get("distance_inches", 0.5)),
-        )
-        enabled = ln_data.get("enabled", True)
-        action = "Enabled" if enabled else "Disabled"
-        message = f"{action} line numbering for section {section_index}"
-
-    elif operation == "set_custom_property":
-        prop_data = json.loads(content_data)
-        word_ops.set_custom_property(
-            doc,
-            name=prop_data["name"],
-            value=prop_data["value"],
-            prop_type=prop_data.get("type", "string"),
-        )
-        message = f"Set custom property '{prop_data['name']}'"
-
-    elif operation == "delete_custom_property":
-        prop_name = content_data
-        deleted = word_ops.delete_custom_property(doc, prop_name)
-        if deleted:
-            message = f"Deleted custom property '{prop_name}'"
-        else:
-            message = f"Custom property '{prop_name}' not found"
-
-    elif operation == "create_style":
-        style_data = json.loads(content_data)
-        formatting_dict = json.loads(formatting) if formatting else None
-        style_id = word_ops.create_style(
-            doc,
-            name=style_data["name"],
-            style_type=style_data.get("style_type", "paragraph"),
-            base_style=style_data.get("base_style", "Normal"),
-            formatting=formatting_dict,
-        )
-        element_id = style_id
-        message = f"Created style '{style_data['name']}'"
-
-    elif operation == "delete_style":
-        deleted = word_ops.delete_style(doc, target_id)
-        if deleted:
-            message = f"Deleted style '{target_id}'"
-        else:
-            message = f"Style '{target_id}' not found or is builtin"
-
-    elif operation == "insert_image":
-        fmt = json.loads(formatting) if formatting else {}
-        element_id = word_ops.insert_image(
-            doc,
-            content_data,
-            target_id,
-            "after",
-            width_inches=float(fmt.get("width", 0)),
-            height_inches=float(fmt.get("height", 0)),
-        )
-        message = "Inserted image"
-
-    elif operation == "delete_image":
-        word_ops.delete_image(doc, target_id)
-        message = f"Deleted {target_id}"
-
-    elif operation == "insert_floating_image":
-        # content_data = image path
-        # formatting JSON: position_h, position_v, relative_h, relative_v, wrap_type,
-        #                  width, height, behind_doc
-        fmt = json.loads(formatting) if formatting else {}
-        element_id = word_ops.insert_floating_image(
-            doc,
-            content_data,
-            target_id,
-            position_h=float(fmt.get("position_h", 0)),
-            position_v=float(fmt.get("position_v", 0)),
-            relative_h=fmt.get("relative_h", "column"),
-            relative_v=fmt.get("relative_v", "paragraph"),
-            wrap_type=fmt.get("wrap_type", "square"),
-            width_inches=float(fmt.get("width", 0)),
-            height_inches=float(fmt.get("height", 0)),
-            behind_doc=bool(fmt.get("behind_doc", False)),
-        )
-        message = "Inserted floating image"
-
-    elif operation == "add_row":
-        t = word_ops.resolve_target(doc, target_id)
-        data = json.loads(content_data) if content_data else None
-        row_idx = word_ops.add_table_row(t.base_el, data)  # Takes element
-        element_id = _recalc_table_id(doc, t)
-        message = f"Added row {row_idx}"
-
-    elif operation == "add_column":
-        t = word_ops.resolve_target(doc, target_id)
-        fmt = json.loads(formatting) if formatting else {}
-        width = float(fmt.get("width", 1.0))
-        data = json.loads(content_data) if content_data else None
-        col_idx = word_ops.add_table_column(t.base_el, width, data)  # Takes element
-        element_id = _recalc_table_id(doc, t)
-        message = f"Added column {col_idx}"
-
-    elif operation == "delete_row":
-        t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_row(t.base_el, row)  # Takes element
-        element_id = _recalc_table_id(doc, t)
-        message = f"Deleted row {row}"
-
-    elif operation == "delete_column":
-        t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_table_column(t.base_el, col)  # Takes element
-        element_id = _recalc_table_id(doc, t)
-        message = f"Deleted column {col}"
-
-    elif operation == "add_page_break":
-        # Get body element for appending
-        body = doc.element.body
-        p_el = word_ops.add_page_break_ooxml(body)  # Pure OOXML
-        text = word_ops.get_paragraph_text_ooxml(p_el)
-        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p_el)
-        element_id = word_ops.make_block_id("paragraph", text, occurrence)
-        message = "Added page break"
-
-    elif operation == "add_break":
-        t = word_ops.resolve_target(doc, target_id)
-        break_type = content_data or "page"
-        p_el = word_ops.add_break_after_ooxml(t.leaf_el, break_type)  # Pure OOXML
-        text = word_ops.get_paragraph_text_ooxml(p_el)
-        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p_el)
-        element_id = word_ops.make_block_id("paragraph", text, occurrence)
-        message = f"Added {break_type} break after {target_id}"
-
-    elif operation == "set_meta":
-        meta_data = json.loads(content_data) if content_data else {}
-        word_ops.set_document_meta(
-            doc,
-            title=meta_data.get("title"),
-            author=meta_data.get("author"),
-            subject=meta_data.get("subject"),
-            keywords=meta_data.get("keywords"),
-            category=meta_data.get("category"),
-        )
-        message = "Updated document metadata"
-
-    elif operation == "add_section":
-        start_type = content_data or "new_page"
-        section_idx = word_ops.add_section(doc, start_type)
-        message = f"Added section {section_idx} ({start_type})"
-
-    elif operation == "merge_cells":
-        target = word_ops.resolve_target(doc, target_id)
-
-        # Accept JSON with all coords, or use row/col params as fallback for start
-        if not content_data:
-            raise ValueError(
-                "merge_cells requires content_data JSON with end_row, end_col"
-            )
-        try:
-            merge_data = json.loads(content_data)
-        except json.JSONDecodeError:
-            raise ValueError(
-                "merge_cells content_data must be valid JSON with end_row, end_col"
-            )
-
-        # Accept both naming conventions for start coordinates
-        start_row = merge_data.get("start_row", merge_data.get("row", row))
-        start_col = merge_data.get("start_col", merge_data.get("col", col))
-
-        # end_row and end_col are required
-        end_row = merge_data.get("end_row")
-        end_col = merge_data.get("end_col")
-        if end_row is None or end_col is None:
-            raise ValueError("merge_cells requires end_row and end_col in content_data")
-
-        word_ops.merge_cells(
-            target.base_el, start_row, start_col, end_row, end_col
-        )  # Takes element
-        message = (
-            f"Merged cells from ({start_row},{start_col}) to ({end_row},{end_col})"
-        )
-
-    elif operation == "set_table_alignment":
-        target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_table_alignment(target.base_el, content_data)  # Takes element
-        message = f"Set table alignment to {content_data}"
-
-    elif operation == "set_table_autofit":
-        target = word_ops.resolve_target(doc, target_id)
-        autofit_value = json.loads(content_data.lower())
-        word_ops.set_table_autofit(target.base_el, autofit_value)  # Pure OOXML
-        message = f"Set table autofit to {autofit_value}"
-
-    elif operation == "set_table_fixed_layout":
-        target = word_ops.resolve_target(doc, target_id)
-        widths = json.loads(content_data)
-        word_ops.set_table_fixed_layout(target.base_el, widths)  # Takes element
-        message = f"Set table fixed layout with {len(widths)} columns"
-
-    elif operation == "set_row_height":
-        target = word_ops.resolve_target(doc, target_id)
-        height_data = json.loads(content_data)
-        word_ops.set_row_height(
-            target.base_el,  # Takes element
-            row,
-            height_data["height"],
-            height_data.get("rule", "at_least"),
-        )
-        message = f"Set row {row} height to {height_data['height']} inches"
-
-    elif operation == "set_cell_width":
-        target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_width(
-            target.base_el, row, col, float(content_data)
-        )  # Takes element
-        message = f"Set cell ({row},{col}) width to {content_data} inches"
-
-    elif operation == "set_cell_vertical_alignment":
-        target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_vertical_alignment(
-            target.base_el, row, col, content_data
-        )  # Takes element
-        message = f"Set cell ({row},{col}) vertical alignment to {content_data}"
-
-    elif operation == "set_cell_borders":
-        target = word_ops.resolve_target(doc, target_id)
-        border_data = json.loads(content_data)
-        word_ops.set_cell_borders(
-            target.base_el,  # Takes element
-            row,
-            col,
-            top=border_data.get("top"),
-            bottom=border_data.get("bottom"),
-            left=border_data.get("left"),
-            right=border_data.get("right"),
-        )
-        message = f"Set borders on cell ({row},{col})"
-
-    elif operation == "set_cell_shading":
-        target = word_ops.resolve_target(doc, target_id)
-        word_ops.set_cell_shading(
-            target.base_el, row, col, content_data
-        )  # Takes element
-        message = f"Set shading on cell ({row},{col}) to {content_data}"
-
-    elif operation == "set_header_row":
-        target = word_ops.resolve_target(doc, target_id)
-        is_header = content_data.lower() in ("true", "1", "yes")
-        word_ops.set_header_row(target.base_el, row, is_header)  # Takes element
-        action = "marked as" if is_header else "unmarked as"
-        message = f"Row {row} {action} header row"
-
-    elif operation == "add_tab_stop":
+    if operation == "add_tab_stop":
         target = word_ops.resolve_target(doc, target_id)
         para = _get_target_paragraph(target)
         tab_data = json.loads(content_data)
@@ -771,219 +1159,6 @@ def edit(
         field_code = content_data.strip().upper()
         word_ops.insert_field(para, field_code)
         message = f"Inserted {field_code} field"
-
-    elif operation == "insert_page_x_of_y":
-        location = content_data.strip().lower() or "footer"
-        word_ops.insert_page_x_of_y(doc, section_index, location)
-        message = f"Inserted 'Page X of Y' in {location} of section {section_index}"
-
-    elif operation == "accept_change":
-        word_ops.accept_change(doc, target_id)
-        message = f"Accepted change {target_id}"
-
-    elif operation == "reject_change":
-        word_ops.reject_change(doc, target_id)
-        message = f"Rejected change {target_id}"
-
-    elif operation == "accept_all_changes":
-        count = word_ops.accept_all_changes(doc)
-        message = f"Accepted {count} changes"
-
-    elif operation == "reject_all_changes":
-        count = word_ops.reject_all_changes(doc)
-        message = f"Rejected {count} changes"
-
-    elif operation == "set_list_level":
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
-        level = int(content_data) if content_data else 0
-        if level < 0 or level > 8:
-            raise ValueError("List level must be 0-8")
-        word_ops.set_list_level(doc, paragraph, level)
-        message = f"Set list level to {level}"
-
-    elif operation == "promote_list":
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.promote_list_item(doc, paragraph)
-        message = "Promoted list item"
-
-    elif operation == "demote_list":
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.demote_list_item(doc, paragraph)
-        message = "Demoted list item"
-
-    elif operation == "restart_numbering":
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
-        start_value = int(content_data) if content_data else 1
-        word_ops.restart_numbering(doc, paragraph, start_value)
-        message = f"Restarted numbering at {start_value}"
-
-    elif operation == "remove_list":
-        paragraph = word_ops.find_paragraph_by_id(doc, target_id)
-        if paragraph is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
-        word_ops.remove_list_formatting(doc, paragraph)
-        message = "Removed list formatting"
-
-    elif operation == "edit_text_box":
-        # target_id is the text box ID, row is the paragraph index, content_data is new text
-        if not target_id:
-            raise ValueError("target_id (text box ID) required for edit_text_box")
-        word_ops.edit_text_box_text(doc, target_id, row, content_data)
-        message = f"Edited text box {target_id} paragraph {row}"
-
-    elif operation == "add_bookmark":
-        # target_id is the paragraph/heading ID, content_data is the bookmark name
-        if not target_id:
-            raise ValueError("target_id (paragraph ID) required for add_bookmark")
-        if not content_data:
-            raise ValueError("content_data (bookmark name) required for add_bookmark")
-        target = word_ops.resolve_target(doc, target_id)
-        if not isinstance(target.leaf_obj, Paragraph):
-            raise ValueError(f"Target must be a paragraph or heading: {target_id}")
-        bm_id = word_ops.add_bookmark(doc, content_data, target.leaf_obj)
-        message = f"Added bookmark '{content_data}' with ID {bm_id}"
-
-    elif operation == "add_hyperlink":
-        # target_id is paragraph/cell ID, content_data is JSON: {text, address?, fragment?}
-        if not target_id:
-            raise ValueError("target_id required for add_hyperlink")
-        if not content_data:
-            raise ValueError("content_data (JSON with text, address/fragment) required")
-        try:
-            link_data = json.loads(content_data)
-        except json.JSONDecodeError:
-            raise ValueError(
-                "content_data must be valid JSON: {text, address?, fragment?}"
-            )
-        text = link_data.get("text", "")
-        address = link_data.get("address", "")
-        fragment = link_data.get("fragment", "")
-        target = word_ops.resolve_target(doc, target_id)
-        para = _get_target_paragraph(target)
-        word_ops.add_hyperlink(para, text, address, fragment)
-        # Recalc element_id - for cells, return table ID; for paragraphs, recalc block ID
-        if target.leaf_kind == "cell":
-            element_id = _recalc_table_id(doc, target)
-        else:
-            element_id = _recalc_block_id(doc, target)
-        message = f"Added hyperlink '{text}' to {address or '#' + fragment}"
-
-    elif operation == "insert_cross_ref":
-        # target_id is the paragraph/heading ID, content_data is bookmark name, style_name is ref_type
-        if not target_id:
-            raise ValueError("target_id (paragraph ID) required for insert_cross_ref")
-        if not content_data:
-            raise ValueError(
-                "content_data (bookmark name) required for insert_cross_ref"
-            )
-        target = word_ops.resolve_target(doc, target_id)
-        if not isinstance(target.leaf_obj, Paragraph):
-            raise ValueError(f"Target must be a paragraph or heading: {target_id}")
-        ref_type = style_name if style_name else "text"
-        word_ops.insert_cross_reference(target.leaf_obj, content_data, ref_type)
-        message = f"Inserted cross-reference to '{content_data}' ({ref_type})"
-
-    elif operation == "insert_caption":
-        # target_id is the block to caption
-        # content_data can be JSON {label, text, position} or plain string (caption text)
-        if not target_id:
-            raise ValueError("target_id (block ID) required for insert_caption")
-
-        # Accept plain string OR JSON dict
-        try:
-            caption_data = json.loads(content_data) if content_data else {}
-            if not isinstance(caption_data, dict):
-                # JSON parsed to non-dict (e.g., string, list, number)
-                raise TypeError("Expected dict")
-            label = caption_data.get("label", "Figure")
-            caption_text = caption_data.get("text", "")
-            position = caption_data.get("position", "below")
-        except (json.JSONDecodeError, TypeError):
-            # Plain string: use as caption text with default label
-            label = "Figure"
-            caption_text = content_data if content_data else ""
-            position = "below"
-
-        # Validate position
-        if position not in ("above", "below"):
-            raise ValueError(
-                f"Invalid position '{position}'. Valid: ['above', 'below']"
-            )
-
-        element_id = word_ops.insert_caption(
-            doc, target_id, label, caption_text, position
-        )
-        message = f"Inserted {label} caption {position} {target_id}"
-
-    elif operation == "insert_toc":
-        # target_id is the block to insert before/after, content_data is JSON {position, heading_levels}
-        if not target_id:
-            raise ValueError("target_id (block ID) required for insert_toc")
-        toc_data = json.loads(content_data) if content_data else {}
-        position = toc_data.get("position", "before")
-        heading_levels = toc_data.get("heading_levels", "1-3")
-        element_id = word_ops.insert_toc(doc, target_id, position, heading_levels)
-        message = f"Inserted TOC {position} {target_id}"
-
-    elif operation == "update_toc":
-        word_ops.update_toc_field(doc)
-        message = "Set TOC dirty flag for update on open"
-
-    elif operation == "add_footnote":
-        # target_id is the paragraph/block ID, content_data is JSON {text, note_type?, position?}
-        if not target_id:
-            raise ValueError("target_id (paragraph ID) required for add_footnote")
-        if not content_data:
-            raise ValueError("content_data (JSON with text) required for add_footnote")
-        fn_data = json.loads(content_data)
-        fn_text = fn_data.get("text", "")
-        note_type = fn_data.get("note_type", "footnote")
-        position = fn_data.get("position", "after")
-        # Footnotes require direct ZIP manipulation, so we save first and operate on file
-        doc.save(file_path)
-        fn_id = word_ops.add_footnote(
-            file_path, target_id, fn_text, note_type, position
-        )
-        element_id = str(fn_id)
-        message = f"Added {note_type} {fn_id} to {target_id}"
-        # Return early - don't save again
-        return EditResult(success=True, element_id=element_id, message=message)
-
-    elif operation == "delete_footnote":
-        # target_id is the footnote/endnote ID, content_data is optional JSON {note_type?}
-        if not target_id:
-            raise ValueError("target_id (footnote ID) required for delete_footnote")
-        fn_data = json.loads(content_data) if content_data else {}
-        note_type = fn_data.get("note_type", "footnote")
-        note_id = int(target_id)
-        # Footnotes require direct ZIP manipulation, so we save first and operate on file
-        doc.save(file_path)
-        word_ops.delete_footnote(file_path, note_id, note_type)
-        message = f"Deleted {note_type} {note_id}"
-        # Return early - don't save again
-        return EditResult(success=True, element_id=target_id, message=message)
-
-    elif operation == "set_content_control":
-        # target_id is the content control ID, content_data is the new value
-        if not target_id:
-            raise ValueError(
-                "target_id (content control ID) required for set_content_control"
-            )
-        if not content_data:
-            raise ValueError(
-                "content_data (new value) required for set_content_control"
-            )
-        sdt_id = int(target_id)
-        word_ops.set_content_control_value(doc, sdt_id, content_data)
-        message = f"Set content control {sdt_id} to '{content_data}'"
 
     else:
         raise ValueError(f"Unknown operation: {operation}")

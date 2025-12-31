@@ -87,8 +87,16 @@ def _img_find(element, expr: str, ns: dict | None = None):
 # =============================================================================
 
 
-def get_embedded_image_hash(doc: Document, blip) -> str | None:
-    """Get SHA1 hash for embedded image. Returns None for linked images."""
+def get_embedded_image_hash(pkg, blip) -> str | None:
+    """Get SHA1 hash for embedded image. Returns None for linked images.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+        blip: a:blip element containing the image reference
+    """
+    import hashlib
+
+    # Get relationship ID from blip element
     # Support both python-docx elements (with .embed attribute) and raw lxml
     try:
         rel_id = blip.embed  # python-docx accessor
@@ -98,7 +106,18 @@ def get_embedded_image_hash(doc: Document, blip) -> str | None:
         rel_id = blip.get(f"{{{r_ns}}}embed")
     if not rel_id:
         return None  # Linked image - can't hash external resource
-    image_part = doc.part.related_parts[rel_id]
+
+    # Duck-type: WordPackage has has_part(), Document doesn't
+    if hasattr(pkg, "has_part"):
+        # Pure OOXML path - resolve relationship and hash image bytes
+        partname = pkg.resolve_rel_target("/word/document.xml", rel_id)
+        if not pkg.has_part(partname):
+            return None
+        image_bytes = pkg.get_bytes(partname)
+        return hashlib.sha1(image_bytes).hexdigest()[:8]
+
+    # Legacy python-docx path
+    image_part = pkg.part.related_parts[rel_id]
     return image_part.image.sha1[:8]
 
 
@@ -583,8 +602,87 @@ def count_image_occurrence(doc: Document, target_hash: str, target_para_el) -> i
 # =============================================================================
 
 
+def _get_image_metadata(image_path: str) -> tuple[bytes, str, int, int, int, int]:
+    """Get image bytes and metadata using PIL.
+
+    Returns: (image_bytes, ext, px_width, px_height, dpi_x, dpi_y)
+    """
+    from pathlib import Path
+
+    from PIL import Image
+
+    path = Path(image_path)
+    ext = path.suffix.lower().lstrip(".")
+
+    with open(path, "rb") as f:
+        image_bytes = f.read()
+
+    with Image.open(path) as img:
+        px_width, px_height = img.size
+        dpi = img.info.get("dpi", (72, 72))
+        dpi_x, dpi_y = int(dpi[0]), int(dpi[1])
+
+    return image_bytes, ext, px_width, px_height, dpi_x, dpi_y
+
+
+def _create_inline_drawing_xml(
+    rId: str, cx: int, cy: int, doc_pr_id: int
+) -> etree._Element:
+    """Create inline drawing element for embedded image.
+
+    Args:
+        rId: Relationship ID for the image
+        cx: Width in EMUs
+        cy: Height in EMUs
+        doc_pr_id: Unique ID for docPr element
+    """
+    inline_xml = f"""
+    <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+               xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+               xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
+               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+               distT="0" distB="0" distL="0" distR="0">
+        <wp:extent cx="{cx}" cy="{cy}"/>
+        <wp:effectExtent l="0" t="0" r="0" b="0"/>
+        <wp:docPr id="{doc_pr_id}" name="Picture {doc_pr_id}"/>
+        <wp:cNvGraphicFramePr>
+            <a:graphicFrameLocks noChangeAspect="1"/>
+        </wp:cNvGraphicFramePr>
+        <a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:pic>
+                    <pic:nvPicPr>
+                        <pic:cNvPr id="{doc_pr_id}" name="Picture {doc_pr_id}"/>
+                        <pic:cNvPicPr/>
+                    </pic:nvPicPr>
+                    <pic:blipFill>
+                        <a:blip r:embed="{rId}"/>
+                        <a:stretch>
+                            <a:fillRect/>
+                        </a:stretch>
+                    </pic:blipFill>
+                    <pic:spPr>
+                        <a:xfrm>
+                            <a:off x="0" y="0"/>
+                            <a:ext cx="{cx}" cy="{cy}"/>
+                        </a:xfrm>
+                        <a:prstGeom prst="rect">
+                            <a:avLst/>
+                        </a:prstGeom>
+                    </pic:spPr>
+                </pic:pic>
+            </a:graphicData>
+        </a:graphic>
+    </wp:inline>
+    """
+    inline_el = etree.fromstring(inline_xml.encode())
+    drawing_el = etree.Element(qn("w:drawing"))
+    drawing_el.append(inline_el)
+    return drawing_el
+
+
 def insert_image(
-    doc: Document,
+    pkg,
     image_path: str,
     target_id: str,
     position: str,
@@ -593,6 +691,14 @@ def insert_image(
 ) -> str:
     """Insert image at target location.
 
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+        image_path: Path to image file
+        target_id: Target block ID
+        position: 'before' or 'after' for positioning
+        width_inches: Desired width (0 = auto from image)
+        height_inches: Desired height (0 = auto from image)
+
     Supports hierarchical target IDs:
     - table_abc_0#r0c1/p0 -> Insert into paragraph in cell
     - table_abc_0#r0c1 -> Insert into first paragraph of cell
@@ -600,12 +706,19 @@ def insert_image(
     - paragraph_abc_0 -> Insert before/after paragraph
     """
 
+    # Duck-type: WordPackage has has_part(), Document doesn't
+    if hasattr(pkg, "has_part"):
+        return _insert_image_ooxml(
+            pkg, image_path, target_id, position, width_inches, height_inches
+        )
+
+    # Legacy python-docx path
     from docx.shared import Inches
 
-    target = resolve_target(doc, target_id)
+    target = resolve_target(pkg, target_id)
 
     # Get image hash first
-    _, image = doc.part.get_or_add_image(image_path)
+    _, image = pkg.part.get_or_add_image(image_path)
     h = image.sha1[:8]
 
     width = Inches(width_inches) if width_inches else None
@@ -616,8 +729,8 @@ def insert_image(
         para = target.leaf_obj
         run = para.add_run()
         run.add_picture(image_path, width, height)
-        mark_dirty(doc)
-        occurrence = count_image_occurrence(doc, h, para._element)
+        mark_dirty(pkg)
+        occurrence = count_image_occurrence(pkg, h, para._element)
         return f"image_{h}_{occurrence}"
 
     if target.leaf_kind == "cell":
@@ -626,12 +739,12 @@ def insert_image(
         para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
         run = para.add_run()
         run.add_picture(image_path, width, height)
-        mark_dirty(doc)
-        occurrence = count_image_occurrence(doc, h, para._element)
+        mark_dirty(pkg)
+        occurrence = count_image_occurrence(pkg, h, para._element)
         return f"image_{h}_{occurrence}"
 
     # Target is table or paragraph at base level -> insert before/after
-    new_para = doc.add_paragraph()
+    new_para = pkg.add_paragraph()
     run = new_para.add_run()
     run.add_picture(image_path, width, height)
 
@@ -640,83 +753,36 @@ def insert_image(
     else:
         target.leaf_el.addnext(new_para._element)
 
-    mark_dirty(doc)
-    occurrence = count_image_occurrence(doc, h, new_para._element)
+    mark_dirty(pkg)
+    occurrence = count_image_occurrence(pkg, h, new_para._element)
     return f"image_{h}_{occurrence}"
 
 
-def delete_image(doc: Document, image_id: str) -> None:
-    """Delete an image. Removes containing paragraph if only whitespace remains."""
-    from docx.text.paragraph import Paragraph
-
-    inline_el, para_el = resolve_image(doc, image_id)
-
-    # Remove the drawing element (parent of inline)
-    drawing_el = inline_el.getparent()
-    drawing_el.getparent().remove(drawing_el)
-
-    # Check if paragraph has any remaining content (text, drawings, fields, etc.)
-    para = Paragraph(para_el, doc)
-    has_content = bool(para.text.strip())
-    if not has_content:
-        for run_el in _iter_all_runs_in_paragraph(
-            para_el
-        ):  # Pass element, returns elements
-            # Check for drawings, fields, or other significant content
-            if _img_xpath(run_el, ".//w:drawing") or _img_xpath(run_el, ".//w:fldChar"):
-                has_content = True
-                break
-
-    if not has_content:
-        para_el.getparent().remove(para_el)
-
-    # Mark document.xml as modified for WordPackage
-    mark_dirty(doc)
-
-
-def insert_floating_image(
-    doc: Document,
+def _insert_image_ooxml(
+    pkg,
     image_path: str,
     target_id: str,
-    position_h: float,
-    position_v: float,
-    relative_h: str = "column",
-    relative_v: str = "paragraph",
-    wrap_type: str = "square",
+    position: str,
     width_inches: float = 0,
     height_inches: float = 0,
-    behind_doc: bool = False,
 ) -> str:
-    """Insert floating (anchored) image at target location.
+    """Insert image using pure OOXML."""
+    import hashlib
 
-    Args:
-        doc: Document object
-        image_path: Path to image file
-        target_id: Block ID for anchor paragraph
-        position_h: Horizontal position in inches
-        position_v: Vertical position in inches
-        relative_h: Horizontal reference ("column", "page", "margin", "character")
-        relative_v: Vertical reference ("paragraph", "page", "margin", "line")
-        wrap_type: Text wrap ("square", "tight", "through", "top_and_bottom", "none")
-        width_inches: Image width (0 = auto from image)
-        height_inches: Image height (0 = auto from image)
-        behind_doc: True to place image behind text
+    target = resolve_target(pkg, target_id)
 
-    Returns:
-        Image ID (image_{hash}_{occurrence})
-    """
-    target = resolve_target(doc, target_id)
+    # Get image metadata and add to package
+    image_bytes, ext, px_width, px_height, dpi_x, dpi_y = _get_image_metadata(
+        image_path
+    )
+    h = hashlib.sha1(image_bytes).hexdigest()[:8]
+    rId = pkg.add_image(image_bytes, ext)
 
-    # Get/add image to package and get relationship ID
-    rId, image = doc.part.get_or_add_image(image_path)
-    h = image.sha1[:8]
+    # Calculate default dimensions in EMUs: EMU = (pixels * 914400) / DPI
+    default_cx = int(px_width * _EMU_PER_INCH / dpi_x)
+    default_cy = int(px_height * _EMU_PER_INCH / dpi_y)
 
-    # Calculate default dimensions in EMUs from pixels and DPI
-    # EMU = (pixels * 914400) / DPI
-    default_cx = int(image.px_width * _EMU_PER_INCH / image.horz_dpi)
-    default_cy = int(image.px_height * _EMU_PER_INCH / image.vert_dpi)
-
-    # Calculate dimensions in EMUs
+    # Calculate final dimensions
     if width_inches and height_inches:
         cx = int(width_inches * _EMU_PER_INCH)
         cy = int(height_inches * _EMU_PER_INCH)
@@ -729,13 +795,90 @@ def insert_floating_image(
     else:
         cx, cy = default_cx, default_cy
 
-    # Convert position to EMUs
-    offset_h = int(position_h * _EMU_PER_INCH)
-    offset_v = int(position_v * _EMU_PER_INCH)
-
-    # Generate unique IDs for drawing elements
+    # Generate unique ID for drawing elements
     doc_pr_id = random.randint(100000, 999999)
 
+    # Create drawing element with inline image
+    drawing_el = _create_inline_drawing_xml(rId, cx, cy, doc_pr_id)
+
+    # Determine target paragraph element
+    if target.leaf_kind == "paragraph":
+        p_el = target.leaf_el
+    elif target.leaf_kind == "cell":
+        # Find first paragraph in cell, create if needed
+        cell_el = target.leaf_el
+        p_el = cell_el.find(qn("w:p"))
+        if p_el is None:
+            p_el = etree.SubElement(cell_el, qn("w:p"))
+    else:
+        # Create new paragraph and position it
+        p_el = etree.Element(qn("w:p"))
+        if position == "before":
+            target.leaf_el.addprevious(p_el)
+        else:
+            target.leaf_el.addnext(p_el)
+
+    # Add run with drawing to paragraph
+    r_el = etree.SubElement(p_el, qn("w:r"))
+    r_el.append(drawing_el)
+
+    mark_dirty(pkg)
+    occurrence = count_image_occurrence(pkg, h, p_el)
+    return f"image_{h}_{occurrence}"
+
+
+def _get_paragraph_text_ooxml(p_el: etree._Element) -> str:
+    """Extract text from a w:p element (pure OOXML)."""
+    text_parts = []
+    for t_el in p_el.iter(qn("w:t")):
+        if t_el.text:
+            text_parts.append(t_el.text)
+    return "".join(text_parts)
+
+
+def delete_image(pkg, image_id: str) -> None:
+    """Delete an image. Removes containing paragraph if only whitespace remains.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+        image_id: Image ID (e.g., 'image_abc12345_0')
+    """
+    inline_el, para_el = resolve_image(pkg, image_id)
+
+    # Remove the drawing element (parent of inline)
+    drawing_el = inline_el.getparent()
+    drawing_el.getparent().remove(drawing_el)
+
+    # Check if paragraph has any remaining content (text, drawings, fields, etc.)
+    text = _get_paragraph_text_ooxml(para_el)
+    has_content = bool(text.strip())
+    if not has_content:
+        for run_el in _iter_all_runs_in_paragraph(para_el):
+            # Check for drawings, fields, or other significant content
+            if _img_xpath(run_el, ".//w:drawing") or _img_xpath(run_el, ".//w:fldChar"):
+                has_content = True
+                break
+
+    if not has_content:
+        para_el.getparent().remove(para_el)
+
+    # Mark document.xml as modified for WordPackage
+    mark_dirty(pkg)
+
+
+def _create_anchor_drawing_xml(
+    rId: str,
+    cx: int,
+    cy: int,
+    offset_h: int,
+    offset_v: int,
+    relative_h: str,
+    relative_v: str,
+    wrap_type: str,
+    behind_doc: bool,
+    doc_pr_id: int,
+) -> etree._Element:
+    """Create anchor drawing element for floating image."""
     # Map wrap_type API value to XML element name
     wrap_xml_name = _WRAP_API_TO_XML.get(wrap_type, "wrapSquare")
     wrap_element = (
@@ -744,8 +887,6 @@ def insert_floating_image(
         else f'<wp:{wrap_xml_name} wrapText="bothSides"/>'
     )
 
-    # Build anchor XML using OOXML structure
-    # Note: namespace URIs use lowercase 'ml' to match python-docx's oxml_nsmap
     anchor_xml = f"""
     <wp:anchor xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
                xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -795,13 +936,104 @@ def insert_floating_image(
         </a:graphic>
     </wp:anchor>
     """
-
-    # Parse anchor XML
     anchor_el = etree.fromstring(anchor_xml.encode())
-
-    # Create drawing wrapper
     drawing_el = etree.Element(qn("w:drawing"))
     drawing_el.append(anchor_el)
+    return drawing_el
+
+
+def insert_floating_image(
+    pkg,
+    image_path: str,
+    target_id: str,
+    position_h: float,
+    position_v: float,
+    relative_h: str = "column",
+    relative_v: str = "paragraph",
+    wrap_type: str = "square",
+    width_inches: float = 0,
+    height_inches: float = 0,
+    behind_doc: bool = False,
+) -> str:
+    """Insert floating (anchored) image at target location.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+        image_path: Path to image file
+        target_id: Block ID for anchor paragraph
+        position_h: Horizontal position in inches
+        position_v: Vertical position in inches
+        relative_h: Horizontal reference ("column", "page", "margin", "character")
+        relative_v: Vertical reference ("paragraph", "page", "margin", "line")
+        wrap_type: Text wrap ("square", "tight", "through", "top_and_bottom", "none")
+        width_inches: Image width (0 = auto from image)
+        height_inches: Image height (0 = auto from image)
+        behind_doc: True to place image behind text
+
+    Returns:
+        Image ID (image_{hash}_{occurrence})
+    """
+
+    # Duck-type: WordPackage has has_part(), Document doesn't
+    if hasattr(pkg, "has_part"):
+        return _insert_floating_image_ooxml(
+            pkg,
+            image_path,
+            target_id,
+            position_h,
+            position_v,
+            relative_h,
+            relative_v,
+            wrap_type,
+            width_inches,
+            height_inches,
+            behind_doc,
+        )
+
+    # Legacy python-docx path
+    target = resolve_target(pkg, target_id)
+
+    # Get/add image to package and get relationship ID
+    rId, image = pkg.part.get_or_add_image(image_path)
+    h = image.sha1[:8]
+
+    # Calculate default dimensions in EMUs from pixels and DPI
+    default_cx = int(image.px_width * _EMU_PER_INCH / image.horz_dpi)
+    default_cy = int(image.px_height * _EMU_PER_INCH / image.vert_dpi)
+
+    # Calculate dimensions in EMUs
+    if width_inches and height_inches:
+        cx = int(width_inches * _EMU_PER_INCH)
+        cy = int(height_inches * _EMU_PER_INCH)
+    elif width_inches:
+        cx = int(width_inches * _EMU_PER_INCH)
+        cy = int(cx * default_cy / default_cx)
+    elif height_inches:
+        cy = int(height_inches * _EMU_PER_INCH)
+        cx = int(cy * default_cx / default_cy)
+    else:
+        cx, cy = default_cx, default_cy
+
+    # Convert position to EMUs
+    offset_h = int(position_h * _EMU_PER_INCH)
+    offset_v = int(position_v * _EMU_PER_INCH)
+
+    # Generate unique ID for drawing elements
+    doc_pr_id = random.randint(100000, 999999)
+
+    # Create drawing element
+    drawing_el = _create_anchor_drawing_xml(
+        rId,
+        cx,
+        cy,
+        offset_h,
+        offset_v,
+        relative_h,
+        relative_v,
+        wrap_type,
+        behind_doc,
+        doc_pr_id,
+    )
 
     # Find target paragraph and add drawing
     if target.leaf_kind == "paragraph":
@@ -811,7 +1043,7 @@ def insert_floating_image(
         para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
     else:
         # Create new paragraph for floating image
-        para = doc.add_paragraph()
+        para = pkg.add_paragraph()
         if hasattr(target, "leaf_el"):
             target.leaf_el.addnext(para._element)
 
@@ -819,10 +1051,93 @@ def insert_floating_image(
     run = para.add_run()
     run._element.append(drawing_el)
 
-    # Mark document.xml as modified for WordPackage
-    mark_dirty(doc)
+    mark_dirty(pkg)
+    occurrence = count_image_occurrence(pkg, h, para._element)
+    return f"image_{h}_{occurrence}"
 
-    occurrence = count_image_occurrence(doc, h, para._element)
+
+def _insert_floating_image_ooxml(
+    pkg,
+    image_path: str,
+    target_id: str,
+    position_h: float,
+    position_v: float,
+    relative_h: str,
+    relative_v: str,
+    wrap_type: str,
+    width_inches: float,
+    height_inches: float,
+    behind_doc: bool,
+) -> str:
+    """Insert floating image using pure OOXML."""
+    import hashlib
+
+    target = resolve_target(pkg, target_id)
+
+    # Get image metadata and add to package
+    image_bytes, ext, px_width, px_height, dpi_x, dpi_y = _get_image_metadata(
+        image_path
+    )
+    h = hashlib.sha1(image_bytes).hexdigest()[:8]
+    rId = pkg.add_image(image_bytes, ext)
+
+    # Calculate default dimensions in EMUs
+    default_cx = int(px_width * _EMU_PER_INCH / dpi_x)
+    default_cy = int(px_height * _EMU_PER_INCH / dpi_y)
+
+    # Calculate final dimensions
+    if width_inches and height_inches:
+        cx = int(width_inches * _EMU_PER_INCH)
+        cy = int(height_inches * _EMU_PER_INCH)
+    elif width_inches:
+        cx = int(width_inches * _EMU_PER_INCH)
+        cy = int(cx * default_cy / default_cx)
+    elif height_inches:
+        cy = int(height_inches * _EMU_PER_INCH)
+        cx = int(cy * default_cx / default_cy)
+    else:
+        cx, cy = default_cx, default_cy
+
+    # Convert position to EMUs
+    offset_h = int(position_h * _EMU_PER_INCH)
+    offset_v = int(position_v * _EMU_PER_INCH)
+
+    # Generate unique ID for drawing elements
+    doc_pr_id = random.randint(100000, 999999)
+
+    # Create drawing element
+    drawing_el = _create_anchor_drawing_xml(
+        rId,
+        cx,
+        cy,
+        offset_h,
+        offset_v,
+        relative_h,
+        relative_v,
+        wrap_type,
+        behind_doc,
+        doc_pr_id,
+    )
+
+    # Determine target paragraph element
+    if target.leaf_kind == "paragraph":
+        p_el = target.leaf_el
+    elif target.leaf_kind == "cell":
+        cell_el = target.leaf_el
+        p_el = cell_el.find(qn("w:p"))
+        if p_el is None:
+            p_el = etree.SubElement(cell_el, qn("w:p"))
+    else:
+        # Create new paragraph and position it
+        p_el = etree.Element(qn("w:p"))
+        target.leaf_el.addnext(p_el)
+
+    # Add run with drawing to paragraph
+    r_el = etree.SubElement(p_el, qn("w:r"))
+    r_el.append(drawing_el)
+
+    mark_dirty(pkg)
+    occurrence = count_image_occurrence(pkg, h, p_el)
     return f"image_{h}_{occurrence}"
 
 

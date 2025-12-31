@@ -92,18 +92,43 @@ def make_block_id(block_type: str, text: str, occurrence: int) -> str:
     return f"{block_type}_{content_hash(text)}_{occurrence}"
 
 
+def get_element_id_ooxml(pkg, el: etree._Element, heading_level: int = 0) -> str:
+    """Calculate content-addressed ID for an element.
+
+    Duck-typed: Takes WordPackage or Document.
+    Pure OOXML version that works with lxml elements directly.
+
+    Args:
+        pkg: WordPackage or Document
+        el: w:p or w:tbl element
+        heading_level: Override heading level (for newly created headings)
+    """
+    tag = el.tag
+    if tag == qn("w:tbl"):
+        block_type = "table"
+        content = table_content_for_hash(el)
+    else:
+        block_type, _ = paragraph_kind_and_level(el)
+        if heading_level:
+            block_type = f"heading{heading_level}"
+        content = get_paragraph_text_ooxml(el)
+
+    occurrence = count_occurrence(pkg, block_type, content, el)
+    return make_block_id(block_type, content, occurrence)
+
+
 # =============================================================================
 # Pure OOXML Element Helpers
 # =============================================================================
 
 
 def get_paragraph_text(p_el: etree._Element) -> str:
-    """Extract text from w:p element."""
-    texts = []
-    for t_el in p_el.iter(_W_T):
-        if t_el.text:
-            texts.append(t_el.text)
-    return "".join(texts)
+    """Extract text from w:p element.
+
+    Note: This is an alias for get_paragraph_text_ooxml() for consistency.
+    Preserves document order for tabs, breaks, and special characters.
+    """
+    return get_paragraph_text_ooxml(p_el)
 
 
 def get_paragraph_style(p_el: etree._Element) -> str:
@@ -731,3 +756,211 @@ def add_break_after_ooxml(target_el: etree._Element, break_type: str) -> etree._
     # Insert after target
     target_el.addnext(p)
     return p
+
+
+# =============================================================================
+# Block Creation (Pure OOXML)
+# =============================================================================
+
+
+def create_paragraph_ooxml(text: str, style_name: str = "") -> etree._Element:
+    """Create a w:p element with text and optional style.
+
+    Pure OOXML: Returns a standalone w:p element (not attached to document).
+
+    Args:
+        text: Paragraph text content
+        style_name: Optional style name to apply
+    """
+    p = etree.Element(_W_P)
+
+    if style_name:
+        pPr = etree.SubElement(p, _W_PPR)
+        pStyle = etree.SubElement(pPr, _W_PSTYLE)
+        pStyle.set(_W_VAL, style_name)
+
+    if text:
+        r = etree.SubElement(p, _W_R)
+        t = etree.SubElement(r, _W_T)
+        t.text = text
+        if text.startswith(" ") or text.endswith(" "):
+            t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+    return p
+
+
+def create_heading_ooxml(text: str, level: int) -> etree._Element:
+    """Create a heading w:p element.
+
+    Pure OOXML: Returns a standalone w:p element with Heading{level} style.
+
+    Args:
+        text: Heading text content
+        level: Heading level (0-9, where 0 is Title)
+    """
+    if level < 0 or level > 9:
+        raise ValueError(f"Heading level must be 0-9, got {level}")
+
+    style_name = "Title" if level == 0 else f"Heading {level}"
+    return create_paragraph_ooxml(text, style_name)
+
+
+def insert_paragraph_relative(
+    target_el: etree._Element, text: str, style_name: str, position: str
+) -> etree._Element:
+    """Insert paragraph before or after target element.
+
+    Pure OOXML: Takes w:p or w:tbl element, returns new w:p element.
+
+    Args:
+        target_el: Element to insert relative to
+        text: Paragraph text content
+        style_name: Style name to apply
+        position: 'before' or 'after'
+    """
+    p = create_paragraph_ooxml(text, style_name)
+    _insert_at(target_el, p, position)
+    return p
+
+
+def append_paragraph_ooxml(pkg, text: str, style_name: str = "") -> etree._Element:
+    """Append paragraph to document body.
+
+    Duck-typed: Takes WordPackage or Document.
+    Returns the new w:p element.
+    """
+    p = create_paragraph_ooxml(text, style_name)
+
+    if hasattr(pkg, "body"):
+        # WordPackage
+        body = pkg.body
+    else:
+        # python-docx Document
+        body = pkg.element.body
+
+    # Insert before final sectPr if present, else at end
+    sectPr = body.find(qn("w:sectPr"))
+    if sectPr is not None:
+        sectPr.addprevious(p)
+    else:
+        body.append(p)
+
+    mark_dirty(pkg)
+    return p
+
+
+def append_heading_ooxml(pkg, text: str, level: int) -> etree._Element:
+    """Append heading to document body.
+
+    Duck-typed: Takes WordPackage or Document.
+    Returns the new w:p element.
+    """
+    p = create_heading_ooxml(text, level)
+
+    if hasattr(pkg, "body"):
+        body = pkg.body
+    else:
+        body = pkg.element.body
+
+    sectPr = body.find(qn("w:sectPr"))
+    if sectPr is not None:
+        sectPr.addprevious(p)
+    else:
+        body.append(p)
+
+    mark_dirty(pkg)
+    return p
+
+
+def insert_content_ooxml(
+    pkg,
+    target_el: etree._Element,
+    position: str,
+    content_type: str,
+    content_data: str,
+    style_name: str = "",
+    heading_level: int = 0,
+) -> etree._Element:
+    """Insert content relative to a target element.
+
+    Duck-typed: Takes WordPackage or Document.
+    Returns the new element (w:p or w:tbl).
+
+    Args:
+        pkg: WordPackage or Document
+        target_el: Element to insert relative to
+        position: 'before' or 'after'
+        content_type: 'paragraph', 'heading', or 'table'
+        content_data: Text content or JSON for tables
+        style_name: Style name to apply
+        heading_level: Heading level (for headings)
+    """
+    from mcp_handley_lab.word.ops.tables import insert_table_relative
+
+    if content_type == "paragraph":
+        el = insert_paragraph_relative(target_el, content_data, style_name, position)
+    elif content_type == "heading":
+        p = create_heading_ooxml(content_data, heading_level)
+        _insert_at(target_el, p, position)
+        el = p
+    elif content_type == "table":
+        import json
+
+        table_data = json.loads(content_data)
+        el = insert_table_relative(target_el, table_data, position)
+    else:
+        raise ValueError(f"Unknown content_type: {content_type}")
+
+    mark_dirty(pkg)
+    return el
+
+
+def append_content_ooxml(
+    pkg,
+    content_type: str,
+    content_data: str,
+    style_name: str = "",
+    heading_level: int = 0,
+) -> etree._Element:
+    """Append content to document body.
+
+    Duck-typed: Takes WordPackage or Document.
+    Returns the new element (w:p or w:tbl).
+
+    Args:
+        pkg: WordPackage or Document
+        content_type: 'paragraph', 'heading', or 'table'
+        content_data: Text content or JSON for tables
+        style_name: Style name to apply (for paragraphs)
+        heading_level: Heading level (for headings)
+    """
+    from mcp_handley_lab.word.ops.tables import _create_table_element, populate_table
+
+    if content_type == "paragraph":
+        return append_paragraph_ooxml(pkg, content_data, style_name)
+    elif content_type == "heading":
+        return append_heading_ooxml(pkg, content_data, heading_level)
+    elif content_type == "table":
+        import json
+
+        table_data = json.loads(content_data)
+        rows = len(table_data)
+        cols = max((len(r) for r in table_data), default=1)
+        tbl = _create_table_element(rows, cols)
+        populate_table(tbl, table_data)
+
+        if hasattr(pkg, "body"):
+            body = pkg.body
+        else:
+            body = pkg.element.body
+
+        sectPr = body.find(qn("w:sectPr"))
+        if sectPr is not None:
+            sectPr.addprevious(tbl)
+        else:
+            body.append(tbl)
+
+        mark_dirty(pkg)
+        return tbl
+    else:
+        raise ValueError(f"Unknown content_type: {content_type}")

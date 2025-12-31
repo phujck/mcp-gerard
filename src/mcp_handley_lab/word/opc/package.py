@@ -73,6 +73,15 @@ class WordPackage:
         if content_type:
             self._content_types[partname] = content_type
 
+    def mark_xml_dirty(self, partname: str) -> None:
+        """Mark an XML part as modified so it will be serialized on save.
+
+        Use after in-place modification of elements returned by get_xml().
+        """
+        if partname not in self._xml:
+            raise ValueError(f"Part not parsed as XML: {partname}")
+        self._dirty_xml.add(partname)
+
     def has_part(self, partname: str) -> bool:
         """Check if part exists."""
         return partname in self._bytes
@@ -90,10 +99,6 @@ class WordPackage:
         self._dirty_bytes.discard(partname)
         self._dirty_rels.discard(partname)
         self._content_types._overrides.pop(partname, None)
-
-    def mark_xml_dirty(self, partname: str) -> None:
-        """Mark a part's XML as modified (call after in-place element changes)."""
-        self._dirty_xml.add(partname)
 
     # === Relationships API ===
 

@@ -1,21 +1,10 @@
 """Word document manipulation via pure OOXML and ops modules.
 
 This module provides a unified API for Word document operations.
-Most functions work with raw lxml elements (pure OOXML).
-A few functions still require python-docx Document for element creation.
+All functions work with raw lxml elements and WordPackage (pure OOXML).
 """
 
 from __future__ import annotations
-
-import json
-from typing import TYPE_CHECKING
-
-from lxml import etree
-
-if TYPE_CHECKING:
-    from docx import Document
-    from docx.table import Table
-    from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.ops.bookmarks import (  # noqa: F401
     _RESERVED_BOOKMARK_PREFIXES,
@@ -32,9 +21,6 @@ from mcp_handley_lab.word.ops.comments import (  # noqa: F401
     _COMMENTS_EXT_NS,
     _COMMENTS_EXTENDED_CT,
     _W15_NS,
-    _get_comment_para_id_map,
-    _get_comments_extended_part,
-    _parse_comment_threading,
     add_comment_to_block,
     build_comments,
     build_comments_with_threading,
@@ -61,13 +47,21 @@ from mcp_handley_lab.word.ops.core import (  # noqa: F401
     _resolve_base_block,
     add_break_after_ooxml,
     add_page_break_ooxml,
+    append_content_ooxml,
+    append_heading_ooxml,
+    append_paragraph_ooxml,
     build_blocks,
     content_hash,
     count_occurrence,
+    create_heading_ooxml,
+    create_paragraph_ooxml,
     delete_element,
     find_paragraph_by_id,
+    get_element_id_ooxml,
     get_or_create_pPr,
     get_paragraph_text_ooxml,
+    insert_content_ooxml,
+    insert_paragraph_relative,
     iter_body_blocks,
     make_block_id,
     nsmap,
@@ -210,6 +204,7 @@ from mcp_handley_lab.word.ops.sections import (  # noqa: F401
     set_section_columns,
 )
 from mcp_handley_lab.word.ops.styles import (  # noqa: F401
+    _ALIGNMENT_OOXML_MAP,
     _HIGHLIGHT_MAP,
     _HIGHLIGHT_REVERSE,
     _PARA_DIRECT_ATTRS,
@@ -217,8 +212,15 @@ from mcp_handley_lab.word.ops.styles import (  # noqa: F401
     _PARA_PT_ATTRS,
     _RUN_ATTRS,
     _RUN_FORMAT_KEYS,
+    _RUN_OOXML_BOOL,
+    _TWIPS_PER_INCH,
+    _TWIPS_PER_PT,
+    _apply_paragraph_formatting_ooxml,
+    _resolve_run_by_index_ooxml,
     _resolve_run_by_inner_index,
     _set_run_attr,
+    _set_run_attr_ooxml,
+    _set_run_text_ooxml,
     add_hyperlink,
     add_tab_stop,
     apply_paragraph_formatting,
@@ -232,6 +234,7 @@ from mcp_handley_lab.word.ops.styles import (  # noqa: F401
     edit_run_formatting,
     edit_run_text,
     edit_style,
+    get_or_create_rPr,
     get_style_format,
 )
 from mcp_handley_lab.word.ops.tables import (  # noqa: F401
@@ -264,82 +267,3 @@ from mcp_handley_lab.word.ops.toc import (  # noqa: F401
     insert_toc,
     update_toc_field,
 )
-
-
-def create_element(
-    doc: Document,
-    content_type: str,
-    content_data: str,
-    style_name: str = "",
-    heading_level: int = 0,
-) -> Paragraph | Table:
-    """Create a content element (paragraph, heading, or table).
-
-    Note: Requires python-docx Document for element creation.
-    """
-    if content_type == "paragraph":
-        return doc.add_paragraph(content_data, style_name or None)
-    if content_type == "heading":
-        return doc.add_heading(content_data, level=heading_level)
-    if content_type == "table":
-        table_data = json.loads(content_data)
-        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
-        tbl = doc.add_table(rows=rows, cols=cols)
-        tbl.style = style_name or "Table Grid"
-        populate_table(tbl._tbl, table_data)  # Pass element, not wrapper
-        return tbl
-    raise ValueError(f"Unknown content_type: {content_type}")
-
-
-def get_element_id(
-    doc: Document, obj: Paragraph | Table, heading_level: int = 0
-) -> str:
-    """Calculate content-addressed ID for an element.
-
-    Note: Requires python-docx Document and wrapper object.
-    """
-    from docx.table import Table as TableType
-
-    if isinstance(obj, TableType):
-        block_type = "table"
-        el = obj._tbl
-        content = table_content_for_hash(el)
-    else:
-        el = obj._element
-        block_type, _ = paragraph_kind_and_level(el)
-        # Override block_type if heading_level specified (for newly created headings)
-        if heading_level:
-            block_type = f"heading{heading_level}"
-        content = get_paragraph_text_ooxml(el)  # Use pure OOXML text extraction
-    occurrence = count_occurrence(doc, block_type, content, el)
-    return make_block_id(block_type, content, occurrence)
-
-
-def insert_content_relative(
-    doc: Document,
-    target_el: etree._Element,
-    position: str,
-    content_type: str,
-    content_data: str,
-    style_name: str = "",
-    heading_level: int = 0,
-) -> Paragraph | Table:
-    """Insert content relative to a target element.
-
-    Note: Requires python-docx Document for element creation.
-    """
-    from docx.table import Table as TableType
-
-    obj = create_element(doc, content_type, content_data, style_name, heading_level)
-    el = obj._tbl if isinstance(obj, TableType) else obj._element
-    _insert_at(target_el, el, position)
-    return obj
-
-
-# =============================================================================
-# Removed Functions (use pure OOXML versions from ops/core.py instead)
-# =============================================================================
-# The following functions were removed - use these pure OOXML alternatives:
-#   - add_page_break_ooxml(body) instead of the old add_page_break(doc)
-#   - add_break_after_ooxml(target_el, break_type) instead of add_break_after(doc, ...)
-#   - delete_element(el) instead of delete_block(obj)
