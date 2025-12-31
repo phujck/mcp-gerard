@@ -53,10 +53,15 @@ from mcp_handley_lab.word.ops.core import (  # noqa: F401
     _iter_all_runs_in_paragraph,
     _make_run_with,
     _resolve_base_block,
+    add_break_after_ooxml,
+    add_page_break_ooxml,
     build_blocks,
     content_hash,
     count_occurrence,
+    delete_element,
     find_paragraph_by_id,
+    get_or_create_pPr,
+    get_paragraph_text_ooxml,
     iter_body_blocks,
     make_block_id,
     nsmap,
@@ -64,6 +69,8 @@ from mcp_handley_lab.word.ops.core import (  # noqa: F401
     parse_target_id,
     resolve_path,
     resolve_target,
+    set_paragraph_style_ooxml,
+    set_paragraph_text_ooxml,
     table_content_for_hash,
 )
 from mcp_handley_lab.word.ops.equations import (  # noqa: F401
@@ -241,6 +248,7 @@ from mcp_handley_lab.word.ops.tables import (  # noqa: F401
     set_header_row,
     set_row_height,
     set_table_alignment,
+    set_table_autofit,
     set_table_fixed_layout,
     table_to_markdown,
 )
@@ -339,7 +347,19 @@ def add_break_after(
     return p
 
 
-def delete_block(obj: Paragraph | Table) -> None:
-    """Delete a block from the document."""
-    el = obj._element if isinstance(obj, Paragraph) else obj._tbl
+def delete_block(obj) -> None:
+    """Delete a block from the document.
+
+    Duck-typed: Works with Paragraph, Table wrappers or raw lxml elements.
+    """
+    # Handle raw lxml elements (pure OOXML path)
+    if hasattr(obj, "getparent"):
+        el = obj
+    # Handle python-docx wrappers
+    elif isinstance(obj, Paragraph):
+        el = obj._element
+    elif isinstance(obj, Table):
+        el = obj._tbl
+    else:
+        raise TypeError(f"Cannot delete object of type {type(obj)}")
     el.getparent().remove(el)

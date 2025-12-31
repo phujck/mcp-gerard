@@ -55,10 +55,13 @@ def _recalc_table_id(doc, t) -> str:
 
 
 def _recalc_block_id(doc, t) -> str:
-    """Recalculate block element ID after modification. Uses t.leaf_kind directly."""
-    text = t.leaf_obj.text or ""
-    occurrence = word_ops.count_occurrence(doc, t.leaf_kind, text, t.leaf_el)
-    return word_ops.make_block_id(t.leaf_kind, text, occurrence)
+    """Recalculate block element ID after modification. Pure OOXML-based."""
+    # Get block type from element (handles headings correctly)
+    block_kind, _ = word_ops.paragraph_kind_and_level(t.leaf_el)
+    # Get text from element directly (pure OOXML)
+    text = word_ops.get_paragraph_text_ooxml(t.leaf_el)
+    occurrence = word_ops.count_occurrence(doc, block_kind, text, t.leaf_el)
+    return word_ops.make_block_id(block_kind, text, occurrence)
 
 
 def _get_target_paragraph(target):
@@ -365,13 +368,13 @@ def edit(
 
     elif operation == "delete":
         t = word_ops.resolve_target(doc, target_id)
-        word_ops.delete_block(t.base_obj)
+        word_ops.delete_element(t.base_el)  # Pure OOXML
         message = f"Deleted block {target_id}"
 
     elif operation == "replace":
         t = word_ops.resolve_target(doc, target_id)
         if t.leaf_kind.startswith("heading") or t.leaf_kind == "paragraph":
-            t.leaf_obj.text = content_data
+            word_ops.set_paragraph_text_ooxml(t.leaf_el, content_data)  # Pure OOXML
             element_id = _recalc_block_id(doc, t)
         elif t.leaf_kind == "table":
             table_data = json.loads(content_data)
@@ -391,7 +394,7 @@ def edit(
     elif operation == "style":
         t = word_ops.resolve_target(doc, target_id)
         if style_name:
-            t.leaf_obj.style = style_name
+            word_ops.set_paragraph_style_ooxml(t.leaf_el, style_name)  # Pure OOXML
         if t.base_kind == "table":
             element_id = _recalc_table_id(doc, t)
         else:
@@ -608,18 +611,20 @@ def edit(
         message = f"Deleted column {col}"
 
     elif operation == "add_page_break":
-        p = word_ops.add_page_break(doc)
-        text = p.text or ""
-        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p._element)
+        # Get body element for appending
+        body = doc.element.body
+        p_el = word_ops.add_page_break_ooxml(body)  # Pure OOXML
+        text = word_ops.get_paragraph_text_ooxml(p_el)
+        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p_el)
         element_id = word_ops.make_block_id("paragraph", text, occurrence)
         message = "Added page break"
 
     elif operation == "add_break":
         t = word_ops.resolve_target(doc, target_id)
         break_type = content_data or "page"
-        p = word_ops.add_break_after(doc, t.leaf_el, break_type)
-        text = p.text or ""
-        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p._element)
+        p_el = word_ops.add_break_after_ooxml(t.leaf_el, break_type)  # Pure OOXML
+        text = word_ops.get_paragraph_text_ooxml(p_el)
+        occurrence = word_ops.count_occurrence(doc, "paragraph", text, p_el)
         element_id = word_ops.make_block_id("paragraph", text, occurrence)
         message = f"Added {break_type} break after {target_id}"
 
@@ -679,8 +684,9 @@ def edit(
 
     elif operation == "set_table_autofit":
         target = word_ops.resolve_target(doc, target_id)
-        target.base_obj.autofit = json.loads(content_data.lower())  # Needs wrapper
-        message = f"Set table autofit to {target.base_obj.autofit}"
+        autofit_value = json.loads(content_data.lower())
+        word_ops.set_table_autofit(target.base_el, autofit_value)  # Pure OOXML
+        message = f"Set table autofit to {autofit_value}"
 
     elif operation == "set_table_fixed_layout":
         target = word_ops.resolve_target(doc, target_id)

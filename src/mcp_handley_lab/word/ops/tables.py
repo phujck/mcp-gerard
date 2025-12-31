@@ -816,6 +816,31 @@ def set_row_height(
         trHeight.set(_W_H_RULE, rule_map[rule_lower])
 
 
+def set_table_autofit(tbl_el: etree._Element, autofit: bool) -> None:
+    """Set table autofit mode.
+
+    Pure OOXML: Takes w:tbl element.
+    When autofit=True, removes fixed layout (autofit is default).
+    When autofit=False, sets layout to fixed.
+    """
+    tblPr = tbl_el.find(_W_TBL_PR)
+    if autofit:
+        # Remove tblLayout to use default autofit
+        if tblPr is not None:
+            tblLayout = tblPr.find(_W_TBL_LAYOUT)
+            if tblLayout is not None:
+                tblPr.remove(tblLayout)
+    else:
+        # Set to fixed layout
+        if tblPr is None:
+            tblPr = etree.Element(_W_TBL_PR)
+            tbl_el.insert(0, tblPr)
+        tblLayout = tblPr.find(_W_TBL_LAYOUT)
+        if tblLayout is None:
+            tblLayout = etree.SubElement(tblPr, _W_TBL_LAYOUT)
+        tblLayout.set(_W_TYPE, "fixed")
+
+
 def set_table_fixed_layout(tbl_el: etree._Element, column_widths: list[float]) -> None:
     """Set table to fixed layout with explicit column widths (inches).
 

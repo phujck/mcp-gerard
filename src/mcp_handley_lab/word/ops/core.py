@@ -36,6 +36,7 @@ _W_T = qn("w:t")
 _W_PPR = qn("w:pPr")
 _W_PSTYLE = qn("w:pStyle")
 _W_VAL = qn("w:val")
+_W_TYPE = qn("w:type")
 
 # Regexes for parsing IDs and styles
 _HEADING_RE = re.compile(
@@ -585,8 +586,148 @@ def _insert_at(
 
 
 # =============================================================================
+# Pure OOXML Element Manipulation
+# =============================================================================
+
+
+def delete_element(el: etree._Element) -> None:
+    """Delete an element from its parent (pure OOXML)."""
+    parent = el.getparent()
+    if parent is not None:
+        parent.remove(el)
+
+
+def get_or_create_pPr(p_el: etree._Element) -> etree._Element:
+    """Get or create w:pPr element for a paragraph."""
+    pPr = p_el.find(_W_PPR)
+    if pPr is None:
+        pPr = etree.Element(_W_PPR)
+        p_el.insert(0, pPr)
+    return pPr
+
+
+def set_paragraph_text_ooxml(p_el: etree._Element, text: str) -> None:
+    """Set paragraph text by clearing runs and adding new text (pure OOXML).
+
+    Preserves paragraph properties (w:pPr). Clears all runs and creates a new
+    single run with the text.
+    """
+    # Remove all runs (w:r elements)
+    for r in list(p_el.findall(_W_R)):
+        p_el.remove(r)
+
+    # Remove hyperlinks and other run containers
+    for hl in list(p_el.findall(qn("w:hyperlink"))):
+        p_el.remove(hl)
+
+    # Add new run with text
+    if text:
+        r = etree.SubElement(p_el, _W_R)
+        t = etree.SubElement(r, _W_T)
+        t.text = text
+        # Preserve spaces
+        if text.startswith(" ") or text.endswith(" "):
+            t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+
+def set_paragraph_style_ooxml(p_el: etree._Element, style_name: str) -> None:
+    """Set paragraph style (pure OOXML).
+
+    Sets the w:pStyle element in w:pPr.
+    """
+    pPr = get_or_create_pPr(p_el)
+    pStyle = pPr.find(_W_PSTYLE)
+    if pStyle is None:
+        pStyle = etree.Element(_W_PSTYLE)
+        pPr.insert(0, pStyle)
+    pStyle.set(_W_VAL, style_name)
+
+
+def get_paragraph_text_ooxml(p_el: etree._Element) -> str:
+    """Extract text from paragraph element (pure OOXML).
+
+    Traverses in document order to preserve text/tab/break sequence.
+    """
+    parts = []
+    # Process runs and hyperlinks in document order
+    for child in p_el:
+        tag = child.tag
+        if tag == _W_R:
+            # Process run content in order
+            _extract_run_text(child, parts)
+        elif tag == qn("w:hyperlink"):
+            # Process hyperlink runs in order
+            for run in child.findall(_W_R):
+                _extract_run_text(run, parts)
+    return "".join(parts)
+
+
+def _extract_run_text(run_el: etree._Element, parts: list) -> None:
+    """Extract text from a w:r element in document order."""
+    for child in run_el:
+        tag = child.tag
+        if tag == _W_T:
+            if child.text is not None:
+                parts.append(child.text)
+        elif tag == qn("w:tab"):
+            parts.append("\t")
+        elif tag in (qn("w:br"), qn("w:cr")):
+            parts.append("\n")
+        elif tag == qn("w:noBreakHyphen"):
+            parts.append("\u2011")
+        elif tag == qn("w:softHyphen"):
+            parts.append("\u00ad")
+
+
+# =============================================================================
 # Re-exports for convenience
 # =============================================================================
 
 # Make NSMAP available for other ops modules (replaces docx.oxml.ns.nsmap)
 nsmap = NSMAP
+
+
+# =============================================================================
+# Break Operations (Pure OOXML)
+# =============================================================================
+
+
+def add_page_break_ooxml(body: etree._Element) -> etree._Element:
+    """Append a page break paragraph to body. Returns the w:p element.
+
+    Pure OOXML: Takes w:body element.
+    """
+    p = etree.SubElement(body, _W_P)
+    r = etree.SubElement(p, _W_R)
+    br = etree.SubElement(r, qn("w:br"))
+    br.set(_W_TYPE, "page")
+    return p
+
+
+def add_break_after_ooxml(target_el: etree._Element, break_type: str) -> etree._Element:
+    """Insert break paragraph after target element. Returns the w:p element.
+
+    Pure OOXML: Takes w:p or w:tbl element.
+    break_type: 'page', 'column', 'line'
+    """
+    break_type_lower = break_type.lower()
+    if break_type_lower not in ("page", "column", "line"):
+        raise ValueError(
+            f"Invalid break_type '{break_type}'. Valid: page, column, line"
+        )
+
+    # Create paragraph with break
+    p = etree.Element(_W_P)
+    r = etree.SubElement(p, _W_R)
+
+    if break_type_lower == "line":
+        # Line break: w:br with no type (or type="textWrapping")
+        etree.SubElement(r, qn("w:br"))
+    else:
+        # Page/column break: w:br with w:type attribute
+        br = etree.SubElement(r, qn("w:br"))
+        br.set(_W_TYPE, break_type_lower)
+
+    # Insert after target
+    target_el.addnext(p)
+    return p
