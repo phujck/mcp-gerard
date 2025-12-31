@@ -207,6 +207,7 @@ from mcp_handley_lab.word.ops.styles import (  # noqa: F401
     _RUN_FORMAT_KEYS,
     _resolve_run_by_inner_index,
     _set_run_attr,
+    add_hyperlink,
     add_tab_stop,
     apply_paragraph_formatting,
     build_hyperlinks,

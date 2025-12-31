@@ -2244,6 +2244,273 @@ async def test_edit_hyperlink_run(docx_with_hyperlinks):
     assert edited_run["is_hyperlink"] is True  # Still a hyperlink
 
 
+# --- Hyperlink creation tests ---
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_external_url(sample_docx):
+    """Test adding an external hyperlink to a paragraph."""
+    # Get the first paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    # Add external hyperlink
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_hyperlink",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"text": "Visit Google", "address": "https://google.com"}
+            ),
+        },
+    )
+    assert result["success"]
+    assert "Added hyperlink 'Visit Google'" in result["message"]
+    assert "https://google.com" in result["message"]
+
+    # Verify hyperlink was created
+    _, hl_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "hyperlinks"}
+    )
+    assert len(hl_result["hyperlinks"]) == 1
+    link = hl_result["hyperlinks"][0]
+    assert link["text"] == "Visit Google"
+    assert link["url"] == "https://google.com"
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_internal_bookmark(sample_docx):
+    """Test adding an internal hyperlink (bookmark reference)."""
+    # Get blocks
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para1 = blocks_result["blocks"][0]
+    para2 = blocks_result["blocks"][1]
+
+    # First add a bookmark to paragraph 2
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_bookmark",
+            "target_id": para2["id"],
+            "content_data": "TargetSection",
+        },
+    )
+
+    # Now add internal hyperlink to paragraph 1
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_hyperlink",
+            "target_id": para1["id"],
+            "content_data": json.dumps(
+                {"text": "Jump to section", "fragment": "TargetSection"}
+            ),
+        },
+    )
+    assert result["success"]
+    assert "#TargetSection" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_external_with_fragment(sample_docx):
+    """Test adding external URL with anchor fragment."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_hyperlink",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {
+                    "text": "Python docs",
+                    "address": "https://docs.python.org",
+                    "fragment": "installation",
+                }
+            ),
+        },
+    )
+    assert result["success"]
+
+    # Verify - URL should include fragment
+    _, hl_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "hyperlinks"}
+    )
+    assert len(hl_result["hyperlinks"]) == 1
+    assert hl_result["hyperlinks"][0]["url"] == "https://docs.python.org#installation"
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_to_table_cell():
+    """Test adding hyperlink to a table cell."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+        doc_path = Path(tmp.name)
+
+    try:
+        # Create document with table
+        doc = Document()
+        table = doc.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Cell A"
+        table.cell(0, 1).text = "Cell B"
+        doc.save(doc_path)
+
+        # Get table cell ID
+        _, blocks_result = await mcp.call_tool(
+            "read", {"file_path": str(doc_path), "scope": "blocks"}
+        )
+        table_id = blocks_result["blocks"][0]["id"]
+
+        _, cells_result = await mcp.call_tool(
+            "read",
+            {"file_path": str(doc_path), "scope": "table_cells", "target_id": table_id},
+        )
+        # Find cell (0,0) - cells is a flat list with row/col attributes
+        cell_0_0 = next(
+            c for c in cells_result["cells"] if c["row"] == 0 and c["col"] == 0
+        )
+        cell_id = cell_0_0["hierarchical_id"]
+
+        # Add hyperlink to cell
+        _, result = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(doc_path),
+                "operation": "add_hyperlink",
+                "target_id": cell_id,
+                "content_data": json.dumps(
+                    {"text": "Link in cell", "address": "https://example.com"}
+                ),
+            },
+        )
+        assert result["success"]
+
+        # Verify hyperlink was created
+        _, hl_result = await mcp.call_tool(
+            "read", {"file_path": str(doc_path), "scope": "hyperlinks"}
+        )
+        assert len(hl_result["hyperlinks"]) == 1
+        assert hl_result["hyperlinks"][0]["text"] == "Link in cell"
+    finally:
+        doc_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_mailto(sample_docx):
+    """Test adding a mailto hyperlink."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_hyperlink",
+            "target_id": para["id"],
+            "content_data": json.dumps(
+                {"text": "Email us", "address": "mailto:test@example.com"}
+            ),
+        },
+    )
+    assert result["success"]
+
+    _, hl_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "hyperlinks"}
+    )
+    assert hl_result["hyperlinks"][0]["url"] == "mailto:test@example.com"
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_empty_text_error(sample_docx):
+    """Test that empty text raises error."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    with pytest.raises(ToolError, match="empty"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "add_hyperlink",
+                "target_id": para["id"],
+                "content_data": json.dumps(
+                    {"text": "", "address": "https://example.com"}
+                ),
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_no_address_or_fragment_error(sample_docx):
+    """Test that missing both address and fragment raises error."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para = blocks_result["blocks"][0]
+
+    with pytest.raises(ToolError, match="address or fragment"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(sample_docx),
+                "operation": "add_hyperlink",
+                "target_id": para["id"],
+                "content_data": json.dumps({"text": "Orphan link"}),
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_add_hyperlink_fragment_normalization(sample_docx):
+    """Test that fragment leading # is stripped."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(sample_docx), "scope": "blocks"}
+    )
+    para1 = blocks_result["blocks"][0]
+    para2 = blocks_result["blocks"][1]
+
+    # Add bookmark
+    _, _ = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_bookmark",
+            "target_id": para2["id"],
+            "content_data": "TestBookmark",
+        },
+    )
+
+    # Add hyperlink with # prefix - should be normalized
+    _, result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "operation": "add_hyperlink",
+            "target_id": para1["id"],
+            "content_data": json.dumps(
+                {"text": "Go to bookmark", "fragment": "#TestBookmark"}
+            ),
+        },
+    )
+    assert result["success"]
+    assert "#TestBookmark" in result["message"]
+
+
 # --- Style tests ---
 
 
