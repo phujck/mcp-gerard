@@ -64,13 +64,6 @@ def _recalc_block_id(doc, t) -> str:
     return word_ops.make_block_id(block_kind, text, occurrence)
 
 
-def _get_target_paragraph(target):
-    """Get paragraph from target. For cells, uses first paragraph (must exist)."""
-    return (
-        target.leaf_obj.paragraphs[0] if target.leaf_kind == "cell" else target.leaf_obj
-    )
-
-
 @mcp.tool(
     description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and CHANGE when content changes or after inserts/deletes shift occurrence index - use element_id from edit response for chaining."
 )
@@ -412,6 +405,11 @@ def edit(
         "insert_image",
         "delete_image",
         "insert_floating_image",
+        # Tab stop operations (duck-typed)
+        "add_tab_stop",
+        "clear_tab_stops",
+        # Field operations (pure OOXML)
+        "insert_field",
     }
     if operation in _PKG_OPERATIONS:
         # Create uses WordPackage.new(), others use WordPackage.open()
@@ -1124,49 +1122,35 @@ def edit(
             )
             message = "Inserted floating image"
 
+        elif operation == "add_tab_stop":
+            t = word_ops.resolve_target(pkg, target_id)
+            tab_data = json.loads(content_data)
+            word_ops.add_tab_stop(
+                t.leaf_el,
+                float(tab_data["position"]),
+                tab_data.get("alignment", "left"),
+                tab_data.get("leader", "spaces"),
+            )
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Added tab stop at {tab_data['position']} inches ({tab_data.get('alignment', 'left')}, {tab_data.get('leader', 'spaces')})"
+
+        elif operation == "clear_tab_stops":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.clear_tab_stops(t.leaf_el)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = "Cleared all tab stops"
+
+        elif operation == "insert_field":
+            t = word_ops.resolve_target(pkg, target_id)
+            field_code = content_data.strip().upper()
+            word_ops.insert_field(t.leaf_el, field_code)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Inserted {field_code} field"
+
         pkg.save(file_path)
         return EditResult(success=True, element_id=element_id, message=message)
 
-    # All other operations work on existing document (python-docx)
-    from docx import Document
-
-    doc = Document(file_path)
-    element_id = target_id
-    comment_id = None
-    message = f"Completed {operation}"
-
-    if operation == "add_tab_stop":
-        target = word_ops.resolve_target(doc, target_id)
-        para = _get_target_paragraph(target)
-        tab_data = json.loads(content_data)
-        word_ops.add_tab_stop(
-            para,
-            float(tab_data["position"]),
-            tab_data.get("alignment", "left"),
-            tab_data.get("leader", "spaces"),
-        )
-        message = f"Added tab stop at {tab_data['position']} inches ({tab_data.get('alignment', 'left')}, {tab_data.get('leader', 'spaces')})"
-
-    elif operation == "clear_tab_stops":
-        target = word_ops.resolve_target(doc, target_id)
-        para = _get_target_paragraph(target)
-        para.paragraph_format.tab_stops.clear_all()
-        message = "Cleared all tab stops"
-
-    elif operation == "insert_field":
-        target = word_ops.resolve_target(doc, target_id)
-        para = _get_target_paragraph(target)
-        field_code = content_data.strip().upper()
-        word_ops.insert_field(para, field_code)
-        message = f"Inserted {field_code} field"
-
-    else:
-        raise ValueError(f"Unknown operation: {operation}")
-
-    doc.save(file_path)
-    return EditResult(
-        success=True, element_id=element_id, comment_id=comment_id, message=message
-    )
+    raise ValueError(f"Unknown operation: {operation}")
 
 
 if __name__ == "__main__":

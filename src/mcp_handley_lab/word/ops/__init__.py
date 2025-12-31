@@ -220,6 +220,7 @@ from mcp_handley_lab.word.ops.styles import (
     build_runs,
     build_styles,
     build_tab_stops,
+    clear_tab_stops,
     create_style,
     delete_style,
     edit_run_formatting,
@@ -354,6 +355,7 @@ __all__ = [
     "build_paragraph_format",
     "build_tab_stops",
     "add_tab_stop",
+    "clear_tab_stops",
     "edit_run_text",
     "edit_run_formatting",
     # Lists

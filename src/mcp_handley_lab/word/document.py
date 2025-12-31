@@ -229,6 +229,7 @@ from mcp_handley_lab.word.ops.styles import (  # noqa: F401
     build_runs,
     build_styles,
     build_tab_stops,
+    clear_tab_stops,
     create_style,
     delete_style,
     edit_run_formatting,

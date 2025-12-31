@@ -1553,15 +1553,17 @@ def build_tab_stops(paragraph) -> list[TabStopInfo]:
 
 
 def add_tab_stop(
-    paragraph: Paragraph,
+    paragraph,
     position_inches: float,
     alignment: str = "left",
     leader: str = "spaces",
 ) -> None:
     """Add a tab stop to a paragraph.
 
+    Duck-typed: accepts w:p element OR python-docx Paragraph.
+
     Args:
-        paragraph: The paragraph to add the tab stop to
+        paragraph: w:p element or python-docx Paragraph
         position_inches: Position from left margin (must be positive)
         alignment: Tab alignment - left, center, right, decimal
         leader: Tab leader character - spaces, dots, heavy, middle_dot
@@ -1572,35 +1574,104 @@ def add_tab_stop(
         raise ValueError(f"position_inches must be positive, got {position_inches}")
 
     # Alignment with validation
-    align_map = {
-        "left": WdTabAlignment.LEFT,
-        "center": WdTabAlignment.CENTER,
-        "right": WdTabAlignment.RIGHT,
-        "decimal": WdTabAlignment.DECIMAL,
-    }
+    valid_alignments = {"left", "center", "right", "decimal"}
     alignment_lower = alignment.lower()
-    if alignment_lower not in align_map:
+    if alignment_lower not in valid_alignments:
         raise ValueError(
-            f"Invalid alignment '{alignment}'. Valid: {list(align_map.keys())}"
+            f"Invalid alignment '{alignment}'. Valid: {list(valid_alignments)}"
         )
 
     # Leader with aliases and validation
     leader_aliases = {"dot": "dots", "space": "spaces", "mid_dot": "middle_dot"}
-    leader_map = {
-        "spaces": WdTabLeader.SPACES,
-        "dots": WdTabLeader.DOTS,
-        "heavy": WdTabLeader.HEAVY,
-        "middle_dot": WdTabLeader.MIDDLE_DOT,
+    leader_map_ooxml = {
+        "spaces": "none",  # OOXML uses "none" for no leader
+        "dots": "dot",
+        "heavy": "heavy",
+        "middle_dot": "middleDot",
     }
     leader_lower = leader_aliases.get(leader.lower(), leader.lower())
-    if leader_lower not in leader_map:
-        raise ValueError(f"Invalid leader '{leader}'. Valid: {list(leader_map.keys())}")
+    if leader_lower not in leader_map_ooxml:
+        raise ValueError(
+            f"Invalid leader '{leader}'. Valid: {list(leader_map_ooxml.keys())}"
+        )
 
-    paragraph.paragraph_format.tab_stops.add_tab_stop(
-        Inches(position_inches),
-        align_map[alignment_lower],
-        leader_map[leader_lower],
-    )
+    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
+    if hasattr(paragraph, "tag"):
+        # Pure OOXML: raw w:p element
+        _add_tab_stop_ooxml(paragraph, position_inches, alignment_lower, leader_lower)
+    else:
+        # python-docx Paragraph
+        align_map = {
+            "left": WdTabAlignment.LEFT,
+            "center": WdTabAlignment.CENTER,
+            "right": WdTabAlignment.RIGHT,
+            "decimal": WdTabAlignment.DECIMAL,
+        }
+        leader_map = {
+            "spaces": WdTabLeader.SPACES,
+            "dots": WdTabLeader.DOTS,
+            "heavy": WdTabLeader.HEAVY,
+            "middle_dot": WdTabLeader.MIDDLE_DOT,
+        }
+        paragraph.paragraph_format.tab_stops.add_tab_stop(
+            Inches(position_inches),
+            align_map[alignment_lower],
+            leader_map[leader_lower],
+        )
+
+
+def _add_tab_stop_ooxml(
+    p_el: etree._Element,
+    position_inches: float,
+    alignment: str,
+    leader: str,
+) -> None:
+    """Add a tab stop to a w:p element (pure OOXML).
+
+    Creates w:tabs element in w:pPr if needed, adds w:tab child.
+    """
+    from mcp_handley_lab.word.ops.core import get_or_create_pPr
+
+    # OOXML leader mapping
+    leader_map_ooxml = {
+        "spaces": "none",
+        "dots": "dot",
+        "heavy": "heavy",
+        "middle_dot": "middleDot",
+    }
+
+    pPr = get_or_create_pPr(p_el)
+
+    # Get or create w:tabs
+    tabs = pPr.find(qn("w:tabs"))
+    if tabs is None:
+        tabs = etree.SubElement(pPr, qn("w:tabs"))
+
+    # Create w:tab element
+    tab = etree.SubElement(tabs, qn("w:tab"))
+    tab.set(qn("w:pos"), str(int(position_inches * 1440)))  # inches to twips
+    tab.set(qn("w:val"), alignment)
+    leader_val = leader_map_ooxml.get(leader, "none")
+    if leader_val != "none":
+        tab.set(qn("w:leader"), leader_val)
+
+
+def clear_tab_stops(paragraph) -> None:
+    """Clear all tab stops from a paragraph.
+
+    Duck-typed: accepts w:p element OR python-docx Paragraph.
+    """
+    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
+    if hasattr(paragraph, "tag"):
+        # Pure OOXML: raw w:p element
+        pPr = paragraph.find(qn("w:pPr"))
+        if pPr is not None:
+            tabs = pPr.find(qn("w:tabs"))
+            if tabs is not None:
+                pPr.remove(tabs)
+    else:
+        # python-docx Paragraph
+        paragraph.paragraph_format.tab_stops.clear_all()
 
 
 # =============================================================================
