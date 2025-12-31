@@ -49,7 +49,6 @@ depends=(
     'python-opentelemetry-sdk'
     'python-opentelemetry-exporter-otlp-proto-http'
     'python-dateutil>=2.8.0'
-    'python-docx>=1.1.0'
 )
 makedepends=(
     'python-build'

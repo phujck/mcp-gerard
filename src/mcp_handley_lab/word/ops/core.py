@@ -6,7 +6,7 @@ Contains shared helpers used across all ops modules:
 - Target resolution for hierarchical addressing
 - Common XML element operations
 
-Supports both python-docx Document and pure OOXML WordPackage.
+Pure OOXML implementation working with WordPackage and lxml elements.
 """
 
 from __future__ import annotations
@@ -16,15 +16,11 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from lxml import etree
 
 from mcp_handley_lab.word.models import Block
 from mcp_handley_lab.word.opc.constants import NSMAP, qn
-
-if TYPE_CHECKING:
-    pass
 
 # Element tag constants for pure OOXML
 _W_P = qn("w:p")
@@ -61,8 +57,7 @@ PathSegment = tuple[str, tuple[int, ...]]
 class ResolvedTarget:
     """Result of resolving a hierarchical target ID.
 
-    Pure OOXML: Works with lxml elements directly.
-    Also includes wrapper objects for transitional python-docx compatibility.
+    Works with lxml elements directly.
     """
 
     base_id: str
@@ -71,9 +66,6 @@ class ResolvedTarget:
     base_occurrence: int
     leaf_kind: str  # 'table' | 'cell' | 'paragraph'
     leaf_el: etree._Element  # w:p, w:tbl, or w:tc element
-    # Wrapper objects for transitional python-docx compatibility (may be None)
-    base_obj: any = None  # Table or Paragraph wrapper
-    leaf_obj: any = None  # Table, Paragraph, or _Cell wrapper
 
 
 # =============================================================================
@@ -95,11 +87,8 @@ def make_block_id(block_type: str, text: str, occurrence: int) -> str:
 def get_element_id_ooxml(pkg, el: etree._Element, heading_level: int = 0) -> str:
     """Calculate content-addressed ID for an element.
 
-    Duck-typed: Takes WordPackage or Document.
-    Pure OOXML version that works with lxml elements directly.
-
     Args:
-        pkg: WordPackage or Document
+        pkg: WordPackage
         el: w:p or w:tbl element
         heading_level: Override heading level (for newly created headings)
     """
@@ -178,19 +167,19 @@ def paragraph_kind_and_level(p_el: etree._Element) -> tuple[str, int]:
 
 
 # =============================================================================
-# Duck-Typed Helpers
+# Package Helpers
 # =============================================================================
 
 
 def mark_dirty(pkg, partname: str = "/word/document.xml") -> None:
-    """Mark an XML part as modified (only needed for WordPackage).
+    """Mark an XML part as modified.
 
-    Duck-typed: Safe to call with either WordPackage or Document.
-    For Document, modifications to lxml elements persist automatically.
-    For WordPackage, must call this after modifying cached XML so save() serializes it.
+    Args:
+        pkg: WordPackage
+
+    Must call this after modifying cached XML so save() serializes it.
     """
-    if hasattr(pkg, "mark_xml_dirty"):
-        pkg.mark_xml_dirty(partname)
+    pkg.mark_xml_dirty(partname)
 
 
 # =============================================================================
@@ -198,22 +187,13 @@ def mark_dirty(pkg, partname: str = "/word/document.xml") -> None:
 # =============================================================================
 
 
-def iter_body_blocks(
-    pkg,  # WordPackage or Document (duck-typed for transitional period)
-) -> Iterator[tuple[str, etree._Element]]:
+def iter_body_blocks(pkg) -> Iterator[tuple[str, etree._Element]]:
     """Yield (block_kind, element) in true document order.
 
-    Pure OOXML: Works with WordPackage and lxml elements.
-    Also accepts python-docx Document during transitional period.
+    Args:
+        pkg: WordPackage
     """
-    # Duck-type: WordPackage has .body, Document has .element.body
-    if hasattr(pkg, "body"):
-        body = pkg.body
-    elif hasattr(pkg, "element"):
-        body = pkg.element.body
-    else:
-        raise TypeError(f"Expected WordPackage or Document, got {type(pkg)}")
-
+    body = pkg.body
     for child in body.iterchildren():
         if child.tag == _W_P:
             yield ("paragraph", child)
@@ -224,7 +204,8 @@ def iter_body_blocks(
 def _iter_all_paragraphs(pkg) -> Iterator[etree._Element]:
     """Iterate over all paragraphs in document body and tables.
 
-    Duck-typed: Yields w:p elements.
+    Args:
+        pkg: WordPackage
     """
     for kind, el in iter_body_blocks(pkg):
         if kind == "paragraph":
@@ -318,7 +299,10 @@ def resolve_path(
 def _resolve_base_block(pkg, base_id: str) -> tuple[str, etree._Element, int]:
     """Resolve base block ID to (block_type, element, occurrence).
 
-    Duck-typed: Returns lxml element.
+    Args:
+        pkg: WordPackage
+        base_id: Block ID like table_abc12345_0
+
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     Searches all blocks for matching type+hash, then skips to Nth occurrence.
     """
@@ -348,56 +332,17 @@ def _resolve_base_block(pkg, base_id: str) -> tuple[str, etree._Element, int]:
     raise ValueError(f"Block not found: {base_id}")
 
 
-def _find_wrapper_for_element(doc, el: etree._Element):
-    """Find python-docx wrapper object for an lxml element.
-
-    Used during transitional period to populate base_obj/leaf_obj in ResolvedTarget.
-    Returns Paragraph, Table, or _Cell wrapper, or None if not found.
-    """
-
-    if el.tag == _W_P:
-        for para in doc.paragraphs:
-            if para._element is el:
-                return para
-        # Also check tables for paragraphs in cells
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        if para._element is el:
-                            return para
-    elif el.tag == _W_TBL:
-        for table in doc.tables:
-            if table._tbl is el:
-                return table
-    elif el.tag == _W_TC:
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    if cell._tc is el:
-                        return cell
-    return None
-
-
 def resolve_target(pkg, target_id: str) -> ResolvedTarget:
     """Resolve target_id to ResolvedTarget with base and leaf info.
 
-    Duck-typed: Works with WordPackage or Document.
-    Supports hierarchical IDs: table_abc12345_0#r0c1/p0
-    When Document is passed, also populates base_obj/leaf_obj wrapper objects.
+    Args:
+        pkg: WordPackage
+        target_id: Hierarchical ID like table_abc12345_0#r0c1/p0
     """
     base_id, path_segments = parse_target_id(target_id)
 
     # Resolve base block
     base_kind, base_el, base_occurrence = _resolve_base_block(pkg, base_id)
-
-    # Find wrapper object if Document is passed (for edit operations)
-    base_obj = None
-    is_document = hasattr(
-        pkg, "paragraphs"
-    )  # Document has .paragraphs, WordPackage doesn't
-    if is_document:
-        base_obj = _find_wrapper_for_element(pkg, base_el)
 
     if not path_segments:
         return ResolvedTarget(
@@ -407,8 +352,6 @@ def resolve_target(pkg, target_id: str) -> ResolvedTarget:
             base_occurrence=base_occurrence,
             leaf_kind=base_kind,
             leaf_el=base_el,
-            base_obj=base_obj,
-            leaf_obj=base_obj,  # Same as base when no path
         )
 
     # Resolve path within container
@@ -422,11 +365,6 @@ def resolve_target(pkg, target_id: str) -> ResolvedTarget:
     else:
         leaf_kind = "paragraph"
 
-    # Find leaf wrapper object if Document is passed
-    leaf_obj = None
-    if is_document:
-        leaf_obj = _find_wrapper_for_element(pkg, leaf_el)
-
     return ResolvedTarget(
         base_id=base_id,
         base_kind=base_kind,
@@ -434,15 +372,18 @@ def resolve_target(pkg, target_id: str) -> ResolvedTarget:
         base_occurrence=base_occurrence,
         leaf_kind=leaf_kind,
         leaf_el=leaf_el,
-        base_obj=base_obj,
-        leaf_obj=leaf_obj,
     )
 
 
 def find_paragraph_by_id(pkg, target_id: str) -> etree._Element | None:
     """Find a paragraph by its block ID.
 
-    Duck-typed: Returns w:p element if found, None otherwise.
+    Args:
+        pkg: WordPackage
+        target_id: Block ID
+
+    Returns:
+        w:p element if found, None otherwise.
     """
     try:
         target = resolve_target(pkg, target_id)
@@ -457,13 +398,17 @@ def count_occurrence(
     pkg,
     block_type: str,
     text: str,
-    target_el: etree._Element,  # pkg: WordPackage or Document
+    target_el: etree._Element,
 ) -> int:
     """Count how many blocks with same type+hash appear before target_el.
 
-    Takes WordPackage or Document (duck-typed) and lxml element.
+    Args:
+        pkg: WordPackage
+        block_type: Type like 'paragraph', 'heading1', 'table'
+        text: Content text (for tables, use table_content_for_hash)
+        target_el: Element to find occurrence index for
+
     Used after edits to compute the correct occurrence index for returned ID.
-    For tables, 'text' should be the full table content (from table_content_for_hash).
     """
     target_hash = content_hash(text)
     occurrence = 0
@@ -500,7 +445,13 @@ def build_blocks(
 ) -> tuple[list[Block], int]:
     """Build list of Block objects from document body.
 
-    Duck-typed: Works with WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        offset: Number of blocks to skip
+        limit: Maximum blocks to return
+        heading_only: Only return headings
+        search_query: Filter by text content
+
     Uses content-hash IDs: {type}_{hash}_{occurrence}
     """
     # Import here to avoid circular dependency (table_to_markdown is in tables.py)
@@ -826,17 +777,15 @@ def insert_paragraph_relative(
 def append_paragraph_ooxml(pkg, text: str, style_name: str = "") -> etree._Element:
     """Append paragraph to document body.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        text: Paragraph text
+        style_name: Optional style name
+
     Returns the new w:p element.
     """
     p = create_paragraph_ooxml(text, style_name)
-
-    if hasattr(pkg, "body"):
-        # WordPackage
-        body = pkg.body
-    else:
-        # python-docx Document
-        body = pkg.element.body
+    body = pkg.body
 
     # Insert before final sectPr if present, else at end
     sectPr = body.find(qn("w:sectPr"))
@@ -852,15 +801,15 @@ def append_paragraph_ooxml(pkg, text: str, style_name: str = "") -> etree._Eleme
 def append_heading_ooxml(pkg, text: str, level: int) -> etree._Element:
     """Append heading to document body.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        text: Heading text
+        level: Heading level (1-9)
+
     Returns the new w:p element.
     """
     p = create_heading_ooxml(text, level)
-
-    if hasattr(pkg, "body"):
-        body = pkg.body
-    else:
-        body = pkg.element.body
+    body = pkg.body
 
     sectPr = body.find(qn("w:sectPr"))
     if sectPr is not None:
@@ -883,17 +832,16 @@ def insert_content_ooxml(
 ) -> etree._Element:
     """Insert content relative to a target element.
 
-    Duck-typed: Takes WordPackage or Document.
-    Returns the new element (w:p or w:tbl).
-
     Args:
-        pkg: WordPackage or Document
+        pkg: WordPackage
         target_el: Element to insert relative to
         position: 'before' or 'after'
         content_type: 'paragraph', 'heading', or 'table'
         content_data: Text content or JSON for tables
         style_name: Style name to apply
         heading_level: Heading level (for headings)
+
+    Returns the new element (w:p or w:tbl).
     """
     from mcp_handley_lab.word.ops.tables import insert_table_relative
 
@@ -924,15 +872,14 @@ def append_content_ooxml(
 ) -> etree._Element:
     """Append content to document body.
 
-    Duck-typed: Takes WordPackage or Document.
-    Returns the new element (w:p or w:tbl).
-
     Args:
-        pkg: WordPackage or Document
+        pkg: WordPackage
         content_type: 'paragraph', 'heading', or 'table'
         content_data: Text content or JSON for tables
         style_name: Style name to apply (for paragraphs)
         heading_level: Heading level (for headings)
+
+    Returns the new element (w:p or w:tbl).
     """
     from mcp_handley_lab.word.ops.tables import _create_table_element, populate_table
 
@@ -949,11 +896,7 @@ def append_content_ooxml(
         tbl = _create_table_element(rows, cols)
         populate_table(tbl, table_data)
 
-        if hasattr(pkg, "body"):
-            body = pkg.body
-        else:
-            body = pkg.element.body
-
+        body = pkg.body
         sectPr = body.find(qn("w:sectPr"))
         if sectPr is not None:
             sectPr.addprevious(tbl)

@@ -11,16 +11,11 @@ Contains functions for:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
 from lxml import etree
 
-from mcp_handley_lab.word.opc.constants import qn
-
-if TYPE_CHECKING:
-    pass
-
 from mcp_handley_lab.word.models import HeaderFooterInfo
+from mcp_handley_lab.word.opc.constants import qn
 from mcp_handley_lab.word.ops.core import (
     _make_run_with,
     make_block_id,
@@ -37,7 +32,7 @@ _EMU_PER_INCH = 914400
 
 
 def insert_field(
-    p_el,
+    p_el: etree._Element,
     field_code: str,
     display_text: str = "",
     *,
@@ -46,115 +41,84 @@ def insert_field(
 ) -> None:
     """Insert a Word field into a paragraph.
 
-    Pure OOXML: Takes w:p element (or Paragraph wrapper for backwards compat).
-
     Creates proper OXML field structure with separate runs for each part:
     begin, instruction, separator, result, and end markers.
     Supports any Word field code (PAGE, NUMPAGES, DATE, TIME, AUTHOR, etc.).
 
     Args:
-        p_el: Paragraph element (w:p) or Paragraph wrapper (for backwards compat)
+        p_el: w:p element
+        field_code: Word field code (e.g., 'PAGE', 'NUMPAGES', 'DATE')
+        display_text: Display text (unused, kept for API compatibility)
         uppercase: If True (default), uppercases field_code. Set False for case-sensitive
             fields like bookmark names in cross-references.
         placeholder: Default result text shown before field updates.
     """
     code = field_code.strip().upper() if uppercase else field_code
 
-    # Support both lxml element and Paragraph wrapper (backwards compat)
-    p = getattr(p_el, "_p", p_el)
-
     # Run 1: Field begin
     fld_char_begin = etree.Element(qn("w:fldChar"))
     fld_char_begin.set(qn("w:fldCharType"), "begin")
-    p.append(_make_run_with(fld_char_begin))
+    p_el.append(_make_run_with(fld_char_begin))
 
     # Run 2: Field instruction
     instr_text = etree.Element(qn("w:instrText"))
     instr_text.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
     instr_text.text = f" {code} "
-    p.append(_make_run_with(instr_text))
+    p_el.append(_make_run_with(instr_text))
 
     # Run 3: Field separator
     fld_char_sep = etree.Element(qn("w:fldChar"))
     fld_char_sep.set(qn("w:fldCharType"), "separate")
-    p.append(_make_run_with(fld_char_sep))
+    p_el.append(_make_run_with(fld_char_sep))
 
     # Run 4: Result text (placeholder shown before field updates)
     text_elem = etree.Element(qn("w:t"))
     text_elem.text = display_text or placeholder
-    p.append(_make_run_with(text_elem))
+    p_el.append(_make_run_with(text_elem))
 
     # Run 5: Field end
     fld_char_end = etree.Element(qn("w:fldChar"))
     fld_char_end.set(qn("w:fldCharType"), "end")
-    p.append(_make_run_with(fld_char_end))
+    p_el.append(_make_run_with(fld_char_end))
 
 
-def insert_page_x_of_y(
-    pkg_or_doc, section_index: int, location: str = "footer"
-) -> None:
+def insert_page_x_of_y(pkg, section_index: int, location: str = "footer") -> None:
     """Insert 'Page X of Y' into header or footer.
 
-    Duck-typed: works with WordPackage (pure OOXML) or python-docx Document.
-
     Args:
-        pkg_or_doc: WordPackage or Document to modify
+        pkg: WordPackage
         section_index: 0-based section index
         location: 'header' or 'footer'
     """
-    # Pure OOXML path
-    if hasattr(pkg_or_doc, "has_part"):
-        pkg = pkg_or_doc
-        if location not in ("header", "footer"):
-            raise ValueError(f"location must be 'header' or 'footer', got: {location}")
-        partname, hf_root = _ensure_hf_part(pkg, section_index, location, "default")
+    if location not in ("header", "footer"):
+        raise ValueError(f"location must be 'header' or 'footer', got: {location}")
+    partname, hf_root = _ensure_hf_part(pkg, section_index, location, "default")
 
-        # Create paragraph
-        p = etree.SubElement(hf_root, qn("w:p"))
+    # Create paragraph
+    p = etree.SubElement(hf_root, qn("w:p"))
 
-        # Add "Page " text
-        r1 = etree.SubElement(p, qn("w:r"))
-        t1 = etree.SubElement(r1, qn("w:t"))
-        t1.text = "Page "
+    # Add "Page " text
+    r1 = etree.SubElement(p, qn("w:r"))
+    t1 = etree.SubElement(r1, qn("w:t"))
+    t1.text = "Page "
 
-        # Insert PAGE field
-        insert_field(p, "PAGE")
-
-        # Add " of " text
-        r2 = etree.SubElement(p, qn("w:r"))
-        t2 = etree.SubElement(r2, qn("w:t"))
-        t2.text = " of "
-
-        # Insert NUMPAGES field
-        insert_field(p, "NUMPAGES")
-
-        pkg.mark_xml_dirty(partname)
-        return
-
-    # python-docx path (legacy)
-    doc = pkg_or_doc
-    section = doc.sections[section_index]  # Let IndexError propagate
-    hf = {"footer": section.footer, "header": section.header}[
-        location
-    ]  # KeyError if invalid
-    hf.is_linked_to_previous = False
-    p = hf.add_paragraph()
-    p.add_run("Page ")
+    # Insert PAGE field
     insert_field(p, "PAGE")
-    p.add_run(" of ")
+
+    # Add " of " text
+    r2 = etree.SubElement(p, qn("w:r"))
+    t2 = etree.SubElement(r2, qn("w:t"))
+    t2.text = " of "
+
+    # Insert NUMPAGES field
     insert_field(p, "NUMPAGES")
+
+    pkg.mark_xml_dirty(partname)
 
 
 # =============================================================================
 # Header/Footer Reading
 # =============================================================================
-
-
-def _hf_text(hf) -> str | None:
-    """Extract header/footer text. Returns None if linked to previous section."""
-    return (
-        None if hf.is_linked_to_previous else "\n".join(p.text for p in hf.paragraphs)
-    )
 
 
 def _extract_hf_text_ooxml(pkg, rId: str) -> str:
@@ -312,40 +276,13 @@ def _build_headers_footers_ooxml(pkg) -> list[HeaderFooterInfo]:
     return result
 
 
-def build_headers_footers(pkg_or_doc) -> list[HeaderFooterInfo]:
+def build_headers_footers(pkg) -> list[HeaderFooterInfo]:
     """Build list of HeaderFooterInfo for all sections.
 
     Args:
-        pkg_or_doc: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # Check if it's a WordPackage (pure OOXML path)
-    if hasattr(pkg_or_doc, "document_xml"):
-        return _build_headers_footers_ooxml(pkg_or_doc)
-
-    # python-docx Document path (legacy)
-    doc = pkg_or_doc
-    result = []
-    for idx, section in enumerate(doc.sections):
-        hdr, ftr = section.header, section.footer
-        info = HeaderFooterInfo(
-            section_index=idx,
-            header_text=_hf_text(hdr),
-            footer_text=_hf_text(ftr),
-            header_is_linked=hdr.is_linked_to_previous,
-            footer_is_linked=ftr.is_linked_to_previous,
-            has_different_first_page=section.different_first_page_header_footer,
-            has_different_odd_even=doc.settings.odd_and_even_pages_header_footer,
-        )
-        if section.different_first_page_header_footer:
-            fp_hdr, fp_ftr = section.first_page_header, section.first_page_footer
-            info.first_page_header_text = _hf_text(fp_hdr)
-            info.first_page_footer_text = _hf_text(fp_ftr)
-        if doc.settings.odd_and_even_pages_header_footer:
-            ev_hdr, ev_ftr = section.even_page_header, section.even_page_footer
-            info.even_page_header_text = _hf_text(ev_hdr)
-            info.even_page_footer_text = _hf_text(ev_ftr)
-        result.append(info)
-    return result
+    return _build_headers_footers_ooxml(pkg)
 
 
 # =============================================================================
@@ -505,50 +442,37 @@ def _ensure_hf_part(
 # =============================================================================
 
 
-def set_header_footer_text(
-    pkg_or_doc, section_index: int, text: str, location: str
-) -> None:
+def set_header_footer_text(pkg, section_index: int, text: str, location: str) -> None:
     """Set header/footer text. Handles all types via location attribute name.
 
-    Duck-typed: works with WordPackage (pure OOXML) or python-docx Document.
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        text: Text content for header/footer
+        location: One of 'header', 'footer', 'first_page_header', 'first_page_footer',
+                  'even_page_header', 'even_page_footer'
     """
-    # Pure OOXML path
-    if hasattr(pkg_or_doc, "has_part"):
-        pkg = pkg_or_doc
-        if location not in _LOCATION_MAP:
-            raise ValueError(f"Unknown location: {location}")
-        kind, hf_type = _LOCATION_MAP[location]
-        partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
+    if location not in _LOCATION_MAP:
+        raise ValueError(f"Unknown location: {location}")
+    kind, hf_type = _LOCATION_MAP[location]
+    partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
 
-        # Clear existing content (keep root, remove all children)
-        for child in list(hf_root):
-            hf_root.remove(child)
+    # Clear existing content (keep root, remove all children)
+    for child in list(hf_root):
+        hf_root.remove(child)
 
-        # Add paragraph with text
-        p = etree.SubElement(hf_root, qn("w:p"))
-        if text:
-            r = etree.SubElement(p, qn("w:r"))
-            t = etree.SubElement(r, qn("w:t"))
-            t.text = text
+    # Add paragraph with text
+    p = etree.SubElement(hf_root, qn("w:p"))
+    if text:
+        r = etree.SubElement(p, qn("w:r"))
+        t = etree.SubElement(r, qn("w:t"))
+        t.text = text
 
-        pkg.mark_xml_dirty(partname)
-        return
-
-    # python-docx path (legacy)
-    doc = pkg_or_doc
-    section = doc.sections[section_index]
-    if location.startswith("first_page_"):
-        section.different_first_page_header_footer = True
-    elif location.startswith("even_page_"):
-        doc.settings.odd_and_even_pages_header_footer = True
-    hf = getattr(section, location)
-    for p in list(hf.paragraphs):
-        p._element.getparent().remove(p._element)
-    hf.add_paragraph(text)
+    pkg.mark_xml_dirty(partname)
 
 
 def append_to_header_footer(
-    pkg_or_doc,
+    pkg,
     section_index: int,
     content_type: str,
     content_data: str,
@@ -556,99 +480,73 @@ def append_to_header_footer(
 ) -> str:
     """Append paragraph or table to header/footer. Returns element_id.
 
-    Duck-typed: works with WordPackage (pure OOXML) or python-docx Document.
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        content_type: 'paragraph' or 'table'
+        content_data: Text for paragraph, JSON for table
+        location: Header/footer location name
     """
-    # Pure OOXML path
-    if hasattr(pkg_or_doc, "has_part"):
-        pkg = pkg_or_doc
-        if location not in _LOCATION_MAP:
-            raise ValueError(f"Unknown location: {location}")
-        kind, hf_type = _LOCATION_MAP[location]
-        partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
+    if location not in _LOCATION_MAP:
+        raise ValueError(f"Unknown location: {location}")
+    kind, hf_type = _LOCATION_MAP[location]
+    partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
 
-        if content_type == "paragraph":
-            # Create paragraph with text
-            p = etree.SubElement(hf_root, qn("w:p"))
-            if content_data:
-                r = etree.SubElement(p, qn("w:r"))
-                t = etree.SubElement(r, qn("w:t"))
-                t.text = content_data
-
-            # Count occurrences for block ID
-            occurrence = (
-                sum(
-                    1
-                    for para in hf_root.findall(qn("w:p"))
-                    if "".join(t.text or "" for t in para.iter(qn("w:t")))
-                    == content_data
-                )
-                - 1
-            )
-            pkg.mark_xml_dirty(partname)
-            return make_block_id("paragraph", content_data, occurrence)
-
-        if content_type == "table":
-            from mcp_handley_lab.word.ops.tables import _create_table_element
-
-            table_data = json.loads(content_data)
-            rows = len(table_data)
-            cols = max((len(r) for r in table_data), default=1)
-            # Create table element with dimensions (6 inch width / cols, in twips)
-            # 1 inch = 1440 twips
-            col_width_twips = int((6.0 * 1440) / cols)
-            tbl = _create_table_element(rows, cols, col_width_twips)
-            populate_table(tbl, table_data)
-            hf_root.append(tbl)
-            pkg.mark_xml_dirty(partname)
-            return make_block_id("table", table_content_for_hash(tbl), 0)
-
-        raise ValueError(f"Unknown content_type: {content_type}")
-
-    # python-docx path (legacy)
-    doc = pkg_or_doc
-    hf = getattr(doc.sections[section_index], location)
     if content_type == "paragraph":
-        p = hf.add_paragraph(content_data)
-        occurrence = sum(1 for para in hf.paragraphs if para.text == p.text) - 1
-        return make_block_id("paragraph", p.text, occurrence)
+        # Create paragraph with text
+        p = etree.SubElement(hf_root, qn("w:p"))
+        if content_data:
+            r = etree.SubElement(p, qn("w:r"))
+            t = etree.SubElement(r, qn("w:t"))
+            t.text = content_data
+
+        # Count occurrences for block ID
+        occurrence = (
+            sum(
+                1
+                for para in hf_root.findall(qn("w:p"))
+                if "".join(t.text or "" for t in para.iter(qn("w:t"))) == content_data
+            )
+            - 1
+        )
+        pkg.mark_xml_dirty(partname)
+        return make_block_id("paragraph", content_data, occurrence)
+
     if content_type == "table":
-        from docx.shared import Inches
+        from mcp_handley_lab.word.ops.tables import _create_table_element
 
         table_data = json.loads(content_data)
-        rows, cols = len(table_data), max((len(r) for r in table_data), default=1)
-        tbl = hf.add_table(rows=rows, cols=cols, width=Inches(6))
-        populate_table(tbl._tbl, table_data)  # Pass element, not wrapper
-        return make_block_id("table", table_content_for_hash(tbl._tbl), 0)
+        rows = len(table_data)
+        cols = max((len(r) for r in table_data), default=1)
+        # Create table element with dimensions (6 inch width / cols, in twips)
+        # 1 inch = 1440 twips
+        col_width_twips = int((6.0 * 1440) / cols)
+        tbl = _create_table_element(rows, cols, col_width_twips)
+        populate_table(tbl, table_data)
+        hf_root.append(tbl)
+        pkg.mark_xml_dirty(partname)
+        return make_block_id("table", table_content_for_hash(tbl), 0)
+
     raise ValueError(f"Unknown content_type: {content_type}")
 
 
-def clear_header_footer(pkg_or_doc, section_index: int, location: str) -> None:
-    """Clear header/footer content. Unlinks from previous section first.
+def clear_header_footer(pkg, section_index: int, location: str) -> None:
+    """Clear header/footer content.
 
-    Duck-typed: works with WordPackage (pure OOXML) or python-docx Document.
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        location: Header/footer location name
     """
-    # Pure OOXML path
-    if hasattr(pkg_or_doc, "has_part"):
-        pkg = pkg_or_doc
-        if location not in _LOCATION_MAP:
-            raise ValueError(f"Unknown location: {location}")
-        kind, hf_type = _LOCATION_MAP[location]
-        partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
+    if location not in _LOCATION_MAP:
+        raise ValueError(f"Unknown location: {location}")
+    kind, hf_type = _LOCATION_MAP[location]
+    partname, hf_root = _ensure_hf_part(pkg, section_index, kind, hf_type)
 
-        # Clear existing content (keep root, remove all children)
-        for child in list(hf_root):
-            hf_root.remove(child)
+    # Clear existing content (keep root, remove all children)
+    for child in list(hf_root):
+        hf_root.remove(child)
 
-        # Add empty paragraph (Word requires at least one)
-        etree.SubElement(hf_root, qn("w:p"))
-        pkg.mark_xml_dirty(partname)
-        return
-
-    # python-docx path (legacy)
-    doc = pkg_or_doc
-    hf = getattr(doc.sections[section_index], location)
-    hf.is_linked_to_previous = False
-    hf_el = hf._element
-    for child in list(hf_el):
-        hf_el.remove(child)
-    hf.add_paragraph("")  # Word requires at least one paragraph
+    # Add empty paragraph (Word requires at least one)
+    etree.SubElement(hf_root, qn("w:p"))
+    pkg.mark_xml_dirty(partname)

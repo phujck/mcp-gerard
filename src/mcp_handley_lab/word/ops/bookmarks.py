@@ -11,15 +11,10 @@ Pure OOXML implementation - works directly with lxml elements.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
 from lxml import etree
 
 from mcp_handley_lab.word.opc.constants import qn
-
-if TYPE_CHECKING:
-    pass
-
 from mcp_handley_lab.word.ops.core import (
     count_occurrence,
     get_paragraph_style,
@@ -47,10 +42,8 @@ _RESERVED_BOOKMARK_PREFIXES = ("_Toc", "_Ref", "_Hlt", "_GoBack")
 
 
 def _get_document_xml(pkg) -> etree._Element:
-    """Get document.xml root from WordPackage or Document (duck-typed)."""
-    if hasattr(pkg, "document_xml"):
-        return pkg.document_xml  # WordPackage
-    return pkg.element  # Document
+    """Get document.xml root from WordPackage."""
+    return pkg.document_xml
 
 
 def _validate_bookmark_name(name: str) -> None:
@@ -74,7 +67,8 @@ def _validate_bookmark_name(name: str) -> None:
 def _get_next_bookmark_id(pkg) -> int:
     """Get next available bookmark ID.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
     """
     doc_xml = _get_document_xml(pkg)
     max_id = 0
@@ -98,7 +92,8 @@ def _is_reserved_bookmark(name: str) -> bool:
 def build_bookmarks(pkg) -> list[dict]:
     """List all bookmarks in document.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Skips reserved bookmarks (_Toc*, _Ref*, etc.) used internally by Word.
     Returns list of dicts with: id, name, block_id.
@@ -147,11 +142,13 @@ def build_bookmarks(pkg) -> list[dict]:
     return results
 
 
-def add_bookmark(pkg, name: str, para) -> int:
+def add_bookmark(pkg, name: str, p_el: etree._Element) -> int:
     """Add bookmark at paragraph. Returns bookmark ID.
 
-    Duck-typed: Takes WordPackage or Document.
-    para: lxml element (w:p) or Paragraph wrapper.
+    Args:
+        pkg: WordPackage
+        name: Bookmark name
+        p_el: w:p element
 
     Validates:
     - Name starts with letter
@@ -159,9 +156,6 @@ def add_bookmark(pkg, name: str, para) -> int:
     - Unique within document
     """
     _validate_bookmark_name(name)
-
-    # Get element from wrapper if needed
-    p_el = para._element if hasattr(para, "_element") else para
 
     # Check uniqueness
     for bm in build_bookmarks(pkg):
@@ -247,7 +241,8 @@ def insert_caption(
 ) -> str:
     """Insert caption for table/image. Returns caption block ID.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Creates paragraph with:
     1. Style "Caption"
@@ -306,7 +301,8 @@ def insert_caption(
 def build_captions(pkg) -> list[dict]:
     """List all captions (paragraphs with style "Caption" containing SEQ fields).
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Returns list of dicts with: id, label, number, text, block_id, style.
     """

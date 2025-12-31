@@ -97,7 +97,6 @@ from mcp_handley_lab.word.ops.footnotes import (  # noqa: F401
     delete_footnote,
 )
 from mcp_handley_lab.word.ops.headers import (  # noqa: F401
-    _hf_text,
     append_to_header_footer,
     build_headers_footers,
     clear_header_footer,
@@ -110,8 +109,6 @@ from mcp_handley_lab.word.ops.images import (  # noqa: F401
     _WRAP_API_TO_XML,
     _WRAP_XML_TO_API,
     _extract_anchor_position,
-    _extract_images_from_paragraph,
-    _extract_images_from_run,
     _extract_text_from_txbxcontent,
     _find_image_in_paragraph,
     _find_textbox_content_by_id,
@@ -205,20 +202,12 @@ from mcp_handley_lab.word.ops.sections import (  # noqa: F401
 )
 from mcp_handley_lab.word.ops.styles import (  # noqa: F401
     _ALIGNMENT_OOXML_MAP,
-    _HIGHLIGHT_MAP,
-    _HIGHLIGHT_REVERSE,
-    _PARA_DIRECT_ATTRS,
-    _PARA_INCH_ATTRS,
-    _PARA_PT_ATTRS,
-    _RUN_ATTRS,
     _RUN_FORMAT_KEYS,
     _RUN_OOXML_BOOL,
     _TWIPS_PER_INCH,
     _TWIPS_PER_PT,
     _apply_paragraph_formatting_ooxml,
     _resolve_run_by_index_ooxml,
-    _resolve_run_by_inner_index,
-    _set_run_attr,
     _set_run_attr_ooxml,
     _set_run_text_ooxml,
     add_hyperlink,

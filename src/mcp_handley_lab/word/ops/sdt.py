@@ -11,15 +11,10 @@ Pure OOXML implementation - works directly with lxml elements.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from lxml import etree
 
 from mcp_handley_lab.word.opc.constants import NSMAP, qn
 from mcp_handley_lab.word.ops.core import content_hash, make_block_id, mark_dirty
-
-if TYPE_CHECKING:
-    pass
 
 # =============================================================================
 # Constants
@@ -31,18 +26,6 @@ _SDT_NSMAP = {
     "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
     "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
 }
-
-
-# =============================================================================
-# Duck-Typed Helpers
-# =============================================================================
-
-
-def _get_body(pkg) -> etree._Element:
-    """Get body element from WordPackage or Document (duck-typed)."""
-    if hasattr(pkg, "body"):
-        return pkg.body  # WordPackage
-    return pkg.element.body  # Document
 
 
 # =============================================================================
@@ -198,13 +181,16 @@ def build_block_id_from_element(
 def build_content_controls(pkg) -> list[dict]:
     """Build list of all content controls (SDTs) in the document.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+
+    Returns list of dicts with: id, tag, alias, type, value, options, checked, date_format, block_id.
     """
     content_controls: list[dict] = []
     block_hash_counts: dict[str, int] = {}
 
     # Find all SDTs in document body
-    body = _get_body(pkg)
+    body = pkg.body
     if body is None:
         return content_controls
 
@@ -272,14 +258,17 @@ def build_content_controls(pkg) -> list[dict]:
 def set_content_control_value(pkg, sdt_id: int, value: str) -> None:
     """Set the value of a content control.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        sdt_id: Content control ID
+        value: New value to set
 
     For dropdown: value must match one of the options
     For checkbox: value should be "true" or "false"
     For date: value should be ISO date string
     For text: value is the text content
     """
-    body = _get_body(pkg)
+    body = pkg.body
     if body is None:
         raise ValueError("Document has no body")
 

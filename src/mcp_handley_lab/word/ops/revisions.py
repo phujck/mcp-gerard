@@ -70,18 +70,12 @@ _ALL_REVISION_TAGS = (
 
 
 def _get_document_xml(pkg) -> etree._Element:
-    """Get document.xml root from WordPackage or Document (duck-typed)."""
-    if hasattr(pkg, "document_xml"):
-        return pkg.document_xml  # WordPackage
-    return pkg.element  # Document
+    """Get document.xml root from WordPackage."""
+    return pkg.document_xml
 
 
 def _rev_xpath(element, expr: str) -> list:
-    """Execute XPath with revision namespace.
-
-    Duck-typed: Works with lxml elements or python-docx BaseOxmlElement.
-    Uses lxml ElementBase.xpath to ensure namespaces param works.
-    """
+    """Execute XPath with revision namespace."""
     return _LxmlElementBase.xpath(element, expr, namespaces=_REV_NS)
 
 
@@ -93,7 +87,8 @@ def _rev_xpath(element, expr: str) -> list:
 def has_tracked_changes(pkg) -> bool:
     """Check if document body has any tracked changes.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
     Searches only within w:body (not headers/footers/footnotes).
     """
     doc_xml = _get_document_xml(pkg)
@@ -163,7 +158,8 @@ def _has_field_deletion(element) -> bool:
 def read_tracked_changes(pkg) -> list[dict]:
     """List all tracked changes in document body.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Searches only within w:body (consistent with has_tracked_changes).
     Returns list in document order (no deduplication - same w:id may appear
@@ -339,7 +335,8 @@ def _remove_element_preserve_tail(element) -> None:
 def _find_elements_by_id(pkg, change_id: str, tags: tuple) -> list:
     """Find all elements with given w:id in document body.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Uses Python filtering instead of XPath interpolation to avoid
     potential issues with special characters in change_id.
@@ -360,7 +357,8 @@ def _find_elements_by_id(pkg, change_id: str, tags: tuple) -> list:
 def _find_move_range_markers(pkg, move_id: str) -> dict:
     """Find all range markers for a move operation.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Returns dict with keys: from_start, from_end, to_start, to_end
     Each value is a list of matching elements (usually 0 or 1).
@@ -402,7 +400,8 @@ def _validate_move_completeness(move_from: list, move_to: list, markers: dict) -
 def _accept_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
     """Accept a move: keep destination content, remove source.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Processing:
     1. Validate move completeness
@@ -435,7 +434,8 @@ def _accept_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
 def _reject_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
     """Reject a move: keep source content, remove destination.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Processing:
     1. Validate move completeness
@@ -473,7 +473,8 @@ def _reject_move(pkg, move_id: str, move_from: list, move_to: list) -> None:
 def accept_change(pkg, change_id: str) -> None:
     """Accept a specific tracked change by ID.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     - Insertions (w:ins): Unwrap content, remove tag
     - Deletions (w:del): Remove entirely
@@ -520,7 +521,8 @@ def accept_change(pkg, change_id: str) -> None:
 def reject_change(pkg, change_id: str) -> None:
     """Reject a specific tracked change by ID.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     - Insertions (w:ins): Remove entirely
     - Deletions (w:del): Convert delText to t, unwrap
@@ -575,7 +577,8 @@ def reject_change(pkg, change_id: str) -> None:
 def accept_all_changes(pkg) -> int:
     """Accept all supported tracked changes. Returns count.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Gathers all change IDs first, then processes to avoid
     iteration invalidation during tree mutation.
@@ -604,7 +607,8 @@ def accept_all_changes(pkg) -> int:
 def reject_all_changes(pkg) -> int:
     """Reject all supported tracked changes. Returns count.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
     """
     changes = read_tracked_changes(pkg)
     # Filter to supported changes and get unique IDs (preserving order)

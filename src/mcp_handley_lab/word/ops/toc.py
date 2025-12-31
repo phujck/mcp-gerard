@@ -40,19 +40,13 @@ _NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 
 
 def _toc_xpath(element: etree._Element, expr: str) -> list:
-    """XPath using ElementBase.xpath for namespace compatibility.
-
-    Uses lxml ElementBase.xpath to ensure namespaces parameter works
-    correctly with both raw lxml elements and python-docx BaseOxmlElement.
-    """
+    """XPath using ElementBase.xpath for namespace compatibility."""
     return _LxmlElementBase.xpath(element, expr, namespaces=_NS)
 
 
 def _get_document_xml(pkg) -> etree._Element:
-    """Get document.xml root from WordPackage or Document (duck-typed)."""
-    if hasattr(pkg, "document_xml"):
-        return pkg.document_xml  # WordPackage
-    return pkg.element  # Document
+    """Get document.xml root from WordPackage."""
+    return pkg.document_xml
 
 
 # =============================================================================
@@ -63,7 +57,8 @@ def _get_document_xml(pkg) -> etree._Element:
 def has_toc(pkg) -> bool:
     """Check if document has a Table of Contents.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Searches for:
     1. w:instrText containing "TOC" (complex field)
@@ -86,7 +81,8 @@ def has_toc(pkg) -> bool:
 def get_toc_info(pkg) -> dict:
     """Get TOC metadata if exists.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Parses heading levels from field switches (e.g., \\o "1-3").
     Returns dict compatible with TOCInfo model.
@@ -204,7 +200,8 @@ def insert_toc(
 ) -> str:
     """Insert TOC field at position. Returns block ID.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Field code: TOC \\o "1-3" \\h \\z \\u
     - \\o: heading levels
@@ -275,7 +272,8 @@ def insert_toc(
 def update_toc_field(pkg) -> bool:
     """Set dirty flag on TOC field begin marker.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
 
     Sets w:dirty="true" on w:fldChar[@w:fldCharType="begin"] for complex fields,
     or w:dirty="true" on w:fldSimple for simple fields.

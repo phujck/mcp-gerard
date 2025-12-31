@@ -6,23 +6,15 @@ Contains functions for:
 - Adding sections
 - Multi-column layout
 - Line numbering
-
-Note: These functions still use python-docx Document for section access.
-The plan is to migrate to pure OOXML in a future phase.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from lxml import etree
 
-from mcp_handley_lab.word.enums import WdOrient, WdSection
+from mcp_handley_lab.word.enums import WdSection
 from mcp_handley_lab.word.models import LineNumberingInfo, PageSetupInfo
 from mcp_handley_lab.word.opc.constants import qn
-
-if TYPE_CHECKING:
-    pass
 
 # EMU per inch for unit conversions
 _EMU_PER_INCH = 914400
@@ -151,93 +143,26 @@ def build_page_setup(pkg) -> list[PageSetupInfo]:
     """Build list of PageSetupInfo for all sections.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # WordPackage path (pure OOXML)
-    if hasattr(pkg, "document_xml"):
-        body = pkg.body
-        result = []
-        idx = 0
-
-        # Section breaks within paragraphs (w:p/w:pPr/w:sectPr)
-        for p in body.findall(qn("w:p")):
-            pPr = p.find(qn("w:pPr"))
-            if pPr is not None:
-                sectPr = pPr.find(qn("w:sectPr"))
-                if sectPr is not None:
-                    result.append(_parse_sectpr(sectPr, idx))
-                    idx += 1
-
-        # Final section (w:body/w:sectPr)
-        body_sectPr = body.find(qn("w:sectPr"))
-        if body_sectPr is not None:
-            result.append(_parse_sectpr(body_sectPr, idx))
-
-        return result
-
-    # python-docx Document path (legacy)
+    body = pkg.body
     result = []
-    for idx, section in enumerate(pkg.sections):
-        s = section
-        sectPr = s._sectPr
+    idx = 0
 
-        # Extract column settings from w:cols
-        columns = 1
-        column_spacing = 0.5
-        column_separator = False
-        cols_el = sectPr.find(qn("w:cols"))
-        if cols_el is not None:
-            num = cols_el.get(qn("w:num"))
-            columns = int(num) if num else 1
-            space = cols_el.get(qn("w:space"))
-            if space:
-                column_spacing = round(int(space) / 1440, 2)  # twips to inches
-            sep = cols_el.get(qn("w:sep"))
-            column_separator = sep == "1" or sep == "true"
+    # Section breaks within paragraphs (w:p/w:pPr/w:sectPr)
+    for p in body.findall(qn("w:p")):
+        pPr = p.find(qn("w:pPr"))
+        if pPr is not None:
+            sectPr = pPr.find(qn("w:sectPr"))
+            if sectPr is not None:
+                result.append(_parse_sectpr(sectPr, idx))
+                idx += 1
 
-        # Extract line numbering from w:lnNumType
-        line_numbering = None
-        ln_el = sectPr.find(qn("w:lnNumType"))
-        if ln_el is not None:
-            restart_map = {
-                "newPage": "newPage",
-                "newSection": "newSection",
-                "continuous": "continuous",
-            }
-            restart_val = ln_el.get(qn("w:restart")) or "newPage"
-            start_val = ln_el.get(qn("w:start")) or "1"
-            count_by_val = ln_el.get(qn("w:countBy")) or "1"
-            distance_val = ln_el.get(qn("w:distance")) or "720"
-            line_numbering = LineNumberingInfo(
-                enabled=True,
-                restart=restart_map.get(restart_val, "newPage"),
-                start=int(start_val),
-                count_by=int(count_by_val),
-                distance_inches=round(int(distance_val) / 1440, 2),  # twips to inches
-            )
+    # Final section (w:body/w:sectPr)
+    body_sectPr = body.find(qn("w:sectPr"))
+    if body_sectPr is not None:
+        result.append(_parse_sectpr(body_sectPr, idx))
 
-        result.append(
-            PageSetupInfo(
-                section_index=idx,
-                orientation="landscape"
-                if s.orientation == WdOrient.LANDSCAPE
-                else "portrait",
-                page_width=round(s.page_width / 914400, 2) if s.page_width else 0.0,
-                page_height=round(s.page_height / 914400, 2) if s.page_height else 0.0,
-                top_margin=round(s.top_margin / 914400, 2) if s.top_margin else 0.0,
-                bottom_margin=round(s.bottom_margin / 914400, 2)
-                if s.bottom_margin
-                else 0.0,
-                left_margin=round(s.left_margin / 914400, 2) if s.left_margin else 0.0,
-                right_margin=round(s.right_margin / 914400, 2)
-                if s.right_margin
-                else 0.0,
-                columns=columns,
-                column_spacing=column_spacing,
-                column_separator=column_separator,
-                line_numbering=line_numbering,
-            )
-        )
     return result
 
 
@@ -278,9 +203,8 @@ def _get_sectpr_by_index(pkg, section_index: int) -> etree._Element:
 
 
 def _mark_dirty(pkg) -> None:
-    """Mark document.xml as dirty for WordPackage (no-op for Document)."""
-    if hasattr(pkg, "mark_xml_dirty"):
-        pkg.mark_xml_dirty("/word/document.xml")
+    """Mark document.xml as dirty."""
+    pkg.mark_xml_dirty("/word/document.xml")
 
 
 # =============================================================================
@@ -298,38 +222,34 @@ def set_page_margins(
 ) -> None:
     """Set page margins for a section. Values in inches.
 
-    Duck-typed: Works with WordPackage or python-docx Document.
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        top, bottom, left, right: Margins in inches
     """
-    # WordPackage path (pure OOXML)
-    if hasattr(pkg, "document_xml"):
-        sectPr = _get_sectpr_by_index(pkg, section_index)
+    sectPr = _get_sectpr_by_index(pkg, section_index)
 
-        # Get or create w:pgMar element
-        pgMar = sectPr.find(qn("w:pgMar"))
-        if pgMar is None:
-            pgMar = etree.Element(qn("w:pgMar"))
-            _insert_sectpr_element(sectPr, pgMar, "pgMar")
+    # Get or create w:pgMar element
+    pgMar = sectPr.find(qn("w:pgMar"))
+    if pgMar is None:
+        pgMar = etree.Element(qn("w:pgMar"))
+        _insert_sectpr_element(sectPr, pgMar, "pgMar")
 
-        # Set margins in twips (1440 twips = 1 inch)
-        pgMar.set(qn("w:top"), str(int(top * 1440)))
-        pgMar.set(qn("w:bottom"), str(int(bottom * 1440)))
-        pgMar.set(qn("w:left"), str(int(left * 1440)))
-        pgMar.set(qn("w:right"), str(int(right * 1440)))
-        _mark_dirty(pkg)
-        return
-
-    # python-docx Document path (legacy)
-    section = pkg.sections[section_index]
-    section.top_margin = int(top * _EMU_PER_INCH)
-    section.bottom_margin = int(bottom * _EMU_PER_INCH)
-    section.left_margin = int(left * _EMU_PER_INCH)
-    section.right_margin = int(right * _EMU_PER_INCH)
+    # Set margins in twips (1440 twips = 1 inch)
+    pgMar.set(qn("w:top"), str(int(top * 1440)))
+    pgMar.set(qn("w:bottom"), str(int(bottom * 1440)))
+    pgMar.set(qn("w:left"), str(int(left * 1440)))
+    pgMar.set(qn("w:right"), str(int(right * 1440)))
+    _mark_dirty(pkg)
 
 
 def set_page_orientation(pkg, section_index: int, orientation: str) -> None:
     """Set page orientation for a section. Valid: 'portrait' or 'landscape'.
 
-    Duck-typed: Works with WordPackage or python-docx Document.
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        orientation: 'portrait' or 'landscape'
     """
     orient_lower = orientation.lower()
     if orient_lower not in ("portrait", "landscape"):
@@ -337,59 +257,46 @@ def set_page_orientation(pkg, section_index: int, orientation: str) -> None:
             f"Invalid orientation '{orientation}'. Valid: ['portrait', 'landscape']"
         )
 
-    # WordPackage path (pure OOXML)
-    if hasattr(pkg, "document_xml"):
-        sectPr = _get_sectpr_by_index(pkg, section_index)
+    sectPr = _get_sectpr_by_index(pkg, section_index)
 
-        # Get or create w:pgSz element
-        pgSz = sectPr.find(qn("w:pgSz"))
-        if pgSz is None:
-            pgSz = etree.Element(qn("w:pgSz"))
-            _insert_sectpr_element(sectPr, pgSz, "pgSz")
-            # Default letter size in twips (8.5" x 11")
-            pgSz.set(qn("w:w"), str(int(8.5 * 1440)))
-            pgSz.set(qn("w:h"), str(int(11 * 1440)))
+    # Get or create w:pgSz element
+    pgSz = sectPr.find(qn("w:pgSz"))
+    if pgSz is None:
+        pgSz = etree.Element(qn("w:pgSz"))
+        _insert_sectpr_element(sectPr, pgSz, "pgSz")
+        # Default letter size in twips (8.5" x 11")
+        pgSz.set(qn("w:w"), str(int(8.5 * 1440)))
+        pgSz.set(qn("w:h"), str(int(11 * 1440)))
 
-        # Get current dimensions
-        w = int(pgSz.get(qn("w:w")) or str(int(8.5 * 1440)))
-        h = int(pgSz.get(qn("w:h")) or str(int(11 * 1440)))
+    # Get current dimensions
+    w = int(pgSz.get(qn("w:w")) or str(int(8.5 * 1440)))
+    h = int(pgSz.get(qn("w:h")) or str(int(11 * 1440)))
 
-        # Set orientation attribute
-        if orient_lower == "landscape":
-            pgSz.set(qn("w:orient"), "landscape")
-            # Swap dimensions if currently portrait
-            if h > w:
-                pgSz.set(qn("w:w"), str(h))
-                pgSz.set(qn("w:h"), str(w))
-        else:
-            # Remove orient attribute for portrait (default)
-            if qn("w:orient") in pgSz.attrib:
-                del pgSz.attrib[qn("w:orient")]
-            # Swap dimensions if currently landscape
-            if w > h:
-                pgSz.set(qn("w:w"), str(h))
-                pgSz.set(qn("w:h"), str(w))
+    # Set orientation attribute
+    if orient_lower == "landscape":
+        pgSz.set(qn("w:orient"), "landscape")
+        # Swap dimensions if currently portrait
+        if h > w:
+            pgSz.set(qn("w:w"), str(h))
+            pgSz.set(qn("w:h"), str(w))
+    else:
+        # Remove orient attribute for portrait (default)
+        if qn("w:orient") in pgSz.attrib:
+            del pgSz.attrib[qn("w:orient")]
+        # Swap dimensions if currently landscape
+        if w > h:
+            pgSz.set(qn("w:w"), str(h))
+            pgSz.set(qn("w:h"), str(w))
 
-        _mark_dirty(pkg)
-        return
-
-    # python-docx Document path (legacy)
-    section = pkg.sections[section_index]
-    w, h = section.page_width, section.page_height
-
-    section.orientation = (
-        WdOrient.LANDSCAPE if orient_lower == "landscape" else WdOrient.PORTRAIT
-    )
-    # Swap dimensions if needed - python-docx accepts raw EMU values
-    if orient_lower == "landscape" and h > w or orient_lower == "portrait" and w > h:
-        section.page_width, section.page_height = h, w
+    _mark_dirty(pkg)
 
 
 def add_section(pkg, start_type: str = "new_page") -> int:
     """Add new section. Returns new section index (0-based).
 
-    Duck-typed: Takes WordPackage or Document.
-    start_type: 'new_page', 'continuous', 'even_page', 'odd_page', 'new_column'.
+    Args:
+        pkg: WordPackage
+        start_type: 'new_page', 'continuous', 'even_page', 'odd_page', 'new_column'
     """
     start_type_lower = start_type.lower()
     if start_type_lower not in _SECTION_START_MAP:
@@ -397,13 +304,6 @@ def add_section(pkg, start_type: str = "new_page") -> int:
             f"Invalid start_type '{start_type}'. Valid: {list(_SECTION_START_MAP.keys())}"
         )
 
-    # Duck-type: WordPackage has document_xml, Document doesn't
-    if not hasattr(pkg, "document_xml"):
-        # Legacy python-docx Document path
-        pkg.add_section(_SECTION_START_MAP[start_type_lower])
-        return len(pkg.sections) - 1
-
-    # WordPackage path (pure OOXML)
     # OOXML type values
     _TYPE_MAP = {
         "new_page": "nextPage",
@@ -519,21 +419,14 @@ def set_section_columns(
 ) -> None:
     """Set multi-column layout for a section.
 
-    Duck-typed: Works with WordPackage or python-docx Document.
-
     Args:
-        pkg: WordPackage or python-docx Document
+        pkg: WordPackage
         section_index: 0-based section index
         num_columns: Number of columns (1-16)
         spacing_inches: Space between columns in inches
         separator: True to show line between columns
     """
-    # Get sectPr element
-    if hasattr(pkg, "document_xml"):
-        sectPr = _get_sectpr_by_index(pkg, section_index)
-    else:
-        section = pkg.sections[section_index]
-        sectPr = section._sectPr
+    sectPr = _get_sectpr_by_index(pkg, section_index)
 
     # Get or create w:cols element
     cols = sectPr.find(qn("w:cols"))
@@ -560,10 +453,8 @@ def set_line_numbering(
 ) -> None:
     """Enable/configure line numbering for a section.
 
-    Duck-typed: Works with WordPackage or python-docx Document.
-
     Args:
-        pkg: WordPackage or python-docx Document
+        pkg: WordPackage
         section_index: 0-based section index
         enabled: True to enable, False to disable line numbering
         restart: When to restart: 'newPage', 'newSection', or 'continuous'
@@ -571,12 +462,7 @@ def set_line_numbering(
         count_by: Show number every N lines
         distance_inches: Distance from margin in inches
     """
-    # Get sectPr element
-    if hasattr(pkg, "document_xml"):
-        sectPr = _get_sectpr_by_index(pkg, section_index)
-    else:
-        section = pkg.sections[section_index]
-        sectPr = section._sectPr
+    sectPr = _get_sectpr_by_index(pkg, section_index)
 
     # Find existing w:lnNumType
     lnNumType = sectPr.find(qn("w:lnNumType"))

@@ -22,29 +22,18 @@ _NUMBERING_NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/m
 
 
 # =============================================================================
-# Duck-Typed Helpers
+# Helper Functions
 # =============================================================================
 
 
 def _get_numbering_xml(pkg) -> etree._Element | None:
-    """Get numbering.xml root from WordPackage or Document (duck-typed).
-
-    For Document, returns the live element (modifications persist).
-    For WordPackage, returns the parsed element (call mark_xml_dirty after changes).
-    """
-    if hasattr(pkg, "numbering_xml"):
-        return pkg.numbering_xml  # WordPackage
-    # Document: access via numbering_part (live element for modification)
-    try:
-        return pkg.part.numbering_part._element
-    except AttributeError:
-        return None
+    """Get numbering.xml root from WordPackage."""
+    return pkg.numbering_xml
 
 
 def _mark_numbering_dirty(pkg) -> None:
-    """Mark numbering.xml as dirty (only needed for WordPackage)."""
-    if hasattr(pkg, "mark_xml_dirty"):
-        pkg.mark_xml_dirty("/word/numbering.xml")
+    """Mark numbering.xml as dirty."""
+    pkg.mark_xml_dirty("/word/numbering.xml")
 
 
 # =============================================================================
@@ -53,18 +42,17 @@ def _mark_numbering_dirty(pkg) -> None:
 
 
 def _numbering_xpath(element: etree._Element, expr: str) -> list:
-    """Execute XPath on element using Word namespace.
-
-    Duck-typed: Works with lxml elements or python-docx BaseOxmlElement.
-    Uses lxml ElementBase.xpath to ensure namespaces param works.
-    """
+    """Execute XPath on element using Word namespace."""
     return _LxmlElementBase.xpath(element, expr, namespaces=_NUMBERING_NS)
 
 
 def _resolve_abstract_num_id(pkg, num_id: int) -> int | None:
     """Resolve num_id to abstractNumId via numbering.xml.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        num_id: The numId to resolve
+
     Returns None if num_id not found.
     """
     numbering_xml = _get_numbering_xml(pkg)
@@ -84,7 +72,11 @@ def _resolve_level_format(
 ) -> dict[str, str | int | None]:
     """Get level format info (numFmt, lvlText, start) from abstractNum.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
+        abstract_num_id: The abstractNumId
+        ilvl: Indentation level (0-8)
+
     Returns dict with keys: format_type, level_text, start_value.
     """
     numbering_xml = _get_numbering_xml(pkg)
@@ -120,7 +112,9 @@ def _resolve_level_format(
 def get_list_info(pkg, p_el: etree._Element) -> dict | None:
     """Get list properties for a paragraph element.
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
 
     Returns None if paragraph is not in a list.
     Returns dict with: num_id, abstract_num_id, level, format_type, start_value, level_text.
@@ -195,7 +189,10 @@ def _ensure_numPr(pPr: etree._Element) -> etree._Element:
 def set_list_level(pkg, p_el: etree._Element, level: int) -> None:
     """Set list indentation level (0-8).
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
+        level: List level (0-8)
 
     Only works on paragraphs already in a list.
     Raises ValueError if paragraph is not in a list.
@@ -226,7 +223,9 @@ def set_list_level(pkg, p_el: etree._Element, level: int) -> None:
 def promote_list_item(pkg, p_el: etree._Element) -> int:
     """Decrease level (move left). Min level is 0. Returns new level.
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
     """
     pPr = p_el.find(qn("w:pPr"))
     if pPr is None:
@@ -255,7 +254,9 @@ def promote_list_item(pkg, p_el: etree._Element) -> int:
 def demote_list_item(pkg, p_el: etree._Element) -> int:
     """Increase level (move right). Max level is 8. Returns new level.
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
     """
     pPr = p_el.find(qn("w:pPr"))
     if pPr is None:
@@ -289,7 +290,8 @@ def demote_list_item(pkg, p_el: etree._Element) -> int:
 def _get_max_num_id(pkg) -> int:
     """Get the maximum numId currently in use.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
     """
     numbering_xml = _get_numbering_xml(pkg)
     if numbering_xml is None:
@@ -305,7 +307,10 @@ def _get_max_num_id(pkg) -> int:
 def restart_numbering(pkg, p_el: etree._Element, start_value: int = 1) -> int:
     """Restart numbering from given value.
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
+        start_value: Number to restart from (default 1)
 
     Creates a new w:num in numbering.xml referencing the same abstractNum,
     with lvlOverride/startOverride, then updates the paragraph's numId.
@@ -361,7 +366,9 @@ def restart_numbering(pkg, p_el: etree._Element, start_value: int = 1) -> int:
 def remove_list_formatting(pkg, p_el: etree._Element) -> None:
     """Remove list formatting from paragraph (removes w:numPr).
 
-    Duck-typed: Takes WordPackage or Document and w:p element.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
     """
     pPr = p_el.find(qn("w:pPr"))
     if pPr is None:

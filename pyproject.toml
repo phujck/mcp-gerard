@@ -48,7 +48,6 @@ dependencies = [
     "pendulum>=3.0.0",
     "wolframclient>=1.1.0",
     "numpy>=1.24.0",
-    "python-docx>=1.1.0",
 ]
 
 [project.optional-dependencies]

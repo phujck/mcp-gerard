@@ -11,18 +11,13 @@ Contains functions for:
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
 
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
 
+from mcp_handley_lab.word.models import ImageInfo
 from mcp_handley_lab.word.opc.constants import NSMAP as OXML_NSMAP
 from mcp_handley_lab.word.opc.constants import qn
-
-if TYPE_CHECKING:
-    from docx import Document
-
-from mcp_handley_lab.word.models import ImageInfo
 from mcp_handley_lab.word.ops.core import (
     _EMU_PER_INCH,
     _IMAGE_ID_RE,
@@ -68,11 +63,7 @@ _TEXTBOX_NS = {
 
 
 def _img_xpath(element, expr: str, ns: dict | None = None) -> list:
-    """XPath using ElementBase.xpath for namespace compatibility.
-
-    Uses lxml ElementBase.xpath to ensure namespaces parameter works
-    correctly with both raw lxml elements and python-docx BaseOxmlElement.
-    """
+    """XPath using ElementBase.xpath for namespace compatibility."""
     return _LxmlElementBase.xpath(element, expr, namespaces=ns or OXML_NSMAP)
 
 
@@ -91,34 +82,23 @@ def get_embedded_image_hash(pkg, blip) -> str | None:
     """Get SHA1 hash for embedded image. Returns None for linked images.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         blip: a:blip element containing the image reference
     """
     import hashlib
 
     # Get relationship ID from blip element
-    # Support both python-docx elements (with .embed attribute) and raw lxml
-    try:
-        rel_id = blip.embed  # python-docx accessor
-    except AttributeError:
-        # Raw lxml element - use qualified namespace
-        r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-        rel_id = blip.get(f"{{{r_ns}}}embed")
+    r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    rel_id = blip.get(f"{{{r_ns}}}embed")
     if not rel_id:
         return None  # Linked image - can't hash external resource
 
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if hasattr(pkg, "has_part"):
-        # Pure OOXML path - resolve relationship and hash image bytes
-        partname = pkg.resolve_rel_target("/word/document.xml", rel_id)
-        if not pkg.has_part(partname):
-            return None
-        image_bytes = pkg.get_bytes(partname)
-        return hashlib.sha1(image_bytes).hexdigest()[:8]
-
-    # Legacy python-docx path
-    image_part = pkg.part.related_parts[rel_id]
-    return image_part.image.sha1[:8]
+    # Resolve relationship and hash image bytes
+    partname = pkg.resolve_rel_target("/word/document.xml", rel_id)
+    if not pkg.has_part(partname):
+        return None
+    image_bytes = pkg.get_bytes(partname)
+    return hashlib.sha1(image_bytes).hexdigest()[:8]
 
 
 def _extract_anchor_position(anchor) -> dict:
@@ -153,117 +133,6 @@ def _extract_anchor_position(anchor) -> dict:
             break
 
     return result
-
-
-def _extract_images_from_run(
-    doc: Document,
-    run,
-    run_idx: int,
-    block_id: str,
-    image_hash_counts: dict[str, int],
-    images: list[ImageInfo],
-) -> None:
-    """Extract images from a single run (both inline and anchored)."""
-    image_idx_in_run = 0
-    for drawing in _img_xpath(run._element, ".//w:drawing"):
-        # Check for both inline and anchor images
-        inline = _img_find(drawing, ".//wp:inline")
-        anchor = _img_find(drawing, ".//wp:anchor")
-
-        container = inline if inline is not None else anchor
-        if container is None:
-            continue
-
-        # Guard access to pic element (skip charts/smartart)
-        # Try python-docx attribute accessors first, fall back to XPath for raw lxml
-        try:
-            blip = container.graphic.graphicData.pic.blipFill.blip
-        except AttributeError:
-            # Raw lxml element - use XPath (lowercase 'ml' in namespace)
-            blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
-            blip_list = _img_xpath(container, ".//a:blip", blip_ns)
-            if not blip_list:
-                continue
-            blip = blip_list[0]
-
-        h = get_embedded_image_hash(doc, blip)
-        if h is None:
-            continue  # Skip linked images
-
-        # Track image occurrence globally
-        img_occurrence = image_hash_counts.get(h, 0)
-        image_hash_counts[h] = img_occurrence + 1
-
-        # Get metadata via XML (avoid InlineShape construction issues)
-        # Handle both python-docx elements (with .embed) and raw lxml elements
-        try:
-            rel_id = blip.embed  # python-docx accessor
-        except AttributeError:
-            r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-            rel_id = blip.get(f"{{{r_ns}}}embed")
-        image_part = doc.part.related_parts[rel_id]
-        # Handle extent for both python-docx elements and raw lxml elements
-        try:
-            extent = container.extent
-            width_emu = extent.cx if extent is not None else 0
-            height_emu = extent.cy if extent is not None else 0
-        except AttributeError:
-            # Raw lxml element - find wp:extent element directly
-            extent_el = _img_find(container, "./wp:extent")
-            if extent_el is not None:
-                width_emu = int(extent_el.get("cx", 0))
-                height_emu = int(extent_el.get("cy", 0))
-            else:
-                width_emu, height_emu = 0, 0
-
-        # Build base image info
-        info_kwargs = {
-            "id": f"image_{h}_{img_occurrence}",
-            "width_inches": width_emu / _EMU_PER_INCH,
-            "height_inches": height_emu / _EMU_PER_INCH,
-            "content_type": image_part.content_type,
-            "block_id": block_id,
-            "run_index": run_idx,
-            "image_index_in_run": image_idx_in_run,
-            "filename": image_part.image.filename or "",
-        }
-
-        # Add anchor-specific positioning if floating image
-        if anchor is not None:
-            info_kwargs.update(_extract_anchor_position(anchor))
-
-        images.append(ImageInfo(**info_kwargs))
-        image_idx_in_run += 1
-
-
-def _extract_images_from_paragraph(
-    doc: Document,
-    para,
-    block_id: str,
-    image_hash_counts: dict[str, int],
-) -> list[ImageInfo]:
-    """Extract images from a paragraph, updating occurrence counts.
-
-    Uses iter_inner_content() indexing to match build_runs() indexing.
-    """
-
-    from docx.text.hyperlink import Hyperlink
-
-    images: list[ImageInfo] = []
-    run_idx = 0
-    for item in para.iter_inner_content():
-        if isinstance(item, Hyperlink):
-            for run in item.runs:
-                _extract_images_from_run(
-                    doc, run, run_idx, block_id, image_hash_counts, images
-                )
-                run_idx += 1
-        else:  # Run
-            _extract_images_from_run(
-                doc, item, run_idx, block_id, image_hash_counts, images
-            )
-            run_idx += 1
-    return images
 
 
 # =============================================================================
@@ -476,79 +345,23 @@ def _build_images_ooxml(pkg) -> list[ImageInfo]:
     return images
 
 
-# =============================================================================
-# Image Building and Resolution
-# =============================================================================
-
-
-def build_images(pkg_or_doc) -> list[ImageInfo]:
+def build_images(pkg) -> list[ImageInfo]:
     """Build list of ImageInfo from document body, including tables.
 
     Args:
-        pkg_or_doc: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # Check if it's a WordPackage (pure OOXML path)
-    if hasattr(pkg_or_doc, "document_xml"):
-        return _build_images_ooxml(pkg_or_doc)
-
-    # python-docx Document path (legacy)
-    from docx.oxml.table import CT_Tbl
-    from docx.oxml.text.paragraph import CT_P
-    from docx.table import Table
-    from docx.text.paragraph import Paragraph as DocxParagraph
-
-    doc = pkg_or_doc
-    images = []
-    block_hash_counts: dict[str, int] = {}  # For block_id computation
-    image_hash_counts: dict[str, int] = {}  # For image occurrence
-
-    # Iterate body blocks directly using python-docx
-    for child in doc.element.body.iterchildren():
-        if isinstance(child, CT_P):
-            para = DocxParagraph(child, doc)
-            block_type, _ = paragraph_kind_and_level(child)
-            text = para.text or ""
-            block_hash_key = f"{block_type}_{content_hash(text)}"
-            block_occurrence = block_hash_counts.get(block_hash_key, 0)
-            block_id = make_block_id(block_type, text, block_occurrence)
-            block_hash_counts[block_hash_key] = block_occurrence + 1
-
-            images.extend(
-                _extract_images_from_paragraph(doc, para, block_id, image_hash_counts)
-            )
-
-        elif isinstance(child, CT_Tbl):
-            tbl = Table(child, doc)
-            # Use element for hash computation
-            table_content = table_content_for_hash(child)
-            block_hash_key = f"table_{content_hash(table_content)}"
-            block_occurrence = block_hash_counts.get(block_hash_key, 0)
-            table_block_id = make_block_id("table", table_content, block_occurrence)
-            block_hash_counts[block_hash_key] = block_occurrence + 1
-
-            # Search all cells for images with hierarchical block_id
-            rows, cols = len(tbl.rows), len(tbl.columns)
-            for r in range(rows):
-                for c in range(cols):
-                    cell = tbl.cell(r, c)
-                    for p_idx, para in enumerate(cell.paragraphs):
-                        hier_block_id = f"{table_block_id}#r{r}c{c}/p{p_idx}"
-                        images.extend(
-                            _extract_images_from_paragraph(
-                                doc, para, hier_block_id, image_hash_counts
-                            )
-                        )
-
-    return images
+    return _build_images_ooxml(pkg)
 
 
-def _find_image_in_paragraph(doc: Document, para, target_hash: str):
+def _find_image_in_paragraph(pkg, p_el, target_hash: str):
     """Yield each wp:inline or wp:anchor element in paragraph matching target_hash.
 
-    Uses iter_inner_content() traversal to match build_images() indexing.
+    Args:
+        pkg: WordPackage
+        p_el: w:p element
+        target_hash: Image hash to match
     """
-    # Pass element to _iter_all_runs_in_paragraph, handle both wrapper and element
-    p_el = para._element if hasattr(para, "_element") else para
     for run_el in _iter_all_runs_in_paragraph(p_el):
         for drawing in _img_xpath(run_el, ".//w:drawing"):
             inline = _img_find(drawing, ".//wp:inline")
@@ -556,29 +369,30 @@ def _find_image_in_paragraph(doc: Document, para, target_hash: str):
             container = inline if inline is not None else anchor
             if container is None:
                 continue
-            # Try python-docx attribute accessors first, fall back to XPath for raw lxml
-            try:
-                blip = container.graphic.graphicData.pic.blipFill.blip
-            except AttributeError:
-                # Raw lxml element - use XPath (lowercase 'ml' in namespace)
-                blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
-                blip_list = _img_xpath(container, ".//a:blip", blip_ns)
-                if not blip_list:
-                    continue
-                blip = blip_list[0]
-            h = get_embedded_image_hash(doc, blip)
+            # Use XPath to find blip element
+            blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+            blip_list = _img_xpath(container, ".//a:blip", blip_ns)
+            if not blip_list:
+                continue
+            blip = blip_list[0]
+            h = get_embedded_image_hash(pkg, blip)
             if h == target_hash:
                 yield container
 
 
-def resolve_image(doc: Document, image_id: str) -> tuple:
-    """Find embedded image by content-addressable ID. Returns (inline_el, para_el)."""
+def resolve_image(pkg, image_id: str) -> tuple:
+    """Find embedded image by content-addressable ID. Returns (inline_el, para_el).
+
+    Args:
+        pkg: WordPackage
+        image_id: Image ID (e.g., 'image_abc12345_0')
+    """
     target_hash, occurrence_str = _IMAGE_ID_RE.match(image_id).groups()
     target_occurrence = int(occurrence_str)
 
     occurrence_count = 0
-    for p_el in _iter_all_paragraphs(doc):  # Now yields only elements
-        for inline in _find_image_in_paragraph(doc, p_el, target_hash):
+    for p_el in _iter_all_paragraphs(pkg):
+        for inline in _find_image_in_paragraph(pkg, p_el, target_hash):
             if occurrence_count == target_occurrence:
                 return inline, p_el
             occurrence_count += 1
@@ -586,11 +400,17 @@ def resolve_image(doc: Document, image_id: str) -> tuple:
     raise ValueError(f"Image not found: {image_id}")
 
 
-def count_image_occurrence(doc: Document, target_hash: str, target_para_el) -> int:
-    """Count embedded images with same hash before target paragraph."""
+def count_image_occurrence(pkg, target_hash: str, target_para_el) -> int:
+    """Count embedded images with same hash before target paragraph.
+
+    Args:
+        pkg: WordPackage
+        target_hash: Image hash to count
+        target_para_el: Target paragraph element
+    """
     occurrence = 0
-    for p_el in _iter_all_paragraphs(doc):  # Now yields only elements
-        for _inline in _find_image_in_paragraph(doc, p_el, target_hash):
+    for p_el in _iter_all_paragraphs(pkg):
+        for _inline in _find_image_in_paragraph(pkg, p_el, target_hash):
             if p_el is target_para_el:
                 return occurrence
             occurrence += 1
@@ -692,7 +512,7 @@ def insert_image(
     """Insert image at target location.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         image_path: Path to image file
         target_id: Target block ID
         position: 'before' or 'after' for positioning
@@ -705,68 +525,6 @@ def insert_image(
     - table_abc_0 -> Insert before/after table
     - paragraph_abc_0 -> Insert before/after paragraph
     """
-
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if hasattr(pkg, "has_part"):
-        return _insert_image_ooxml(
-            pkg, image_path, target_id, position, width_inches, height_inches
-        )
-
-    # Legacy python-docx path
-    from docx.shared import Inches
-
-    target = resolve_target(pkg, target_id)
-
-    # Get image hash first
-    _, image = pkg.part.get_or_add_image(image_path)
-    h = image.sha1[:8]
-
-    width = Inches(width_inches) if width_inches else None
-    height = Inches(height_inches) if height_inches else None
-
-    if target.leaf_kind == "paragraph":
-        # Insert into this paragraph
-        para = target.leaf_obj
-        run = para.add_run()
-        run.add_picture(image_path, width, height)
-        mark_dirty(pkg)
-        occurrence = count_image_occurrence(pkg, h, para._element)
-        return f"image_{h}_{occurrence}"
-
-    if target.leaf_kind == "cell":
-        # Use first paragraph of cell (create if needed)
-        cell = target.leaf_obj
-        para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
-        run = para.add_run()
-        run.add_picture(image_path, width, height)
-        mark_dirty(pkg)
-        occurrence = count_image_occurrence(pkg, h, para._element)
-        return f"image_{h}_{occurrence}"
-
-    # Target is table or paragraph at base level -> insert before/after
-    new_para = pkg.add_paragraph()
-    run = new_para.add_run()
-    run.add_picture(image_path, width, height)
-
-    if position == "before":
-        target.leaf_el.addprevious(new_para._element)
-    else:
-        target.leaf_el.addnext(new_para._element)
-
-    mark_dirty(pkg)
-    occurrence = count_image_occurrence(pkg, h, new_para._element)
-    return f"image_{h}_{occurrence}"
-
-
-def _insert_image_ooxml(
-    pkg,
-    image_path: str,
-    target_id: str,
-    position: str,
-    width_inches: float = 0,
-    height_inches: float = 0,
-) -> str:
-    """Insert image using pure OOXML."""
     import hashlib
 
     target = resolve_target(pkg, target_id)
@@ -840,7 +598,7 @@ def delete_image(pkg, image_id: str) -> None:
     """Delete an image. Removes containing paragraph if only whitespace remains.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         image_id: Image ID (e.g., 'image_abc12345_0')
     """
     inline_el, para_el = resolve_image(pkg, image_id)
@@ -958,7 +716,7 @@ def insert_floating_image(
     """Insert floating (anchored) image at target location.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         image_path: Path to image file
         target_id: Block ID for anchor paragraph
         position_h: Horizontal position in inches
@@ -973,103 +731,6 @@ def insert_floating_image(
     Returns:
         Image ID (image_{hash}_{occurrence})
     """
-
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if hasattr(pkg, "has_part"):
-        return _insert_floating_image_ooxml(
-            pkg,
-            image_path,
-            target_id,
-            position_h,
-            position_v,
-            relative_h,
-            relative_v,
-            wrap_type,
-            width_inches,
-            height_inches,
-            behind_doc,
-        )
-
-    # Legacy python-docx path
-    target = resolve_target(pkg, target_id)
-
-    # Get/add image to package and get relationship ID
-    rId, image = pkg.part.get_or_add_image(image_path)
-    h = image.sha1[:8]
-
-    # Calculate default dimensions in EMUs from pixels and DPI
-    default_cx = int(image.px_width * _EMU_PER_INCH / image.horz_dpi)
-    default_cy = int(image.px_height * _EMU_PER_INCH / image.vert_dpi)
-
-    # Calculate dimensions in EMUs
-    if width_inches and height_inches:
-        cx = int(width_inches * _EMU_PER_INCH)
-        cy = int(height_inches * _EMU_PER_INCH)
-    elif width_inches:
-        cx = int(width_inches * _EMU_PER_INCH)
-        cy = int(cx * default_cy / default_cx)
-    elif height_inches:
-        cy = int(height_inches * _EMU_PER_INCH)
-        cx = int(cy * default_cx / default_cy)
-    else:
-        cx, cy = default_cx, default_cy
-
-    # Convert position to EMUs
-    offset_h = int(position_h * _EMU_PER_INCH)
-    offset_v = int(position_v * _EMU_PER_INCH)
-
-    # Generate unique ID for drawing elements
-    doc_pr_id = random.randint(100000, 999999)
-
-    # Create drawing element
-    drawing_el = _create_anchor_drawing_xml(
-        rId,
-        cx,
-        cy,
-        offset_h,
-        offset_v,
-        relative_h,
-        relative_v,
-        wrap_type,
-        behind_doc,
-        doc_pr_id,
-    )
-
-    # Find target paragraph and add drawing
-    if target.leaf_kind == "paragraph":
-        para = target.leaf_obj
-    elif target.leaf_kind == "cell":
-        cell = target.leaf_obj
-        para = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
-    else:
-        # Create new paragraph for floating image
-        para = pkg.add_paragraph()
-        if hasattr(target, "leaf_el"):
-            target.leaf_el.addnext(para._element)
-
-    # Add run with drawing
-    run = para.add_run()
-    run._element.append(drawing_el)
-
-    mark_dirty(pkg)
-    occurrence = count_image_occurrence(pkg, h, para._element)
-    return f"image_{h}_{occurrence}"
-
-
-def _insert_floating_image_ooxml(
-    pkg,
-    image_path: str,
-    target_id: str,
-    position_h: float,
-    position_v: float,
-    relative_h: str,
-    relative_v: str,
-    wrap_type: str,
-    width_inches: float,
-    height_inches: float,
-    behind_doc: bool,
-) -> str:
-    """Insert floating image using pure OOXML."""
     import hashlib
 
     target = resolve_target(pkg, target_id)
@@ -1250,22 +911,18 @@ def _get_wrap_type(ancestor) -> str | None:
 def build_text_boxes(pkg) -> list[dict]:
     """Build list of all text boxes from both DrawingML and VML.
 
-    Discovery strategy (per OpenAI review):
+    Discovery strategy:
     1. Search for ALL w:txbxContent elements in document
     2. Classify source by ancestor chain (w:drawing = DrawingML, w:pict = VML)
     3. Handle mc:AlternateContent (both mc:Choice and mc:Fallback)
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
     text_boxes = []
     seen_ids = set()
 
-    # Get document element (duck-typed for WordPackage vs Document)
-    if hasattr(pkg, "document_xml"):
-        doc_element = pkg.document_xml
-    else:
-        doc_element = pkg.element
+    doc_element = pkg.document_xml
 
     # Search for all w:txbxContent elements
     txbx_contents = _textbox_xpath(doc_element, "//w:txbxContent")
@@ -1338,13 +995,9 @@ def _find_textbox_content_by_id(pkg, textbox_id: str):
     """Find w:txbxContent element by text box ID.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # Get document element (duck-typed)
-    if hasattr(pkg, "document_xml"):
-        doc_element = pkg.document_xml
-    else:
-        doc_element = pkg.element
+    doc_element = pkg.document_xml
 
     text_boxes = build_text_boxes(pkg)
     for idx, tb in enumerate(text_boxes):
@@ -1392,7 +1045,7 @@ def read_text_box_content(pkg, textbox_id: str) -> list[dict]:
     Returns list of dicts with 'index', 'text', and basic formatting info.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
     txbx = _find_textbox_content_by_id(pkg, textbox_id)
     if txbx is None:
@@ -1413,14 +1066,15 @@ def read_text_box_content(pkg, textbox_id: str) -> list[dict]:
     return result
 
 
-def edit_text_box_text(
-    doc: Document, textbox_id: str, para_index: int, new_text: str
-) -> None:
+def edit_text_box_text(pkg, textbox_id: str, para_index: int, new_text: str) -> None:
     """Edit text in a text box paragraph.
 
     Replaces all text in the specified paragraph with new_text.
+
+    Args:
+        pkg: WordPackage
     """
-    txbx = _find_textbox_content_by_id(doc, textbox_id)
+    txbx = _find_textbox_content_by_id(pkg, textbox_id)
     if txbx is None:
         raise ValueError(f"Text box not found: {textbox_id}")
 
@@ -1457,5 +1111,4 @@ def edit_text_box_text(
         run.append(t)
         p.append(run)
 
-    # Mark document.xml as modified for WordPackage
-    mark_dirty(doc)
+    mark_dirty(pkg)

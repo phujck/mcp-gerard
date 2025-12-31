@@ -9,22 +9,7 @@ Contains functions for:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from lxml import etree
-
-from mcp_handley_lab.word.enums import (
-    WdAlignParagraph,
-    WdColorIndex,
-    WdStyleType,
-    WdTabAlignment,
-    WdTabLeader,
-)
-from mcp_handley_lab.word.opc.constants import RT, qn
-from mcp_handley_lab.word.shared import Inches, Pt, RGBColor
-
-if TYPE_CHECKING:
-    from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.models import (
     HyperlinkInfo,
@@ -34,50 +19,34 @@ from mcp_handley_lab.word.models import (
     StyleInfo,
     TabStopInfo,
 )
+from mcp_handley_lab.word.opc.constants import RT, qn
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-_HIGHLIGHT_MAP = {
-    "yellow": WdColorIndex.YELLOW,
-    "green": WdColorIndex.BRIGHT_GREEN,
-    "cyan": WdColorIndex.TURQUOISE,
-    "pink": WdColorIndex.PINK,
-    "blue": WdColorIndex.BLUE,
-    "red": WdColorIndex.RED,
-    "dark_blue": WdColorIndex.DARK_BLUE,
-    "dark_red": WdColorIndex.DARK_RED,
-    "dark_yellow": WdColorIndex.DARK_YELLOW,
-    "gray": WdColorIndex.GRAY_25,
-    "dark_gray": WdColorIndex.GRAY_50,
-    "black": WdColorIndex.BLACK,
-    "white": WdColorIndex.WHITE,
+# Run formatting keys that should be applied to runs in apply_paragraph_formatting
+_RUN_FORMAT_KEYS = {
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "double_strike",
+    "subscript",
+    "superscript",
+    "all_caps",
+    "small_caps",
+    "hidden",
+    "emboss",
+    "imprint",
+    "outline",
+    "shadow",
+    "font_name",
+    "style",
+    "font_size",
+    "color",
+    "highlight_color",
 }
-_HIGHLIGHT_REVERSE = {v: k for k, v in _HIGHLIGHT_MAP.items()}
-
-_RUN_ATTRS = {
-    "bold": "bold",
-    "italic": "italic",
-    "underline": "underline",
-    "strike": "font.strike",
-    "double_strike": "font.double_strike",
-    "subscript": "font.subscript",
-    "superscript": "font.superscript",
-    "all_caps": "font.all_caps",
-    "small_caps": "font.small_caps",
-    "hidden": "font.hidden",
-    "emboss": "font.emboss",
-    "imprint": "font.imprint",
-    "outline": "font.outline",
-    "shadow": "font.shadow",
-    "font_name": "font.name",
-}
-
-_PARA_INCH_ATTRS = {"left_indent", "right_indent", "first_line_indent"}
-_PARA_PT_ATTRS = {"space_before", "space_after"}
-_PARA_DIRECT_ATTRS = {"keep_with_next", "page_break_before"}
-_RUN_FORMAT_KEYS = set(_RUN_ATTRS) | {"style", "font_size", "color", "highlight_color"}
 
 
 # =============================================================================
@@ -261,84 +230,25 @@ def _build_runs_ooxml(p_el, doc_rels) -> list[RunInfo]:
     return result
 
 
-def _build_run_info(
-    run, index: int, is_hyperlink: bool = False, hyperlink_url: str | None = None
-) -> RunInfo:
-    """Build RunInfo from a python-docx Run object."""
-    return RunInfo(
-        index=index,
-        text=run.text or "",
-        bold=run.bold,
-        italic=run.italic,
-        underline=run.underline,
-        font_name=run.font.name,
-        font_size=run.font.size.pt if run.font.size else None,
-        color=str(run.font.color.rgb)
-        if run.font.color and run.font.color.rgb
-        else None,
-        highlight_color=_HIGHLIGHT_REVERSE.get(run.font.highlight_color),
-        strike=run.font.strike,
-        double_strike=run.font.double_strike,
-        subscript=run.font.subscript,
-        superscript=run.font.superscript,
-        style=run.style.name if run.style else None,
-        is_hyperlink=is_hyperlink,
-        hyperlink_url=hyperlink_url,
-        all_caps=run.font.all_caps,
-        small_caps=run.font.small_caps,
-        hidden=run.font.hidden,
-        emboss=run.font.emboss,
-        imprint=run.font.imprint,
-        outline=run.font.outline,
-        shadow=run.font.shadow,
-    )
-
-
-def build_runs(paragraph, doc_rels=None) -> list[RunInfo]:
+def build_runs(p_el, doc_rels) -> list[RunInfo]:
     """Build list of RunInfo for all runs in a paragraph.
 
     Args:
-        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
-        doc_rels: Relationships collection (required for OOXML path)
+        p_el: lxml w:p element
+        doc_rels: Relationships collection for resolving hyperlink targets
     """
-    # Check if it's an lxml element (pure OOXML path)
-    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
-        return _build_runs_ooxml(paragraph, doc_rels)
-
-    # python-docx Paragraph path (legacy)
-    from docx.text.hyperlink import Hyperlink
-
-    result = []
-    idx = 0
-    for item in paragraph.iter_inner_content():
-        if isinstance(item, Hyperlink):
-            url = item.url
-            for run in item.runs:
-                result.append(
-                    _build_run_info(run, idx, is_hyperlink=True, hyperlink_url=url)
-                )
-                idx += 1
-        else:  # Run
-            result.append(_build_run_info(item, idx))
-            idx += 1
-    return result
+    return _build_runs_ooxml(p_el, doc_rels)
 
 
 def build_hyperlinks(pkg) -> list[HyperlinkInfo]:
     """Build list of all hyperlinks in the document.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # Get document element and relationships (duck-typed)
-    if hasattr(pkg, "document_xml"):
-        # WordPackage
-        doc_element = pkg.document_xml
-        doc_rels = pkg.get_rels("/word/document.xml")
-        return _build_hyperlinks_ooxml(doc_element, doc_rels)
-    else:
-        # python-docx Document - use legacy implementation
-        return _build_hyperlinks_docx(pkg)
+    doc_element = pkg.document_xml
+    doc_rels = pkg.get_rels("/word/document.xml")
+    return _build_hyperlinks_ooxml(doc_element, doc_rels)
 
 
 def _build_hyperlinks_ooxml(doc_element, doc_rels) -> list[HyperlinkInfo]:
@@ -393,66 +303,18 @@ def _build_hyperlinks_ooxml(doc_element, doc_rels) -> list[HyperlinkInfo]:
     return result
 
 
-def _build_hyperlinks_docx(doc) -> list[HyperlinkInfo]:
-    """Build hyperlinks using python-docx (legacy)."""
-    from docx.oxml.table import CT_Tbl
-    from docx.oxml.text.paragraph import CT_P
-    from docx.table import Table
-    from docx.text.hyperlink import Hyperlink
-    from docx.text.paragraph import Paragraph as DocxParagraph
-
-    def iter_all_paragraphs_docx():
-        """Iterate paragraphs using python-docx (for Hyperlink support)."""
-        for child in doc.element.body.iterchildren():
-            if isinstance(child, CT_P):
-                yield DocxParagraph(child, doc)
-            elif isinstance(child, CT_Tbl):
-                tbl = Table(child, doc)
-                for row in tbl.rows:
-                    for cell in row.cells:
-                        yield from cell.paragraphs
-
-    result = []
-    idx = 0
-    for para in iter_all_paragraphs_docx():
-        for item in para.iter_inner_content():
-            if isinstance(item, Hyperlink):
-                result.append(
-                    HyperlinkInfo(
-                        index=idx,
-                        text=item.text,
-                        url=item.url,
-                        address=item.address,
-                        fragment=item.fragment,
-                        is_external=bool(item._hyperlink.rId),
-                    )
-                )
-                idx += 1
-    return result
-
-
 def add_hyperlink(
-    pkg_or_paragraph,
-    p_el_or_text,
-    text_or_address: str = "",
-    address_or_fragment: str = "",
+    pkg,
+    p_el,
+    text: str,
+    address: str = "",
     fragment: str = "",
 ) -> None:
     """Add hyperlink to paragraph.
 
-    Supports two calling conventions:
-    1. Pure OOXML: add_hyperlink(pkg, p_el, text, address, fragment)
-    2. Legacy python-docx: add_hyperlink(paragraph, text, address, fragment)
-
-    Args (pure OOXML):
+    Args:
         pkg: WordPackage
         p_el: Paragraph element (w:p)
-        text: Visible link text
-        address: URL or file path (external link)
-        fragment: Bookmark name (internal link) or URL anchor
-
-    Args (legacy):
-        paragraph: python-docx Paragraph
         text: Visible link text
         address: URL or file path (external link)
         fragment: Bookmark name (internal link) or URL anchor
@@ -462,23 +324,6 @@ def add_hyperlink(
     For internal links: address="", fragment="BookmarkName"
     For external with anchor: address="https://example.com", fragment="section"
     """
-    # Duck-type: detect calling convention
-    if hasattr(pkg_or_paragraph, "has_part"):
-        # Pure OOXML: (pkg, p_el, text, address, fragment)
-        pkg = pkg_or_paragraph
-        p_el = p_el_or_text
-        text = text_or_address
-        address = address_or_fragment
-        # fragment already set
-        use_ooxml = True
-    else:
-        # Legacy python-docx: (paragraph, text, address, fragment)
-        paragraph = pkg_or_paragraph
-        text = p_el_or_text if isinstance(p_el_or_text, str) else ""
-        address = text_or_address
-        fragment = address_or_fragment
-        use_ooxml = False
-
     if not text:
         raise ValueError("Hyperlink text cannot be empty")
     if not address and not fragment:
@@ -498,15 +343,9 @@ def add_hyperlink(
     if address:
         # External link - create relationship
         full_url = f"{address}#{fragment}" if fragment else address
-        if use_ooxml:
-            r_id = pkg.relate_to(
-                "/word/document.xml", full_url, RT.HYPERLINK, is_external=True
-            )
-        else:
-            # Use _parent.part for stability across python-docx versions
-            part = paragraph._parent.part
-            r_id = part.relate_to(full_url, RT.HYPERLINK, is_external=True)
-        # Note: qn("r:id") is correct - CT_Hyperlink uses OptionalAttribute("r:id", ...)
+        r_id = pkg.relate_to(
+            "/word/document.xml", full_url, RT.HYPERLINK, is_external=True
+        )
         hyperlink.set(qn("r:id"), r_id)
     else:
         # Internal link - use anchor attribute (validate bookmark name format)
@@ -529,11 +368,8 @@ def add_hyperlink(
     hyperlink.append(run)
 
     # Append hyperlink to paragraph
-    if use_ooxml:
-        p_el.append(hyperlink)
-        pkg.mark_xml_dirty("/word/document.xml")
-    else:
-        paragraph._p.append(hyperlink)
+    p_el.append(hyperlink)
+    pkg.mark_xml_dirty("/word/document.xml")
 
 
 # =============================================================================
@@ -614,42 +450,11 @@ def build_styles(pkg) -> list[StyleInfo]:
     """Build list of all styles in the document.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
-    # WordPackage path (pure OOXML)
-    if hasattr(pkg, "document_xml"):
-        if not pkg.has_part("/word/styles.xml"):
-            return []
-        return _build_styles_ooxml(pkg.styles_xml)
-
-    # python-docx Document path (legacy)
-    style_type_map = {
-        WdStyleType.PARAGRAPH: "paragraph",
-        WdStyleType.CHARACTER: "character",
-        WdStyleType.TABLE: "table",
-        WdStyleType.LIST: "list",
-    }
-    result = []
-    for style in pkg.styles:
-        base = getattr(style, "base_style", None)
-        next_style = getattr(style, "next_paragraph_style", None)
-        hidden = getattr(style, "hidden", False)
-        quick_style = getattr(style, "quick_style", False)
-        result.append(
-            StyleInfo(
-                name=style.name,
-                style_id=style.style_id,
-                type=style_type_map.get(style.type, "unknown"),
-                builtin=style.builtin,
-                base_style=base.name if base else None,
-                next_style=next_style.name
-                if next_style and next_style != style
-                else None,
-                hidden=hidden,
-                quick_style=quick_style,
-            )
-        )
-    return result
+    if not pkg.has_part("/word/styles.xml"):
+        return []
+    return _build_styles_ooxml(pkg.styles_xml)
 
 
 def _get_style_format_ooxml(styles_xml, style_name: str) -> StyleFormatInfo:
@@ -785,128 +590,22 @@ def get_style_format(pkg, style_name: str) -> StyleFormatInfo:
     """Get detailed formatting for a specific style.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         style_name: Name of the style to get formatting for
     """
-    # WordPackage path (pure OOXML)
-    if hasattr(pkg, "document_xml"):
-        if not pkg.has_part("/word/styles.xml"):
-            raise ValueError(f"No styles.xml found, cannot get style: {style_name}")
-        return _get_style_format_ooxml(pkg.styles_xml, style_name)
-
-    # python-docx Document path (legacy)
-    alignment_to_api = {
-        WdAlignParagraph.LEFT: "left",
-        WdAlignParagraph.CENTER: "center",
-        WdAlignParagraph.RIGHT: "right",
-        WdAlignParagraph.JUSTIFY: "justify",
-    }
-
-    style = pkg.styles[style_name]
-    font = style.font
-
-    style_type_map = {
-        WdStyleType.PARAGRAPH: "paragraph",
-        WdStyleType.CHARACTER: "character",
-        WdStyleType.TABLE: "table",
-        WdStyleType.LIST: "list",
-    }
-    style_type = style_type_map.get(style.type, "unknown")
-
-    pf = getattr(style, "paragraph_format", None)
-    alignment = None
-    left_indent = None
-    space_before = None
-    space_after = None
-    line_spacing = None
-
-    if pf:
-        alignment = alignment_to_api.get(pf.alignment) if pf.alignment else None
-        left_indent = pf.left_indent.inches if pf.left_indent else None
-        space_before = pf.space_before.pt if pf.space_before else None
-        space_after = pf.space_after.pt if pf.space_after else None
-        line_spacing = (
-            pf.line_spacing
-            if isinstance(pf.line_spacing, float)
-            else (pf.line_spacing.pt if pf.line_spacing else None)
-        )
-
-    return StyleFormatInfo(
-        name=style.name,
-        style_id=style.style_id,
-        type=style_type,
-        font_name=font.name,
-        font_size=font.size.pt if font.size else None,
-        bold=font.bold,
-        italic=font.italic,
-        color=str(font.color.rgb) if font.color and font.color.rgb else None,
-        alignment=alignment,
-        left_indent=left_indent,
-        space_before=space_before,
-        space_after=space_after,
-        line_spacing=line_spacing,
-    )
-
-
-def _edit_style_docx(doc, style_name: str, fmt: dict) -> None:
-    """Edit style using python-docx Document (legacy path)."""
-    # Lazy imports to avoid top-level dependency
-    from docx.shared import Inches as DocxInches
-    from docx.shared import Pt as DocxPt
-    from docx.shared import RGBColor as DocxRGBColor
-
-    style = doc.styles[style_name]
-    font = style.font
-
-    if "font_name" in fmt:
-        font.name = fmt["font_name"]
-    if "font_size" in fmt:
-        font.size = DocxPt(fmt["font_size"])
-    if "bold" in fmt:
-        font.bold = fmt["bold"]
-    if "italic" in fmt:
-        font.italic = fmt["italic"]
-    if "color" in fmt:
-        color_str = fmt["color"].lstrip("#")
-        font.color.rgb = DocxRGBColor(
-            int(color_str[0:2], 16),
-            int(color_str[2:4], 16),
-            int(color_str[4:6], 16),
-        )
-
-    # Paragraph formatting (if style type supports it)
-    pf = getattr(style, "paragraph_format", None)
-    if pf:
-        if "alignment" in fmt:
-            pf.alignment = getattr(WdAlignParagraph, fmt["alignment"].upper())
-        if "left_indent" in fmt:
-            pf.left_indent = DocxInches(fmt["left_indent"])
-        if "space_before" in fmt:
-            pf.space_before = DocxPt(fmt["space_before"])
-        if "space_after" in fmt:
-            pf.space_after = DocxPt(fmt["space_after"])
-        if "line_spacing" in fmt:
-            val = fmt["line_spacing"]
-            if val < 5:  # Multiplier
-                pf.line_spacing = val
-            else:  # Absolute points
-                pf.line_spacing = DocxPt(val)
+    if not pkg.has_part("/word/styles.xml"):
+        raise ValueError(f"No styles.xml found, cannot get style: {style_name}")
+    return _get_style_format_ooxml(pkg.styles_xml, style_name)
 
 
 def edit_style(pkg, style_name: str, fmt: dict) -> None:
     """Modify a style definition.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         style_name: Name or ID of the style to modify
         fmt: Dict of formatting properties to apply
     """
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if not hasattr(pkg, "has_part"):
-        # Legacy python-docx Document path
-        _edit_style_docx(pkg, style_name, fmt)
-        return
-
     if not pkg.has_part("/word/styles.xml"):
         raise ValueError("Document has no styles.xml")
 
@@ -1056,33 +755,13 @@ def create_style(
     """Create a new custom style. Returns the style ID.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         name: Name for the new style
         style_type: 'paragraph', 'character', or 'table'
         base_style: Style to inherit from
         formatting: Optional dict of formatting properties
     """
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if hasattr(pkg, "has_part"):
-        return _create_style_ooxml(pkg, name, style_type, base_style, formatting)
-
-    # Legacy python-docx Document path
-    type_map = {
-        "paragraph": WdStyleType.PARAGRAPH,
-        "character": WdStyleType.CHARACTER,
-        "table": WdStyleType.TABLE,
-    }
-
-    wd_style_type = type_map.get(style_type.lower(), WdStyleType.PARAGRAPH)
-    style = pkg.styles.add_style(name, wd_style_type)
-
-    if base_style and base_style in pkg.styles:
-        style.base_style = pkg.styles[base_style]
-
-    if formatting:
-        edit_style(pkg, name, formatting)
-
-    return style.style_id
+    return _create_style_ooxml(pkg, name, style_type, base_style, formatting)
 
 
 def _create_style_ooxml(
@@ -1151,24 +830,10 @@ def delete_style(pkg, style_name: str) -> bool:
     """Delete a custom style. Returns True if deleted, False if builtin or not found.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
         style_name: Name or ID of the style to delete
     """
-    # Duck-type: WordPackage has has_part(), Document doesn't
-    if hasattr(pkg, "has_part"):
-        return _delete_style_ooxml(pkg, style_name)
-
-    # Legacy python-docx Document path
-    try:
-        style = pkg.styles[style_name]
-    except KeyError:
-        return False
-
-    if style.builtin:
-        return False
-
-    style._element.getparent().remove(style._element)
-    return True
+    return _delete_style_ooxml(pkg, style_name)
 
 
 def _delete_style_ooxml(pkg, style_name: str) -> bool:
@@ -1303,35 +968,14 @@ def _apply_paragraph_formatting_ooxml(p_el: etree._Element, fmt: dict) -> None:
                 _set_run_attr_ooxml(run_el, key, value)
 
 
-def apply_paragraph_formatting(p, fmt: dict) -> None:
+def apply_paragraph_formatting(p_el, fmt: dict) -> None:
     """Apply direct formatting to paragraph (affects all runs).
 
-    Duck-typed: accepts Paragraph or w:p element.
+    Args:
+        p_el: lxml w:p element
+        fmt: Dict of formatting properties to apply
     """
-    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
-    if hasattr(p, "tag"):
-        # Pure OOXML: raw w:p element
-        _apply_paragraph_formatting_ooxml(p, fmt)
-    else:
-        # python-docx Paragraph
-        if "alignment" in fmt:
-            p.alignment = getattr(WdAlignParagraph, fmt["alignment"].upper())
-
-        pf = p.paragraph_format
-        for key, value in fmt.items():
-            if key in _PARA_INCH_ATTRS:
-                setattr(pf, key, Inches(value))
-            elif key in _PARA_PT_ATTRS:
-                setattr(pf, key, Pt(value))
-            elif key == "line_spacing":
-                pf.line_spacing = value if value < 5 else Pt(value)
-            elif key in _PARA_DIRECT_ATTRS:
-                setattr(pf, key, value)
-
-        for run in p.runs:
-            for key, value in fmt.items():
-                if key in _RUN_FORMAT_KEYS:
-                    _set_run_attr(run, key, value)
+    _apply_paragraph_formatting_ooxml(p_el, fmt)
 
 
 def _build_tab_stops_ooxml(p_el) -> list[TabStopInfo]:
@@ -1470,41 +1114,13 @@ def _build_paragraph_format_ooxml(p_el) -> ParagraphFormatInfo:
     )
 
 
-def build_paragraph_format(paragraph) -> ParagraphFormatInfo:
+def build_paragraph_format(p_el) -> ParagraphFormatInfo:
     """Extract paragraph formatting properties.
 
     Args:
-        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
+        p_el: lxml w:p element
     """
-    # Check if it's an lxml element (pure OOXML path)
-    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
-        return _build_paragraph_format_ooxml(paragraph)
-
-    # python-docx Paragraph path (legacy)
-    alignment_map = {
-        WdAlignParagraph.LEFT: "left",
-        WdAlignParagraph.CENTER: "center",
-        WdAlignParagraph.RIGHT: "right",
-        WdAlignParagraph.JUSTIFY: "justify",
-    }
-    pf = paragraph.paragraph_format
-    alignment = alignment_map.get(paragraph.alignment)
-    return ParagraphFormatInfo(
-        alignment=alignment,
-        left_indent=pf.left_indent.inches if pf.left_indent else None,
-        right_indent=pf.right_indent.inches if pf.right_indent else None,
-        first_line_indent=pf.first_line_indent.inches if pf.first_line_indent else None,
-        space_before=pf.space_before.pt if pf.space_before else None,
-        space_after=pf.space_after.pt if pf.space_after else None,
-        line_spacing=(
-            pf.line_spacing
-            if isinstance(pf.line_spacing, float)
-            else (pf.line_spacing.pt if pf.line_spacing else None)
-        ),
-        keep_with_next=pf.keep_with_next,
-        page_break_before=pf.page_break_before,
-        tab_stops=build_tab_stops(paragraph),
-    )
+    return _build_paragraph_format_ooxml(p_el)
 
 
 # =============================================================================
@@ -1512,58 +1128,25 @@ def build_paragraph_format(paragraph) -> ParagraphFormatInfo:
 # =============================================================================
 
 
-def build_tab_stops(paragraph) -> list[TabStopInfo]:
+def build_tab_stops(p_el) -> list[TabStopInfo]:
     """Build list of tab stops for a paragraph.
 
     Args:
-        paragraph: lxml w:p element OR python-docx Paragraph (duck-typed)
+        p_el: lxml w:p element
     """
-    # Check if it's an lxml element (pure OOXML path)
-    if hasattr(paragraph, "tag") and paragraph.tag == qn("w:p"):
-        return _build_tab_stops_ooxml(paragraph)
-
-    # python-docx Paragraph path (legacy)
-    tab_align_map = {
-        WdTabAlignment.LEFT: "left",
-        WdTabAlignment.CENTER: "center",
-        WdTabAlignment.RIGHT: "right",
-        WdTabAlignment.DECIMAL: "decimal",
-        WdTabAlignment.BAR: "bar",
-    }
-    tab_leader_map = {
-        WdTabLeader.SPACES: "spaces",
-        WdTabLeader.DOTS: "dots",
-        WdTabLeader.HEAVY: "heavy",
-        WdTabLeader.MIDDLE_DOT: "middle_dot",
-        None: "spaces",
-    }
-
-    result = []
-    for tab in paragraph.paragraph_format.tab_stops:
-        alignment = tab_align_map.get(tab.alignment, "unknown")
-        leader = tab_leader_map.get(tab.leader, "unknown")
-        result.append(
-            TabStopInfo(
-                position_inches=round(tab.position.inches, 4),
-                alignment=alignment,
-                leader=leader,
-            )
-        )
-    return result
+    return _build_tab_stops_ooxml(p_el)
 
 
 def add_tab_stop(
-    paragraph,
+    p_el,
     position_inches: float,
     alignment: str = "left",
     leader: str = "spaces",
 ) -> None:
     """Add a tab stop to a paragraph.
 
-    Duck-typed: accepts w:p element OR python-docx Paragraph.
-
     Args:
-        paragraph: w:p element or python-docx Paragraph
+        p_el: lxml w:p element
         position_inches: Position from left margin (must be positive)
         alignment: Tab alignment - left, center, right, decimal
         leader: Tab leader character - spaces, dots, heavy, middle_dot
@@ -1595,29 +1178,7 @@ def add_tab_stop(
             f"Invalid leader '{leader}'. Valid: {list(leader_map_ooxml.keys())}"
         )
 
-    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
-    if hasattr(paragraph, "tag"):
-        # Pure OOXML: raw w:p element
-        _add_tab_stop_ooxml(paragraph, position_inches, alignment_lower, leader_lower)
-    else:
-        # python-docx Paragraph
-        align_map = {
-            "left": WdTabAlignment.LEFT,
-            "center": WdTabAlignment.CENTER,
-            "right": WdTabAlignment.RIGHT,
-            "decimal": WdTabAlignment.DECIMAL,
-        }
-        leader_map = {
-            "spaces": WdTabLeader.SPACES,
-            "dots": WdTabLeader.DOTS,
-            "heavy": WdTabLeader.HEAVY,
-            "middle_dot": WdTabLeader.MIDDLE_DOT,
-        }
-        paragraph.paragraph_format.tab_stops.add_tab_stop(
-            Inches(position_inches),
-            align_map[alignment_lower],
-            leader_map[leader_lower],
-        )
+    _add_tab_stop_ooxml(p_el, position_inches, alignment_lower, leader_lower)
 
 
 def _add_tab_stop_ooxml(
@@ -1656,22 +1217,17 @@ def _add_tab_stop_ooxml(
         tab.set(qn("w:leader"), leader_val)
 
 
-def clear_tab_stops(paragraph) -> None:
+def clear_tab_stops(p_el) -> None:
     """Clear all tab stops from a paragraph.
 
-    Duck-typed: accepts w:p element OR python-docx Paragraph.
+    Args:
+        p_el: lxml w:p element
     """
-    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
-    if hasattr(paragraph, "tag"):
-        # Pure OOXML: raw w:p element
-        pPr = paragraph.find(qn("w:pPr"))
-        if pPr is not None:
-            tabs = pPr.find(qn("w:tabs"))
-            if tabs is not None:
-                pPr.remove(tabs)
-    else:
-        # python-docx Paragraph
-        paragraph.paragraph_format.tab_stops.clear_all()
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is not None:
+        tabs = pPr.find(qn("w:tabs"))
+        if tabs is not None:
+            pPr.remove(tabs)
 
 
 # =============================================================================
@@ -1822,63 +1378,26 @@ def _set_run_text_ooxml(run_el: etree._Element, text: str) -> None:
         t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
 
 
-def _set_run_attr(run, key: str, value) -> None:
-    """Set a run attribute by key. Handles nested paths like 'font.bold'."""
-    if key == "style":
-        run.style = value
-    elif key == "font_size":
-        run.font.size = Pt(float(value))
-    elif key == "color":
-        run.font.color.rgb = RGBColor.from_string(value.lstrip("#"))
-    elif key == "highlight_color":
-        run.font.highlight_color = _HIGHLIGHT_MAP[value.lower()]
-    elif key in _RUN_ATTRS:
-        path = _RUN_ATTRS[key]
-        obj, attr = (run, path) if "." not in path else (run.font, path.split(".")[1])
-        setattr(obj, attr, value)
+def edit_run_text(p_el, run_index: int, text: str) -> None:
+    """Edit run text.
+
+    Args:
+        p_el: lxml w:p element
+        run_index: Index of the run to edit
+        text: New text for the run
+    """
+    run_el = _resolve_run_by_index_ooxml(p_el, run_index)
+    _set_run_text_ooxml(run_el, text)
 
 
-def _resolve_run_by_inner_index(paragraph: Paragraph, run_index: int):
-    """Resolve run by iter_inner_content index (matching build_runs indexing)."""
-    from docx.text.hyperlink import Hyperlink
+def edit_run_formatting(p_el, run_index: int, fmt: dict) -> None:
+    """Apply formatting to a specific run.
 
-    idx = 0
-    for item in paragraph.iter_inner_content():
-        if isinstance(item, Hyperlink):
-            for run in item.runs:
-                if idx == run_index:
-                    return run
-                idx += 1
-        else:  # Run
-            if idx == run_index:
-                return item
-            idx += 1
-    raise IndexError(f"Run index {run_index} out of range (paragraph has {idx} runs)")
-
-
-def edit_run_text(paragraph, run_index: int, text: str) -> None:
-    """Edit run text. Duck-typed: accepts Paragraph or w:p element."""
-    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
-    if hasattr(paragraph, "tag"):
-        # Pure OOXML: raw w:p element
-        run_el = _resolve_run_by_index_ooxml(paragraph, run_index)
-        _set_run_text_ooxml(run_el, text)
-    else:
-        # python-docx Paragraph
-        run = _resolve_run_by_inner_index(paragraph, run_index)
-        run.text = text
-
-
-def edit_run_formatting(paragraph, run_index: int, fmt: dict) -> None:
-    """Apply formatting to a specific run. Duck-typed: accepts Paragraph or w:p element."""
-    # Duck-type: lxml elements have 'tag', python-docx Paragraph doesn't
-    if hasattr(paragraph, "tag"):
-        # Pure OOXML: raw w:p element
-        run_el = _resolve_run_by_index_ooxml(paragraph, run_index)
-        for key, value in fmt.items():
-            _set_run_attr_ooxml(run_el, key, value)
-    else:
-        # python-docx Paragraph
-        run = _resolve_run_by_inner_index(paragraph, run_index)
-        for key, value in fmt.items():
-            _set_run_attr(run, key, value)
+    Args:
+        p_el: lxml w:p element
+        run_index: Index of the run to format
+        fmt: Dict of formatting properties to apply
+    """
+    run_el = _resolve_run_by_index_ooxml(p_el, run_index)
+    for key, value in fmt.items():
+        _set_run_attr_ooxml(run_el, key, value)

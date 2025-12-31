@@ -10,12 +10,7 @@ Pure OOXML implementation - works directly with lxml elements.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from lxml import etree
-
-if TYPE_CHECKING:
-    pass
 
 from mcp_handley_lab.word.ops.core import (
     content_hash,
@@ -290,7 +285,8 @@ def _extract_equations_from_paragraph(
 def build_equations(pkg) -> list[dict]:
     """Build list of all math equations (OMML) in the document.
 
-    Duck-typed: Takes WordPackage or Document.
+    Args:
+        pkg: WordPackage
     """
     from mcp_handley_lab.word.opc.constants import qn
 

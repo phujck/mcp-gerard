@@ -40,16 +40,12 @@ _RESERVED_NOTE_IDS = {-1, 0}
 
 
 # =============================================================================
-# XPath Helper (duck-typed for lxml compatibility)
+# XPath Helper
 # =============================================================================
 
 
 def _fn_xpath(element: etree._Element, expr: str, ns: dict) -> list:
-    """XPath using ElementBase.xpath for namespace compatibility.
-
-    Uses lxml ElementBase.xpath to ensure namespaces parameter works
-    correctly with both raw lxml elements and python-docx BaseOxmlElement.
-    """
+    """XPath using ElementBase.xpath for namespace compatibility."""
     return _LxmlElementBase.xpath(element, expr, namespaces=ns)
 
 
@@ -65,16 +61,11 @@ def build_footnotes(pkg) -> list[dict]:
     in the document body. Returns list of dicts with id, type, text, block_id.
 
     Args:
-        pkg: WordPackage or python-docx Document (duck-typed)
+        pkg: WordPackage
     """
     result = []
     ns = {"w": _FN_W_NS}
-
-    # Get document element (duck-typed for WordPackage vs Document)
-    if hasattr(pkg, "document_xml"):
-        doc_element = pkg.document_xml
-    else:
-        doc_element = pkg.element
+    doc_element = pkg.document_xml
 
     # Build map of reference locations in document (id -> block_id)
     ref_locations: dict[tuple[str, int], str] = {}  # (type, id) -> block_id
@@ -110,89 +101,47 @@ def build_footnotes(pkg) -> list[dict]:
                     break
                 parent = parent.getparent()
 
-    # Read footnotes/endnotes (duck-typed for WordPackage vs Document)
-    if hasattr(pkg, "footnotes_xml"):
-        # WordPackage: use direct property access
-        fn_root = pkg.footnotes_xml
-        if fn_root is not None:
-            for fn in _fn_xpath(fn_root, "//w:footnote", ns):
-                fn_id_str = fn.get(f"{{{_FN_W_NS}}}id")
-                if fn_id_str:
-                    fn_id = int(fn_id_str)
-                    if fn_id in _RESERVED_NOTE_IDS:
-                        continue  # Skip separators
-                    text_parts = _fn_xpath(fn, ".//w:t/text()", ns)
-                    text = "".join(text_parts).strip()
-                    block_id = ref_locations.get(("footnote", fn_id), "")
-                    result.append(
-                        {
-                            "id": fn_id,
-                            "type": "footnote",
-                            "text": text,
-                            "block_id": block_id,
-                        }
-                    )
-        en_root = pkg.endnotes_xml
-        if en_root is not None:
-            for en in _fn_xpath(en_root, "//w:endnote", ns):
-                en_id_str = en.get(f"{{{_FN_W_NS}}}id")
-                if en_id_str:
-                    en_id = int(en_id_str)
-                    if en_id in _RESERVED_NOTE_IDS:
-                        continue  # Skip separators
-                    text_parts = _fn_xpath(en, ".//w:t/text()", ns)
-                    text = "".join(text_parts).strip()
-                    block_id = ref_locations.get(("endnote", en_id), "")
-                    result.append(
-                        {
-                            "id": en_id,
-                            "type": "endnote",
-                            "text": text,
-                            "block_id": block_id,
-                        }
-                    )
-    else:
-        # python-docx Document: iterate package parts
-        for part in pkg.part.package.iter_parts():
-            partname = part.partname
-            if partname == "/word/footnotes.xml":
-                fn_root = etree.fromstring(part.blob)
-                for fn in _fn_xpath(fn_root, "//w:footnote", ns):
-                    fn_id_str = fn.get(f"{{{_FN_W_NS}}}id")
-                    if fn_id_str:
-                        fn_id = int(fn_id_str)
-                        if fn_id in _RESERVED_NOTE_IDS:
-                            continue  # Skip separators
-                        text_parts = _fn_xpath(fn, ".//w:t/text()", ns)
-                        text = "".join(text_parts).strip()
-                        block_id = ref_locations.get(("footnote", fn_id), "")
-                        result.append(
-                            {
-                                "id": fn_id,
-                                "type": "footnote",
-                                "text": text,
-                                "block_id": block_id,
-                            }
-                        )
-            elif partname == "/word/endnotes.xml":
-                en_root = etree.fromstring(part.blob)
-                for en in _fn_xpath(en_root, "//w:endnote", ns):
-                    en_id_str = en.get(f"{{{_FN_W_NS}}}id")
-                    if en_id_str:
-                        en_id = int(en_id_str)
-                        if en_id in _RESERVED_NOTE_IDS:
-                            continue  # Skip separators
-                        text_parts = _fn_xpath(en, ".//w:t/text()", ns)
-                        text = "".join(text_parts).strip()
-                        block_id = ref_locations.get(("endnote", en_id), "")
-                        result.append(
-                            {
-                                "id": en_id,
-                                "type": "endnote",
-                                "text": text,
-                                "block_id": block_id,
-                            }
-                        )
+    # Read footnotes from word/footnotes.xml
+    fn_root = pkg.footnotes_xml
+    if fn_root is not None:
+        for fn in _fn_xpath(fn_root, "//w:footnote", ns):
+            fn_id_str = fn.get(f"{{{_FN_W_NS}}}id")
+            if fn_id_str:
+                fn_id = int(fn_id_str)
+                if fn_id in _RESERVED_NOTE_IDS:
+                    continue  # Skip separators
+                text_parts = _fn_xpath(fn, ".//w:t/text()", ns)
+                text = "".join(text_parts).strip()
+                block_id = ref_locations.get(("footnote", fn_id), "")
+                result.append(
+                    {
+                        "id": fn_id,
+                        "type": "footnote",
+                        "text": text,
+                        "block_id": block_id,
+                    }
+                )
+
+    # Read endnotes from word/endnotes.xml
+    en_root = pkg.endnotes_xml
+    if en_root is not None:
+        for en in _fn_xpath(en_root, "//w:endnote", ns):
+            en_id_str = en.get(f"{{{_FN_W_NS}}}id")
+            if en_id_str:
+                en_id = int(en_id_str)
+                if en_id in _RESERVED_NOTE_IDS:
+                    continue  # Skip separators
+                text_parts = _fn_xpath(en, ".//w:t/text()", ns)
+                text = "".join(text_parts).strip()
+                block_id = ref_locations.get(("endnote", en_id), "")
+                result.append(
+                    {
+                        "id": en_id,
+                        "type": "endnote",
+                        "text": text,
+                        "block_id": block_id,
+                    }
+                )
 
     return result
 
