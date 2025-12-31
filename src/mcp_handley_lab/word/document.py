@@ -1,15 +1,21 @@
-"""Python-docx wrapper functions for Word document manipulation."""
+"""Word document manipulation via pure OOXML and ops modules.
+
+This module provides a unified API for Word document operations.
+Most functions work with raw lxml elements (pure OOXML).
+A few functions still require python-docx Document for element creation.
+"""
+
+from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-from docx import Document
-from docx.enum.text import (
-    WD_BREAK,
-)
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
-from docx.table import Table
-from docx.text.paragraph import Paragraph
+from lxml import etree
+
+if TYPE_CHECKING:
+    from docx import Document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.ops.bookmarks import (  # noqa: F401
     _RESERVED_BOOKMARK_PREFIXES,
@@ -267,7 +273,10 @@ def create_element(
     style_name: str = "",
     heading_level: int = 0,
 ) -> Paragraph | Table:
-    """Create a content element (paragraph, heading, or table)."""
+    """Create a content element (paragraph, heading, or table).
+
+    Note: Requires python-docx Document for element creation.
+    """
     if content_type == "paragraph":
         return doc.add_paragraph(content_data, style_name or None)
     if content_type == "heading":
@@ -285,81 +294,52 @@ def create_element(
 def get_element_id(
     doc: Document, obj: Paragraph | Table, heading_level: int = 0
 ) -> str:
-    """Calculate content-addressed ID for an element."""
-    if isinstance(obj, Table):
+    """Calculate content-addressed ID for an element.
+
+    Note: Requires python-docx Document and wrapper object.
+    """
+    from docx.table import Table as TableType
+
+    if isinstance(obj, TableType):
         block_type = "table"
         el = obj._tbl
-        content = table_content_for_hash(el)  # Pass element, not wrapper
+        content = table_content_for_hash(el)
     else:
         el = obj._element
-        block_type, _ = paragraph_kind_and_level(el)  # Pass element, not wrapper
+        block_type, _ = paragraph_kind_and_level(el)
         # Override block_type if heading_level specified (for newly created headings)
         if heading_level:
             block_type = f"heading{heading_level}"
-        content = obj.text or ""
+        content = get_paragraph_text_ooxml(el)  # Use pure OOXML text extraction
     occurrence = count_occurrence(doc, block_type, content, el)
     return make_block_id(block_type, content, occurrence)
 
 
 def insert_content_relative(
     doc: Document,
-    target_el: CT_P | CT_Tbl,
+    target_el: etree._Element,
     position: str,
     content_type: str,
     content_data: str,
     style_name: str = "",
     heading_level: int = 0,
 ) -> Paragraph | Table:
-    """Insert content relative to a target element."""
+    """Insert content relative to a target element.
+
+    Note: Requires python-docx Document for element creation.
+    """
+    from docx.table import Table as TableType
+
     obj = create_element(doc, content_type, content_data, style_name, heading_level)
-    el = obj._tbl if isinstance(obj, Table) else obj._element
+    el = obj._tbl if isinstance(obj, TableType) else obj._element
     _insert_at(target_el, el, position)
     return obj
 
 
-def add_page_break(doc: Document) -> Paragraph:
-    """Append a page break paragraph to the document. Returns the paragraph."""
-
-    p = doc.add_paragraph()
-    run = p.add_run()
-    run.add_break(WD_BREAK.PAGE)
-    return p
-
-
-def add_break_after(
-    doc: Document, target_el: CT_P | CT_Tbl, break_type: str
-) -> Paragraph:
-    """Insert break after target element. break_type: 'page', 'column', 'line'."""
-    break_map = {
-        "page": WD_BREAK.PAGE,
-        "column": WD_BREAK.COLUMN,
-        "line": WD_BREAK.LINE,
-    }
-    break_type_lower = break_type.lower()
-    if break_type_lower not in break_map:
-        raise ValueError(
-            f"Invalid break_type '{break_type}'. Valid: {list(break_map.keys())}"
-        )
-    p = doc.add_paragraph()
-    run = p.add_run()
-    run.add_break(break_map[break_type_lower])
-    target_el.addnext(p._element)
-    return p
-
-
-def delete_block(obj) -> None:
-    """Delete a block from the document.
-
-    Duck-typed: Works with Paragraph, Table wrappers or raw lxml elements.
-    """
-    # Handle raw lxml elements (pure OOXML path)
-    if hasattr(obj, "getparent"):
-        el = obj
-    # Handle python-docx wrappers
-    elif isinstance(obj, Paragraph):
-        el = obj._element
-    elif isinstance(obj, Table):
-        el = obj._tbl
-    else:
-        raise TypeError(f"Cannot delete object of type {type(obj)}")
-    el.getparent().remove(el)
+# =============================================================================
+# Removed Functions (use pure OOXML versions from ops/core.py instead)
+# =============================================================================
+# The following functions were removed - use these pure OOXML alternatives:
+#   - add_page_break_ooxml(body) instead of the old add_page_break(doc)
+#   - add_break_after_ooxml(target_el, break_type) instead of add_break_after(doc, ...)
+#   - delete_element(el) instead of delete_block(obj)
