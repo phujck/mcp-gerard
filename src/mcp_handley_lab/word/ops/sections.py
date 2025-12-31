@@ -69,11 +69,116 @@ _SECTPR_ORDER = [
 # =============================================================================
 
 
-def build_page_setup(doc: Document) -> list[PageSetupInfo]:
-    """Build list of PageSetupInfo for all sections."""
+def _parse_sectpr(sectPr, idx: int) -> PageSetupInfo:
+    """Parse a w:sectPr element into PageSetupInfo (pure OOXML)."""
+    # Page size from w:pgSz
+    pgSz = sectPr.find(qn("w:pgSz"))
+    page_width = 0.0
+    page_height = 0.0
+    orientation = "portrait"
+    if pgSz is not None:
+        w = pgSz.get(qn("w:w"))
+        h = pgSz.get(qn("w:h"))
+        page_width = round(int(w) / 1440, 2) if w else 0.0  # twips to inches
+        page_height = round(int(h) / 1440, 2) if h else 0.0
+        orient = pgSz.get(qn("w:orient"))
+        orientation = "landscape" if orient == "landscape" else "portrait"
 
+    # Margins from w:pgMar
+    pgMar = sectPr.find(qn("w:pgMar"))
+    top_margin = bottom_margin = left_margin = right_margin = 0.0
+    if pgMar is not None:
+        t = pgMar.get(qn("w:top"))
+        b = pgMar.get(qn("w:bottom"))
+        left = pgMar.get(qn("w:left"))
+        right = pgMar.get(qn("w:right"))
+        top_margin = round(int(t) / 1440, 2) if t else 0.0
+        bottom_margin = round(int(b) / 1440, 2) if b else 0.0
+        left_margin = round(int(left) / 1440, 2) if left else 0.0
+        right_margin = round(int(right) / 1440, 2) if right else 0.0
+
+    # Column settings from w:cols
+    columns = 1
+    column_spacing = 0.5
+    column_separator = False
+    cols_el = sectPr.find(qn("w:cols"))
+    if cols_el is not None:
+        num = cols_el.get(qn("w:num"))
+        columns = int(num) if num else 1
+        space = cols_el.get(qn("w:space"))
+        if space:
+            column_spacing = round(int(space) / 1440, 2)
+        sep = cols_el.get(qn("w:sep"))
+        column_separator = sep == "1" or sep == "true"
+
+    # Line numbering from w:lnNumType
+    line_numbering = None
+    ln_el = sectPr.find(qn("w:lnNumType"))
+    if ln_el is not None:
+        restart_map = {
+            "newPage": "newPage",
+            "newSection": "newSection",
+            "continuous": "continuous",
+        }
+        restart_val = ln_el.get(qn("w:restart")) or "newPage"
+        start_val = ln_el.get(qn("w:start")) or "1"
+        count_by_val = ln_el.get(qn("w:countBy")) or "1"
+        distance_val = ln_el.get(qn("w:distance")) or "720"
+        line_numbering = LineNumberingInfo(
+            enabled=True,
+            restart=restart_map.get(restart_val, "newPage"),
+            start=int(start_val),
+            count_by=int(count_by_val),
+            distance_inches=round(int(distance_val) / 1440, 2),
+        )
+
+    return PageSetupInfo(
+        section_index=idx,
+        orientation=orientation,
+        page_width=page_width,
+        page_height=page_height,
+        top_margin=top_margin,
+        bottom_margin=bottom_margin,
+        left_margin=left_margin,
+        right_margin=right_margin,
+        columns=columns,
+        column_spacing=column_spacing,
+        column_separator=column_separator,
+        line_numbering=line_numbering,
+    )
+
+
+def build_page_setup(pkg) -> list[PageSetupInfo]:
+    """Build list of PageSetupInfo for all sections.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+    """
+    # WordPackage path (pure OOXML)
+    if hasattr(pkg, "document_xml"):
+        body = pkg.body
+        result = []
+        idx = 0
+
+        # Section breaks within paragraphs (w:p/w:pPr/w:sectPr)
+        for p in body.findall(qn("w:p")):
+            pPr = p.find(qn("w:pPr"))
+            if pPr is not None:
+                sectPr = pPr.find(qn("w:sectPr"))
+                if sectPr is not None:
+                    result.append(_parse_sectpr(sectPr, idx))
+                    idx += 1
+
+        # Final section (w:body/w:sectPr)
+        body_sectPr = body.find(qn("w:sectPr"))
+        if body_sectPr is not None:
+            result.append(_parse_sectpr(body_sectPr, idx))
+
+        return result
+
+    # python-docx Document path (legacy)
     result = []
-    for idx, section in enumerate(doc.sections):
+    for idx, section in enumerate(pkg.sections):
         s = section
         sectPr = s._sectPr
 

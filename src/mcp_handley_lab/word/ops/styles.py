@@ -316,8 +316,88 @@ def add_hyperlink(
 # =============================================================================
 
 
-def build_styles(doc: Document) -> list[StyleInfo]:
-    """Build list of all styles in the document."""
+def _build_styles_ooxml(styles_xml) -> list[StyleInfo]:
+    """Build styles list from styles.xml element (pure OOXML)."""
+    # Map OOXML type values to API strings
+    type_map = {
+        "paragraph": "paragraph",
+        "character": "character",
+        "table": "table",
+        "numbering": "list",  # OOXML uses "numbering" for list styles
+    }
+
+    # First pass: build styleId -> name mapping for resolving references
+    id_to_name = {}
+    for style in styles_xml.findall(qn("w:style")):
+        style_id = style.get(qn("w:styleId"))
+        name_el = style.find(qn("w:name"))
+        name = name_el.get(qn("w:val")) if name_el is not None else style_id
+        if style_id:
+            id_to_name[style_id] = name
+
+    # Second pass: build StyleInfo list
+    result = []
+    for style in styles_xml.findall(qn("w:style")):
+        style_id = style.get(qn("w:styleId"))
+        style_type = style.get(qn("w:type"), "paragraph")
+        # w:customStyle="1" indicates a custom/user-defined style
+        # Absence means built-in (NOT w:default which means "default for type")
+        is_builtin = style.get(qn("w:customStyle")) != "1"
+
+        # Get name
+        name_el = style.find(qn("w:name"))
+        name = name_el.get(qn("w:val")) if name_el is not None else style_id
+
+        # Get base style (w:basedOn)
+        based_on = style.find(qn("w:basedOn"))
+        base_style_id = based_on.get(qn("w:val")) if based_on is not None else None
+        base_style = id_to_name.get(base_style_id) if base_style_id else None
+
+        # Get next style (w:next)
+        next_el = style.find(qn("w:next"))
+        next_style_id = next_el.get(qn("w:val")) if next_el is not None else None
+        next_style = id_to_name.get(next_style_id) if next_style_id else None
+        # Don't report next style if it's same as current
+        if next_style == name:
+            next_style = None
+
+        # Check hidden (w:semiHidden or w:hidden)
+        hidden = (
+            style.find(qn("w:semiHidden")) is not None
+            or style.find(qn("w:hidden")) is not None
+        )
+
+        # Check quick style (w:qFormat)
+        quick_style = style.find(qn("w:qFormat")) is not None
+
+        result.append(
+            StyleInfo(
+                name=name,
+                style_id=style_id,
+                type=type_map.get(style_type, "unknown"),
+                builtin=is_builtin,
+                base_style=base_style,
+                next_style=next_style,
+                hidden=hidden,
+                quick_style=quick_style,
+            )
+        )
+    return result
+
+
+def build_styles(pkg) -> list[StyleInfo]:
+    """Build list of all styles in the document.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+    """
+    # WordPackage path (pure OOXML)
+    if hasattr(pkg, "document_xml"):
+        if not pkg.has_part("/word/styles.xml"):
+            return []
+        return _build_styles_ooxml(pkg.styles_xml)
+
+    # python-docx Document path (legacy)
     style_type_map = {
         WD_STYLE_TYPE.PARAGRAPH: "paragraph",
         WD_STYLE_TYPE.CHARACTER: "character",
@@ -325,7 +405,7 @@ def build_styles(doc: Document) -> list[StyleInfo]:
         WD_STYLE_TYPE.LIST: "list",
     }
     result = []
-    for style in doc.styles:
+    for style in pkg.styles:
         base = getattr(style, "base_style", None)
         next_style = getattr(style, "next_paragraph_style", None)
         hidden = getattr(style, "hidden", False)
@@ -347,8 +427,149 @@ def build_styles(doc: Document) -> list[StyleInfo]:
     return result
 
 
-def get_style_format(doc: Document, style_name: str) -> StyleFormatInfo:
-    """Get detailed formatting for a specific style."""
+def _get_style_format_ooxml(styles_xml, style_name: str) -> StyleFormatInfo:
+    """Get style formatting from styles.xml (pure OOXML)."""
+    # OOXML alignment values
+    align_map = {
+        "left": "left",
+        "center": "center",
+        "right": "right",
+        "both": "justify",
+    }
+    type_map = {
+        "paragraph": "paragraph",
+        "character": "character",
+        "table": "table",
+        "numbering": "list",
+    }
+
+    # Find style by name (w:name/@w:val)
+    style_el = None
+    for s in styles_xml.findall(qn("w:style")):
+        name_el = s.find(qn("w:name"))
+        if name_el is not None and name_el.get(qn("w:val")) == style_name:
+            style_el = s
+            break
+
+    if style_el is None:
+        raise ValueError(f"Style not found: {style_name}")
+
+    style_id = style_el.get(qn("w:styleId"))
+    style_type = type_map.get(style_el.get(qn("w:type"), "paragraph"), "unknown")
+    name_el = style_el.find(qn("w:name"))
+    name = name_el.get(qn("w:val")) if name_el is not None else style_id
+
+    # Extract run properties (w:rPr)
+    rPr = style_el.find(qn("w:rPr"))
+    font_name = None
+    font_size = None
+    bold = None
+    italic = None
+    color = None
+
+    if rPr is not None:
+        # Font name (w:rFonts/@w:ascii)
+        rFonts = rPr.find(qn("w:rFonts"))
+        if rFonts is not None:
+            font_name = rFonts.get(qn("w:ascii"))
+
+        # Font size (w:sz/@w:val in half-points)
+        sz = rPr.find(qn("w:sz"))
+        if sz is not None:
+            val = sz.get(qn("w:val"))
+            font_size = int(val) / 2 if val else None  # half-points to points
+
+        # Bold (w:b presence or @w:val != "0")
+        b = rPr.find(qn("w:b"))
+        if b is not None:
+            val = b.get(qn("w:val"))
+            bold = val != "0" if val else True
+
+        # Italic (w:i)
+        i = rPr.find(qn("w:i"))
+        if i is not None:
+            val = i.get(qn("w:val"))
+            italic = val != "0" if val else True
+
+        # Color (w:color/@w:val)
+        color_el = rPr.find(qn("w:color"))
+        if color_el is not None:
+            val = color_el.get(qn("w:val"))
+            if val and val != "auto":
+                color = val.upper()
+
+    # Extract paragraph properties (w:pPr)
+    pPr = style_el.find(qn("w:pPr"))
+    alignment = None
+    left_indent = None
+    space_before = None
+    space_after = None
+    line_spacing = None
+
+    if pPr is not None:
+        # Alignment (w:jc/@w:val)
+        jc = pPr.find(qn("w:jc"))
+        if jc is not None:
+            alignment = align_map.get(jc.get(qn("w:val")))
+
+        # Indentation (w:ind/@w:left in twips)
+        ind = pPr.find(qn("w:ind"))
+        if ind is not None:
+            left_val = ind.get(qn("w:left"))
+            if left_val:
+                left_indent = int(left_val) / 1440  # twips to inches
+
+        # Spacing (w:spacing/@w:before, @w:after in twips)
+        # w:line interpretation depends on w:lineRule:
+        # - "auto" (default): 240ths of a line (240 = single, 360 = 1.5)
+        # - "exact" or "atLeast": twips (20 per point)
+        spacing = pPr.find(qn("w:spacing"))
+        if spacing is not None:
+            before = spacing.get(qn("w:before"))
+            after = spacing.get(qn("w:after"))
+            line = spacing.get(qn("w:line"))
+            line_rule = spacing.get(qn("w:lineRule"))
+            if before:
+                space_before = int(before) / 20  # twips to points
+            if after:
+                space_after = int(after) / 20  # twips to points
+            if line:
+                if line_rule in ("exact", "atLeast"):
+                    line_spacing = int(line) / 20  # twips to points
+                else:
+                    line_spacing = int(line) / 240  # 240ths of a line
+
+    return StyleFormatInfo(
+        name=name,
+        style_id=style_id,
+        type=style_type,
+        font_name=font_name,
+        font_size=font_size,
+        bold=bold,
+        italic=italic,
+        color=color,
+        alignment=alignment,
+        left_indent=left_indent,
+        space_before=space_before,
+        space_after=space_after,
+        line_spacing=line_spacing,
+    )
+
+
+def get_style_format(pkg, style_name: str) -> StyleFormatInfo:
+    """Get detailed formatting for a specific style.
+
+    Args:
+        pkg: WordPackage or python-docx Document (duck-typed)
+        style_name: Name of the style to get formatting for
+    """
+    # WordPackage path (pure OOXML)
+    if hasattr(pkg, "document_xml"):
+        if not pkg.has_part("/word/styles.xml"):
+            raise ValueError(f"No styles.xml found, cannot get style: {style_name}")
+        return _get_style_format_ooxml(pkg.styles_xml, style_name)
+
+    # python-docx Document path (legacy)
     alignment_to_api = {
         WD_ALIGN_PARAGRAPH.LEFT: "left",
         WD_ALIGN_PARAGRAPH.CENTER: "center",
@@ -356,7 +577,7 @@ def get_style_format(doc: Document, style_name: str) -> StyleFormatInfo:
         WD_ALIGN_PARAGRAPH.JUSTIFY: "justify",
     }
 
-    style = doc.styles[style_name]
+    style = pkg.styles[style_name]
     font = style.font
 
     style_type_map = {

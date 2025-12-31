@@ -117,15 +117,15 @@ def read(
         "hyperlinks",
         "text_boxes",
         "text_box_content",
+        "page_setup",
+        "styles",
+        "style",
     }
     # Scopes that need python-docx Document (for now)
     _DOC_SCOPES = {
         "comments",
         "headers_footers",
-        "page_setup",
         "images",
-        "styles",
-        "style",
         "runs",  # build_runs/build_paragraph_format still need Paragraph
     }
 
@@ -190,7 +190,7 @@ def read(
             block_count=len(headers_footers), headers_footers=headers_footers
         )
     if scope == "page_setup":
-        page_setup = word_ops.build_page_setup(doc)
+        page_setup = word_ops.build_page_setup(pkg)
         return DocumentReadResult(block_count=len(page_setup), page_setup=page_setup)
     if scope == "images":
         images = word_ops.build_images(doc)
@@ -199,10 +199,10 @@ def read(
         hyperlinks = word_ops.build_hyperlinks(pkg)
         return DocumentReadResult(block_count=len(hyperlinks), hyperlinks=hyperlinks)
     if scope == "styles":
-        styles = word_ops.build_styles(doc)
+        styles = word_ops.build_styles(pkg)
         return DocumentReadResult(block_count=len(styles), styles=styles)
     if scope == "style":
-        style_format = word_ops.get_style_format(doc, target_id)
+        style_format = word_ops.get_style_format(pkg, target_id)
         return DocumentReadResult(block_count=1, style_format=style_format)
     if scope == "revisions":
         has_changes = word_ops.has_tracked_changes(pkg)

@@ -785,6 +785,48 @@ async def test_read_page_setup(sample_docx):
 
 
 @pytest.mark.asyncio
+async def test_read_page_setup_multi_section():
+    """Test reading page setup with multiple sections including section breaks."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        doc = Document()
+        # Section 0: Normal paragraph
+        doc.add_paragraph("Section 0 content")
+
+        # Add a section break (creates section 1)
+        from docx.enum.section import WD_SECTION
+
+        doc.add_section(WD_SECTION.NEW_PAGE)
+        doc.add_paragraph("Section 1 content")
+
+        # Add another section break (creates section 2)
+        doc.add_section(WD_SECTION.CONTINUOUS)
+        doc.add_paragraph("Section 2 content")
+
+        doc.save(f.name)
+        doc_path = Path(f.name)
+
+    try:
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(doc_path), "scope": "page_setup"}
+        )
+
+        # Should have 3 sections (0, 1, 2)
+        assert result["block_count"] == 3
+        assert len(result["page_setup"]) == 3
+
+        # Verify section indices are in order
+        for i, setup in enumerate(result["page_setup"]):
+            assert setup["section_index"] == i
+
+        # All sections should have valid page dimensions
+        for setup in result["page_setup"]:
+            assert setup["page_width"] > 0
+            assert setup["page_height"] > 0
+    finally:
+        doc_path.unlink()
+
+
+@pytest.mark.asyncio
 async def test_set_margins(sample_docx):
     """Test setting page margins."""
     _, edit_result = await mcp.call_tool(
@@ -2527,13 +2569,13 @@ async def test_read_styles(sample_docx):
     assert result["block_count"] > 0
     assert len(result["styles"]) > 0
 
-    # Check that common styles exist
-    style_names = [s["name"] for s in result["styles"]]
-    assert "Normal" in style_names
-    assert "Heading 1" in style_names
+    # Check that common styles exist (case-insensitive - OOXML stores as stored)
+    style_names_lower = [s["name"].lower() for s in result["styles"]]
+    assert "normal" in style_names_lower
+    assert "heading 1" in style_names_lower
 
     # Check style properties
-    normal_style = next(s for s in result["styles"] if s["name"] == "Normal")
+    normal_style = next(s for s in result["styles"] if s["name"].lower() == "normal")
     assert normal_style["style_id"] == "Normal"
     assert normal_style["type"] == "paragraph"
     assert normal_style["builtin"] is True
