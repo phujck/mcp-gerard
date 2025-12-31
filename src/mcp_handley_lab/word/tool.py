@@ -1,13 +1,17 @@
 """Word document MCP tool - read and edit operations."""
 
-import json
+from __future__ import annotations
 
-from docx import Document
-from docx.text.paragraph import Paragraph
+import json
+from typing import TYPE_CHECKING
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.word import document as word_ops
+
+if TYPE_CHECKING:
+    pass
 from mcp_handley_lab.word.models import (
     BookmarkInfo,
     CaptionInfo,
@@ -105,21 +109,22 @@ def read(
         "styles",
         "style",
         "runs",
-    }
-    # Scopes that need python-docx Document (for now)
-    _DOC_SCOPES = {
         "comments",
         "headers_footers",
         "images",
     }
+    # Scopes that need python-docx Document (for now)
+    _DOC_SCOPES: set[str] = set()
 
-    # Load appropriate object(s) - meta needs both
+    # Load appropriate object(s)
     pkg = (
         WordPackage.open(file_path) if scope in _PKG_SCOPES or scope == "meta" else None
     )
-    doc = Document(file_path) if scope in _DOC_SCOPES or scope == "meta" else None
 
     if scope == "meta":
+        from docx import Document
+
+        doc = Document(file_path)
         meta = word_ops.get_document_meta(doc)
         _, block_count = word_ops.build_blocks(pkg, offset=0, limit=0)
         return DocumentReadResult(block_count=block_count, meta=meta)
@@ -171,11 +176,11 @@ def read(
             block_count=len(runs), runs=runs, paragraph_format=paragraph_format
         )
     if scope == "comments":
-        comments_data = word_ops.build_comments_with_threading(doc)
+        comments_data = word_ops.build_comments_with_threading(pkg)
         comments = [CommentInfo(**c) for c in comments_data]
         return DocumentReadResult(block_count=len(comments), comments=comments)
     if scope == "headers_footers":
-        headers_footers = word_ops.build_headers_footers(doc)
+        headers_footers = word_ops.build_headers_footers(pkg)
         return DocumentReadResult(
             block_count=len(headers_footers), headers_footers=headers_footers
         )
@@ -183,7 +188,7 @@ def read(
         page_setup = word_ops.build_page_setup(pkg)
         return DocumentReadResult(block_count=len(page_setup), page_setup=page_setup)
     if scope == "images":
-        images = word_ops.build_images(doc)
+        images = word_ops.build_images(pkg)
         return DocumentReadResult(block_count=len(images), images=images)
     if scope == "hyperlinks":
         hyperlinks = word_ops.build_hyperlinks(pkg)
@@ -312,6 +317,9 @@ def edit(
     ),
 ) -> EditResult:
     """Edit Word document."""
+    from docx import Document
+    from docx.text.paragraph import Paragraph
+
     # Create operation is special - creates new document
     if operation == "create":
         doc = Document()

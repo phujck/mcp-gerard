@@ -12,13 +12,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from docx.text.paragraph import Paragraph
 from lxml import etree
 
 from mcp_handley_lab.word.opc.constants import qn
 
 if TYPE_CHECKING:
     from docx import Document
+    from docx.text.paragraph import Paragraph
 
 from mcp_handley_lab.word.models import CommentInfo
 
@@ -32,6 +32,144 @@ _COMMENTS_EXT_NS = {"w15": _W15_NS}
 
 # Content type for commentsExtended.xml
 _COMMENTS_EXTENDED_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml"
+
+
+# =============================================================================
+# Pure OOXML Comment Parsing
+# =============================================================================
+
+
+def _build_comments_ooxml(pkg) -> dict[int, dict]:
+    """Build comments dict from /word/comments.xml (pure OOXML).
+
+    Returns: {comment_id: {id, author, initials, timestamp, text, para_id, ...}}
+    """
+    comments = {}
+
+    if not pkg.has_part("/word/comments.xml"):
+        return comments
+
+    comments_xml = pkg.get_xml("/word/comments.xml")
+
+    for comment in comments_xml.iter(qn("w:comment")):
+        # Get basic attributes
+        comment_id = comment.get(qn("w:id"))
+        if comment_id is None:
+            continue
+        comment_id = int(comment_id)
+
+        author = comment.get(qn("w:author")) or ""
+        initials = comment.get(qn("w:initials")) or ""
+        date_str = comment.get(qn("w:date"))
+
+        # Parse date if present
+        timestamp = None
+        if date_str:
+            # ISO 8601 format: 2024-01-15T10:30:00Z
+            timestamp = date_str
+
+        # Get w15:paraId for threading linkage
+        para_id = comment.get(f"{{{_W15_NS}}}paraId")
+
+        # Extract text from comment content (w:p/w:r/w:t)
+        text_parts = []
+        for t in comment.iter(qn("w:t")):
+            if t.text:
+                text_parts.append(t.text)
+        text = "".join(text_parts)
+
+        comments[comment_id] = {
+            "id": comment_id,
+            "author": author,
+            "initials": initials,
+            "timestamp": timestamp,
+            "text": text,
+            "para_id": para_id,
+            "parent_id": None,
+            "resolved": False,
+            "replies": [],
+        }
+
+    return comments
+
+
+def _parse_comment_threading_ooxml(pkg) -> dict[str, dict]:
+    """Parse threading/resolution from /word/commentsExtended.xml (pure OOXML).
+
+    Returns: {para_id: {'parent_para_id': str|None, 'done': bool}}
+    """
+    result = {}
+
+    if not pkg.has_part("/word/commentsExtended.xml"):
+        return result
+
+    try:
+        ext_xml = pkg.get_xml("/word/commentsExtended.xml")
+
+        # w15:paraId, w15:done, w15:paraIdParent attributes
+        para_id_attr = f"{{{_W15_NS}}}paraId"
+        done_attr = f"{{{_W15_NS}}}done"
+        parent_attr = f"{{{_W15_NS}}}paraIdParent"
+
+        for comment_ex in ext_xml.iter(f"{{{_W15_NS}}}commentEx"):
+            para_id = comment_ex.get(para_id_attr)
+            if not para_id:
+                continue
+
+            done_str = comment_ex.get(done_attr)
+            done = done_str == "1" if done_str else False
+
+            parent_para_id = comment_ex.get(parent_attr)
+
+            result[para_id] = {"parent_para_id": parent_para_id, "done": done}
+    except (etree.XMLSyntaxError, AttributeError):
+        pass
+
+    return result
+
+
+def _build_comments_with_threading_ooxml(pkg) -> list[dict]:
+    """Build comments list with threading from pure OOXML."""
+    comments = _build_comments_ooxml(pkg)
+
+    if not comments:
+        return []
+
+    # Build para_id -> comment_id map
+    para_id_map = {}
+    for comment_id, comment in comments.items():
+        para_id = comment.get("para_id")
+        if para_id:
+            para_id_map[para_id] = comment_id
+
+    # Parse threading info
+    threading_info = _parse_comment_threading_ooxml(pkg)
+
+    # Apply threading info
+    for para_id, info in threading_info.items():
+        comment_id = para_id_map.get(para_id)
+        if comment_id is None or comment_id not in comments:
+            continue
+
+        comments[comment_id]["resolved"] = info["done"]
+
+        parent_para_id = info.get("parent_para_id")
+        if parent_para_id:
+            parent_comment_id = para_id_map.get(parent_para_id)
+            if parent_comment_id is not None:
+                comments[comment_id]["parent_id"] = parent_comment_id
+
+    # Build replies lists
+    for comment_id, comment in comments.items():
+        parent_id = comment["parent_id"]
+        if parent_id is not None and parent_id in comments:
+            comments[parent_id]["replies"].append(comment_id)
+
+    # Remove internal para_id field before returning
+    for comment in comments.values():
+        comment.pop("para_id", None)
+
+    return sorted(comments.values(), key=lambda c: c["id"])
 
 
 # =============================================================================
@@ -164,13 +302,21 @@ def _get_comment_para_id_map(doc: Document) -> dict:
     return para_id_to_comment_id
 
 
-def build_comments_with_threading(doc: Document) -> list[dict]:
+def build_comments_with_threading(pkg_or_doc) -> list[dict]:
     """Build comments list with threading info from extended part.
+
+    Args:
+        pkg_or_doc: WordPackage or python-docx Document (duck-typed)
 
     Falls back to flat list if commentsExtended.xml not present.
     Returns list of dicts compatible with CommentInfo model.
     """
-    # Get base comment info from python-docx
+    # Check if it's a WordPackage (pure OOXML path)
+    if hasattr(pkg_or_doc, "document_xml"):
+        return _build_comments_with_threading_ooxml(pkg_or_doc)
+
+    # python-docx Document path (legacy)
+    doc = pkg_or_doc
     comments = {}
     for c in doc.comments:
         comments[c.comment_id] = {
@@ -248,6 +394,8 @@ def reply_to_comment(
         while parent_el is not None:
             if parent_el.tag == qn("w:p"):
                 # Found paragraph - get its runs
+                from docx.text.paragraph import Paragraph
+
                 para = Paragraph(parent_el, doc)
                 anchored_runs = para.runs
                 break

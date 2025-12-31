@@ -13,9 +13,6 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from docx.shared import Inches
-from docx.text.hyperlink import Hyperlink
-from docx.text.paragraph import Paragraph
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
 
@@ -231,6 +228,8 @@ def _extract_images_from_paragraph(
     Uses iter_inner_content() indexing to match build_runs() indexing.
     """
 
+    from docx.text.hyperlink import Hyperlink
+
     images: list[ImageInfo] = []
     run_idx = 0
     for item in para.iter_inner_content():
@@ -249,20 +248,237 @@ def _extract_images_from_paragraph(
 
 
 # =============================================================================
+# Image Building and Resolution (Pure OOXML)
+# =============================================================================
+
+
+def _get_image_hash_ooxml(pkg, rel_id: str) -> str | None:
+    """Get SHA1 hash for embedded image (pure OOXML). Returns None if not found."""
+    import hashlib
+
+    doc_rels = pkg.get_rels("/word/document.xml")
+    rel = doc_rels.get(rel_id)
+    if not rel or rel.is_external:
+        return None  # Linked image - can't hash
+
+    # Resolve relative path
+    target = rel.target
+    if not target.startswith("/"):
+        target = f"/word/{target}"
+
+    if not pkg.has_part(target):
+        return None
+
+    image_bytes = pkg.get_bytes(target)
+    return hashlib.sha1(image_bytes).hexdigest()[:8]
+
+
+def _get_image_content_type_ooxml(pkg, rel_id: str) -> str:
+    """Get content type for image (pure OOXML)."""
+    doc_rels = pkg.get_rels("/word/document.xml")
+    rel = doc_rels.get(rel_id)
+    if not rel:
+        return ""
+
+    target = rel.target
+    if not target.startswith("/"):
+        target = f"/word/{target}"
+
+    try:
+        return pkg._content_types[target]
+    except KeyError:
+        return ""
+
+
+def _get_image_filename_ooxml(rel_target: str) -> str:
+    """Get filename from relationship target."""
+    import posixpath
+
+    return posixpath.basename(rel_target)
+
+
+def _extract_images_from_run_ooxml(
+    pkg,
+    run_el,
+    run_idx: int,
+    block_id: str,
+    image_hash_counts: dict[str, int],
+) -> list[ImageInfo]:
+    """Extract images from a single run element (pure OOXML)."""
+    images = []
+    image_idx_in_run = 0
+
+    for drawing in _img_xpath(run_el, ".//w:drawing"):
+        inline = _img_find(drawing, ".//wp:inline")
+        anchor = _img_find(drawing, ".//wp:anchor")
+
+        container = inline if inline is not None else anchor
+        if container is None:
+            continue
+
+        # Find blip element (skip charts/smartart without blip)
+        blip_ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+        blip_list = _img_xpath(container, ".//a:blip", blip_ns)
+        if not blip_list:
+            continue
+        blip = blip_list[0]
+
+        # Get embed relationship ID
+        r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        rel_id = blip.get(f"{{{r_ns}}}embed")
+        if not rel_id:
+            continue  # Linked image
+
+        h = _get_image_hash_ooxml(pkg, rel_id)
+        if h is None:
+            continue
+
+        # Track image occurrence
+        img_occurrence = image_hash_counts.get(h, 0)
+        image_hash_counts[h] = img_occurrence + 1
+
+        # Get dimensions
+        extent_el = _img_find(container, "./wp:extent")
+        if extent_el is not None:
+            width_emu = int(extent_el.get("cx", 0))
+            height_emu = int(extent_el.get("cy", 0))
+        else:
+            width_emu, height_emu = 0, 0
+
+        # Get content type and filename
+        content_type = _get_image_content_type_ooxml(pkg, rel_id)
+        doc_rels = pkg.get_rels("/word/document.xml")
+        rel = doc_rels.get(rel_id)
+        filename = _get_image_filename_ooxml(rel.target) if rel else ""
+
+        info_kwargs = {
+            "id": f"image_{h}_{img_occurrence}",
+            "width_inches": width_emu / _EMU_PER_INCH,
+            "height_inches": height_emu / _EMU_PER_INCH,
+            "content_type": content_type,
+            "block_id": block_id,
+            "run_index": run_idx,
+            "image_index_in_run": image_idx_in_run,
+            "filename": filename,
+        }
+
+        if anchor is not None:
+            info_kwargs.update(_extract_anchor_position(anchor))
+
+        images.append(ImageInfo(**info_kwargs))
+        image_idx_in_run += 1
+
+    return images
+
+
+def _extract_images_from_paragraph_ooxml(
+    pkg,
+    p_el,
+    block_id: str,
+    image_hash_counts: dict[str, int],
+) -> list[ImageInfo]:
+    """Extract images from a paragraph element (pure OOXML)."""
+    images = []
+    run_idx = 0
+
+    for child in p_el:
+        tag = child.tag
+        if tag == qn("w:r"):
+            images.extend(
+                _extract_images_from_run_ooxml(
+                    pkg, child, run_idx, block_id, image_hash_counts
+                )
+            )
+            run_idx += 1
+        elif tag == qn("w:hyperlink"):
+            # Process runs inside hyperlink
+            for run_el in child.iter(qn("w:r")):
+                images.extend(
+                    _extract_images_from_run_ooxml(
+                        pkg, run_el, run_idx, block_id, image_hash_counts
+                    )
+                )
+                run_idx += 1
+
+    return images
+
+
+def _extract_paragraph_text_ooxml(p_el) -> str:
+    """Extract text from paragraph element."""
+    text_parts = []
+    for t in p_el.iter(qn("w:t")):
+        if t.text:
+            text_parts.append(t.text)
+    return "".join(text_parts)
+
+
+def _build_images_ooxml(pkg) -> list[ImageInfo]:
+    """Build images list from pure OOXML."""
+    images = []
+    block_hash_counts: dict[str, int] = {}
+    image_hash_counts: dict[str, int] = {}
+
+    body = pkg.body
+
+    for child in body:
+        tag = child.tag
+        if tag == qn("w:p"):
+            block_type, _ = paragraph_kind_and_level(child)
+            text = _extract_paragraph_text_ooxml(child)
+            block_hash_key = f"{block_type}_{content_hash(text)}"
+            block_occurrence = block_hash_counts.get(block_hash_key, 0)
+            block_id = make_block_id(block_type, text, block_occurrence)
+            block_hash_counts[block_hash_key] = block_occurrence + 1
+
+            images.extend(
+                _extract_images_from_paragraph_ooxml(
+                    pkg, child, block_id, image_hash_counts
+                )
+            )
+
+        elif tag == qn("w:tbl"):
+            table_content = table_content_for_hash(child)
+            block_hash_key = f"table_{content_hash(table_content)}"
+            block_occurrence = block_hash_counts.get(block_hash_key, 0)
+            table_block_id = make_block_id("table", table_content, block_occurrence)
+            block_hash_counts[block_hash_key] = block_occurrence + 1
+
+            # Search all cells for images
+            for r_idx, tr in enumerate(child.findall(qn("w:tr"))):
+                for c_idx, tc in enumerate(tr.findall(qn("w:tc"))):
+                    for p_idx, p in enumerate(tc.findall(qn("w:p"))):
+                        hier_block_id = f"{table_block_id}#r{r_idx}c{c_idx}/p{p_idx}"
+                        images.extend(
+                            _extract_images_from_paragraph_ooxml(
+                                pkg, p, hier_block_id, image_hash_counts
+                            )
+                        )
+
+    return images
+
+
+# =============================================================================
 # Image Building and Resolution
 # =============================================================================
 
 
-def build_images(doc: Document) -> list[ImageInfo]:
+def build_images(pkg_or_doc) -> list[ImageInfo]:
     """Build list of ImageInfo from document body, including tables.
 
-    Uses python-docx iteration directly for access to wrapper objects.
+    Args:
+        pkg_or_doc: WordPackage or python-docx Document (duck-typed)
     """
+    # Check if it's a WordPackage (pure OOXML path)
+    if hasattr(pkg_or_doc, "document_xml"):
+        return _build_images_ooxml(pkg_or_doc)
+
+    # python-docx Document path (legacy)
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
     from docx.table import Table
-    from docx.text.paragraph import Paragraph
+    from docx.text.paragraph import Paragraph as DocxParagraph
 
+    doc = pkg_or_doc
     images = []
     block_hash_counts: dict[str, int] = {}  # For block_id computation
     image_hash_counts: dict[str, int] = {}  # For image occurrence
@@ -270,7 +486,7 @@ def build_images(doc: Document) -> list[ImageInfo]:
     # Iterate body blocks directly using python-docx
     for child in doc.element.body.iterchildren():
         if isinstance(child, CT_P):
-            para = Paragraph(child, doc)
+            para = DocxParagraph(child, doc)
             block_type, _ = paragraph_kind_and_level(child)
             text = para.text or ""
             block_hash_key = f"{block_type}_{content_hash(text)}"
@@ -384,6 +600,8 @@ def insert_image(
     - paragraph_abc_0 -> Insert before/after paragraph
     """
 
+    from docx.shared import Inches
+
     target = resolve_target(doc, target_id)
 
     # Get image hash first
@@ -429,6 +647,8 @@ def insert_image(
 
 def delete_image(doc: Document, image_id: str) -> None:
     """Delete an image. Removes containing paragraph if only whitespace remains."""
+    from docx.text.paragraph import Paragraph
+
     inline_el, para_el = resolve_image(doc, image_id)
 
     # Remove the drawing element (parent of inline)
