@@ -255,7 +255,9 @@ def _get_cell_width(tc_el: etree._Element) -> float | None:
         return val / _TWIPS_PER_INCH
     elif w_type == "pct":
         return None  # Percentage width, no absolute value
-    return val / _EMUS_PER_INCH  # Assume EMU if unknown
+    elif w_type in ("auto", "nil"):
+        return None  # Auto-width, no absolute value
+    raise ValueError(f"Unknown cell width type: {w_type!r}")
 
 
 def _get_cell_valign(tc_el: etree._Element) -> str | None:

@@ -235,7 +235,7 @@ def _drop_tag_keep_content(element) -> None:
     """
     parent = element.getparent()
     if parent is None:
-        return
+        raise ValueError("Cannot drop tag: element has no parent")
 
     index = parent.index(element)
     children = list(element)  # Snapshot before mutation
@@ -315,7 +315,7 @@ def _remove_element_preserve_tail(element) -> None:
     """
     parent = element.getparent()
     if parent is None:
-        return
+        raise ValueError("Cannot remove element: element has no parent")
 
     if element.tail:
         prev = element.getprevious()
