@@ -774,7 +774,12 @@ def _create_style_ooxml(
     """Create a new custom style via pure OOXML."""
     # Type mapping to OOXML type attribute
     type_map = {"paragraph": "paragraph", "character": "character", "table": "table"}
-    ooxml_type = type_map.get(style_type.lower(), "paragraph")
+    style_type_lower = style_type.lower()
+    if style_type_lower not in type_map:
+        raise ValueError(
+            f"Invalid style_type: {style_type!r}. Use 'paragraph', 'character', or 'table'"
+        )
+    ooxml_type = type_map[style_type_lower]
 
     # Generate styleId from name (remove spaces, capitalize)
     style_id = name.replace(" ", "")

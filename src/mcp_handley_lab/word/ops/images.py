@@ -160,7 +160,7 @@ def _get_image_hash_ooxml(pkg, rel_id: str) -> str | None:
 
 
 def _get_image_content_type_ooxml(pkg, rel_id: str) -> str:
-    """Get content type for image (pure OOXML)."""
+    """Get content type for image (pure OOXML). Returns empty string if rel not found."""
     doc_rels = pkg.get_rels("/word/document.xml")
     rel = doc_rels.get(rel_id)
     if not rel:
@@ -170,10 +170,7 @@ def _get_image_content_type_ooxml(pkg, rel_id: str) -> str:
     if not target.startswith("/"):
         target = f"/word/{target}"
 
-    try:
-        return pkg._content_types[target]
-    except KeyError:
-        return ""
+    return pkg._content_types[target]
 
 
 def _get_image_filename_ooxml(rel_target: str) -> str:
