@@ -249,13 +249,13 @@ def _get_cell_width(tc_el: etree._Element) -> float | None:
         return None
     try:
         val = int(w_val)
-        if w_type == "dxa":
-            return val / _TWIPS_PER_INCH
-        elif w_type == "pct":
-            return None  # Percentage width, no absolute value
-        return val / _EMUS_PER_INCH  # Assume EMU if unknown
     except ValueError:
-        return None
+        raise ValueError(f"Invalid cell width value: {w_val!r}")
+    if w_type == "dxa":
+        return val / _TWIPS_PER_INCH
+    elif w_type == "pct":
+        return None  # Percentage width, no absolute value
+    return val / _EMUS_PER_INCH  # Assume EMU if unknown
 
 
 def _get_cell_valign(tc_el: etree._Element) -> str | None:
@@ -412,10 +412,13 @@ def _get_row_height(tr_el: etree._Element) -> tuple[float | None, str | None]:
     rule_map = {"exact": "exactly", "atLeast": "at_least", "auto": "auto"}
     height_rule = rule_map.get(rule, "at_least") if rule else "at_least"
     # Convert twips to inches
-    try:
-        height_inches = int(val) / _TWIPS_PER_INCH if val else None
-    except ValueError:
+    if val is None:
         height_inches = None
+    else:
+        try:
+            height_inches = int(val) / _TWIPS_PER_INCH
+        except ValueError:
+            raise ValueError(f"Invalid row height value: {val!r}")
     return height_inches, height_rule
 
 
@@ -737,12 +740,21 @@ def delete_table_column(tbl_el: etree._Element, col_index: int) -> None:
 
     Pure OOXML: Takes w:tbl element.
     """
-    # 1. Remove the grid column definition
+    # Validate column index against grid or first row
     tblGrid = tbl_el.find(_W_TBLGRID)
     if tblGrid is not None:
         gridCols = tblGrid.findall(_W_GRIDCOL)
-        if col_index < len(gridCols):
-            tblGrid.remove(gridCols[col_index])
+        num_cols = len(gridCols)
+    else:
+        rows = tbl_el.findall(_W_TR)
+        num_cols = len(rows[0].findall(_W_TC)) if rows else 0
+
+    if col_index < 0 or col_index >= num_cols:
+        raise IndexError(f"Column index {col_index} out of range (0..{num_cols - 1})")
+
+    # 1. Remove the grid column definition
+    if tblGrid is not None:
+        tblGrid.remove(gridCols[col_index])
 
     # 2. Remove the cell from every row
     for tr in tbl_el.findall(_W_TR):

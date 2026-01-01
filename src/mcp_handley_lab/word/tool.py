@@ -516,9 +516,10 @@ def edit(
         elif operation == "add_column":
             t = word_ops.resolve_target(pkg, target_id)
             fmt = json.loads(formatting) if formatting else {}
-            width = float(fmt.get("width", 1.0))
+            width_inches = float(fmt.get("width", 1.0))
+            width_twips = int(width_inches * 1440)  # 1440 twips per inch
             data = json.loads(content_data) if content_data else None
-            col_idx = word_ops.add_table_column(t.base_el, width, data)
+            col_idx = word_ops.add_table_column(t.base_el, width_twips, data)
             pkg.mark_xml_dirty("/word/document.xml")
             element_id = _recalc_table_id(pkg, t)
             message = f"Added column {col_idx}"
@@ -901,14 +902,16 @@ def edit(
             if not target_id:
                 raise ValueError("target_id (block ID) required for insert_caption")
             # Accept plain string OR JSON dict
-            try:
-                caption_data = json.loads(content_data) if content_data else {}
+            if content_data and content_data.strip().startswith("{"):
+                # Looks like JSON - parse strictly
+                caption_data = json.loads(content_data)
                 if not isinstance(caption_data, dict):
-                    raise TypeError("Expected dict")
+                    raise ValueError("content_data must be a JSON object or plain text")
                 label = caption_data.get("label", "Figure")
                 caption_text = caption_data.get("text", "")
                 position = caption_data.get("position", "below")
-            except (json.JSONDecodeError, TypeError):
+            else:
+                # Plain string caption text
                 label = "Figure"
                 caption_text = content_data if content_data else ""
                 position = "below"

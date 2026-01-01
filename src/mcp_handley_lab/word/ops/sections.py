@@ -383,12 +383,9 @@ def add_section(pkg, start_type: str = "new_page") -> int:
 
 def _insert_sectpr_element(sectPr, element, local_name: str) -> None:
     """Insert element into sectPr at schema-correct position."""
-    try:
-        target_idx = _SECTPR_ORDER.index(local_name)
-    except ValueError:
-        # Unknown element, append at end
-        sectPr.append(element)
-        return
+    if local_name not in _SECTPR_ORDER:
+        raise ValueError(f"Unknown sectPr element: {local_name}")
+    target_idx = _SECTPR_ORDER.index(local_name)
 
     # Find first child that should come after this element
     for i, child in enumerate(sectPr):

@@ -404,10 +404,7 @@ def reply_to_comment(
     # Find paragraph containing parent comment
     p_el = _find_comment_paragraph(pkg, parent_id)
     if p_el is None:
-        # Fall back to first paragraph in body
-        p_el = pkg.body.find(qn("w:p"))
-        if p_el is None:
-            raise ValueError("No paragraphs available to anchor reply comment")
+        raise ValueError(f"Parent comment {parent_id} not attached to any paragraph")
 
     # Add reply comment using same mechanism as add_comment_to_block
     comments_xml = _ensure_comments_part(pkg)
