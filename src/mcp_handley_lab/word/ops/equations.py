@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from lxml import etree
 
+from mcp_handley_lab.word.opc.constants import qn
 from mcp_handley_lab.word.ops.core import (
     content_hash,
     count_occurrence,
@@ -288,8 +289,6 @@ def build_equations(pkg) -> list[dict]:
     Args:
         pkg: WordPackage
     """
-    from mcp_handley_lab.word.opc.constants import qn
-
     equations: list[dict] = []
     equation_hash_counts: dict[str, int] = {}
 

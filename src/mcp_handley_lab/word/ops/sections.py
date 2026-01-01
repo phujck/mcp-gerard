@@ -10,6 +10,8 @@ Contains functions for:
 
 from __future__ import annotations
 
+import copy
+
 from lxml import etree
 
 from mcp_handley_lab.word.enums import WdSection
@@ -323,8 +325,6 @@ def add_section(pkg, start_type: str = "new_page") -> int:
         body_sectPr = etree.SubElement(body, qn("w:sectPr"))
 
     # Deep copy the body sectPr to create the new section break
-    import copy
-
     new_sectPr = copy.deepcopy(body_sectPr)
 
     # Set the section type on the new sectPr

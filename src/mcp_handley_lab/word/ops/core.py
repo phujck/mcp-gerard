@@ -550,8 +550,9 @@ def _insert_at(
 def delete_element(el: etree._Element) -> None:
     """Delete an element from its parent (pure OOXML)."""
     parent = el.getparent()
-    if parent is not None:
-        parent.remove(el)
+    if parent is None:
+        raise ValueError("Cannot delete element with no parent")
+    parent.remove(el)
 
 
 def get_or_create_pPr(p_el: etree._Element) -> etree._Element:
@@ -833,8 +834,6 @@ def insert_content_ooxml(
         _insert_at(target_el, p, position)
         el = p
     elif content_type == "table":
-        import json
-
         table_data = json.loads(content_data)
         el = insert_table_relative(target_el, table_data, position)
     else:
@@ -869,8 +868,6 @@ def append_content_ooxml(
     elif content_type == "heading":
         return append_heading_ooxml(pkg, content_data, heading_level)
     elif content_type == "table":
-        import json
-
         table_data = json.loads(content_data)
         rows = len(table_data)
         cols = max((len(r) for r in table_data), default=1)

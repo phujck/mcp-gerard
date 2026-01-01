@@ -99,27 +99,24 @@ def _parse_comment_threading_ooxml(pkg) -> dict[str, dict]:
     if not pkg.has_part("/word/commentsExtended.xml"):
         return result
 
-    try:
-        ext_xml = pkg.get_xml("/word/commentsExtended.xml")
+    ext_xml = pkg.get_xml("/word/commentsExtended.xml")
 
-        # w15:paraId, w15:done, w15:paraIdParent attributes
-        para_id_attr = f"{{{_W15_NS}}}paraId"
-        done_attr = f"{{{_W15_NS}}}done"
-        parent_attr = f"{{{_W15_NS}}}paraIdParent"
+    # w15:paraId, w15:done, w15:paraIdParent attributes
+    para_id_attr = f"{{{_W15_NS}}}paraId"
+    done_attr = f"{{{_W15_NS}}}done"
+    parent_attr = f"{{{_W15_NS}}}paraIdParent"
 
-        for comment_ex in ext_xml.iter(f"{{{_W15_NS}}}commentEx"):
-            para_id = comment_ex.get(para_id_attr)
-            if not para_id:
-                continue
+    for comment_ex in ext_xml.iter(f"{{{_W15_NS}}}commentEx"):
+        para_id = comment_ex.get(para_id_attr)
+        if not para_id:
+            continue
 
-            done_str = comment_ex.get(done_attr)
-            done = done_str == "1" if done_str else False
+        done_str = comment_ex.get(done_attr)
+        done = done_str == "1" if done_str else False
 
-            parent_para_id = comment_ex.get(parent_attr)
+        parent_para_id = comment_ex.get(parent_attr)
 
-            result[para_id] = {"parent_para_id": parent_para_id, "done": done}
-    except (etree.XMLSyntaxError, AttributeError):
-        pass
+        result[para_id] = {"parent_para_id": parent_para_id, "done": done}
 
     return result
 

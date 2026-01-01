@@ -10,6 +10,8 @@ Contains functions for:
 
 from __future__ import annotations
 
+import hashlib
+import posixpath
 import random
 
 from lxml import etree
@@ -85,8 +87,6 @@ def get_embedded_image_hash(pkg, blip) -> str | None:
         pkg: WordPackage
         blip: a:blip element containing the image reference
     """
-    import hashlib
-
     # Get relationship ID from blip element
     r_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     rel_id = blip.get(f"{{{r_ns}}}embed")
@@ -142,8 +142,6 @@ def _extract_anchor_position(anchor) -> dict:
 
 def _get_image_hash_ooxml(pkg, rel_id: str) -> str | None:
     """Get SHA1 hash for embedded image (pure OOXML). Returns None if not found."""
-    import hashlib
-
     doc_rels = pkg.get_rels("/word/document.xml")
     rel = doc_rels.get(rel_id)
     if not rel or rel.is_external:
@@ -180,8 +178,6 @@ def _get_image_content_type_ooxml(pkg, rel_id: str) -> str:
 
 def _get_image_filename_ooxml(rel_target: str) -> str:
     """Get filename from relationship target."""
-    import posixpath
-
     return posixpath.basename(rel_target)
 
 
@@ -524,8 +520,6 @@ def insert_image(
     - table_abc_0 -> Insert before/after table
     - paragraph_abc_0 -> Insert before/after paragraph
     """
-    import hashlib
-
     target = resolve_target(pkg, target_id)
 
     # Get image metadata and add to package
@@ -730,8 +724,6 @@ def insert_floating_image(
     Returns:
         Image ID (image_{hash}_{occurrence})
     """
-    import hashlib
-
     target = resolve_target(pkg, target_id)
 
     # Get image metadata and add to package
