@@ -14,7 +14,13 @@ from __future__ import annotations
 from lxml import etree
 
 from mcp_handley_lab.word.opc.constants import NSMAP, qn
-from mcp_handley_lab.word.ops.core import content_hash, make_block_id, mark_dirty
+from mcp_handley_lab.word.ops.core import (
+    content_hash,
+    get_paragraph_text,
+    make_block_id,
+    mark_dirty,
+    paragraph_kind_and_level,
+)
 
 # =============================================================================
 # Constants
@@ -136,33 +142,8 @@ def build_block_id_from_element(
     Pure OOXML: Takes w:p element.
     Uses content_hash() for normalization and tracks occurrence by block_type + hash.
     """
-    # Determine block type - check if it's a heading by looking at pPr/pStyle
-    block_type = "paragraph"
-    pPr = element.find("w:pPr", namespaces=NSMAP)
-    if pPr is not None:
-        pStyle = pPr.find("w:pStyle", namespaces=NSMAP)
-        if pStyle is not None:
-            style_val = pStyle.get(qn("w:val"), "")
-            # Check for heading styles (Heading1, Heading 1, heading1, etc.)
-            if style_val.lower().replace(" ", "").startswith("heading"):
-                try:
-                    level_str = (
-                        style_val.lower().replace("heading", "").replace(" ", "")
-                    )
-                    if level_str.isdigit():
-                        level = int(level_str)
-                        if 1 <= level <= 9:
-                            block_type = f"heading{level}"
-                except (ValueError, IndexError):
-                    pass
-
-    # Extract text content from element
-    text_content = ""
-    for t in element.iter(qn("w:t")):
-        if t.text:
-            text_content += t.text
-
-    # Use content_hash for consistent normalization
+    block_type, _ = paragraph_kind_and_level(element)
+    text_content = get_paragraph_text(element)
     text_hash = content_hash(text_content)
 
     # Track occurrence by block_type + hash (same as build_blocks)
