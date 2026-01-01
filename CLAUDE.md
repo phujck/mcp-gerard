@@ -237,7 +237,6 @@ mcp-email                                       # Email via notmuch
 mcp-github                                      # GitHub integration
 mcp-jq                                          # JSON querying
 mcp-py2nb                                       # Python/notebook conversion
-mcp-word                                        # Word document processing
 ```
 
 ### JSON-RPC MCP Server Usage
