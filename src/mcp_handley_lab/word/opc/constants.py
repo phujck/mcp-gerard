@@ -3,10 +3,12 @@
 # Namespace mapping - from python-docx oxml/ns.py
 NSMAP = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "b": "http://schemas.openxmlformats.org/officeDocument/2006/bibliography",
     "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
     "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
     "dc": "http://purl.org/dc/elements/1.1/",
     "dcterms": "http://purl.org/dc/terms/",
+    "ds": "http://schemas.openxmlformats.org/officeDocument/2006/customXml",
     "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "mo": "http://schemas.microsoft.com/office/mac/office/2008/main",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
@@ -99,6 +101,12 @@ class CT:
     # Generic XML
     XML = "application/xml"
 
+    # CustomXml (for bibliography sources, etc.)
+    CUSTOM_XML = "application/vnd.openxmlformats-officedocument.customXml+xml"
+    CUSTOM_XML_PROPS = (
+        "application/vnd.openxmlformats-officedocument.customXmlProperties+xml"
+    )
+
     # Images
     PNG = "image/png"
     JPEG = "image/jpeg"
@@ -168,6 +176,15 @@ class RT:
         "webSettings"
     )
     THEME = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"
+
+    # CustomXml (for bibliography sources, etc.)
+    CUSTOM_XML = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"
+    )
+    CUSTOM_XML_PROPS = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"
+        "customXmlProps"
+    )
 
 
 # Default content types by extension

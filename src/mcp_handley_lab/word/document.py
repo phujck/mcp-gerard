@@ -6,6 +6,13 @@ All functions work with raw lxml elements and WordPackage (pure OOXML).
 
 from __future__ import annotations
 
+from mcp_handley_lab.word.ops.bibliography import (  # noqa: F401
+    add_source,
+    build_sources,
+    delete_source,
+    insert_bibliography,
+    insert_citation,
+)
 from mcp_handley_lab.word.ops.bookmarks import (  # noqa: F401
     _RESERVED_BOOKMARK_PREFIXES,
     _get_next_bookmark_id,
@@ -197,6 +204,7 @@ from mcp_handley_lab.word.ops.sections import (  # noqa: F401
     add_section,
     build_page_setup,
     set_line_numbering,
+    set_page_borders,
     set_page_margins,
     set_page_orientation,
     set_section_columns,

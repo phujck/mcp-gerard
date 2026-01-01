@@ -17,69 +17,14 @@ from lxml import etree
 from mcp_handley_lab.word.models import HeaderFooterInfo
 from mcp_handley_lab.word.opc.constants import qn
 from mcp_handley_lab.word.ops.core import (
-    _make_run_with,
     make_block_id,
     table_content_for_hash,
 )
+from mcp_handley_lab.word.ops.fields import insert_field  # noqa: F401 - re-export
 from mcp_handley_lab.word.ops.tables import populate_table
 
 # EMU per inch for dimension calculations
 _EMU_PER_INCH = 914400
-
-# =============================================================================
-# Field Insertion
-# =============================================================================
-
-
-def insert_field(
-    p_el: etree._Element,
-    field_code: str,
-    display_text: str = "",
-    *,
-    uppercase: bool = True,
-    placeholder: str = "1",
-) -> None:
-    """Insert a Word field into a paragraph.
-
-    Creates proper OXML field structure with separate runs for each part:
-    begin, instruction, separator, result, and end markers.
-    Supports any Word field code (PAGE, NUMPAGES, DATE, TIME, AUTHOR, etc.).
-
-    Args:
-        p_el: w:p element
-        field_code: Word field code (e.g., 'PAGE', 'NUMPAGES', 'DATE')
-        display_text: Display text (unused, kept for API compatibility)
-        uppercase: If True (default), uppercases field_code. Set False for case-sensitive
-            fields like bookmark names in cross-references.
-        placeholder: Default result text shown before field updates.
-    """
-    code = field_code.strip().upper() if uppercase else field_code
-
-    # Run 1: Field begin
-    fld_char_begin = etree.Element(qn("w:fldChar"))
-    fld_char_begin.set(qn("w:fldCharType"), "begin")
-    p_el.append(_make_run_with(fld_char_begin))
-
-    # Run 2: Field instruction
-    instr_text = etree.Element(qn("w:instrText"))
-    instr_text.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-    instr_text.text = f" {code} "
-    p_el.append(_make_run_with(instr_text))
-
-    # Run 3: Field separator
-    fld_char_sep = etree.Element(qn("w:fldChar"))
-    fld_char_sep.set(qn("w:fldCharType"), "separate")
-    p_el.append(_make_run_with(fld_char_sep))
-
-    # Run 4: Result text (placeholder shown before field updates)
-    text_elem = etree.Element(qn("w:t"))
-    text_elem.text = display_text or placeholder
-    p_el.append(_make_run_with(text_elem))
-
-    # Run 5: Field end
-    fld_char_end = etree.Element(qn("w:fldChar"))
-    fld_char_end.set(qn("w:fldCharType"), "end")
-    p_el.append(_make_run_with(fld_char_end))
 
 
 def insert_page_x_of_y(pkg, section_index: int, location: str = "footer") -> None:

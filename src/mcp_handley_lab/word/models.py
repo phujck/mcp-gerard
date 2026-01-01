@@ -352,6 +352,31 @@ class EquationInfo(BaseModel):
     complexity: str  # "simple", "fraction", "matrix", "complex"
 
 
+class BibAuthor(BaseModel):
+    """An author in a bibliography source."""
+
+    first: str = ""
+    last: str = ""
+    middle: str | None = None
+
+
+class BibSourceInfo(BaseModel):
+    """A bibliography source entry."""
+
+    tag: str  # Unique identifier (e.g., "Smith2020")
+    source_type: str  # Book, JournalArticle, etc.
+    title: str
+    authors: list[BibAuthor] = Field(default_factory=list)
+    year: str | None = None
+    publisher: str | None = None
+    city: str | None = None
+    journal_name: str | None = None
+    volume: str | None = None
+    issue: str | None = None
+    pages: str | None = None
+    url: str | None = None
+
+
 class DocumentReadResult(BaseModel):
     """Result from read() tool."""
 
@@ -385,6 +410,9 @@ class DocumentReadResult(BaseModel):
         default_factory=list
     )  # For content_controls scope
     equations: list["EquationInfo"] = Field(default_factory=list)  # For equations scope
+    bibliography_sources: list["BibSourceInfo"] = Field(
+        default_factory=list
+    )  # For bibliography scope
 
 
 class EditResult(BaseModel):

@@ -11,6 +11,7 @@ Contains functions for:
 from __future__ import annotations
 
 import copy
+import re
 
 from lxml import etree
 
@@ -481,5 +482,167 @@ def set_line_numbering(
     lnNumType.set(qn("w:start"), str(start))
     lnNumType.set(qn("w:countBy"), str(count_by))
     lnNumType.set(qn("w:distance"), str(int(distance_inches * 1440)))  # inches to twips
+
+    _mark_dirty(pkg)
+
+
+# =============================================================================
+# Page Borders
+# =============================================================================
+
+# Supported page border styles (curated subset of ST_Border for common use cases)
+# Full ST_Border has 100+ values including decorative art borders (apples, etc.)
+# Unknown styles are passed through to allow power-user OOXML access
+_SUPPORTED_BORDER_STYLES = {
+    "single",
+    "double",
+    "dotted",
+    "dashed",
+    "dashSmallGap",
+    "dotDash",
+    "dotDotDash",
+    "triple",
+    "thinThickSmallGap",
+    "thickThinSmallGap",
+    "thinThickThinSmallGap",
+    "thinThickMediumGap",
+    "thickThinMediumGap",
+    "thinThickThinMediumGap",
+    "thinThickLargeGap",
+    "thickThinLargeGap",
+    "thinThickThinLargeGap",
+    "wave",
+    "doubleWave",
+    "threeDEmboss",
+    "threeDEngrave",
+    "outset",
+    "inset",
+    "nil",
+    "none",
+    "thick",
+    "hairline",
+}
+
+# Case-normalized lookup for border styles
+_BORDER_STYLE_LOOKUP = {s.lower(): s for s in _SUPPORTED_BORDER_STYLES}
+
+_HEX_COLOR_RE = re.compile(r"^[0-9A-Fa-f]{6}$")
+
+
+def _parse_border_spec(spec: str) -> tuple[str, int, int, str]:
+    """Parse border spec 'style:size:space:color' into components.
+
+    Args:
+        spec: Format 'style:size:space:color' e.g., 'single:4:24:000000'
+              - style: border style name or 'nil' to remove (case-insensitive)
+              - size: eighths of a point (4 = 0.5pt, 12 = 1.5pt), 0-255
+              - space: points from text/page edge, 0-31
+              - color: hex RRGGBB (no #) or 'auto'
+
+    Returns:
+        Tuple of (style, size, space, color)
+    """
+    parts = spec.split(":")
+    if len(parts) != 4:
+        raise ValueError(f"Border spec must be 'style:size:space:color', got: {spec}")
+
+    style_input, size_str, space_str, color = parts
+
+    # Normalize style (case-insensitive, allow unknown for power users)
+    style_lower = style_input.lower()
+    style = _BORDER_STYLE_LOOKUP.get(style_lower, style_input)
+
+    # Validate and parse size (eighths of a point, 0-255)
+    try:
+        size = int(size_str)
+    except ValueError:
+        raise ValueError(f"Border size must be integer, got: {size_str}")
+    if size < 0 or size > 255:
+        raise ValueError(f"Border size must be 0-255, got: {size}")
+
+    # Validate and parse space (points, 0-31 per OOXML spec)
+    try:
+        space = int(space_str)
+    except ValueError:
+        raise ValueError(f"Border space must be integer, got: {space_str}")
+    if space < 0 or space > 31:
+        raise ValueError(f"Border space must be 0-31 points, got: {space}")
+
+    # Validate color: 'auto' or 6-digit hex
+    color = color.strip()
+    if color.startswith("#"):
+        color = color[1:]
+    color_upper = color.upper()
+    if color_upper != "AUTO" and not _HEX_COLOR_RE.match(color):
+        raise ValueError(
+            f"Border color must be 'auto' or 6-digit hex (RRGGBB), got: {color}"
+        )
+    color = "auto" if color_upper == "AUTO" else color_upper
+
+    return style, size, space, color
+
+
+def set_page_borders(
+    pkg,
+    section_index: int = 0,
+    top: str | None = None,
+    bottom: str | None = None,
+    left: str | None = None,
+    right: str | None = None,
+    offset_from: str = "text",
+) -> None:
+    """Set page borders for a section.
+
+    Args:
+        pkg: WordPackage
+        section_index: 0-based section index
+        top, bottom, left, right: Border spec 'style:size:space:color'
+            e.g., 'single:4:24:000000' (0.5pt single black border, 24pt from text)
+            Use 'nil:0:0:auto' to remove a border
+        offset_from: 'text' (from text margin) or 'page' (from page edge)
+    """
+    offset_from = offset_from.lower()
+    if offset_from not in ("text", "page"):
+        raise ValueError(f"offset_from must be 'text' or 'page', got: {offset_from}")
+
+    sectPr = _get_sectpr_by_index(pkg, section_index)
+
+    # Get or create w:pgBorders element
+    pgBorders = sectPr.find(qn("w:pgBorders"))
+    if pgBorders is None:
+        pgBorders = etree.Element(qn("w:pgBorders"))
+        _insert_sectpr_element(sectPr, pgBorders, "pgBorders")
+
+    pgBorders.set(qn("w:offsetFrom"), offset_from)
+
+    # Process each border side
+    for side, spec in [
+        ("top", top),
+        ("bottom", bottom),
+        ("left", left),
+        ("right", right),
+    ]:
+        if spec is None:
+            continue
+
+        style, size, space, color = _parse_border_spec(spec)
+
+        # Find or create the side element
+        side_el = pgBorders.find(qn(f"w:{side}"))
+        if side_el is None:
+            side_el = etree.SubElement(pgBorders, qn(f"w:{side}"))
+
+        if style.lower() == "nil":
+            # Remove this border
+            side_el.set(qn("w:val"), "nil")
+            # Clear other attributes
+            for attr in ["sz", "space", "color"]:
+                if qn(f"w:{attr}") in side_el.attrib:
+                    del side_el.attrib[qn(f"w:{attr}")]
+        else:
+            side_el.set(qn("w:val"), style)
+            side_el.set(qn("w:sz"), str(size))
+            side_el.set(qn("w:space"), str(space))
+            side_el.set(qn("w:color"), color)
 
     _mark_dirty(pkg)

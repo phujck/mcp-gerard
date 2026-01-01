@@ -65,13 +65,13 @@ def _recalc_block_id(doc, t) -> str:
 
 
 @mcp.tool(
-    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text). Block IDs are content-addressed (type_hash_occurrence) and CHANGE when content changes or after inserts/deletes shift occurrence index - use element_id from edit response for chaining."
+    description="Read Word document content. Scopes: 'meta' (doc info), 'outline' (headings only), 'blocks' (all content), 'search' (find text), 'table_cells' (cells of a table), 'table_layout' (table alignment/autofit/row heights), 'runs' (text runs in a paragraph), 'comments' (all comments), 'headers_footers' (headers/footers per section), 'page_setup' (margins, orientation per section), 'images' (embedded inline images), 'hyperlinks' (all hyperlinks with URLs), 'styles' (all document styles), 'style' (detailed formatting for a specific style by name in target_id), 'revisions' (tracked changes/revisions), 'list' (list properties for a paragraph by target_id), 'text_boxes' (all text boxes/floating content), 'text_box_content' (paragraphs inside a text box by target_id), 'bookmarks' (all bookmarks), 'captions' (all captions), 'toc' (table of contents info), 'footnotes' (all footnotes and endnotes), 'content_controls' (all content controls/SDTs), 'equations' (math equations with simplified text), 'bibliography' (bibliography sources). Block IDs are content-addressed (type_hash_occurrence) and CHANGE when content changes or after inserts/deletes shift occurrence index - use element_id from edit response for chaining."
 )
 def read(
     file_path: str = Field(..., description="Path to .docx file"),
     scope: str = Field(
         "outline",
-        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'table_layout', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles', 'style', 'revisions', 'list', 'text_boxes', 'text_box_content', 'bookmarks', 'captions', 'toc', 'footnotes', 'content_controls', 'equations'",
+        description="What to read: 'meta', 'outline', 'blocks', 'search', 'table_cells', 'table_layout', 'runs', 'comments', 'headers_footers', 'page_setup', 'images', 'hyperlinks', 'styles', 'style', 'revisions', 'list', 'text_boxes', 'text_box_content', 'bookmarks', 'captions', 'toc', 'footnotes', 'content_controls', 'equations', 'bibliography'",
     ),
     target_id: str = Field(
         "",
@@ -108,6 +108,7 @@ def read(
         "comments",
         "headers_footers",
         "images",
+        "bibliography",
     }
     # Scopes that need python-docx Document (for now)
     _DOC_SCOPES: set[str] = set()
@@ -260,17 +261,41 @@ def read(
         eq_data = word_ops.build_equations(pkg)
         equations = [EquationInfo(**eq) for eq in eq_data]
         return DocumentReadResult(block_count=len(equations), equations=equations)
+    if scope == "bibliography":
+        sources = word_ops.build_sources(pkg)
+        from mcp_handley_lab.word.models import BibAuthor, BibSourceInfo
+
+        bib_sources = [
+            BibSourceInfo(
+                tag=s["tag"],
+                source_type=s["source_type"],
+                title=s["title"],
+                authors=[BibAuthor(**a) for a in s.get("authors", [])],
+                year=s.get("year"),
+                publisher=s.get("publisher"),
+                city=s.get("city"),
+                journal_name=s.get("journal_name"),
+                volume=s.get("volume"),
+                issue=s.get("issue"),
+                pages=s.get("pages"),
+                url=s.get("url"),
+            )
+            for s in sources
+        ]
+        return DocumentReadResult(
+            block_count=len(bib_sources), bibliography_sources=bib_sources
+        )
     raise ValueError(f"Unknown scope: {scope}")
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Note: 'create' makes a doc with an initial empty paragraph (python-docx behavior). 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Note: 'create' makes a doc with an initial empty paragraph (python-docx behavior). 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'create_style', 'delete_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'create_style', 'delete_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'",
     ),
     target_id: str = Field(
         "",
@@ -289,7 +314,7 @@ def edit(
     ),
     formatting: str = Field(
         "",
-        description='Direct formatting JSON. Text/Run: {"bold": true, "color": "FF0000", "font_size": 14, "highlight_color": "yellow", "strike": true, "subscript": true, "superscript": true, "style": "Strong"}. Character styles: "Strong", "Emphasis", "Hyperlink", etc. Paragraph: {"left_indent": 0.5, "right_indent": 0.5, "first_line_indent": 0.5, "space_before": 12, "space_after": 12, "line_spacing": 1.5, "keep_with_next": true, "page_break_before": true} (indents in inches, spacing in points, line_spacing < 5 is multiplier). Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches.',
+        description='Direct formatting JSON. Text/Run: {"bold": true, "color": "FF0000", "font_size": 14, "highlight_color": "yellow", "strike": true, "subscript": true, "superscript": true, "style": "Strong"}. Character styles: "Strong", "Emphasis", "Hyperlink", etc. Paragraph: {"left_indent": 0.5, "right_indent": 0.5, "first_line_indent": 0.5, "space_before": 12, "space_after": 12, "line_spacing": 1.5, "keep_with_next": true, "page_break_before": true} (indents in inches, spacing in points, line_spacing < 5 is multiplier). Margins: {"top": 1.0, "bottom": 1.0, "left": 1.25, "right": 1.25} in inches. Images: {"width": 4} or {"height": 3} in inches. Page borders: {"top": "style:size:space:color", ...} where style is border style (single, double, dotted, etc.), size is eighths of a point (4=0.5pt), space is points from text, color is hex RRGGBB or "auto". Optional offset_from: "text" or "page".',
     ),
     heading_level: int = Field(
         1, description="Heading level 1-9 (only for content_type='heading')"
@@ -366,6 +391,7 @@ def edit(
         "set_orientation",
         "set_columns",
         "set_line_numbering",
+        "set_page_borders",
         # Bookmark and cross-reference operations (duck-typed)
         "add_bookmark",
         "insert_cross_ref",
@@ -409,6 +435,11 @@ def edit(
         "clear_tab_stops",
         # Field operations (pure OOXML)
         "insert_field",
+        # Bibliography operations (pure OOXML)
+        "add_source",
+        "delete_source",
+        "insert_citation",
+        "insert_bibliography",
     }
     if operation in _PKG_OPERATIONS:
         # Create uses WordPackage.new(), others use WordPackage.open()
@@ -868,6 +899,20 @@ def edit(
             action = "Enabled" if enabled else "Disabled"
             message = f"{action} line numbering for section {section_index}"
 
+        elif operation == "set_page_borders":
+            fmt = json.loads(formatting) if formatting else {}
+            word_ops.set_page_borders(
+                pkg,
+                section_index,
+                top=fmt.get("top"),
+                bottom=fmt.get("bottom"),
+                left=fmt.get("left"),
+                right=fmt.get("right"),
+                offset_from=fmt.get("offset_from", "text"),
+            )
+            sides = [s for s in ["top", "bottom", "left", "right"] if fmt.get(s)]
+            message = f"Set page borders ({', '.join(sides) or 'none'}) for section {section_index}"
+
         elif operation == "add_bookmark":
             # target_id is the paragraph/heading ID, content_data is the bookmark name
             if not target_id:
@@ -1163,6 +1208,49 @@ def edit(
             word_ops.insert_field(t.leaf_el, field_code)
             pkg.mark_xml_dirty("/word/document.xml")
             message = f"Inserted {field_code} field"
+
+        # Bibliography operations
+        elif operation == "add_source":
+            data = json.loads(content_data)
+            tag = word_ops.add_source(
+                pkg,
+                tag=data["tag"],
+                source_type=data["source_type"],
+                title=data["title"],
+                authors=data.get("authors"),
+                year=data.get("year"),
+                publisher=data.get("publisher"),
+                city=data.get("city"),
+                journal_name=data.get("journal_name"),
+                volume=data.get("volume"),
+                issue=data.get("issue"),
+                pages=data.get("pages"),
+                url=data.get("url"),
+            )
+            message = f"Added bibliography source: {tag}"
+
+        elif operation == "delete_source":
+            tag = content_data.strip()
+            if word_ops.delete_source(pkg, tag):
+                message = f"Deleted bibliography source: {tag}"
+            else:
+                message = f"Source not found: {tag}"
+
+        elif operation == "insert_citation":
+            t = word_ops.resolve_target(pkg, target_id)
+            data = json.loads(content_data) if content_data else {}
+            tag = data.get("tag", "")
+            display_text = data.get("display_text", "")
+            locale = int(data.get("locale", 1033))
+            word_ops.insert_citation(t.leaf_el, tag, display_text, locale)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = f"Inserted citation: {tag}"
+
+        elif operation == "insert_bibliography":
+            t = word_ops.resolve_target(pkg, target_id)
+            word_ops.insert_bibliography(t.leaf_el)
+            pkg.mark_xml_dirty("/word/document.xml")
+            message = "Inserted bibliography field"
 
         pkg.save(file_path)
         return EditResult(success=True, element_id=element_id, message=message)
