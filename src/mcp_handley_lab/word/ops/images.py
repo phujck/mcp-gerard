@@ -427,17 +427,16 @@ def _get_image_metadata(image_path: str) -> tuple[bytes, str, int, int, int, int
 
     Returns: (image_bytes, ext, px_width, px_height, dpi_x, dpi_y)
     """
+    from io import BytesIO
     from pathlib import Path
 
     from PIL import Image
 
     path = Path(image_path)
     ext = path.suffix.lower().lstrip(".")
+    image_bytes = path.read_bytes()
 
-    with open(path, "rb") as f:
-        image_bytes = f.read()
-
-    with Image.open(path) as img:
+    with Image.open(BytesIO(image_bytes)) as img:
         px_width, px_height = img.size
         dpi = img.info.get("dpi", (72, 72))
         dpi_x, dpi_y = int(dpi[0]), int(dpi[1])

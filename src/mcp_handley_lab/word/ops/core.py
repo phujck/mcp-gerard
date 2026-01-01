@@ -527,25 +527,6 @@ def build_blocks(
 # =============================================================================
 
 
-def make_element(
-    tag: str, nsmap_override: dict | None = None, **attrs: str
-) -> etree._Element:
-    """Create element with namespace handling.
-
-    Args:
-        tag: Namespace-prefixed tag like "w:p"
-        nsmap_override: Optional namespace map (only needed at root elements)
-        **attrs: Attributes as namespace:name=value pairs
-    """
-    el = etree.Element(qn(tag), nsmap=nsmap_override)
-    for attr, value in attrs.items():
-        if ":" in attr:
-            el.set(qn(attr), value)
-        else:
-            el.set(attr, value)
-    return el
-
-
 def _make_run_with(*elements) -> etree._Element:
     """Create a w:r element containing the given child elements."""
     r = etree.Element(_W_R)

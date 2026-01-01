@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import os
 import tempfile
 import zipfile
@@ -46,8 +47,6 @@ class WordPackage:
         """Get parsed XML for any part. Caches the parse."""
         if partname in self._xml:
             return self._xml[partname]
-        if partname not in self._bytes:
-            raise KeyError(f"Part not found: {partname}")
         self._xml[partname] = etree.fromstring(self._bytes[partname])
         return self._xml[partname]
 
@@ -417,16 +416,9 @@ class WordPackage:
     def add_image(self, image_bytes: bytes, ext: str = "png") -> str:
         """Add image to package and return rId from document.xml."""
         ext = ext.lower().lstrip(".")
-        ct_map = {
-            "jpg": CT.JPEG,
-            "jpeg": CT.JPEG,
-            "png": CT.PNG,
-            "gif": CT.GIF,
-            "tiff": CT.TIFF,
-            "tif": CT.TIFF,
-            "bmp": CT.BMP,
-        }
-        content_type = ct_map.get(ext, f"image/{ext}")
+        content_type, _ = mimetypes.guess_type(f"file.{ext}")
+        if not content_type:
+            content_type = f"image/{ext}"
 
         # Find next image number
         n = 1
