@@ -10,8 +10,6 @@ from mcp_handley_lab.word.ops.bibliography import (  # noqa: F401
     add_source,
     build_sources,
     delete_source,
-    insert_bibliography,
-    insert_citation,
 )
 from mcp_handley_lab.word.ops.bookmarks import (  # noqa: F401
     _RESERVED_BOOKMARK_PREFIXES,
@@ -87,6 +85,10 @@ from mcp_handley_lab.word.ops.equations import (  # noqa: F401
     _get_equation_complexity,
     _get_equation_text,
     build_equations,
+)
+from mcp_handley_lab.word.ops.fields import (  # noqa: F401
+    insert_bibliography,
+    insert_citation,
 )
 from mcp_handley_lab.word.ops.footnotes import (  # noqa: F401
     _FN_CT_NS,
