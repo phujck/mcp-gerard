@@ -266,13 +266,13 @@ def read(
 
 
 @mcp.tool(
-    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Note: 'create' makes a doc with an initial empty paragraph (python-docx behavior). 'update_toc' sets dirty flag; Word updates content on open."
+    description="Edit Word document. Operations: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Note: 'create' makes a doc with an initial empty paragraph (python-docx behavior). 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     operation: str = Field(
         ...,
-        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'create_style', 'delete_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'",
+        description="Operation: 'create', 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'create_style', 'delete_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_custom_property', 'delete_custom_property', 'insert_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control'",
     ),
     target_id: str = Field(
         "",
@@ -284,7 +284,7 @@ def edit(
     ),
     content_data: str = Field(
         "",
-        description="Content: text or JSON. For set_table_alignment: 'left'/'center'/'right'. For set_table_autofit: 'true'/'false'. For set_table_fixed_layout: JSON array of widths. For set_row_height: JSON {height, rule}. For set_cell_width: width in inches. For set_cell_vertical_alignment: 'top'/'center'/'bottom'. For set_cell_borders: JSON {top?, bottom?, left?, right?} with values as 'style:size:color' (e.g., 'single:24:000000'). For set_cell_shading: hex color (e.g., 'FF0000'). For set_header_row: 'true'/'false' (mark row as header). For set_columns: JSON {num_columns, spacing_inches?, separator?}. For set_line_numbering: JSON {enabled?, restart?, start?, count_by?, distance_inches?}. For set_custom_property: JSON {name, value, type?} where type is 'string'/'int'/'bool'/'datetime'/'float' (default 'string'). For delete_custom_property: property name. For create_style: JSON {name, style_type?, base_style?} where style_type is 'paragraph'/'character'/'table' (default 'paragraph'), base_style is style to inherit from (default 'Normal'). For add_tab_stop: JSON {position, alignment, leader}. For insert_field: field code (PAGE, NUMPAGES, DATE, TIME). For insert_page_x_of_y: 'header' or 'footer'. For set_list_level: level 0-8. For restart_numbering: start value (default 1). For insert_toc: JSON {position: 'before'/'after', heading_levels: '1-3'}. For add_footnote: JSON {text, note_type?, position?} where note_type is 'footnote'/'endnote' (default 'footnote'), position is 'after'/'before' (default 'after'). For delete_footnote: JSON {note_type?} where note_type is 'footnote'/'endnote' (default 'footnote'). For set_content_control: the new value - for dropdown must match one of the options, for checkbox use 'true'/'false', for date use ISO format. For add_hyperlink: JSON {text, address?, fragment?} where text is visible link text, address is URL (external link), fragment is bookmark name (internal link) or URL anchor.",
+        description="Content: text or JSON. For set_table_alignment: 'left'/'center'/'right'. For set_table_autofit: 'true'/'false'. For set_table_fixed_layout: JSON array of widths. For set_row_height: JSON {height, rule} where rule is 'auto', 'at_least', or 'exactly'. For set_cell_width: width in inches. For set_cell_vertical_alignment: 'top'/'center'/'bottom'. For set_cell_borders: JSON {top?, bottom?, left?, right?} with values as 'style:size:color' (e.g., 'single:24:000000'). For set_cell_shading: hex color (e.g., 'FF0000'). For set_header_row: 'true'/'false' (mark row as header). For set_columns: JSON {num_columns, spacing_inches?, separator?}. For set_line_numbering: JSON {enabled?, restart?, start?, count_by?, distance_inches?}. For set_custom_property: JSON {name, value, type?} where type is 'string'/'int'/'bool'/'datetime'/'float' (default 'string'). For delete_custom_property: property name. For create_style: JSON {name, style_type?, base_style?} where style_type is 'paragraph'/'character'/'table' (default 'paragraph'), base_style is style to inherit from (default 'Normal'). For add_tab_stop: JSON {position, alignment, leader} where alignment is 'left'/'center'/'right'/'decimal' and leader is 'spaces'/'dots'/'heavy'/'middle_dot'. For insert_field: field code (PAGE, NUMPAGES, DATE, TIME). For insert_page_x_of_y: 'header' or 'footer'. For set_list_level: level 0-8. For restart_numbering: start value (default 1). For insert_toc: JSON {position: 'before'/'after', heading_levels: '1-3'}. For add_footnote: JSON {text, note_type?, position?} where note_type is 'footnote'/'endnote' (default 'footnote'), position is 'after'/'before' (default 'after'). For delete_footnote: JSON {note_type?} where note_type is 'footnote'/'endnote' (default 'footnote'). For set_content_control: the new value - for dropdown must match one of the options, for checkbox use 'true'/'false', for date use ISO format. For add_hyperlink: JSON {text, address?, fragment?} where text is visible link text, address is URL (external link), fragment is bookmark name (internal link) or URL anchor.",
     ),
     style_name: str = Field(
         "", description="Apply Word style: 'Heading 1', 'Normal', etc."
@@ -351,6 +351,7 @@ def edit(
         "demote_list",
         "restart_numbering",
         "remove_list",
+        "add_to_list",
         # Properties operations (duck-typed)
         "set_custom_property",
         "delete_custom_property",
@@ -714,6 +715,31 @@ def edit(
                 raise ValueError(f"Paragraph not found: {target_id}")
             word_ops.remove_list_formatting(pkg, p_el)
             message = "Removed list formatting"
+
+        elif operation == "add_to_list":
+            t = word_ops.resolve_target(pkg, target_id)
+            if t.base_kind not in (
+                "paragraph",
+                "heading1",
+                "heading2",
+                "heading3",
+                "heading4",
+                "heading5",
+                "heading6",
+                "heading7",
+                "heading8",
+                "heading9",
+            ):
+                raise ValueError("add_to_list requires a paragraph target")
+            data = json.loads(content_data) if content_data else {}
+            text = data.get("text", "")
+            position = data.get("position", "after")
+            level = data.get("level")  # None = inherit
+            new_p = word_ops.add_to_list(pkg, t.leaf_el, text, position, level)
+            # Compute block ID using get_element_id_ooxml - same function used by read()
+            new_id = word_ops.get_element_id_ooxml(pkg, new_p)
+            element_id = new_id
+            message = f"Added list item {position} target"
 
         elif operation == "set_custom_property":
             prop_data = json.loads(content_data)

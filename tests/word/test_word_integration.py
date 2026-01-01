@@ -8501,3 +8501,271 @@ async def test_read_equations_finds_superscript():
         assert eq["complexity"] == "simple"  # Simple superscript
     finally:
         file_path.unlink(missing_ok=True)
+
+
+# =============================================================================
+# Tests for GitHub #129 fixes: Document creation and add_to_list
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_new_document_has_section():
+    """Test that newly created documents have exactly 1 section."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        new_path = Path(f.name)
+    new_path.unlink()
+
+    try:
+        # Create new document
+        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+
+        # Read metadata
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(new_path), "scope": "meta"}
+        )
+        assert result["meta"]["sections"] == 1
+    finally:
+        new_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_new_document_has_page_dimensions():
+    """Test that new documents have non-zero page dimensions."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        new_path = Path(f.name)
+    new_path.unlink()
+
+    try:
+        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(new_path), "scope": "page_setup"}
+        )
+        assert len(result["page_setup"]) == 1
+        ps = result["page_setup"][0]
+        assert ps["page_width"] > 0, "Page width should be positive"
+        assert ps["page_height"] > 0, "Page height should be positive"
+        assert ps["top_margin"] > 0, "Top margin should be positive"
+        assert ps["bottom_margin"] > 0, "Bottom margin should be positive"
+        assert ps["left_margin"] > 0, "Left margin should be positive"
+        assert ps["right_margin"] > 0, "Right margin should be positive"
+    finally:
+        new_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_meta_on_new_document():
+    """Test that set_meta persists title/author on new documents."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        new_path = Path(f.name)
+    new_path.unlink()
+
+    try:
+        # Create and set meta
+        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(new_path),
+                "operation": "set_meta",
+                "content_data": json.dumps(
+                    {"title": "Test Title", "author": "Test Author"}
+                ),
+            },
+        )
+
+        # Re-read and verify
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(new_path), "scope": "meta"}
+        )
+        assert result["meta"]["title"] == "Test Title"
+        assert result["meta"]["author"] == "Test Author"
+    finally:
+        new_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_set_meta_creates_core_xml_on_minimal_doc():
+    """Test set_meta works on documents without core.xml (roundtrip save/load)."""
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        new_path = Path(f.name)
+    new_path.unlink()
+
+    try:
+        # Create doc, set meta, save
+        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(new_path),
+                "operation": "set_meta",
+                "content_data": json.dumps({"title": "Roundtrip Test"}),
+            },
+        )
+
+        # Read back to verify persistence
+        _, result = await mcp.call_tool(
+            "read", {"file_path": str(new_path), "scope": "meta"}
+        )
+        assert result["meta"]["title"] == "Roundtrip Test"
+    finally:
+        new_path.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_add_to_list(list_fixture_copy):
+    """Test add_to_list adds a paragraph to an existing list."""
+    # Get blocks to find a list paragraph
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Add new list item after it
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "add_to_list",
+            "target_id": list_para["id"],
+            "content_data": json.dumps({"text": "New list item", "position": "after"}),
+        },
+    )
+    assert edit_result["success"]
+    assert edit_result["element_id"]  # New paragraph ID returned
+
+    # Verify new item exists and is in the list
+    _, verify_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+    texts = [b["text"] for b in verify_result["blocks"]]
+    assert "New list item" in texts
+
+
+@pytest.mark.asyncio
+async def test_add_to_list_inherits_level(list_fixture_copy):
+    """Test add_to_list inherits level from reference when level not specified."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Get original level
+    _, orig_list = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": list_para["id"],
+        },
+    )
+    orig_level = orig_list["list_info"]["level"]
+
+    # Add item without specifying level
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "add_to_list",
+            "target_id": list_para["id"],
+            "content_data": json.dumps({"text": "Inherited level item"}),
+        },
+    )
+    new_id = edit_result["element_id"]
+
+    # Verify new item has same level
+    _, new_list = await mcp.call_tool(
+        "read",
+        {
+            "file_path": str(list_fixture_copy),
+            "scope": "list",
+            "target_id": new_id,
+        },
+    )
+    assert new_list["list_info"]["level"] == orig_level
+
+
+@pytest.mark.asyncio
+async def test_add_to_list_fails_on_non_list(list_fixture_copy):
+    """Test add_to_list raises error for non-list paragraphs."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    regular_para = None
+    for block in blocks_result["blocks"]:
+        if "Regular paragraph" in block["text"]:
+            regular_para = block
+            break
+
+    if regular_para is None:
+        pytest.skip("Regular paragraph not found")
+
+    with pytest.raises(ToolError, match="w:numPr|not in a list|not supported"):
+        await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(list_fixture_copy),
+                "operation": "add_to_list",
+                "target_id": regular_para["id"],
+                "content_data": json.dumps({"text": "Should fail"}),
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_add_to_list_whitespace_preserved(list_fixture_copy):
+    """Test add_to_list preserves leading/trailing whitespace in text."""
+    _, blocks_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+
+    list_para = None
+    for block in blocks_result["blocks"]:
+        if "First numbered" in block["text"]:
+            list_para = block
+            break
+
+    if list_para is None:
+        pytest.skip("List paragraph not found")
+
+    # Add item with leading/trailing spaces
+    _, edit_result = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "operation": "add_to_list",
+            "target_id": list_para["id"],
+            "content_data": json.dumps({"text": "  spaced text  "}),
+        },
+    )
+    new_id = edit_result["element_id"]
+
+    # Verify whitespace preserved
+    _, verify_result = await mcp.call_tool(
+        "read", {"file_path": str(list_fixture_copy), "scope": "blocks"}
+    )
+    new_block = None
+    for block in verify_result["blocks"]:
+        if block["id"] == new_id:
+            new_block = block
+            break
+
+    assert new_block is not None
+    assert new_block["text"] == "  spaced text  "

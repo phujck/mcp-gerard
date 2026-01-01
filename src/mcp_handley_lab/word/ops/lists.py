@@ -378,3 +378,76 @@ def remove_list_formatting(pkg, p_el: etree._Element) -> None:
     if numPr is not None:
         pPr.remove(numPr)
         mark_dirty(pkg)
+
+
+# =============================================================================
+# Add List Item
+# =============================================================================
+
+
+def add_to_list(
+    pkg,
+    reference_p_el: etree._Element,
+    text: str,
+    position: str = "after",
+    level: int | None = None,
+) -> etree._Element:
+    """Add a new paragraph to an existing list.
+
+    Args:
+        pkg: WordPackage
+        reference_p_el: w:p element that's already in a list
+        text: Text for the new list item (plain text, no newlines)
+        position: 'before' or 'after' the reference paragraph
+        level: List level (0-8), defaults to same as reference
+
+    Returns the new w:p element.
+    Raises ValueError if reference paragraph is not in a list (no w:numPr).
+    """
+    # Validate position
+    if position not in ("before", "after"):
+        raise ValueError(f"position must be 'before' or 'after', got {position!r}")
+
+    # Validate parent exists
+    parent = reference_p_el.getparent()
+    if parent is None:
+        raise ValueError("Reference paragraph has no parent element")
+
+    # Get list info from reference
+    list_info = get_list_info(pkg, reference_p_el)
+    if list_info is None:
+        raise ValueError(
+            "Paragraph has no explicit w:numPr; style-based lists are not supported"
+        )
+
+    # Determine level
+    if level is None:
+        level = list_info["level"]
+    elif not 0 <= level <= 8:
+        raise ValueError(f"List level must be 0-8, got {level}")
+
+    # Create new paragraph using reference's tag for namespace context
+    new_p = etree.Element(reference_p_el.tag)
+    pPr = etree.SubElement(new_p, qn("w:pPr"))
+    numPr = etree.SubElement(pPr, qn("w:numPr"))
+    ilvl_el = etree.SubElement(numPr, qn("w:ilvl"))
+    ilvl_el.set(qn("w:val"), str(level))
+    num_id_el = etree.SubElement(numPr, qn("w:numId"))
+    num_id_el.set(qn("w:val"), str(list_info["num_id"]))
+
+    # Add text run
+    r = etree.SubElement(new_p, qn("w:r"))
+    t = etree.SubElement(r, qn("w:t"))
+    t.text = text
+    # Preserve whitespace if needed
+    if text and (text[0].isspace() or text[-1].isspace()):
+        t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+    # Insert relative to reference
+    if position == "before":
+        reference_p_el.addprevious(new_p)
+    else:
+        reference_p_el.addnext(new_p)
+
+    mark_dirty(pkg)
+    return new_p

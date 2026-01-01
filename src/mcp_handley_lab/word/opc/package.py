@@ -263,6 +263,23 @@ class WordPackage:
         body = etree.SubElement(document, qn("w:body"))
         p = etree.SubElement(body, qn("w:p"))
         etree.SubElement(p, qn("w:r"))
+
+        # Section properties with page size and margins
+        sectPr = body.find(qn("w:sectPr"))
+        if sectPr is None:
+            sectPr = etree.SubElement(body, qn("w:sectPr"))
+        pgSz = etree.SubElement(sectPr, qn("w:pgSz"))
+        pgSz.set(qn("w:w"), "12240")  # 8.5 inches in twips
+        pgSz.set(qn("w:h"), "15840")  # 11 inches in twips
+        pgMar = etree.SubElement(sectPr, qn("w:pgMar"))
+        pgMar.set(qn("w:top"), "1440")  # 1 inch
+        pgMar.set(qn("w:right"), "1440")
+        pgMar.set(qn("w:bottom"), "1440")
+        pgMar.set(qn("w:left"), "1440")
+        pgMar.set(qn("w:header"), "720")  # 0.5 inch
+        pgMar.set(qn("w:footer"), "720")
+        pgMar.set(qn("w:gutter"), "0")
+
         self._xml["/word/document.xml"] = document
         self._bytes["/word/document.xml"] = b""
         self._dirty_xml.add("/word/document.xml")
@@ -290,8 +307,26 @@ class WordPackage:
         self._dirty_xml.add("/word/settings.xml")
         self._content_types["/word/settings.xml"] = CT.WML_SETTINGS
 
-        # Package relationship to document
+        # Core properties (docProps/core.xml)
+        ns_cp = (
+            "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+        )
+        ns_dc = "http://purl.org/dc/elements/1.1/"
+        ns_dcterms = "http://purl.org/dc/terms/"
+        ns_xsi = "http://www.w3.org/2001/XMLSchema-instance"
+        core_nsmap = {"cp": ns_cp, "dc": ns_dc, "dcterms": ns_dcterms, "xsi": ns_xsi}
+        core = etree.Element(f"{{{ns_cp}}}coreProperties", nsmap=core_nsmap)
+        etree.SubElement(core, f"{{{ns_dc}}}title")
+        etree.SubElement(core, f"{{{ns_dc}}}creator")
+        etree.SubElement(core, f"{{{ns_cp}}}revision").text = "1"
+        self._xml["/docProps/core.xml"] = core
+        self._bytes["/docProps/core.xml"] = b""
+        self._dirty_xml.add("/docProps/core.xml")
+        self._content_types["/docProps/core.xml"] = CT.OPC_CORE_PROPERTIES
+
+        # Package relationships
         self._pkg_rels.add(RT.OFFICE_DOCUMENT, "word/document.xml")
+        self._pkg_rels.add(RT.CORE_PROPERTIES, "docProps/core.xml")
 
         # Document relationships to styles and settings
         doc_rels = self.get_rels("/word/document.xml")

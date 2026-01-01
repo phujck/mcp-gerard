@@ -134,6 +134,7 @@ from mcp_handley_lab.word.ops.lists import (  # noqa: F401
     _get_max_num_id,
     _resolve_abstract_num_id,
     _resolve_level_format,
+    add_to_list,
     demote_list_item,
     get_list_info,
     promote_list_item,

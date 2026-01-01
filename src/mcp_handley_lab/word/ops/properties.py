@@ -86,6 +86,39 @@ def get_document_meta(pkg) -> DocumentMeta:
     )
 
 
+def _create_core_xml(pkg) -> None:
+    """Create core.xml part with relationship and content type.
+
+    Used defensively when setting metadata on docs that lack core.xml.
+    """
+    from mcp_handley_lab.word.opc.constants import CT, RT
+
+    ns_xsi = "http://www.w3.org/2001/XMLSchema-instance"
+    core_nsmap = {
+        "cp": _NS_CP,
+        "dc": _NS_DC,
+        "dcterms": _NS_DCTERMS,
+        "xsi": ns_xsi,
+    }
+    core = etree.Element(f"{{{_NS_CP}}}coreProperties", nsmap=core_nsmap)
+    # Create all elements that set_document_meta or get_document_meta might use
+    etree.SubElement(core, f"{{{_NS_DC}}}title")
+    etree.SubElement(core, f"{{{_NS_DC}}}creator")
+    etree.SubElement(core, f"{{{_NS_DC}}}subject")
+    etree.SubElement(core, f"{{{_NS_DC}}}description")
+    etree.SubElement(core, f"{{{_NS_CP}}}keywords")
+    etree.SubElement(core, f"{{{_NS_CP}}}category")
+    etree.SubElement(core, f"{{{_NS_CP}}}lastModifiedBy")
+    etree.SubElement(core, f"{{{_NS_CP}}}revision").text = "1"
+
+    # Set part with content type
+    pkg.set_xml("/docProps/core.xml", core, CT.OPC_CORE_PROPERTIES)
+
+    # Add package relationship if not already present (avoid duplicates on corrupt docs)
+    if pkg._pkg_rels.rId_for_reltype(RT.CORE_PROPERTIES) is None:
+        pkg._pkg_rels.add(RT.CORE_PROPERTIES, "docProps/core.xml")
+
+
 def set_document_meta(pkg, **kwargs) -> None:
     """Update document core properties. Only updates non-None values.
 
@@ -94,7 +127,7 @@ def set_document_meta(pkg, **kwargs) -> None:
         **kwargs: Properties to update (title, author, etc.)
     """
     if not pkg.has_part("/docProps/core.xml"):
-        return  # No core.xml to update
+        _create_core_xml(pkg)
 
     core_xml = pkg.get_xml("/docProps/core.xml")
 
