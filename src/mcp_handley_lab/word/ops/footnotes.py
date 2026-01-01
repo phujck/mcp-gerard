@@ -19,10 +19,11 @@ from mcp_handley_lab.word.opc.constants import qn
 from mcp_handley_lab.word.opc.package import WordPackage
 from mcp_handley_lab.word.ops.core import (
     count_occurrence,
-    find_paragraph_by_id,
     get_paragraph_text,
     make_block_id,
+    mark_dirty,
     paragraph_kind_and_level,
+    resolve_target,
 )
 
 # =============================================================================
@@ -332,69 +333,53 @@ def add_footnote(
         raise FileNotFoundError(f"Document not found: {doc_path}")
 
     ns = {"w": _FN_W_NS}
-    notes_file = f"word/{note_type}s.xml"
-    note_tag = note_type
+    notes_partname = f"/word/{note_type}s.xml"
 
-    # Read document parts
-    doc_parts: dict[str, bytes] = {}
-    with zipfile.ZipFile(doc_path, "r") as zf:
-        doc_parts["document"] = zf.read("word/document.xml")
-        doc_parts["content_types"] = zf.read("[Content_Types].xml")
-        doc_parts["document_rels"] = zf.read("word/_rels/document.xml.rels")
-
-        if notes_file in zf.namelist():
-            doc_parts["notes"] = zf.read(notes_file)
-        else:
-            doc_parts["notes"] = _create_minimal_notes_xml(note_type)
-
-        if "word/styles.xml" in zf.namelist():
-            doc_parts["styles"] = zf.read("word/styles.xml")
-        else:
-            doc_parts["styles"] = (
-                f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="{_FN_W_NS}"/>'.encode()
-            )
-
-    # Parse XML
-    doc_root = etree.fromstring(doc_parts["document"])
-    notes_root = etree.fromstring(doc_parts["notes"])
-    styles_root = etree.fromstring(doc_parts["styles"])
-
-    # Load document with WordPackage to find target paragraph
+    # Load document with WordPackage
     pkg = WordPackage.open(doc_path)
 
-    # Use find_paragraph_by_id which returns lxml element (or None)
-    target_para_el = find_paragraph_by_id(pkg, target_id)
-    if target_para_el is None:
-        raise ValueError(f"Target block not found: {target_id}")
-
-    # Get all paragraphs from both WordPackage body and raw XML
-    # Use index-based matching (more robust than text matching for duplicates)
-    all_paras_pkg = list(pkg.body.iter(qn("w:p")))
-    all_paras_xml = _fn_xpath(doc_root, "//w:body//w:p", ns)
-
-    # Find index of target in WordPackage element tree
+    # Use resolve_target to get the target paragraph element directly
     try:
-        target_idx = all_paras_pkg.index(target_para_el)
-    except ValueError:
-        raise ValueError(f"Target element not found in document structure: {target_id}")
+        target = resolve_target(pkg, target_id)
+    except ValueError as e:
+        raise ValueError(f"Target block not found: {target_id}") from e
 
-    if target_idx >= len(all_paras_xml):
-        raise ValueError(f"Paragraph index mismatch: {target_idx}")
+    # Verify it's a paragraph-type element (headings are also w:p)
+    if target.leaf_el.tag != qn("w:p"):
+        raise ValueError(f"Target must be a paragraph: {target_id}")
 
-    target_para = all_paras_xml[target_idx]
+    target_para = target.leaf_el
 
     # Validate location (not in header/footer)
     parent = target_para.getparent()
     while parent is not None:
-        if parent.tag in [f"{{{_FN_W_NS}}}hdr", f"{{{_FN_W_NS}}}ftr"]:
+        if parent.tag in [qn("w:hdr"), qn("w:ftr")]:
             raise ValueError("Cannot add footnote/endnote in header/footer")
         parent = parent.getparent()
+
+    # Get or create notes XML part
+    if note_type == "footnote":
+        notes_root = pkg.footnotes_xml
+        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"
+        rel_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes"
+    else:
+        notes_root = pkg.endnotes_xml
+        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml"
+        rel_type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes"
+
+    if notes_root is None:
+        # Create minimal notes XML
+        notes_bytes = _create_minimal_notes_xml(note_type)
+        notes_root = etree.fromstring(notes_bytes)
+        pkg.set_xml(notes_partname, notes_root, content_type)
+        # Add relationship from document.xml
+        pkg.relate_to("/word/document.xml", f"{note_type}s.xml", rel_type)
 
     # Get safe note ID
     note_id = _get_safe_note_id(notes_root, ns)
 
     # Find insertion position in paragraph
-    runs = _fn_xpath(target_para, ".//w:r", ns)
+    runs = list(target_para.iter(qn("w:r")))
     if position == "after" and runs:
         last_run = runs[-1]
         insert_pos = list(target_para).index(last_run) + 1
@@ -405,89 +390,56 @@ def add_footnote(
         insert_pos = len(target_para)
 
     # Create footnote reference run in document
-    ref_run = etree.Element(f"{{{_FN_W_NS}}}r")
-    rPr = etree.SubElement(ref_run, f"{{{_FN_W_NS}}}rPr")
-    rStyle = etree.SubElement(rPr, f"{{{_FN_W_NS}}}rStyle")
-    rStyle.set(f"{{{_FN_W_NS}}}val", f"{note_type.title()}Reference")
-    fn_ref = etree.SubElement(ref_run, f"{{{_FN_W_NS}}}{note_type}Reference")
-    fn_ref.set(f"{{{_FN_W_NS}}}id", str(note_id))
+    ref_run = etree.Element(qn("w:r"))
+    rPr = etree.SubElement(ref_run, qn("w:rPr"))
+    rStyle = etree.SubElement(rPr, qn("w:rStyle"))
+    rStyle.set(qn("w:val"), f"{note_type.title()}Reference")
+    fn_ref = etree.SubElement(ref_run, qn(f"w:{note_type}Reference"))
+    fn_ref.set(qn("w:id"), str(note_id))
     target_para.insert(insert_pos, ref_run)
 
-    # Create footnote content in notes file
-    new_note = etree.Element(
-        f"{{{_FN_W_NS}}}{note_tag}",
-        attrib={f"{{{_FN_W_NS}}}id": str(note_id)},
-    )
+    # Create footnote/endnote content in notes file
+    new_note = etree.Element(qn(f"w:{note_type}"))
+    new_note.set(qn("w:id"), str(note_id))
 
     # Add paragraph with content
-    fn_para = etree.SubElement(new_note, f"{{{_FN_W_NS}}}p")
-    pPr = etree.SubElement(fn_para, f"{{{_FN_W_NS}}}pPr")
-    pStyle = etree.SubElement(pPr, f"{{{_FN_W_NS}}}pStyle")
-    pStyle.set(f"{{{_FN_W_NS}}}val", f"{note_type.title()}Text")
+    fn_para = etree.SubElement(new_note, qn("w:p"))
+    pPr = etree.SubElement(fn_para, qn("w:pPr"))
+    pStyle = etree.SubElement(pPr, qn("w:pStyle"))
+    pStyle.set(qn("w:val"), f"{note_type.title()}Text")
 
     # Add footnote reference marker
-    marker_run = etree.SubElement(fn_para, f"{{{_FN_W_NS}}}r")
-    marker_rPr = etree.SubElement(marker_run, f"{{{_FN_W_NS}}}rPr")
-    marker_rStyle = etree.SubElement(marker_rPr, f"{{{_FN_W_NS}}}rStyle")
-    marker_rStyle.set(f"{{{_FN_W_NS}}}val", f"{note_type.title()}Reference")
-    etree.SubElement(marker_run, f"{{{_FN_W_NS}}}{note_type}Ref")
+    marker_run = etree.SubElement(fn_para, qn("w:r"))
+    marker_rPr = etree.SubElement(marker_run, qn("w:rPr"))
+    marker_rStyle = etree.SubElement(marker_rPr, qn("w:rStyle"))
+    marker_rStyle.set(qn("w:val"), f"{note_type.title()}Reference")
+    etree.SubElement(marker_run, qn(f"w:{note_type}Ref"))
 
     # Add space
-    space_run = etree.SubElement(fn_para, f"{{{_FN_W_NS}}}r")
-    space_text = etree.SubElement(space_run, f"{{{_FN_W_NS}}}t")
-    space_text.set(f"{{{_FN_XML_NS}}}space", "preserve")
+    space_run = etree.SubElement(fn_para, qn("w:r"))
+    space_text = etree.SubElement(space_run, qn("w:t"))
+    space_text.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
     space_text.text = " "
 
     # Add content text
-    text_run = etree.SubElement(fn_para, f"{{{_FN_W_NS}}}r")
-    text_elem = etree.SubElement(text_run, f"{{{_FN_W_NS}}}t")
+    text_run = etree.SubElement(fn_para, qn("w:r"))
+    text_elem = etree.SubElement(text_run, qn("w:t"))
     text_elem.text = text
 
     notes_root.append(new_note)
 
     # Ensure styles exist
-    _ensure_note_styles(styles_root, note_type)
+    styles_root = pkg.styles_xml
+    if styles_root is not None:
+        _ensure_note_styles(styles_root, note_type)
+        pkg.mark_xml_dirty("/word/styles.xml")
 
-    # Ensure content types and relationships
-    ct_xml = _ensure_note_content_types(doc_parts["content_types"], note_type)
-    rels_xml = _ensure_note_relationship(doc_parts["document_rels"], note_type)
+    # Mark document and notes as dirty
+    mark_dirty(pkg)
+    pkg.mark_xml_dirty(notes_partname)
 
-    # Write modified document
-    temp_path = doc_path + ".tmp"
-    with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zout:
-        with zipfile.ZipFile(doc_path, "r") as zin:
-            for item in zin.infolist():
-                if item.filename not in [
-                    "word/document.xml",
-                    notes_file,
-                    "word/styles.xml",
-                    "[Content_Types].xml",
-                    "word/_rels/document.xml.rels",
-                ]:
-                    zout.writestr(item, zin.read(item.filename))
-
-        zout.writestr(
-            "word/document.xml",
-            etree.tostring(
-                doc_root, encoding="UTF-8", xml_declaration=True, standalone="yes"
-            ),
-        )
-        zout.writestr(
-            notes_file,
-            etree.tostring(
-                notes_root, encoding="UTF-8", xml_declaration=True, standalone="yes"
-            ),
-        )
-        zout.writestr(
-            "word/styles.xml",
-            etree.tostring(
-                styles_root, encoding="UTF-8", xml_declaration=True, standalone="yes"
-            ),
-        )
-        zout.writestr("[Content_Types].xml", ct_xml)
-        zout.writestr("word/_rels/document.xml.rels", rels_xml)
-
-    os.replace(temp_path, doc_path)
+    # Save changes
+    pkg.save(doc_path)
     return note_id
 
 
