@@ -458,7 +458,8 @@ Subject: {test_subject}
     @pytest.mark.asyncio
     async def test_email_tool_functions_integration(self):
         """Test email tool functions that don't require credentials."""
-        from mcp_handley_lab.email.tool import _list_accounts, mcp
+        from mcp_handley_lab.email.notmuch.tool import _list_accounts
+        from mcp_handley_lab.email.tool import mcp
 
         # Test msmtp account parsing with real config file
         fixtures_dir = Path(__file__).parent.parent / "fixtures" / "email"
@@ -472,11 +473,11 @@ Subject: {test_subject}
         except FileNotFoundError:
             pytest.skip("Test msmtprc file not found")
 
-        # Test list tool via MCP for accounts (skip if msmtprc not available)
+        # Test read tool via MCP for accounts (skip if msmtprc not available)
         msmtprc_default = Path.home() / ".msmtprc"
         if not msmtprc_default.exists():
             pytest.skip("~/.msmtprc not found")
-        _, response = await mcp.call_tool("list", {"type": "accounts"})
+        _, response = await mcp.call_tool("read", {"list_type": "accounts"})
         result = response.get("result") if isinstance(response, dict) else response
         assert isinstance(result, list)
 
@@ -488,18 +489,9 @@ Subject: {test_subject}
         from mcp_handley_lab.email.tool import mcp
 
         try:
-            # Test count function via MCP - should work even with empty database
-            _, result = await mcp.call_tool("count", {"query": "*"})
-            # Result is a dict with 'result' key containing the count
-            count_value = (
-                result.get("result", result) if isinstance(result, dict) else result
-            )
-            assert isinstance(count_value, int)
-            assert count_value >= 0
-
-            # Test search function via MCP
+            # Test read function via MCP (search mode)
             _, search_result = await mcp.call_tool(
-                "search", {"query": "*", "limit": 10}
+                "read", {"query": "*", "limit": 10, "mode": "headers"}
             )
             # Result may be a list directly or wrapped in a dict
             search_list = (
@@ -509,10 +501,15 @@ Subject: {test_subject}
             )
             assert isinstance(search_list, list)
 
-            # Test tag function with non-existent message (should fail gracefully)
+            # Test update function with non-existent message (should fail gracefully)
             try:
                 _, tag_result = await mcp.call_tool(
-                    "tag", {"message_id": "nonexistent123", "add_tags": ["test"]}
+                    "update",
+                    {
+                        "message_ids": ["nonexistent123"],
+                        "action": "tag",
+                        "add_tags": ["test"],
+                    },
                 )
                 # If it succeeds, check the result structure
                 assert "message_id" in str(tag_result)
