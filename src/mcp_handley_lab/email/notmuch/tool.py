@@ -169,34 +169,13 @@ class SearchResult(BaseModel):
     )
 
 
-@mcp.tool(
-    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
-)
-def search(
-    query: str = Field(
-        ...,
-        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'.",
-    ),
-    limit: int = Field(
-        default=100,
-        description="The maximum number of message IDs to return.",
-        gt=0,
-    ),
-    offset: int = Field(
-        default=0,
-        description="Number of results to skip for pagination.",
-        ge=0,
-    ),
-    include_excluded: bool = Field(
-        default=False,
-        description="Include emails with excluded tags (spam, deleted) that are normally hidden.",
-    ),
+def _search_emails(
+    query: str,
+    limit: int = 100,
+    offset: int = 0,
+    include_excluded: bool = False,
 ) -> list[SearchResult]:
-    """Search emails using notmuch query syntax.
-
-    Returns structured search results with id, subject, from, date, and tags.
-    Use show() for full email content including body.
-    """
+    """Internal search implementation."""
     cmd = [
         "notmuch",
         "search",
@@ -506,52 +485,14 @@ def _show_email(
     return results
 
 
-@mcp.tool(
-    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity. Optionally saves body and attachments to files."""
-)
-def show(
-    query: str = Field(
-        ...,
-        description="A notmuch query to select the email(s) to display. Typically an 'id:<message-id>' query for a single email.",
-    ),
-    mode: str = Field(
-        default="full",
-        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
-    ),
-    limit: int | None = Field(
-        default=None,
-        description="Maximum number of emails to return (helps prevent token overflow). If None, returns all emails.",
-    ),
-    include_excluded: bool = Field(
-        default=False,
-        description="Include emails with excluded tags (spam, deleted) that are normally hidden by notmuch.",
-    ),
-    save_attachments_to: str = Field(
-        default="",
-        description="Directory to save email body and attachments to. Body saved as .txt/.html, attachments saved with original filenames. Paths returned in saved_files field.",
-    ),
-) -> list[EmailContent]:
-    """Show email content with optimized token-efficient processing."""
-    return _show_email(
-        query, mode, limit, include_excluded, save_to=save_attachments_to
-    )
-
-
-@mcp.tool(
-    description="""Add or remove tags from emails by message ID. Primary method for organizing emails in notmuch."""
-)
-def tag(
-    message_id: str = Field(
-        ..., description="The notmuch message ID of the email to modify."
-    ),
-    add_tags: list[str] = Field(
-        default_factory=list, description="A list of tags to add to the email."
-    ),
-    remove_tags: list[str] = Field(
-        default_factory=list, description="A list of tags to remove from the email."
-    ),
+def _tag_email(
+    message_id: str,
+    add_tags: list[str] | None = None,
+    remove_tags: list[str] | None = None,
 ) -> TagResult:
-    """Add or remove tags from a specific email using notmuch."""
+    """Internal tag implementation."""
+    add_tags = add_tags or []
+    remove_tags = remove_tags or []
     cmd = (
         ["notmuch", "tag"]
         + [f"+{tag}" for tag in add_tags]
@@ -566,19 +507,9 @@ def tag(
     )
 
 
-@mcp.tool(
-    description="Moves emails to an existing maildir folder (e.g., 'Trash', 'Archive'). Automatically finds the correct folder within the same email account (e.g., 'Hermes/Archive' for emails from 'Hermes/INBOX'). Will not create new folders - only moves to existing ones."
-)
-def move(
-    message_ids: list[str] = Field(
-        ...,
-        description="A list of notmuch message IDs for the emails to be moved.",
-        min_length=1,
-    ),
-    destination_folder: str = Field(
-        ...,
-        description="The destination maildir folder name (e.g., 'Trash', 'Archive'). Must be an existing folder. The tool will find the appropriate folder within the same email account.",
-    ),
+def _move_emails(
+    message_ids: list[str],
+    destination_folder: str,
 ) -> MoveResult:
     """
     Moves emails to a specified maildir folder.
@@ -769,3 +700,273 @@ def _get_thread_messages(
             continue  # Skip messages that fail to parse
 
     return messages
+
+
+# Contact finding helpers (moved from mutt_aliases for read tool)
+class Contact(BaseModel):
+    """Contact information."""
+
+    alias: str
+    email: str
+    name: str = ""
+
+
+def _parse_alias_line(line: str) -> Contact:
+    """Parse a mutt alias line into a Contact object."""
+    line = line.strip()
+    if not line.startswith("alias "):
+        raise ValueError(f"Invalid alias line: {line}")
+
+    match = re.match(r'alias\s+(\S+)\s+"([^"]+)"\s*<([^>]+)>', line)
+    if match:
+        alias, name, email = match.groups()
+        return Contact(alias=alias, email=email, name=name)
+
+    match = re.match(r"alias\s+(\S+)\s+(\S+)", line)
+    if match:
+        alias, email = match.groups()
+        name = line.split("#", 1)[1].strip() if "#" in line else ""
+        return Contact(alias=alias, email=email, name=name)
+
+    raise ValueError(f"Could not parse alias line: {line}")
+
+
+def _get_alias_file(config_file: str = "") -> Path:
+    """Get mutt alias file path from mutt configuration."""
+    cmd = ["mutt", "-Q", "alias_file"]
+    if config_file:
+        cmd.extend(["-F", config_file])
+
+    stdout, _ = run_command(cmd)
+    result = stdout.decode().strip()
+    path = result.split("=")[1].strip("\"'")
+    if path.startswith("~"):
+        path = str(Path.home()) + path[1:]
+    return Path(path)
+
+
+def _find_contacts(query: str, max_results: int = 10) -> list[Contact]:
+    """Find contacts using simple fuzzy matching."""
+    alias_file = _get_alias_file()
+
+    try:
+        content = alias_file.read_text()
+    except FileNotFoundError:
+        return []
+
+    contacts = []
+    for line in content.splitlines():
+        if line.strip().startswith("alias "):
+            try:
+                contacts.append(_parse_alias_line(line))
+            except ValueError:
+                continue
+
+    query_lower = query.lower()
+    matches = [
+        c
+        for c in contacts
+        if query_lower in c.alias.lower()
+        or query_lower in c.email.lower()
+        or query_lower in c.name.lower()
+    ]
+    return matches[:max_results]
+
+
+# List helpers (moved from main tool.py)
+def _list_tags() -> list[str]:
+    """List all tags in the notmuch database."""
+    stdout, _ = run_command(["notmuch", "search", "--output=tags", "*"])
+    output = stdout.decode().strip()
+    return sorted([tag.strip() for tag in output.split("\n") if tag.strip()])
+
+
+def _list_folders() -> list[str]:
+    """List maildir folders using shallow directory scan."""
+    db_path_stdout, _ = run_command(["notmuch", "config", "get", "database.path"])
+    maildir_root = Path(db_path_stdout.decode().strip())
+
+    folders: set[str] = set()
+    for account in maildir_root.iterdir():
+        try:
+            children = list(account.iterdir())
+        except NotADirectoryError:
+            continue
+        for child in children:
+            if child.name in MAILDIR_LEAFS:
+                continue
+            try:
+                list((child / "cur").iterdir())
+                folders.add(f"{account.name}/{child.name}")
+            except (NotADirectoryError, FileNotFoundError):
+                continue
+    return sorted(folders)
+
+
+def _list_accounts(config_file: str = "") -> list[str]:
+    """List available msmtp accounts by parsing msmtp config."""
+    msmtprc_path = Path(config_file) if config_file else Path.home() / ".msmtprc"
+
+    accounts = []
+    with open(msmtprc_path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("account ") and not line.startswith("account default"):
+                account_name = line.split()[1]
+                accounts.append(account_name)
+    return accounts
+
+
+# ============================================================================
+# Unified Tools
+# ============================================================================
+
+
+@mcp.tool(
+    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+)
+def read(
+    query: str = Field(
+        default="",
+        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'.",
+    ),
+    limit: int = Field(
+        default=100,
+        description="The maximum number of message IDs to return.",
+        gt=0,
+    ),
+    offset: int = Field(
+        default=0,
+        description="Number of results to skip for pagination.",
+        ge=0,
+    ),
+    include_excluded: bool = Field(
+        default=False,
+        description="Include emails with excluded tags (spam, deleted) that are normally hidden.",
+    ),
+    mode: str = Field(
+        default="full",
+        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
+    ),
+    save_attachments_to: str = Field(
+        default="",
+        description="Directory to save email body and attachments to. Body saved as .txt/.html, attachments saved with original filenames. Paths returned in saved_files field.",
+    ),
+    list_type: str = Field(
+        default="",
+        description="For listing: 'tags', 'folders', or 'accounts'. When set, ignores query and returns list.",
+    ),
+    max_results: int = Field(
+        default=10,
+        description="For find_contacts: maximum results to return.",
+        gt=0,
+    ),
+) -> list[SearchResult] | list[EmailContent] | list[str] | list[Contact]:
+    """Unified read tool for emails.
+
+    Operations based on parameters:
+    - list_type set: Returns list of tags/folders/accounts
+    - query starts with "contact:": Searches contacts (e.g., "contact:alice")
+    - query + mode="headers"/"summary": Search with lightweight results
+    - query + mode="full": Full email content display
+
+    Returns different types based on operation.
+    """
+    # Handle list operations
+    if list_type:
+        if list_type == "tags":
+            return _list_tags()
+        elif list_type == "folders":
+            return _list_folders()
+        elif list_type == "accounts":
+            return _list_accounts()
+        else:
+            raise ValueError(
+                f"Unknown list_type: {list_type}. Use 'tags', 'folders', or 'accounts'."
+            )
+
+    # Handle contact search
+    if query.startswith("contact:"):
+        contact_query = query[8:].strip()
+        if not contact_query:
+            raise ValueError("Contact query required after 'contact:'")
+        return _find_contacts(contact_query, max_results)
+
+    # Validate query for email operations
+    if not query:
+        raise ValueError(
+            "Query required for email search/show. Use list_type for listing, or 'contact:name' for contacts."
+        )
+
+    # For headers/summary mode, use lightweight search
+    if mode in ("headers", "summary"):
+        # Get search results first
+        results = _search_emails(query, limit, offset, include_excluded)
+        if mode == "headers":
+            return results
+        # For summary, get truncated content
+        return _show_email(
+            query, mode="summary", limit=limit, include_excluded=include_excluded
+        )
+
+    # Full content display
+    return _show_email(
+        query, mode, limit, include_excluded, save_to=save_attachments_to
+    )
+
+
+@mcp.tool(
+    description="""Update email metadata. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
+)
+def update(
+    message_ids: list[str] = Field(
+        default_factory=list,
+        description="A list of notmuch message IDs for the emails to update.",
+    ),
+    action: str = Field(
+        ...,
+        description="Action: 'tag' (add/remove tags) or 'move' (relocate to folder).",
+    ),
+    add_tags: list[str] = Field(
+        default_factory=list,
+        description="For action='tag': tags to add.",
+    ),
+    remove_tags: list[str] = Field(
+        default_factory=list,
+        description="For action='tag': tags to remove.",
+    ),
+    destination_folder: str = Field(
+        default="",
+        description="For action='move': destination folder (e.g., 'Trash', 'Archive').",
+    ),
+) -> TagResult | MoveResult:
+    """Unified update tool for email metadata.
+
+    Actions:
+    - tag: Add/remove tags from emails
+    - move: Move emails to a maildir folder
+    """
+    if action == "tag":
+        if not message_ids:
+            raise ValueError("At least one message_id required for tag action")
+        if len(message_ids) == 1:
+            return _tag_email(message_ids[0], add_tags, remove_tags)
+        # Bulk tag operation
+        results = []
+        for mid in message_ids:
+            results.append(_tag_email(mid, add_tags, remove_tags))
+        # Return summary result
+        return TagResult(
+            message_id=f"{len(message_ids)} messages",
+            added_tags=add_tags,
+            removed_tags=remove_tags,
+        )
+
+    if action == "move":
+        if not message_ids:
+            raise ValueError("At least one message_id required for move action")
+        if not destination_folder:
+            raise ValueError("destination_folder required for move action")
+        return _move_emails(message_ids, destination_folder)
+
+    raise ValueError(f"Unknown action: {action}. Use 'tag' or 'move'.")
