@@ -594,12 +594,8 @@ def accept_all_changes(pkg) -> int:
 
     count = 0
     for change_id in supported_ids:
-        try:
-            accept_change(pkg, change_id)
-            count += 1
-        except ValueError:
-            # Skip unsupported changes (shouldn't happen but be safe)
-            pass
+        accept_change(pkg, change_id)
+        count += 1
 
     return count
 
@@ -621,11 +617,7 @@ def reject_all_changes(pkg) -> int:
 
     count = 0
     for change_id in supported_ids:
-        try:
-            reject_change(pkg, change_id)
-            count += 1
-        except ValueError:
-            # Skip unsupported changes (e.g., field deletions)
-            pass
+        reject_change(pkg, change_id)
+        count += 1
 
     return count

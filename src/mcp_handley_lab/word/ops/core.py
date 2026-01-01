@@ -375,7 +375,7 @@ def resolve_target(pkg, target_id: str) -> ResolvedTarget:
     )
 
 
-def find_paragraph_by_id(pkg, target_id: str) -> etree._Element | None:
+def find_paragraph_by_id(pkg, target_id: str) -> etree._Element:
     """Find a paragraph by its block ID.
 
     Args:
@@ -383,15 +383,15 @@ def find_paragraph_by_id(pkg, target_id: str) -> etree._Element | None:
         target_id: Block ID
 
     Returns:
-        w:p element if found, None otherwise.
+        w:p element
+
+    Raises:
+        ValueError: If target not found or not a paragraph
     """
-    try:
-        target = resolve_target(pkg, target_id)
-        if target.leaf_kind == "paragraph":
-            return target.leaf_el
-        return None
-    except ValueError:
-        return None
+    target = resolve_target(pkg, target_id)
+    if target.leaf_kind != "paragraph":
+        raise ValueError(f"Target {target_id} is not a paragraph")
+    return target.leaf_el
 
 
 def count_occurrence(

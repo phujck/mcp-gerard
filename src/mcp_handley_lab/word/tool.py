@@ -208,8 +208,6 @@ def read(
         if not target_id:
             raise ValueError("target_id required for list scope")
         p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-        if p_el is None:
-            raise ValueError(f"Paragraph not found: {target_id}")
         list_info_dict = word_ops.get_list_info(pkg, p_el)
         list_info = ListInfo(**list_info_dict) if list_info_dict else None
         return DocumentReadResult(
@@ -679,8 +677,6 @@ def edit(
 
         elif operation == "set_list_level":
             p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-            if p_el is None:
-                raise ValueError(f"Paragraph not found: {target_id}")
             level = int(content_data) if content_data else 0
             if level < 0 or level > 8:
                 raise ValueError("List level must be 0-8")
@@ -689,30 +685,22 @@ def edit(
 
         elif operation == "promote_list":
             p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-            if p_el is None:
-                raise ValueError(f"Paragraph not found: {target_id}")
             word_ops.promote_list_item(pkg, p_el)
             message = "Promoted list item"
 
         elif operation == "demote_list":
             p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-            if p_el is None:
-                raise ValueError(f"Paragraph not found: {target_id}")
             word_ops.demote_list_item(pkg, p_el)
             message = "Demoted list item"
 
         elif operation == "restart_numbering":
             p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-            if p_el is None:
-                raise ValueError(f"Paragraph not found: {target_id}")
             start_value = int(content_data) if content_data else 1
             word_ops.restart_numbering(pkg, p_el, start_value)
             message = f"Restarted numbering at {start_value}"
 
         elif operation == "remove_list":
             p_el = word_ops.find_paragraph_by_id(pkg, target_id)
-            if p_el is None:
-                raise ValueError(f"Paragraph not found: {target_id}")
             word_ops.remove_list_formatting(pkg, p_el)
             message = "Removed list formatting"
 

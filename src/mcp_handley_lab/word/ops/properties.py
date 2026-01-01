@@ -142,8 +142,10 @@ def set_document_meta(pkg, **kwargs) -> None:
     }
 
     for key, value in kwargs.items():
-        if value is None or key not in prop_map:
+        if value is None:
             continue
+        if key not in prop_map:
+            raise ValueError(f"Unknown metadata key: {key}")
 
         tag, _ = prop_map[key]
         el = core_xml.find(tag)
