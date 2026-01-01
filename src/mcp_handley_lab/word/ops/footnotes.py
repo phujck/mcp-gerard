@@ -4,13 +4,9 @@ Contains functions for:
 - Reading footnotes/endnotes from documents
 - Adding footnotes/endnotes to specific blocks
 - Deleting footnotes/endnotes
-- Managing footnote/endnote XML parts via zipfile operations
 """
 
 from __future__ import annotations
-
-import os
-import zipfile
 
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
@@ -329,13 +325,10 @@ def add_footnote(
         ValueError: If target not found or invalid location
         FileNotFoundError: If document not found
     """
-    if not os.path.exists(doc_path):
-        raise FileNotFoundError(f"Document not found: {doc_path}")
-
     ns = {"w": _FN_W_NS}
     notes_partname = f"/word/{note_type}s.xml"
 
-    # Load document with WordPackage
+    # Load document with WordPackage (raises FileNotFoundError naturally)
     pkg = WordPackage.open(doc_path)
 
     # Use resolve_target to get the target paragraph element directly
@@ -455,30 +448,25 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
         ValueError: If note not found
         FileNotFoundError: If document not found
     """
-    if not os.path.exists(doc_path):
-        raise FileNotFoundError(f"Document not found: {doc_path}")
-
     ns = {"w": _FN_W_NS}
-    notes_file = f"word/{note_type}s.xml"
+    notes_partname = f"/word/{note_type}s.xml"
 
-    # Read document parts
-    with zipfile.ZipFile(doc_path, "r") as zf:
-        doc_xml = zf.read("word/document.xml")
-        if notes_file not in zf.namelist():
-            raise ValueError(f"No {note_type}s in document")
-        notes_xml = zf.read(notes_file)
+    # Load document with WordPackage (raises FileNotFoundError naturally)
+    pkg = WordPackage.open(doc_path)
 
-    # Parse XML
-    doc_root = etree.fromstring(doc_xml)
-    notes_root = etree.fromstring(notes_xml)
+    # Get notes XML
+    notes_root = pkg.footnotes_xml if note_type == "footnote" else pkg.endnotes_xml
+    if notes_root is None:
+        raise ValueError(f"No {note_type}s in document")
 
-    # Remove reference from document
+    # Remove reference from document body
+    doc_root = pkg.document_xml
     refs_removed = 0
     for fn_ref in _fn_xpath(
         doc_root, f"//w:{note_type}Reference[@w:id='{note_id}']", ns
     ):
         run = fn_ref.getparent()
-        if run is not None and run.tag == f"{{{_FN_W_NS}}}r":
+        if run is not None and run.tag == qn("w:r"):
             para = run.getparent()
             if para is not None:
                 para.remove(run)
@@ -491,32 +479,7 @@ def delete_footnote(doc_path: str, note_id: int, note_type: str = "footnote") ->
     for fn in _fn_xpath(notes_root, f"//w:{note_type}[@w:id='{note_id}']", ns):
         notes_root.remove(fn)
 
-    # Write modified document
-    temp_path = doc_path + ".tmp"
-    with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as zout:
-        with zipfile.ZipFile(doc_path, "r") as zin:
-            for item in zin.infolist():
-                if item.filename == "word/document.xml":
-                    zout.writestr(
-                        item,
-                        etree.tostring(
-                            doc_root,
-                            encoding="UTF-8",
-                            xml_declaration=True,
-                            standalone="yes",
-                        ),
-                    )
-                elif item.filename == notes_file:
-                    zout.writestr(
-                        item,
-                        etree.tostring(
-                            notes_root,
-                            encoding="UTF-8",
-                            xml_declaration=True,
-                            standalone="yes",
-                        ),
-                    )
-                else:
-                    zout.writestr(item, zin.read(item.filename))
-
-    os.replace(temp_path, doc_path)
+    # Mark modified parts as dirty and save
+    mark_dirty(pkg)
+    pkg.mark_xml_dirty(notes_partname)
+    pkg.save(doc_path)
