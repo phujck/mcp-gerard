@@ -205,13 +205,19 @@ Comprehensive email workflow integration
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
 ### 📄 **Word Documents** (`word`)
-Read and edit Microsoft Word (.docx) files
-  - Progressive disclosure: outline → blocks → full content
-  - DOM-style editing: create, insert, append, delete, replace, style
-  - Version-based concurrency to prevent conflicting edits
-  - Table markdown previews with row/column counts
-  - _Claude example_: `> read the outline of my thesis and add a new section after the introduction`
-  - **Requires**: `python-docx` (installed with package)
+Comprehensive Word document manipulation via pure OOXML
+  - **Reading**: Progressive disclosure (outline → blocks → full), search, metadata
+  - **Content**: Paragraphs, headings, tables, images (inline + floating), text boxes
+  - **Formatting**: Styles (create/edit/delete), runs, paragraph formatting, tab stops
+  - **Tables**: Add/delete rows/columns, merge cells, borders, shading, alignment
+  - **Track Changes**: Read revisions, accept/reject individual or all changes
+  - **References**: Bookmarks, captions, cross-references, TOC, footnotes/endnotes
+  - **Bibliography**: Add sources, insert citations, generate bibliography
+  - **Comments**: Add, reply, resolve/unresolve threaded comments
+  - **Page Setup**: Margins, orientation, columns, borders, sections, headers/footers
+  - **Lists**: Numbered/bulleted lists, promote/demote, restart numbering
+  - **Other**: Content controls, equations, hyperlinks, custom properties
+  - _Claude example_: `> read the outline of my thesis, then add a citation to Smith2020 in the introduction`
 
 ## Recommended External MCPs
 
