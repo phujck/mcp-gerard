@@ -413,12 +413,29 @@ class WordPackage:
 
     # === Image Helpers ===
 
+    # Common image types that may not be in mimetypes database
+    _IMAGE_TYPES = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+        "bmp": "image/bmp",
+        "tiff": "image/tiff",
+        "tif": "image/tiff",
+        "webp": "image/webp",
+        "svg": "image/svg+xml",
+        "emf": "image/x-emf",
+        "wmf": "image/x-wmf",
+    }
+
     def add_image(self, image_bytes: bytes, ext: str = "png") -> str:
         """Add image to package and return rId from document.xml."""
         ext = ext.lower().lstrip(".")
         content_type, _ = mimetypes.guess_type(f"file.{ext}")
         if not content_type:
-            content_type = f"image/{ext}"
+            content_type = self._IMAGE_TYPES.get(ext)
+            if not content_type:
+                raise ValueError(f"Unknown image extension: {ext!r}")
 
         # Find next image number
         n = 1
