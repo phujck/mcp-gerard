@@ -63,6 +63,7 @@ dev = [
     "ruff>=0.1.0",
     "pre-commit>=3.0.0",
     "tomli>=2.0.0",
+    "python-docx>=1.0.0",
 ]
 semantic = [
     "chromadb>=1.0.0",
