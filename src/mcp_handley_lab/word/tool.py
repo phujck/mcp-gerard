@@ -860,10 +860,10 @@ def edit(
             word_ops.set_page_margins(
                 pkg,
                 section_index,
-                top=margins["top"],
-                bottom=margins["bottom"],
-                left=margins["left"],
-                right=margins["right"],
+                top=margins.get("top"),
+                bottom=margins.get("bottom"),
+                left=margins.get("left"),
+                right=margins.get("right"),
             )
             message = f"Set margins for section {section_index}"
 

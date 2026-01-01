@@ -218,17 +218,17 @@ def _mark_dirty(pkg) -> None:
 def set_page_margins(
     pkg,
     section_index: int,
-    top: float,
-    bottom: float,
-    left: float,
-    right: float,
+    top: float | None = None,
+    bottom: float | None = None,
+    left: float | None = None,
+    right: float | None = None,
 ) -> None:
     """Set page margins for a section. Values in inches.
 
     Args:
         pkg: WordPackage
         section_index: 0-based section index
-        top, bottom, left, right: Margins in inches
+        top, bottom, left, right: Margins in inches (None = keep existing)
     """
     sectPr = _get_sectpr_by_index(pkg, section_index)
 
@@ -238,11 +238,15 @@ def set_page_margins(
         pgMar = etree.Element(qn("w:pgMar"))
         _insert_sectpr_element(sectPr, pgMar, "pgMar")
 
-    # Set margins in twips (1440 twips = 1 inch)
-    pgMar.set(qn("w:top"), str(int(top * 1440)))
-    pgMar.set(qn("w:bottom"), str(int(bottom * 1440)))
-    pgMar.set(qn("w:left"), str(int(left * 1440)))
-    pgMar.set(qn("w:right"), str(int(right * 1440)))
+    # Set margins in twips (1440 twips = 1 inch), only if provided
+    if top is not None:
+        pgMar.set(qn("w:top"), str(int(top * 1440)))
+    if bottom is not None:
+        pgMar.set(qn("w:bottom"), str(int(bottom * 1440)))
+    if left is not None:
+        pgMar.set(qn("w:left"), str(int(left * 1440)))
+    if right is not None:
+        pgMar.set(qn("w:right"), str(int(right * 1440)))
     _mark_dirty(pkg)
 
 
