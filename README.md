@@ -13,7 +13,6 @@ A toolkit that bridges AI assistants with command-line tools and services. Built
 ### System Dependencies (Optional)
 Some tools require additional system packages:
 - **code2prompt tool**: `cargo install code2prompt`
-- **word tool**: `pandoc` for document conversion
 - **email tools**: `msmtp`, `mutt`, `notmuch` for email management
 
 ## Quick Start
@@ -56,7 +55,6 @@ claude mcp add llm-models --scope user mcp-llm-models  # List available models
 # Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
-claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
 # claude mcp add llm-embeddings --scope user mcp-llm-embeddings  # Semantic embeddings
@@ -67,6 +65,7 @@ claude mcp add word --scope user mcp-word
 # claude mcp add google-calendar --scope user mcp-google-calendar
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
+# claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
 
 # 6. Verify tools are working
@@ -112,7 +111,6 @@ claude mcp add llm-models --scope user mcp-llm-models  # List available models
 # Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
 claude mcp add google-maps --scope user mcp-google-maps
-claude mcp add word --scope user mcp-word
 
 # Add additional tools as needed:
 # claude mcp add llm-embeddings --scope user mcp-llm-embeddings
@@ -123,6 +121,7 @@ claude mcp add word --scope user mcp-word
 # claude mcp add google-calendar --scope user mcp-google-calendar
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
+# claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
 
 # 6. Verify tools are working
@@ -180,15 +179,6 @@ Get directions and routing information
 
 
 
-### 📄 **Word Documents** (`word`)
-Process Word documents for analysis and conversion
-  - Extract comments with referenced text context
-  - Analyze tracked changes and revision history
-  - Convert between DOCX ↔ Markdown, HTML, plain text
-  - Document metadata and structure analysis
-  - _Claude example_: `> extract all the comments from this feedback document and show me the author breakdown`
-  - **Requires**: [pandoc](https://pandoc.org/installing.html) for document conversion
-
 ### 🧮 **Mathematica** (`mathematica`)
 Execute Mathematica code and computations
   - Run WolframScript commands and notebooks
@@ -214,7 +204,30 @@ Comprehensive email workflow integration
   - **Requires**: `msmtp`, `mutt`, `notmuch`, and `offlineimap` installed and configured
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
+### 📄 **Word Documents** (`word`)
+Comprehensive Word document manipulation via pure OOXML
+  - **Reading**: Progressive disclosure (outline → blocks → full), search, metadata
+  - **Content**: Paragraphs, headings, tables, images (inline + floating), text boxes
+  - **Formatting**: Styles (create/edit/delete), runs, paragraph formatting, tab stops
+  - **Tables**: Add/delete rows/columns, merge cells, borders, shading, alignment
+  - **Track Changes**: Read revisions, accept/reject individual or all changes
+  - **References**: Bookmarks, captions, cross-references, TOC, footnotes/endnotes
+  - **Bibliography**: Add sources, insert citations, generate bibliography
+  - **Comments**: Add, reply, resolve/unresolve threaded comments
+  - **Page Setup**: Margins, orientation, columns, borders, sections, headers/footers
+  - **Lists**: Numbered/bulleted lists, promote/demote, restart numbering
+  - **Other**: Content controls, equations, hyperlinks, custom properties
+  - _Claude example_: `> read the outline of my thesis, then add a citation to Smith2020 in the introduction`
 
+## Recommended External MCPs
+
+These MCP servers from other projects complement this toolkit:
+
+| MCP | Description | Installation |
+|-----|-------------|--------------|
+| [Playwright](https://github.com/microsoft/playwright-mcp) | Browser automation for web scraping and testing | `npx @playwright/mcp@latest` |
+
+See [awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) for a comprehensive list of available MCP servers.
 
 ## Using AI Tools Together
 

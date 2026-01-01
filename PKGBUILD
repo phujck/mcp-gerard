@@ -47,6 +47,7 @@ depends=(
     'python-mistralai>=1.9.0'
     'python-wolframclient'
     'python-opentelemetry-sdk'
+    'python-opentelemetry-exporter-otlp-proto-http'
     'python-dateutil>=2.8.0'
 )
 makedepends=(
