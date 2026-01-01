@@ -485,8 +485,6 @@ def _show_email(
     return results
 
 
-
-
 def _tag_email(
     message_id: str,
     add_tags: list[str] | None = None,
@@ -907,7 +905,9 @@ def read(
         if mode == "headers":
             return results
         # For summary, get truncated content
-        return _show_email(query, mode="summary", limit=limit, include_excluded=include_excluded)
+        return _show_email(
+            query, mode="summary", limit=limit, include_excluded=include_excluded
+        )
 
     # Full content display
     return _show_email(

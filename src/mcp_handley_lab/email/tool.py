@@ -1,7 +1,7 @@
 """Unified email client MCP tool integrating all email providers."""
 
-# Import the shared mcp instance
-from mcp_handley_lab.email.common import mcp
+# Import the shared mcp instance (re-exported for tests)
+from mcp_handley_lab.email.common import mcp  # noqa: F401
 
 # Import tool modules to register their @mcp.tool decorators
 from mcp_handley_lab.email.msmtp import tool as _msmtp  # noqa: F401

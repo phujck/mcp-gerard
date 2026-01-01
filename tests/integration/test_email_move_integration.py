@@ -95,7 +95,9 @@ class TestEmailMoveIntegration:
         )
 
         # Extract the MoveResult from the response
-        move_result = result.get("result", result) if isinstance(result, dict) else result
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
 
         # Verify the result structure
         assert "message_ids" in move_result
@@ -145,7 +147,9 @@ class TestEmailMoveIntegration:
         )
 
         # Extract the MoveResult from the response
-        move_result = result.get("result", result) if isinstance(result, dict) else result
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
 
         assert move_result["moved_files_count"] == 1
         assert "Successfully moved 1 email(s) to 'Trash'" in move_result["status"]
@@ -254,7 +258,9 @@ class TestEmailMoveIntegration:
         )
 
         # Extract the MoveResult from the response
-        move_result = result.get("result", result) if isinstance(result, dict) else result
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
 
         # Should move 1 file but report about the missing one
         assert move_result["moved_files_count"] == 1
