@@ -93,7 +93,7 @@ def _find_smart_destination(
     )
 
 
-class EmailContent(BaseModel):
+class EmailContent(BaseModel, extra="forbid"):
     """Structured representation of a single email's content."""
 
     id: str = Field(
@@ -159,6 +159,16 @@ class EmailContent(BaseModel):
     parts_manifest: list[EmailPartInfo] | None = Field(
         default=None, description="All MIME parts in the message (full mode only)."
     )
+
+    def model_dump(self, **kwargs) -> dict:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs) -> str:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump_json(**kwargs)
 
 
 class TagResult(BaseModel):
@@ -376,10 +386,12 @@ def _show_email(
                 msg, message_id, full_body_content, body_format, save_path
             )
 
-        # Summary mode: truncate for response (after saving full)
+        # Determine body content for response
         body_content = full_body_content
         is_truncated = None
         original_length = None
+
+        # Summary mode: truncate for response
         if mode == "summary" and len(full_body_content) > 2000:
             original_length = len(full_body_content)
             body_content = full_body_content[:2000]
@@ -405,10 +417,8 @@ def _show_email(
             original_length=original_length,
         )
 
-        # Full mode: add preservation fields
+        # Full mode: add metadata
         if mode == "full":
-            email_content.body_raw = extraction.body_raw or None
-            email_content.body_html_raw = extraction.body_html_raw or None
             email_content.parts_manifest = extraction.parts_manifest or None
             if segment_quotes and extraction.segments:
                 email_content.segments = extraction.segments
