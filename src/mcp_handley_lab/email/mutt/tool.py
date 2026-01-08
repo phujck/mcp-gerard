@@ -1,9 +1,15 @@
 """Mutt tool for interactive email composition via MCP."""
 
 import builtins
+import contextlib
 import os
 import shlex
 import tempfile
+import time
+import uuid
+from email import policy
+from email.parser import BytesParser, HeaderParser
+from email.utils import getaddresses
 from pathlib import Path
 
 from pydantic import Field
@@ -12,6 +18,33 @@ from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.common.terminal import launch_interactive
 from mcp_handley_lab.email.common import mcp
 from mcp_handley_lab.shared.models import OperationResult
+
+# Capture directory for msmtp wrapper
+CAPTURE_DIR = (
+    Path(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")))
+    / "mcp-email"
+    / "captured"
+)
+# Per plan: retain captured files for 5 min on failure for debugging,
+# delete immediately on successful parsing
+CAPTURE_MAX_AGE_SECONDS = 300  # 5 minutes (cleanup old/orphaned files)
+CAPTURE_RETRY_SECONDS = 5  # Wait up to 5s for captured file
+CAPTURE_RETRY_INTERVAL = 0.2  # Check every 200ms
+
+# Capture status notes (concise - setup instructions in docs/README per plan)
+# Per plan: only captured|not_configured|not_found|not_applicable
+CAPTURE_NOTES = {
+    "captured": "Actual sent content captured.",
+    "not_configured": "Capture not configured; see docs to enable.",
+    "not_found": "Capture dir exists but no matching message found.",
+    "not_applicable": "Send cancelled - no capture.",
+}
+# Extended notes for specific not_found reasons (not separate statuses)
+CAPTURE_NOT_FOUND_REASONS = {
+    "ambiguous": "Multiple captured messages match; cannot determine which was sent.",
+    "parse_error": "Captured message found but failed to parse.",
+    "timeout": "No matching captured message found within timeout.",
+}
 
 
 def _execute_mutt_command(cmd: list[str], input_text: str = None) -> str:
@@ -27,6 +60,224 @@ def _query_mutt_var(var: str) -> str | None:
     if "=" in result:
         return result.partition("=")[2].strip().strip('"')
     return None
+
+
+def _cleanup_old_captures() -> None:
+    """Delete captured email files older than CAPTURE_MAX_AGE_SECONDS."""
+    if not CAPTURE_DIR.exists():
+        return
+    now = time.time()
+    for eml_file in CAPTURE_DIR.glob("*.eml"):
+        try:
+            if now - eml_file.stat().st_mtime > CAPTURE_MAX_AGE_SECONDS:
+                eml_file.unlink()
+        except OSError:
+            pass  # File may have been deleted already
+
+
+def _extract_addr_specs(header_value: str) -> list[str]:
+    """Extract normalized email addresses from an RFC822 header value.
+
+    Uses email.utils.getaddresses() for proper RFC822 parsing (handles
+    quoted names, groups, encoded words). Returns lowercase addr-specs only.
+    """
+    if not header_value:
+        return []
+    parsed = getaddresses([header_value])
+    return [addr.lower() for _name, addr in parsed if addr]
+
+
+def _scan_captured_headers(path: Path) -> dict:
+    """Scan only headers of a captured .eml file for matching purposes.
+
+    Fast, lightweight scan that reads only headers (stops at blank line).
+    Uses HeaderParser which doesn't parse body/attachments.
+    Returns dict with: correlation_id, subject, from, to, cc, file_size
+    """
+    # Read only header portion (up to first blank line)
+    header_bytes = []
+    with builtins.open(path, "rb") as f:
+        for line in f:
+            if line in (b"\r\n", b"\n"):
+                break
+            header_bytes.append(line)
+    headers_text = b"".join(header_bytes).decode("utf-8", errors="replace")
+
+    # Parse headers only (no body processing)
+    msg = HeaderParser(policy=policy.default).parsestr(headers_text)
+
+    return {
+        "correlation_id": msg.get("X-MCP-Correlation-Id", ""),
+        "subject": msg.get("Subject", ""),
+        "from": _extract_addr_specs(msg.get("From", "")),
+        "to": _extract_addr_specs(msg.get("To", "")),
+        "cc": _extract_addr_specs(msg.get("Cc", "")),
+        "file_size": path.stat().st_size,
+    }
+
+
+def _parse_captured_email(path: Path) -> dict:
+    """Parse a captured .eml file and extract relevant fields.
+
+    Full parse including body and attachments. Only call for the selected file.
+    Returns dict with: subject, to, cc, from, body_text, attachments
+    """
+    with builtins.open(path, "rb") as f:
+        msg = BytesParser(policy=policy.default).parse(f)
+
+    result = {
+        "subject": msg.get("Subject", ""),
+        "to": _extract_addr_specs(msg.get("To", "")),
+        "cc": _extract_addr_specs(msg.get("Cc", "")),
+        "from": _extract_addr_specs(msg.get("From", "")),
+        "correlation_id": msg.get("X-MCP-Correlation-Id", ""),
+        "body_text": "",
+        "attachments": [],
+    }
+
+    # Extract body and attachments
+    if msg.is_multipart():
+        for part in msg.walk():
+            content_type = part.get_content_type()
+            content_disposition = part.get("Content-Disposition", "")
+
+            if "attachment" in content_disposition:
+                # Attachment - extract metadata only
+                filename = part.get_filename() or "unnamed"
+                try:
+                    payload = part.get_payload(decode=True)
+                    size = len(payload) if payload else 0
+                except Exception:
+                    size = 0
+                result["attachments"].append(
+                    {
+                        "filename": filename,
+                        "content_type": content_type,
+                        "size_bytes": size,
+                    }
+                )
+            elif content_type == "text/plain" and not result["body_text"]:
+                # First text/plain part is the body
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    try:
+                        result["body_text"] = payload.decode(charset)
+                    except (UnicodeDecodeError, LookupError):
+                        result["body_text"] = payload.decode("utf-8", errors="replace")
+    else:
+        # Simple message
+        payload = msg.get_payload(decode=True)
+        if payload:
+            charset = msg.get_content_charset() or "utf-8"
+            try:
+                result["body_text"] = payload.decode(charset)
+            except (UnicodeDecodeError, LookupError):
+                result["body_text"] = payload.decode("utf-8", errors="replace")
+
+    return result
+
+
+def _find_captured_email(
+    correlation_id: str,
+    subject: str,
+    draft_recipients: list[str],
+    from_addr: str | None = None,
+    mail_size_bytes: int | None = None,
+    envelope_recipients: list[str] | None = None,
+) -> tuple[Path | None, str, str]:
+    """Find a captured email file by correlation ID or fallback matching.
+
+    Primary match: X-MCP-Correlation-Id header
+    Fallback: subject + recipients + from + approximate size (within 20%)
+
+    Args:
+        correlation_id: UUID for primary matching
+        subject: Email subject for fallback
+        draft_recipients: To+Cc from draft (used if envelope_recipients unavailable)
+        from_addr: From address from msmtp log
+        mail_size_bytes: Message size from msmtp log
+        envelope_recipients: All recipients from msmtp log (To+Cc+Bcc)
+
+    Returns: (path or None, status, reason)
+    - status is one of: captured, not_configured, not_found
+    - reason provides detail for not_found cases (ambiguous, timeout, etc.)
+    """
+    if not CAPTURE_DIR.exists():
+        return None, "not_configured", ""
+
+    # Clean up old captures first
+    _cleanup_old_captures()
+
+    # Use msmtp envelope recipients if available, else fall back to draft To/Cc
+    # Normalize to lowercase addr-specs
+    if envelope_recipients:
+        expected_recipients = {r.lower() for r in envelope_recipients}
+    else:
+        expected_recipients = {r.lower() for r in draft_recipients}
+
+    # Retry loop to handle filesystem sync delays
+    deadline = time.time() + CAPTURE_RETRY_SECONDS
+
+    while time.time() < deadline:
+        candidates = []
+        now = time.time()
+
+        for eml_file in CAPTURE_DIR.glob("*.eml"):
+            try:
+                mtime = eml_file.stat().st_mtime
+                # Only consider files from last 60 seconds
+                if now - mtime > 60:
+                    continue
+
+                # Use lightweight header scan (no body/attachment parsing)
+                headers = _scan_captured_headers(eml_file)
+
+                # Primary match: correlation ID
+                if correlation_id and headers.get("correlation_id") == correlation_id:
+                    return eml_file, "captured", ""
+
+                # Fallback match: subject + recipients + from + size
+                parsed_recipients = set(headers.get("to", []) + headers.get("cc", []))
+
+                subject_match = headers.get("subject", "") == subject
+
+                # Recipient matching: captured To+Cc should be subset of envelope recipients
+                # (Bcc won't appear in captured headers but is in envelope_recipients)
+                recipients_match = parsed_recipients <= expected_recipients
+
+                # From match (if provided)
+                from_match = True
+                if from_addr:
+                    parsed_from = headers.get("from", [])
+                    from_match = from_addr.lower() in parsed_from
+
+                # Size match (within 20% tolerance, if provided)
+                size_match = True
+                if mail_size_bytes and mail_size_bytes > 0:
+                    file_size = headers.get("file_size", 0)
+                    tolerance = mail_size_bytes * 0.2
+                    size_match = abs(file_size - mail_size_bytes) <= tolerance
+
+                if subject_match and recipients_match and from_match and size_match:
+                    candidates.append(eml_file)
+
+            except (OSError, ValueError):
+                continue  # Skip unreadable files
+
+        # If we have exactly one fallback match, use it
+        if len(candidates) == 1:
+            return candidates[0], "captured", ""
+
+        # Multiple matches = ambiguous (per plan: return not_found with note)
+        if len(candidates) > 1:
+            return None, "not_found", "ambiguous"
+
+        # No matches yet, wait and retry
+        time.sleep(CAPTURE_RETRY_INTERVAL)
+
+    # Timeout reached
+    return None, "not_found", "timeout"
 
 
 MAILDIR_LEAFS = {"cur", "new", "tmp"}
@@ -320,60 +571,157 @@ def _compose_email(
     """Internal implementation of email composition."""
     temp_file_path = None
 
-    if body:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False
-        ) as temp_f:
-            # Create RFC822 email draft with headers
-            temp_f.write(f"To: {to}\n")
-            if subject:
-                temp_f.write(f"Subject: {subject}\n")
-            if cc:
-                temp_f.write(f"Cc: {cc}\n")
-            if bcc:
-                temp_f.write(f"Bcc: {bcc}\n")
-            if in_reply_to:
-                temp_f.write(f"In-Reply-To: {in_reply_to}\n")
-            if references:
-                temp_f.write(f"References: {references}\n")
-            temp_f.write("\n")  # Empty line separates headers from body
+    # Generate correlation ID for capture matching
+    correlation_id = str(uuid.uuid4())
+
+    # Always create a draft file to include the correlation ID header
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as temp_f:
+        # Create RFC822 email draft with headers
+        temp_f.write(f"To: {to}\n")
+        if subject:
+            temp_f.write(f"Subject: {subject}\n")
+        if cc:
+            temp_f.write(f"Cc: {cc}\n")
+        if bcc:
+            temp_f.write(f"Bcc: {bcc}\n")
+        if in_reply_to:
+            temp_f.write(f"In-Reply-To: {in_reply_to}\n")
+        if references:
+            temp_f.write(f"References: {references}\n")
+        # Add correlation ID for capture matching
+        temp_f.write(f"X-MCP-Correlation-Id: {correlation_id}\n")
+        temp_f.write("\n")  # Empty line separates headers from body
+        if body:
             temp_f.write(body)
             if not body.endswith("\n"):
                 temp_f.write("\n")  # Ensure proper line ending
-            temp_file_path = temp_f.name
+        temp_file_path = temp_f.name
 
-    # Consolidate command building
+    # Build recipients list for capture matching (normalize using getaddresses)
+    recipients = _extract_addr_specs(to)
+    if cc:
+        recipients.extend(_extract_addr_specs(cc))
+
+    # Build draft_provided for response (per plan: subject, to, body only)
+    draft_provided = {
+        "subject": subject,
+        "to": _extract_addr_specs(to),
+        "body": body,
+    }
+
+    # Consolidate command building - always use draft file now
     mutt_cmd = _build_mutt_command(
-        to=to if not body else None,  # Pass None for args handled by draft file
-        subject=subject if not body else None,
-        cc=cc if not body else None,
-        bcc=bcc if not body else None,
         attachments=attachments,
         temp_file_path=temp_file_path,
-        in_reply_to=in_reply_to if not body else None,
-        references=references if not body else None,
     )
 
     window_title = f"Mutt: {subject or 'New Email'}"
-    exit_code, status, data = _execute_mutt_interactive(
-        mutt_cmd, window_title=window_title
-    )
+    try:
+        exit_code, status, smtp_data = _execute_mutt_interactive(
+            mutt_cmd, window_title=window_title
+        )
+    finally:
+        # Clean up temp draft file (contains potentially sensitive content)
+        if temp_file_path:
+            with contextlib.suppress(OSError):
+                Path(temp_file_path).unlink()
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
+    # Helper to build normalized smtp structure
+    def _build_smtp_dict(data: dict) -> dict:
+        return {
+            "message_id": data.get("message_id", ""),
+            "recipients": data.get("all_recipients", []),
+            "mail_size_bytes": data.get("mail_size_bytes", 0),
+            "status_code": data.get("smtp_status_code", ""),
+        }
+
+    # Build the new response structure
     if status == "success":
+        send_status = "sent"
+
+        # Try to find and parse captured email
+        # Use msmtp log data for fallback matching (envelope recipients include Bcc)
+        captured_path, capture_status, capture_reason = _find_captured_email(
+            correlation_id,
+            subject,
+            recipients,  # draft To+Cc as fallback
+            from_addr=smtp_data.get("from"),
+            mail_size_bytes=smtp_data.get("mail_size_bytes"),
+            envelope_recipients=smtp_data.get("all_recipients"),  # msmtp envelope
+        )
+
+        captured_outgoing = None
+        if captured_path:
+            try:
+                parsed = _parse_captured_email(captured_path)
+                captured_outgoing = {
+                    "subject": parsed["subject"],
+                    "to": parsed["to"],
+                    "cc": parsed["cc"],
+                    "body_text": parsed["body_text"],
+                    "attachments": parsed["attachments"],
+                }
+                # Security: delete captured file after successful parsing
+                with contextlib.suppress(OSError):
+                    captured_path.unlink()
+            except Exception:
+                capture_status = "not_found"
+                capture_reason = "parse_error"
+
+        # Build capture note: use base note + reason detail if applicable
+        capture_note = CAPTURE_NOTES.get(capture_status, "")
+        if capture_reason and capture_reason in CAPTURE_NOT_FOUND_REASONS:
+            capture_note = CAPTURE_NOT_FOUND_REASONS[capture_reason]
+
+        data = {
+            "send_status": send_status,
+            "smtp": _build_smtp_dict(smtp_data),
+            "content": {
+                "capture_status": capture_status,
+                "capture_note": capture_note,
+                "draft_provided": draft_provided,
+            },
+        }
+        if captured_outgoing:
+            data["content"]["captured_outgoing"] = captured_outgoing
+
         return OperationResult(
             status="success",
             message=f"Email sent successfully: {to}{attachment_info}",
             data=data,
         )
+
     elif status == "cancelled":
+        # Schema consistency: include smtp block even when cancelled (empty values)
+        data = {
+            "send_status": "cancelled",
+            "smtp": _build_smtp_dict({}),  # Empty smtp for consistency
+            "content": {
+                "capture_status": "not_applicable",
+                "capture_note": CAPTURE_NOTES["not_applicable"],
+                "draft_provided": draft_provided,
+            },
+        }
         return OperationResult(
             status="cancelled",
             message=f"Email composition cancelled: {to}{attachment_info}",
             data=data,
         )
+
     else:  # status == "error"
+        # On failure, msmtp wrapper may have captured the email before failure
+        # Use not_found since we don't search for capture on failed sends
+        data = {
+            "send_status": "failed",
+            "smtp": _build_smtp_dict(smtp_data),
+            "content": {
+                "capture_status": "not_found",
+                "capture_note": "Send failed; capture not searched.",
+                "draft_provided": draft_provided,
+            },
+        }
         return OperationResult(
             status="error",
             message=f"Email sending failed: {to}{attachment_info} (exit code: {exit_code})",
