@@ -31,20 +31,33 @@ CAPTURE_MAX_AGE_SECONDS = 300  # 5 minutes (cleanup old/orphaned files)
 CAPTURE_RETRY_SECONDS = 5  # Wait up to 5s for captured file
 CAPTURE_RETRY_INTERVAL = 0.2  # Check every 200ms
 
-# Capture status notes (concise - setup instructions in docs/README per plan)
-# Per plan: only captured|not_configured|not_found|not_applicable
-CAPTURE_NOTES = {
-    "captured": "Actual sent content captured.",
-    "not_configured": "Capture not configured; see docs to enable.",
-    "not_found": "Capture dir exists but no matching message found.",
-    "not_applicable": "Send cancelled - no capture.",
+# Warnings shown only when capture fails (keyed by status or reason)
+CAPTURE_WARNINGS = {
+    "not_configured": """WARNING: Capture not configured. The body shown is the DRAFT, not what was actually sent.
+To capture actual sent content, create ~/.local/bin/mcp-msmtp-capture:
+  #!/bin/sh
+  umask 077
+  CAPDIR="${XDG_STATE_HOME:-$HOME/.local/state}/mcp-email/captured"
+  mkdir -p "$CAPDIR"
+  tee "$CAPDIR/$(date +%Y%m%dT%H%M%S).$$.eml" | exec msmtp "$@"
+Then update mutt: set sendmail = "mcp-msmtp-capture -a <account>" """,
+    "ambiguous": "WARNING: Multiple captured messages match; cannot determine which was sent. Body shown is DRAFT.",
+    "parse_error": "WARNING: Captured message found but failed to parse. Body shown is DRAFT.",
+    "timeout": "WARNING: No matching captured message found. Body shown is DRAFT.",
 }
-# Extended notes for specific not_found reasons (not separate statuses)
-CAPTURE_NOT_FOUND_REASONS = {
-    "ambiguous": "Multiple captured messages match; cannot determine which was sent.",
-    "parse_error": "Captured message found but failed to parse.",
-    "timeout": "No matching captured message found within timeout.",
-}
+CAPTURE_WARNING_DEFAULT = (
+    "WARNING: Could not capture sent content. Body shown is DRAFT."
+)
+
+
+def _build_smtp_dict(data: dict) -> dict:
+    """Build normalized smtp structure from msmtp log data."""
+    return {
+        "message_id": data.get("message_id", ""),
+        "recipients": data.get("all_recipients", []),
+        "mail_size_bytes": data.get("mail_size_bytes", 0),
+        "status_code": data.get("smtp_status_code", ""),
+    }
 
 
 def _execute_mutt_command(cmd: list[str], input_text: str = None) -> str:
@@ -367,9 +380,6 @@ def _resolve_folder(folder: str) -> str:
     )
 
 
-# Function removed as auto_send functionality was removed
-
-
 def _build_mutt_command(
     to: str = None,
     subject: str = "",
@@ -602,14 +612,7 @@ def _compose_email(
     if cc:
         recipients.extend(_extract_addr_specs(cc))
 
-    # Build draft_provided for response (per plan: subject, to, body only)
-    draft_provided = {
-        "subject": subject,
-        "to": _extract_addr_specs(to),
-        "body": body,
-    }
-
-    # Consolidate command building - always use draft file now
+    # Build mutt command with draft file
     mutt_cmd = _build_mutt_command(
         attachments=attachments,
         temp_file_path=temp_file_path,
@@ -628,16 +631,7 @@ def _compose_email(
 
     attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
 
-    # Helper to build normalized smtp structure
-    def _build_smtp_dict(data: dict) -> dict:
-        return {
-            "message_id": data.get("message_id", ""),
-            "recipients": data.get("all_recipients", []),
-            "mail_size_bytes": data.get("mail_size_bytes", 0),
-            "status_code": data.get("smtp_status_code", ""),
-        }
-
-    # Build the new response structure
+    # Build response based on status
     if status == "success":
         send_status = "sent"
 
@@ -652,15 +646,15 @@ def _compose_email(
             envelope_recipients=smtp_data.get("all_recipients"),  # msmtp envelope
         )
 
-        captured_outgoing = None
+        captured = None
         if captured_path:
             try:
                 parsed = _parse_captured_email(captured_path)
-                captured_outgoing = {
+                captured = {
                     "subject": parsed["subject"],
                     "to": parsed["to"],
                     "cc": parsed["cc"],
-                    "body_text": parsed["body_text"],
+                    "body": parsed["body_text"],
                     "attachments": parsed["attachments"],
                 }
                 # Security: delete captured file after successful parsing
@@ -670,22 +664,19 @@ def _compose_email(
                 capture_status = "not_found"
                 capture_reason = "parse_error"
 
-        # Build capture note: use base note + reason detail if applicable
-        capture_note = CAPTURE_NOTES.get(capture_status, "")
-        if capture_reason and capture_reason in CAPTURE_NOT_FOUND_REASONS:
-            capture_note = CAPTURE_NOT_FOUND_REASONS[capture_reason]
-
+        # Build lean response
         data = {
             "send_status": send_status,
             "smtp": _build_smtp_dict(smtp_data),
-            "content": {
-                "capture_status": capture_status,
-                "capture_note": capture_note,
-                "draft_provided": draft_provided,
-            },
         }
-        if captured_outgoing:
-            data["content"]["captured_outgoing"] = captured_outgoing
+
+        if captured:
+            data["sent"] = captured
+        else:
+            warning_key = (
+                capture_status if capture_status == "not_configured" else capture_reason
+            )
+            data["warning"] = CAPTURE_WARNINGS.get(warning_key, CAPTURE_WARNING_DEFAULT)
 
         return OperationResult(
             status="success",
@@ -694,33 +685,16 @@ def _compose_email(
         )
 
     elif status == "cancelled":
-        # Schema consistency: include smtp block even when cancelled (empty values)
-        data = {
-            "send_status": "cancelled",
-            "smtp": _build_smtp_dict({}),  # Empty smtp for consistency
-            "content": {
-                "capture_status": "not_applicable",
-                "capture_note": CAPTURE_NOTES["not_applicable"],
-                "draft_provided": draft_provided,
-            },
-        }
         return OperationResult(
             status="cancelled",
             message=f"Email composition cancelled: {to}{attachment_info}",
-            data=data,
+            data={"send_status": "cancelled"},
         )
 
     else:  # status == "error"
-        # On failure, msmtp wrapper may have captured the email before failure
-        # Use not_found since we don't search for capture on failed sends
         data = {
             "send_status": "failed",
             "smtp": _build_smtp_dict(smtp_data),
-            "content": {
-                "capture_status": "not_found",
-                "capture_note": "Send failed; capture not searched.",
-                "draft_provided": draft_provided,
-            },
         }
         return OperationResult(
             status="error",
