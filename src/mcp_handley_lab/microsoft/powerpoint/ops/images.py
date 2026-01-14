@@ -1,0 +1,263 @@
+"""Image operations for PowerPoint."""
+
+from __future__ import annotations
+
+import mimetypes
+from pathlib import Path
+
+from lxml import etree
+
+from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, RT, qn
+from mcp_handley_lab.microsoft.powerpoint.ops.core import (
+    get_shape_id,
+    inches_to_emu,
+)
+from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
+
+# Map MIME types to PowerPoint-compatible extensions
+MIME_TO_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpeg",
+    "image/gif": ".gif",
+    "image/bmp": ".bmp",
+    "image/tiff": ".tiff",
+    "image/x-emf": ".emf",
+    "image/x-wmf": ".wmf",
+}
+
+
+def add_image(
+    pkg: PowerPointPackage,
+    slide_num: int,
+    image_path: str,
+    x: float = 1.0,
+    y: float = 1.0,
+    width: float | None = None,
+    height: float | None = None,
+) -> str:
+    """Add an image to a slide.
+
+    Args:
+        pkg: PowerPoint package
+        slide_num: Target slide number
+        image_path: Path to image file
+        x: X position in inches (default 1.0)
+        y: Y position in inches (default 1.0)
+        width: Width in inches (default: auto from image)
+        height: Height in inches (default: auto from image)
+
+    Returns:
+        Shape key for the new image (slide_num:shape_id)
+    """
+    # Read image file
+    path = Path(image_path).expanduser().resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+
+    image_data = path.read_bytes()
+
+    # Determine MIME type and extension
+    mime_type, _ = mimetypes.guess_type(str(path))
+    if mime_type not in MIME_TO_EXT:
+        raise ValueError(f"Unsupported image type: {mime_type}")
+    ext = MIME_TO_EXT[mime_type]
+
+    # Get image dimensions if width/height not specified
+    if width is None or height is None:
+        img_width, img_height = _get_image_dimensions(image_data, mime_type)
+        if width is None and height is None:
+            # Auto-size: use image dimensions at 96 DPI
+            width = img_width / 96.0
+            height = img_height / 96.0
+        elif width is None:
+            # Calculate width from height preserving aspect ratio
+            width = height * (img_width / img_height)
+        else:
+            # Calculate height from width preserving aspect ratio
+            height = width * (img_height / img_width)
+
+    # Store image in package
+    media_path = pkg.next_partname("/ppt/media/image", ext)
+    pkg.set_bytes(media_path, image_data, mime_type)
+
+    # Get slide XML and spTree
+    slide_partname = pkg.get_slide_partname(slide_num)
+    slide_xml = pkg.get_slide_xml(slide_num)
+    sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+    if sp_tree is None:
+        raise ValueError(f"Slide {slide_num} has no spTree")
+
+    # Add relationship from slide to image
+    slide_rels = pkg.get_rels(slide_partname)
+    rId = slide_rels.get_or_add(RT.IMAGE, media_path)
+
+    # Get next shape ID
+    max_id = 0
+    for sp in sp_tree.findall(".//" + qn("p:cNvPr"), NSMAP):
+        id_str = sp.get("id", "0")
+        if id_str.isdigit():
+            max_id = max(max_id, int(id_str))
+    new_id = max_id + 1
+
+    # Create p:pic element
+    pic = _create_pic_element(new_id, rId, x, y, width, height)
+    sp_tree.append(pic)
+
+    pkg.mark_xml_dirty(slide_partname)
+    pkg._dirty_rels.add(slide_partname)
+
+    return f"{slide_num}:{new_id}"
+
+
+def _create_pic_element(
+    shape_id: int,
+    rId: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> etree._Element:
+    """Create a p:pic element for an image."""
+    pic = etree.Element(qn("p:pic"), nsmap={"p": NSMAP["p"], "a": NSMAP["a"]})
+
+    # nvPicPr (non-visual picture properties)
+    nvPicPr = etree.SubElement(pic, qn("p:nvPicPr"))
+    cNvPr = etree.SubElement(nvPicPr, qn("p:cNvPr"))
+    cNvPr.set("id", str(shape_id))
+    cNvPr.set("name", f"Picture {shape_id - 1}")
+    etree.SubElement(nvPicPr, qn("p:cNvPicPr"))
+    etree.SubElement(nvPicPr, qn("p:nvPr"))
+
+    # blipFill (image reference and fill mode)
+    blipFill = etree.SubElement(pic, qn("p:blipFill"))
+    blip = etree.SubElement(blipFill, qn("a:blip"), nsmap={"r": NSMAP["r"]})
+    blip.set(qn("r:embed"), rId)
+    stretch = etree.SubElement(blipFill, qn("a:stretch"))
+    etree.SubElement(stretch, qn("a:fillRect"))
+
+    # spPr (shape properties - position and size)
+    spPr = etree.SubElement(pic, qn("p:spPr"))
+    xfrm = etree.SubElement(spPr, qn("a:xfrm"))
+    off = etree.SubElement(xfrm, qn("a:off"))
+    off.set("x", str(inches_to_emu(x)))
+    off.set("y", str(inches_to_emu(y)))
+    ext = etree.SubElement(xfrm, qn("a:ext"))
+    ext.set("cx", str(inches_to_emu(width)))
+    ext.set("cy", str(inches_to_emu(height)))
+
+    # Preset geometry (rectangle)
+    prstGeom = etree.SubElement(spPr, qn("a:prstGeom"))
+    prstGeom.set("prst", "rect")
+    etree.SubElement(prstGeom, qn("a:avLst"))
+
+    return pic
+
+
+def _get_image_dimensions(data: bytes, mime_type: str) -> tuple[int, int]:
+    """Get image dimensions (width, height) in pixels."""
+    if mime_type == "image/png":
+        return _get_png_dimensions(data)
+    elif mime_type == "image/jpeg":
+        return _get_jpeg_dimensions(data)
+    elif mime_type == "image/gif":
+        return _get_gif_dimensions(data)
+    elif mime_type == "image/bmp":
+        return _get_bmp_dimensions(data)
+    else:
+        # Default for unsupported formats
+        return (640, 480)
+
+
+def _get_png_dimensions(data: bytes) -> tuple[int, int]:
+    """Get PNG dimensions from IHDR chunk."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return (640, 480)
+    # IHDR chunk starts at byte 8, width/height are 4-byte big-endian at offset 16/20
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    return (width, height)
+
+
+def _get_jpeg_dimensions(data: bytes) -> tuple[int, int]:
+    """Get JPEG dimensions from SOF marker."""
+    if data[:2] != b"\xff\xd8":
+        return (640, 480)
+    # Scan for SOF0 or SOF2 marker
+    i = 2
+    while i < len(data) - 9:
+        if data[i] != 0xFF:
+            i += 1
+            continue
+        marker = data[i + 1]
+        if marker in (0xC0, 0xC2):  # SOF0 or SOF2
+            height = int.from_bytes(data[i + 5 : i + 7], "big")
+            width = int.from_bytes(data[i + 7 : i + 9], "big")
+            return (width, height)
+        elif marker == 0xD9:  # EOI
+            break
+        elif marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0x01):
+            # Standalone markers without length
+            i += 2
+        else:
+            # Skip segment
+            length = int.from_bytes(data[i + 2 : i + 4], "big")
+            i += 2 + length
+    return (640, 480)
+
+
+def _get_gif_dimensions(data: bytes) -> tuple[int, int]:
+    """Get GIF dimensions from header."""
+    if data[:3] not in (b"GIF", b"gif"):
+        return (640, 480)
+    width = int.from_bytes(data[6:8], "little")
+    height = int.from_bytes(data[8:10], "little")
+    return (width, height)
+
+
+def _get_bmp_dimensions(data: bytes) -> tuple[int, int]:
+    """Get BMP dimensions from header."""
+    if data[:2] != b"BM":
+        return (640, 480)
+    width = int.from_bytes(data[18:22], "little")
+    height = abs(int.from_bytes(data[22:26], "little", signed=True))
+    return (width, height)
+
+
+def delete_image(pkg: PowerPointPackage, slide_num: int, shape_id: int) -> bool:
+    """Delete an image from a slide.
+
+    Args:
+        pkg: PowerPoint package
+        slide_num: Slide number
+        shape_id: Shape ID of the image to delete
+
+    Returns:
+        True if deleted, False if not found
+    """
+    slide_partname = pkg.get_slide_partname(slide_num)
+    slide_xml = pkg.get_slide_xml(slide_num)
+    sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+    if sp_tree is None:
+        return False
+
+    # Find the p:pic element with matching shape_id
+    for pic in sp_tree.findall(qn("p:pic"), NSMAP):
+        pic_id = get_shape_id(pic)
+        if pic_id == shape_id:
+            # Get the image relationship to potentially clean up
+            blipFill = pic.find(qn("p:blipFill"), NSMAP)
+            if blipFill is not None:
+                blip = blipFill.find(qn("a:blip"), NSMAP)
+                if blip is not None:
+                    rId = blip.get(qn("r:embed"))
+                    if rId:
+                        # Remove the relationship (image file cleanup is optional)
+                        slide_rels = pkg.get_rels(slide_partname)
+                        slide_rels.remove(rId)
+                        pkg._dirty_rels.add(slide_partname)
+
+            sp_tree.remove(pic)
+            pkg.mark_xml_dirty(slide_partname)
+            return True
+
+    return False

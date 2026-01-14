@@ -114,3 +114,62 @@ class TestSlideOperations:
         pkg = PowerPointPackage.new()
         slides = list_slides(pkg)
         assert len(slides) == 0
+
+
+class TestImageDimensions:
+    """Tests for image dimension parsing."""
+
+    def test_png_dimensions(self):
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_png_dimensions
+
+        # Minimal PNG: 1x1 pixel (signature + IHDR)
+        png_data = (
+            b"\x89PNG\r\n\x1a\n"  # PNG signature
+            b"\x00\x00\x00\rIHDR"  # IHDR chunk header (13 bytes)
+            b"\x00\x00\x00\x10"  # width = 16
+            b"\x00\x00\x00\x20"  # height = 32
+            b"\x08\x02\x00\x00\x00"  # bit depth, color type, etc.
+            b"\x00\x00\x00\x00"  # CRC placeholder
+        )
+        width, height = _get_png_dimensions(png_data)
+        assert width == 16
+        assert height == 32
+
+    def test_gif_dimensions(self):
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_gif_dimensions
+
+        # GIF header with dimensions
+        gif_data = b"GIF89a" + b"\x40\x00" + b"\x30\x00"  # 64x48
+        width, height = _get_gif_dimensions(gif_data)
+        assert width == 64
+        assert height == 48
+
+    def test_bmp_dimensions(self):
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_bmp_dimensions
+
+        # BMP header with dimensions at offset 18 and 22
+        bmp_data = b"BM" + b"\x00" * 16 + b"\x80\x00\x00\x00" + b"\x60\x00\x00\x00"
+        width, height = _get_bmp_dimensions(bmp_data)
+        assert width == 128
+        assert height == 96
+
+
+class TestNextPartname:
+    """Tests for next_partname utility."""
+
+    def test_next_partname_empty(self):
+        pkg = PowerPointPackage.new()
+        # No slides exist, so next should be slide1
+        next_slide = pkg.next_partname("/ppt/slides/slide", ".xml")
+        assert next_slide == "/ppt/slides/slide1.xml"
+
+    def test_next_partname_with_existing(self):
+        pkg = PowerPointPackage.new()
+        # Manually add some "slides"
+        pkg._bytes["/ppt/slides/slide1.xml"] = b""
+        pkg._bytes["/ppt/slides/slide2.xml"] = b""
+        pkg._bytes["/ppt/slides/slide5.xml"] = b""  # Gap
+
+        # Next should be 6 (max existing + 1)
+        next_slide = pkg.next_partname("/ppt/slides/slide", ".xml")
+        assert next_slide == "/ppt/slides/slide6.xml"

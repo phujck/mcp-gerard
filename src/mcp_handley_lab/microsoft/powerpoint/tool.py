@@ -12,6 +12,10 @@ from mcp_handley_lab.microsoft.powerpoint.models import (
     PowerPointReadResult,
     PresentationMeta,
 )
+from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+    add_image,
+    delete_image,
+)
 from mcp_handley_lab.microsoft.powerpoint.ops.notes import get_notes, set_notes
 from mcp_handley_lab.microsoft.powerpoint.ops.placeholders import set_placeholder_text
 from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
@@ -44,6 +48,8 @@ EditOperation = Literal[
     "add_shape",
     "edit_shape",
     "delete_shape",
+    "add_image",
+    "delete_image",
 ]
 
 
@@ -158,6 +164,7 @@ def edit(
     width: float | None = None,
     height: float | None = None,
     shape_key: str | None = None,
+    image_path: str | None = None,
 ) -> dict:
     """Edit a PowerPoint presentation.
 
@@ -173,17 +180,20 @@ def edit(
             - "add_shape": Add text box (requires x, y, width, height in inches)
             - "edit_shape": Edit shape text (requires shape_key from read shapes)
             - "delete_shape": Delete shape (requires shape_key)
+            - "add_image": Add image (requires image_path; x, y, width, height optional)
+            - "delete_image": Delete image (requires shape_key)
         slide_num: Slide number (1-based) for slide operations
         text: Text content for set_placeholder/set_notes/add_shape/edit_shape
         placeholder_type: Type for set_placeholder ("title", "body", "subtitle")
         placeholder_idx: Index for set_placeholder (alternative to type)
         layout_name: Layout name for add_slide
         new_position: New position for reorder_slide
-        x: X position in inches for add_shape
-        y: Y position in inches for add_shape
-        width: Width in inches for add_shape
-        height: Height in inches for add_shape
-        shape_key: Shape identifier (slide_num:shape_id) for edit_shape/delete_shape
+        x: X position in inches for add_shape/add_image
+        y: Y position in inches for add_shape/add_image
+        width: Width in inches for add_shape/add_image (auto for add_image)
+        height: Height in inches for add_shape/add_image (auto for add_image)
+        shape_key: Shape identifier (slide_num:shape_id) for edit_shape/delete_shape/delete_image
+        image_path: Path to image file for add_image
 
     Returns:
         PowerPointEditResult with success status and message
@@ -244,6 +254,18 @@ def edit(
             if shape_key is None:
                 raise ValueError("shape_key required for delete_shape")
             result = _edit_delete_shape(pkg, shape_key)
+
+        elif operation == "add_image":
+            if slide_num is None:
+                raise ValueError("slide_num required for add_image")
+            if image_path is None:
+                raise ValueError("image_path required for add_image")
+            result = _edit_add_image(pkg, slide_num, image_path, x, y, width, height)
+
+        elif operation == "delete_image":
+            if shape_key is None:
+                raise ValueError("shape_key required for delete_image")
+            result = _edit_delete_image(pkg, shape_key)
 
         else:
             raise ValueError(f"Unknown operation: {operation}")
@@ -408,4 +430,53 @@ def _edit_delete_shape(
         return PowerPointEditResult(
             success=False,
             message=f"Shape {shape_key} not found",
+        )
+
+
+def _edit_add_image(
+    pkg: PowerPointPackage,
+    slide_num: int,
+    image_path: str,
+    x: float | None,
+    y: float | None,
+    width: float | None,
+    height: float | None,
+) -> PowerPointEditResult:
+    """Add an image to a slide."""
+    shape_key = add_image(
+        pkg,
+        slide_num,
+        image_path,
+        x=x if x is not None else 1.0,
+        y=y if y is not None else 1.0,
+        width=width,
+        height=height,
+    )
+
+    return PowerPointEditResult(
+        success=True,
+        message=f"Added image on slide {slide_num}",
+        element_id=shape_key,
+    )
+
+
+def _edit_delete_image(
+    pkg: PowerPointPackage,
+    shape_key: str,
+) -> PowerPointEditResult:
+    """Delete an image from a slide."""
+    from mcp_handley_lab.microsoft.powerpoint.ops.core import parse_shape_key
+
+    slide_num, shape_id = parse_shape_key(shape_key)
+    success = delete_image(pkg, slide_num, shape_id)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Deleted image {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Image {shape_key} not found",
         )
