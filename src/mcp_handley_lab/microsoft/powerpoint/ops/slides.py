@@ -5,7 +5,7 @@ from __future__ import annotations
 from lxml import etree
 
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, RT, qn
-from mcp_handley_lab.microsoft.powerpoint.models import SlideInfo
+from mcp_handley_lab.microsoft.powerpoint.models import LayoutInfo, SlideInfo
 from mcp_handley_lab.microsoft.powerpoint.ops.text import extract_title_text
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
@@ -61,6 +61,53 @@ def get_notes_count(pkg: PowerPointPackage) -> int:
         if pkg.get_notes_xml(num) is not None:
             count += 1
     return count
+
+
+def list_layouts(pkg: PowerPointPackage) -> list[LayoutInfo]:
+    """List all available slide layouts."""
+    pres_rels = pkg.get_rels(pkg.presentation_path)
+
+    # Get slide master
+    master_rid = pres_rels.rId_for_reltype(RT.SLIDE_MASTER)
+    if master_rid is None:
+        return []
+
+    master_path = pkg.resolve_rel_target(pkg.presentation_path, master_rid)
+    master_rels = pkg.get_rels(master_path)
+
+    layouts = []
+    for rid, rel in master_rels.items():
+        if rel.reltype == RT.SLIDE_LAYOUT:
+            layout_path = pkg.resolve_rel_target(master_path, rid)
+            layout_xml = pkg.get_xml(layout_path)
+
+            # Get layout name from cSld@name
+            cSld = layout_xml.find(qn("p:cSld"), NSMAP)
+            name = cSld.get("name", "Untitled") if cSld is not None else "Untitled"
+
+            # Get layout type from root element attribute
+            layout_type = layout_xml.get("type")
+
+            # Count placeholders
+            sp_tree = layout_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+            placeholder_count = 0
+            if sp_tree is not None:
+                for sp in sp_tree.findall(qn("p:sp"), NSMAP):
+                    nvPr = sp.find(
+                        qn("p:nvSpPr") + "/" + qn("p:nvPr") + "/" + qn("p:ph"), NSMAP
+                    )
+                    if nvPr is not None:
+                        placeholder_count += 1
+
+            layouts.append(
+                LayoutInfo(
+                    name=name,
+                    type=layout_type,
+                    placeholder_count=placeholder_count,
+                )
+            )
+
+    return layouts
 
 
 def add_slide(

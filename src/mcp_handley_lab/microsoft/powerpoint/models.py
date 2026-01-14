@@ -69,6 +69,16 @@ class NotesInfo(BaseModel):
     paragraph_count: int = 1
 
 
+class LayoutInfo(BaseModel):
+    """Information about a slide layout."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    type: str | None = None  # e.g., "title", "obj", "twoObj"
+    placeholder_count: int = 0
+
+
 class PowerPointReadResult(BaseModel):
     """Result from read() operation."""
 
@@ -80,6 +90,7 @@ class PowerPointReadResult(BaseModel):
     shapes: list[ShapeInfo] | None = None
     text: str | None = None
     notes: NotesInfo | None = None
+    layouts: list[LayoutInfo] | None = None
 
 
 class PowerPointEditResult(BaseModel):
