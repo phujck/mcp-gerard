@@ -175,7 +175,7 @@ def get_shape_name(shape: etree._Element) -> str | None:
 
 
 def find_shape_by_id(slide_xml: etree._Element, shape_id: int) -> etree._Element | None:
-    """Find a shape element by its ID in a slide.
+    """Find a shape element by its ID in a slide (recursive, searches groups).
 
     Searches all shape types: p:sp, p:pic, p:graphicFrame, p:grpSp, p:cxnSp.
 
@@ -190,11 +190,29 @@ def find_shape_by_id(slide_xml: etree._Element, shape_id: int) -> etree._Element
     if sp_tree is None:
         return None
 
-    # Search all shape types
-    for tag in ("p:sp", "p:pic", "p:graphicFrame", "p:grpSp", "p:cxnSp"):
-        for shape in sp_tree.findall(qn(tag), NSMAP):
-            if get_shape_id(shape) == shape_id:
-                return shape
+    return _find_shape_recursive(sp_tree, shape_id)
+
+
+def _find_shape_recursive(
+    container: etree._Element, shape_id: int
+) -> etree._Element | None:
+    """Recursively find a shape by ID, searching into groups."""
+    shape_tags = {"sp", "pic", "graphicFrame", "grpSp", "cxnSp"}
+
+    for child in container:
+        tag = etree.QName(child).localname
+        if tag not in shape_tags:
+            continue
+
+        # Check this shape's id
+        if get_shape_id(child) == shape_id:
+            return child
+
+        # Recursively search groups
+        if tag == "grpSp":
+            found = _find_shape_recursive(child, shape_id)
+            if found is not None:
+                return found
 
     return None
 

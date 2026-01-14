@@ -11,6 +11,8 @@ from mcp_handley_lab.microsoft.powerpoint.models import (
     PowerPointEditResult,
     PowerPointReadResult,
     PresentationMeta,
+    TableCell,
+    TableInfo,
 )
 from mcp_handley_lab.microsoft.powerpoint.ops.images import (
     add_image,
@@ -40,12 +42,18 @@ from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
     set_shape_line,
     set_text_style,
 )
-from mcp_handley_lab.microsoft.powerpoint.ops.tables import add_table, set_table_cell
+from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+    add_table,
+    list_tables,
+    set_table_cell,
+)
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
 mcp = FastMCP("PowerPoint Tool")
 
-ReadScope = Literal["meta", "slides", "shapes", "text", "notes", "layouts", "images"]
+ReadScope = Literal[
+    "meta", "slides", "shapes", "text", "notes", "layouts", "images", "tables"
+]
 EditOperation = Literal[
     "create",
     "add_slide",
@@ -84,7 +92,8 @@ def read(
             - "notes": Speaker notes for a slide
             - "layouts": List available slide layouts
             - "images": List images (all slides, or specific slide if slide_num given)
-        slide_num: Required for shapes/text/notes scopes; optional for images (1-based)
+            - "tables": List tables with structure (requires slide_num)
+        slide_num: Required for shapes/text/notes/tables scopes; optional for images (1-based)
 
     Returns:
         PowerPointReadResult with scope-specific data
@@ -117,6 +126,11 @@ def read(
 
     elif scope == "images":
         return _read_images(pkg, slide_num).model_dump(exclude_none=True)
+
+    elif scope == "tables":
+        if slide_num is None:
+            raise ValueError("slide_num required for tables scope")
+        return _read_tables(pkg, slide_num).model_dump(exclude_none=True)
 
     else:
         raise ValueError(f"Unknown scope: {scope}")
@@ -183,6 +197,35 @@ def _read_images(pkg: PowerPointPackage, slide_num: int | None) -> PowerPointRea
     return PowerPointReadResult(
         scope="images",
         images=list_images(pkg, slide_num),
+    )
+
+
+def _read_tables(pkg: PowerPointPackage, slide_num: int) -> PowerPointReadResult:
+    """Read tables from a slide with structure."""
+    raw_tables = list_tables(pkg, slide_num)
+
+    # Convert to TableInfo models
+    tables = []
+    for t in raw_tables:
+        cells = [TableCell(**c) for c in t["cells"]]
+        tables.append(
+            TableInfo(
+                shape_key=t["shape_key"],
+                shape_id=t["shape_id"],
+                name=t["name"],
+                x_inches=t["x_inches"],
+                y_inches=t["y_inches"],
+                width_inches=t["width_inches"],
+                height_inches=t["height_inches"],
+                rows=t["rows"],
+                cols=t["cols"],
+                cells=cells,
+            )
+        )
+
+    return PowerPointReadResult(
+        scope="tables",
+        tables=tables,
     )
 
 

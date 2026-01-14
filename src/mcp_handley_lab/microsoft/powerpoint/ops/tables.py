@@ -170,6 +170,9 @@ def _create_table_graphic_frame(
     tblPr = etree.SubElement(tbl, qn("a:tblPr"))
     tblPr.set("firstRow", "1")
     tblPr.set("bandRow", "1")
+    # Standard table style ID for PowerPoint compatibility
+    tableStyleId = etree.SubElement(tblPr, qn("a:tableStyleId"))
+    tableStyleId.text = "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"
 
     # Table grid (column widths)
     tblGrid = etree.SubElement(tbl, qn("a:tblGrid"))
@@ -227,3 +230,104 @@ def _set_cell_text(tc: etree._Element, text: str) -> None:
             t.text = line
         else:
             etree.SubElement(p, qn("a:endParaRPr"), lang="en-US")
+
+
+def list_tables(
+    pkg: PowerPointPackage,
+    slide_num: int,
+) -> list[dict]:
+    """List all tables on a slide with their structure.
+
+    Args:
+        pkg: PowerPoint package
+        slide_num: Slide number
+
+    Returns:
+        List of table info dicts with rows, cols, cells
+    """
+    from mcp_handley_lab.microsoft.powerpoint.ops.core import (
+        emu_to_inches,
+        get_shape_name,
+    )
+
+    slide_xml = pkg.get_slide_xml(slide_num)
+    sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+    if sp_tree is None:
+        return []
+
+    tables = []
+
+    for gf in sp_tree.findall(qn("p:graphicFrame"), NSMAP):
+        # Check if this is a table
+        tbl = gf.find(
+            qn("a:graphic") + "/" + qn("a:graphicData") + "/" + qn("a:tbl"), NSMAP
+        )
+        if tbl is None:
+            continue
+
+        shape_id = get_shape_id(gf)
+        if shape_id is None:
+            continue
+
+        # Get position from p:xfrm (graphicFrame uses p:xfrm, not a:xfrm)
+        xfrm = gf.find(qn("p:xfrm"), NSMAP)
+        if xfrm is not None:
+            off = xfrm.find(qn("a:off"), NSMAP)
+            ext = xfrm.find(qn("a:ext"), NSMAP)
+            if off is not None and ext is not None:
+                x = int(off.get("x", "0"))
+                y = int(off.get("y", "0"))
+                cx = int(ext.get("cx", "0"))
+                cy = int(ext.get("cy", "0"))
+            else:
+                x = y = cx = cy = 0
+        else:
+            x = y = cx = cy = 0
+
+        # Extract table structure
+        tr_list = tbl.findall(qn("a:tr"), NSMAP)
+        rows = len(tr_list)
+        cols = 0
+        cells = []
+
+        for row_idx, tr in enumerate(tr_list):
+            tc_list = tr.findall(qn("a:tc"), NSMAP)
+            cols = max(cols, len(tc_list))
+
+            for col_idx, tc in enumerate(tc_list):
+                cell_text = _extract_cell_text(tc)
+                cells.append({"row": row_idx, "col": col_idx, "text": cell_text})
+
+        tables.append(
+            {
+                "shape_key": make_shape_key(slide_num, shape_id),
+                "shape_id": shape_id,
+                "name": get_shape_name(gf),
+                "x_inches": emu_to_inches(x),
+                "y_inches": emu_to_inches(y),
+                "width_inches": emu_to_inches(cx),
+                "height_inches": emu_to_inches(cy),
+                "rows": rows,
+                "cols": cols,
+                "cells": cells,
+            }
+        )
+
+    return tables
+
+
+def _extract_cell_text(tc: etree._Element) -> str:
+    """Extract text from a table cell."""
+    txBody = tc.find(qn("a:txBody"), NSMAP)
+    if txBody is None:
+        return ""
+
+    lines = []
+    for p in txBody.findall(qn("a:p"), NSMAP):
+        texts = []
+        for t in p.findall(".//" + qn("a:t"), NSMAP):
+            if t.text:
+                texts.append(t.text)
+        lines.append("".join(texts))
+
+    return "\n".join(lines)

@@ -99,6 +99,37 @@ class ImageInfo(BaseModel):
     height_inches: float
 
 
+class TableCell(BaseModel):
+    """Information about a table cell."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    row: int
+    col: int
+    text: str
+
+
+class TableInfo(BaseModel):
+    """Information about a table on a slide."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shape_key: str  # slide_num:shape_id for edit targeting
+    shape_id: int
+    name: str | None = None
+
+    # Position in inches
+    x_inches: float
+    y_inches: float
+    width_inches: float
+    height_inches: float
+
+    # Table structure
+    rows: int
+    cols: int
+    cells: list[TableCell] = []
+
+
 class PowerPointReadResult(BaseModel):
     """Result from read() operation."""
 
@@ -112,6 +143,7 @@ class PowerPointReadResult(BaseModel):
     notes: NotesInfo | None = None
     layouts: list[LayoutInfo] | None = None
     images: list[ImageInfo] | None = None
+    tables: list[TableInfo] | None = None
 
 
 class PowerPointEditResult(BaseModel):
