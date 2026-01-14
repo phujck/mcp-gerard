@@ -181,6 +181,7 @@ def add_slide(
 
     # Add relationship from presentation to slide
     new_rid = pres_rels.get_or_add(RT.SLIDE, new_slide_path)
+    pkg._dirty_rels.add(pres_path)
 
     # Add slide to sldIdLst
     sld_id_lst = pres.find(qn("p:sldIdLst"), NSMAP)
@@ -214,6 +215,7 @@ def add_slide(
     # Add relationship from slide to layout
     slide_rels = pkg.get_rels(new_slide_path)
     slide_rels.get_or_add(RT.SLIDE_LAYOUT, layout_path)
+    pkg._dirty_rels.add(new_slide_path)
 
     # Mark dirty and invalidate caches
     pkg.mark_xml_dirty(pres_path)
@@ -294,36 +296,59 @@ def reorder_slide(pkg: PowerPointPackage, slide_num: int, new_position: int) -> 
 
 
 def _find_layout_by_name(pkg: PowerPointPackage, layout_name: str | None) -> str:
-    """Find layout path by name, or return first layout if name is None."""
-    pres_rels = pkg.get_rels(pkg.presentation_path)
+    """Find layout path by name, or return first layout if name is None.
 
-    # Get slide master
-    master_rid = pres_rels.rId_for_reltype(RT.SLIDE_MASTER)
-    if master_rid is None:
-        raise ValueError("No slide master found in presentation")
+    Uses sldMasterIdLst and sldLayoutIdLst for proper OOXML spec ordering,
+    supporting multi-master presentations.
+    """
+    pres = pkg.presentation_xml
 
-    master_path = pkg.resolve_rel_target(pkg.presentation_path, master_rid)
-    master_rels = pkg.get_rels(master_path)
+    # Iterate over all masters in sldMasterIdLst (preserves ordering)
+    sld_master_id_lst = pres.find(qn("p:sldMasterIdLst"), NSMAP)
+    if sld_master_id_lst is None:
+        raise ValueError("No slide masters found in presentation")
 
-    # Find layouts
-    layouts = []
-    for rid, rel in master_rels.items():
-        if rel.reltype == RT.SLIDE_LAYOUT:
-            layout_path = pkg.resolve_rel_target(master_path, rid)
-            layouts.append(layout_path)
+    first_layout_path = None
 
-    if not layouts:
-        raise ValueError("No layouts found in slide master")
+    for master_id_el in sld_master_id_lst.findall(qn("p:sldMasterId"), NSMAP):
+        master_rid = master_id_el.get(qn("r:id"))
+        if master_rid is None:
+            continue
+
+        master_path = pkg.resolve_rel_target(pkg.presentation_path, master_rid)
+        master_xml = pkg.get_xml(master_path)
+        master_rels = pkg.get_rels(master_path)
+
+        # Use sldLayoutIdLst for proper ordering (not relationship iteration)
+        sld_layout_id_lst = master_xml.find(qn("p:sldLayoutIdLst"), NSMAP)
+        if sld_layout_id_lst is None:
+            continue
+
+        for layout_id_el in sld_layout_id_lst.findall(qn("p:sldLayoutId"), NSMAP):
+            layout_rid = layout_id_el.get(qn("r:id"))
+            if layout_rid is None or layout_rid not in master_rels:
+                continue
+
+            layout_path = pkg.resolve_rel_target(master_path, layout_rid)
+
+            # Track the first layout found (for None case)
+            if first_layout_path is None:
+                first_layout_path = layout_path
+
+            # If no name specified, return first layout
+            if layout_name is None:
+                return layout_path
+
+            # Check if this layout matches the requested name
+            layout_xml = pkg.get_xml(layout_path)
+            cSld = layout_xml.find(qn("p:cSld"), NSMAP)
+            if cSld is not None and cSld.get("name") == layout_name:
+                return layout_path
 
     if layout_name is None:
-        return layouts[0]
-
-    # Search by name
-    for layout_path in layouts:
-        layout_xml = pkg.get_xml(layout_path)
-        cSld = layout_xml.find(qn("p:cSld"), NSMAP)
-        if cSld is not None and cSld.get("name") == layout_name:
-            return layout_path
+        if first_layout_path is not None:
+            return first_layout_path
+        raise ValueError("No layouts found in any slide master")
 
     raise KeyError(f"Layout '{layout_name}' not found")
 
