@@ -15,6 +15,7 @@ from mcp_handley_lab.microsoft.powerpoint.models import (
 from mcp_handley_lab.microsoft.powerpoint.ops.images import (
     add_image,
     delete_image,
+    list_images,
 )
 from mcp_handley_lab.microsoft.powerpoint.ops.notes import get_notes, set_notes
 from mcp_handley_lab.microsoft.powerpoint.ops.placeholders import set_placeholder_text
@@ -39,7 +40,7 @@ from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
 mcp = FastMCP("PowerPoint Tool")
 
-ReadScope = Literal["meta", "slides", "shapes", "text", "notes", "layouts"]
+ReadScope = Literal["meta", "slides", "shapes", "text", "notes", "layouts", "images"]
 EditOperation = Literal[
     "create",
     "add_slide",
@@ -74,7 +75,8 @@ def read(
             - "text": All text from a slide in reading order
             - "notes": Speaker notes for a slide
             - "layouts": List available slide layouts
-        slide_num: Required for shapes/text/notes scopes (1-based)
+            - "images": List images (all slides, or specific slide if slide_num given)
+        slide_num: Required for shapes/text/notes scopes; optional for images (1-based)
 
     Returns:
         PowerPointReadResult with scope-specific data
@@ -104,6 +106,9 @@ def read(
 
     elif scope == "layouts":
         return _read_layouts(pkg).model_dump(exclude_none=True)
+
+    elif scope == "images":
+        return _read_images(pkg, slide_num).model_dump(exclude_none=True)
 
     else:
         raise ValueError(f"Unknown scope: {scope}")
@@ -162,6 +167,14 @@ def _read_layouts(pkg: PowerPointPackage) -> PowerPointReadResult:
     return PowerPointReadResult(
         scope="layouts",
         layouts=list_layouts(pkg),
+    )
+
+
+def _read_images(pkg: PowerPointPackage, slide_num: int | None) -> PowerPointReadResult:
+    """Read images from the presentation."""
+    return PowerPointReadResult(
+        scope="images",
+        images=list_images(pkg, slide_num),
     )
 
 

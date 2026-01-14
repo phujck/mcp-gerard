@@ -8,7 +8,9 @@ from pathlib import Path
 from lxml import etree
 
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, RT, qn
+from mcp_handley_lab.microsoft.powerpoint.models import ImageInfo
 from mcp_handley_lab.microsoft.powerpoint.ops.core import (
+    emu_to_inches,
     get_shape_id,
     inches_to_emu,
 )
@@ -125,7 +127,9 @@ def _create_pic_element(
     cNvPr = etree.SubElement(nvPicPr, qn("p:cNvPr"))
     cNvPr.set("id", str(shape_id))
     cNvPr.set("name", f"Picture {shape_id - 1}")
-    etree.SubElement(nvPicPr, qn("p:cNvPicPr"))
+    cNvPicPr = etree.SubElement(nvPicPr, qn("p:cNvPicPr"))
+    # Lock aspect ratio for fidelity
+    etree.SubElement(cNvPicPr, qn("a:picLocks"), noChangeAspect="1")
     etree.SubElement(nvPicPr, qn("p:nvPr"))
 
     # blipFill (image reference and fill mode)
@@ -221,6 +225,85 @@ def _get_bmp_dimensions(data: bytes) -> tuple[int, int]:
     width = int.from_bytes(data[18:22], "little")
     height = abs(int.from_bytes(data[22:26], "little", signed=True))
     return (width, height)
+
+
+def list_images(
+    pkg: PowerPointPackage, slide_num: int | None = None
+) -> list[ImageInfo]:
+    """List all images in the presentation or on a specific slide.
+
+    Args:
+        pkg: PowerPoint package
+        slide_num: Optional slide number to filter by
+
+    Returns:
+        List of ImageInfo objects
+    """
+    images = []
+    slide_paths = pkg.get_slide_paths()
+
+    for num, _rid, partname in slide_paths:
+        if slide_num is not None and num != slide_num:
+            continue
+
+        slide_xml = pkg.get_xml(partname)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        if sp_tree is None:
+            continue
+
+        slide_rels = pkg.get_rels(partname)
+
+        for pic in sp_tree.findall(qn("p:pic"), NSMAP):
+            pic_id = get_shape_id(pic)
+            if pic_id is None:
+                continue
+
+            # Get image name
+            cNvPr = pic.find(qn("p:nvPicPr") + "/" + qn("p:cNvPr"), NSMAP)
+            name = cNvPr.get("name") if cNvPr is not None else None
+
+            # Get image relationship to determine content type
+            content_type = "image/unknown"
+            blipFill = pic.find(qn("p:blipFill"), NSMAP)
+            if blipFill is not None:
+                blip = blipFill.find(qn("a:blip"), NSMAP)
+                if blip is not None:
+                    rId = blip.get(qn("r:embed"))
+                    if rId and rId in slide_rels:
+                        media_path = pkg.resolve_rel_target(partname, rId)
+                        content_type = (
+                            pkg.get_content_type(media_path) or "image/unknown"
+                        )
+
+            # Get position and size
+            spPr = pic.find(qn("p:spPr"), NSMAP)
+            x, y, width, height = 0.0, 0.0, 0.0, 0.0
+            if spPr is not None:
+                xfrm = spPr.find(qn("a:xfrm"), NSMAP)
+                if xfrm is not None:
+                    off = xfrm.find(qn("a:off"), NSMAP)
+                    if off is not None:
+                        x = emu_to_inches(int(off.get("x", "0")))
+                        y = emu_to_inches(int(off.get("y", "0")))
+                    ext = xfrm.find(qn("a:ext"), NSMAP)
+                    if ext is not None:
+                        width = emu_to_inches(int(ext.get("cx", "0")))
+                        height = emu_to_inches(int(ext.get("cy", "0")))
+
+            images.append(
+                ImageInfo(
+                    shape_key=f"{num}:{pic_id}",
+                    shape_id=pic_id,
+                    name=name,
+                    content_type=content_type,
+                    x_inches=x,
+                    y_inches=y,
+                    width_inches=width,
+                    height_inches=height,
+                )
+            )
+
+    return images
 
 
 def delete_image(pkg: PowerPointPackage, slide_num: int, shape_id: int) -> bool:

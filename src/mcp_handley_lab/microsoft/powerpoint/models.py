@@ -77,6 +77,26 @@ class LayoutInfo(BaseModel):
     name: str
     type: str | None = None  # e.g., "title", "obj", "twoObj"
     placeholder_count: int = 0
+    placeholder_types: list[str] = []  # e.g., ["title", "body", "dt"]
+    master_name: str | None = None
+    master_index: int = 0
+
+
+class ImageInfo(BaseModel):
+    """Information about an image on a slide."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    shape_key: str  # slide_num:shape_id for edit targeting
+    shape_id: int
+    name: str | None = None
+    content_type: str  # e.g., "image/png"
+
+    # Position in inches
+    x_inches: float
+    y_inches: float
+    width_inches: float
+    height_inches: float
 
 
 class PowerPointReadResult(BaseModel):
@@ -91,6 +111,7 @@ class PowerPointReadResult(BaseModel):
     text: str | None = None
     notes: NotesInfo | None = None
     layouts: list[LayoutInfo] | None = None
+    images: list[ImageInfo] | None = None
 
 
 class PowerPointEditResult(BaseModel):
