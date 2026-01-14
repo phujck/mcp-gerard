@@ -174,6 +174,31 @@ def get_shape_name(shape: etree._Element) -> str | None:
     return cNvPr.get("name")
 
 
+def find_shape_by_id(slide_xml: etree._Element, shape_id: int) -> etree._Element | None:
+    """Find a shape element by its ID in a slide.
+
+    Searches all shape types: p:sp, p:pic, p:graphicFrame, p:grpSp, p:cxnSp.
+
+    Args:
+        slide_xml: Slide XML element
+        shape_id: Shape ID to find
+
+    Returns:
+        Shape element or None if not found
+    """
+    sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+    if sp_tree is None:
+        return None
+
+    # Search all shape types
+    for tag in ("p:sp", "p:pic", "p:graphicFrame", "p:grpSp", "p:cxnSp"):
+        for shape in sp_tree.findall(qn(tag), NSMAP):
+            if get_shape_id(shape) == shape_id:
+                return shape
+
+    return None
+
+
 def make_shape_key(slide_num: int, shape_id: int) -> str:
     """Create stable shape key for edit targeting."""
     return f"{slide_num}:{shape_id}"

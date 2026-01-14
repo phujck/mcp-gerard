@@ -35,6 +35,11 @@ from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
     list_slides,
     reorder_slide,
 )
+from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
+    set_shape_fill,
+    set_shape_line,
+    set_text_style,
+)
 from mcp_handley_lab.microsoft.powerpoint.ops.tables import add_table, set_table_cell
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
@@ -55,6 +60,9 @@ EditOperation = Literal[
     "delete_image",
     "add_table",
     "set_table_cell",
+    "set_shape_fill",
+    "set_shape_line",
+    "set_text_style",
 ]
 
 
@@ -198,6 +206,12 @@ def edit(
     cols: int | None = None,
     row: int | None = None,
     col: int | None = None,
+    color: str | None = None,
+    line_width: float | None = None,
+    size: float | None = None,
+    bold: bool | None = None,
+    italic: bool | None = None,
+    alignment: str | None = None,
 ) -> dict:
     """Edit a PowerPoint presentation.
 
@@ -217,6 +231,9 @@ def edit(
             - "delete_image": Delete image (requires shape_key)
             - "add_table": Add table (requires rows, cols; x, y, width, height optional)
             - "set_table_cell": Set cell text (requires shape_key, row, col, text)
+            - "set_shape_fill": Set shape fill color (requires shape_key, color)
+            - "set_shape_line": Set shape border (requires shape_key; color, line_width optional)
+            - "set_text_style": Set text style (requires shape_key; size, bold, italic, color, alignment optional)
         slide_num: Slide number (1-based) for slide operations
         text: Text content for set_placeholder/set_notes/add_shape/edit_shape/set_table_cell
         placeholder_type: Type for set_placeholder ("title", "body", "subtitle")
@@ -233,6 +250,12 @@ def edit(
         cols: Number of columns for add_table
         row: Row index (0-based) for set_table_cell
         col: Column index (0-based) for set_table_cell
+        color: Hex color without # (e.g., "FF0000") for styling operations
+        line_width: Line width in points for set_shape_line
+        size: Font size in points for set_text_style
+        bold: Bold text for set_text_style
+        italic: Italic text for set_text_style
+        alignment: Text alignment for set_text_style ("left", "center", "right", "justify")
 
     Returns:
         PowerPointEditResult with success status and message
@@ -321,6 +344,25 @@ def edit(
             if text is None:
                 raise ValueError("text required for set_table_cell")
             result = _edit_set_table_cell(pkg, shape_key, row, col, text)
+
+        elif operation == "set_shape_fill":
+            if shape_key is None:
+                raise ValueError("shape_key required for set_shape_fill")
+            if color is None:
+                raise ValueError("color required for set_shape_fill")
+            result = _edit_set_shape_fill(pkg, shape_key, color)
+
+        elif operation == "set_shape_line":
+            if shape_key is None:
+                raise ValueError("shape_key required for set_shape_line")
+            result = _edit_set_shape_line(pkg, shape_key, color, line_width)
+
+        elif operation == "set_text_style":
+            if shape_key is None:
+                raise ValueError("shape_key required for set_text_style")
+            result = _edit_set_text_style(
+                pkg, shape_key, size, bold, italic, color, alignment
+            )
 
         else:
             raise ValueError(f"Unknown operation: {operation}")
@@ -585,4 +627,69 @@ def _edit_set_table_cell(
         return PowerPointEditResult(
             success=False,
             message=f"Cell ({row}, {col}) not found in table {shape_key}",
+        )
+
+
+def _edit_set_shape_fill(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    color: str,
+) -> PowerPointEditResult:
+    """Set shape fill color."""
+    success = set_shape_fill(pkg, shape_key, color)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Set fill color on shape {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Shape {shape_key} not found",
+        )
+
+
+def _edit_set_shape_line(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    color: str | None,
+    width: float | None,
+) -> PowerPointEditResult:
+    """Set shape line/border."""
+    success = set_shape_line(pkg, shape_key, color, width)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Set line style on shape {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Shape {shape_key} not found",
+        )
+
+
+def _edit_set_text_style(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    size: float | None,
+    bold: bool | None,
+    italic: bool | None,
+    color: str | None,
+    alignment: str | None,
+) -> PowerPointEditResult:
+    """Set text style properties."""
+    success = set_text_style(pkg, shape_key, size, bold, italic, color, alignment)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Set text style on shape {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Shape {shape_key} not found or has no text",
         )
