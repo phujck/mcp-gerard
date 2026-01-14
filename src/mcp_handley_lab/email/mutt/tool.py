@@ -709,7 +709,7 @@ def _compose_email(
 def send(
     to: str = Field(
         default="",
-        description="Recipient email address. Required for compose/forward, auto-populated for reply.",
+        description="Recipient address. Prefer 'Firstname Lastname <email>' format. Required for compose/forward, auto-populated for reply.",
     ),
     subject: str = Field(default="", description="The subject line of the email."),
     body: str = Field(
@@ -717,11 +717,12 @@ def send(
         description="Email body text. For reply/forward, added above quoted/forwarded content.",
     ),
     cc: str = Field(
-        default=None, description="Email address for the 'Cc' (carbon copy) field."
+        default=None,
+        description="Carbon copy address. Prefer 'Firstname Lastname <email>' format.",
     ),
     bcc: str = Field(
         default=None,
-        description="Email address for the 'Bcc' (blind carbon copy) field.",
+        description="Blind carbon copy address. Prefer 'Firstname Lastname <email>' format.",
     ),
     attachments: list[str] = Field(
         default=None, description="A list of local file paths to attach to the email."
