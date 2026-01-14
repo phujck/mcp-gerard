@@ -34,6 +34,7 @@ from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
     list_slides,
     reorder_slide,
 )
+from mcp_handley_lab.microsoft.powerpoint.ops.tables import add_table, set_table_cell
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
 mcp = FastMCP("PowerPoint Tool")
@@ -51,6 +52,8 @@ EditOperation = Literal[
     "delete_shape",
     "add_image",
     "delete_image",
+    "add_table",
+    "set_table_cell",
 ]
 
 
@@ -178,6 +181,10 @@ def edit(
     height: float | None = None,
     shape_key: str | None = None,
     image_path: str | None = None,
+    rows: int | None = None,
+    cols: int | None = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> dict:
     """Edit a PowerPoint presentation.
 
@@ -195,18 +202,24 @@ def edit(
             - "delete_shape": Delete shape (requires shape_key)
             - "add_image": Add image (requires image_path; x, y, width, height optional)
             - "delete_image": Delete image (requires shape_key)
+            - "add_table": Add table (requires rows, cols; x, y, width, height optional)
+            - "set_table_cell": Set cell text (requires shape_key, row, col, text)
         slide_num: Slide number (1-based) for slide operations
-        text: Text content for set_placeholder/set_notes/add_shape/edit_shape
+        text: Text content for set_placeholder/set_notes/add_shape/edit_shape/set_table_cell
         placeholder_type: Type for set_placeholder ("title", "body", "subtitle")
         placeholder_idx: Index for set_placeholder (alternative to type)
         layout_name: Layout name for add_slide
         new_position: New position for reorder_slide
-        x: X position in inches for add_shape/add_image
-        y: Y position in inches for add_shape/add_image
-        width: Width in inches for add_shape/add_image (auto for add_image)
-        height: Height in inches for add_shape/add_image (auto for add_image)
-        shape_key: Shape identifier (slide_num:shape_id) for edit_shape/delete_shape/delete_image
+        x: X position in inches for add_shape/add_image/add_table
+        y: Y position in inches for add_shape/add_image/add_table
+        width: Width in inches for add_shape/add_image/add_table
+        height: Height in inches for add_shape/add_image/add_table
+        shape_key: Shape identifier (slide_num:shape_id) for edit/delete operations
         image_path: Path to image file for add_image
+        rows: Number of rows for add_table
+        cols: Number of columns for add_table
+        row: Row index (0-based) for set_table_cell
+        col: Column index (0-based) for set_table_cell
 
     Returns:
         PowerPointEditResult with success status and message
@@ -279,6 +292,22 @@ def edit(
             if shape_key is None:
                 raise ValueError("shape_key required for delete_image")
             result = _edit_delete_image(pkg, shape_key)
+
+        elif operation == "add_table":
+            if slide_num is None:
+                raise ValueError("slide_num required for add_table")
+            if rows is None or cols is None:
+                raise ValueError("rows and cols required for add_table")
+            result = _edit_add_table(pkg, slide_num, rows, cols, x, y, width, height)
+
+        elif operation == "set_table_cell":
+            if shape_key is None:
+                raise ValueError("shape_key required for set_table_cell")
+            if row is None or col is None:
+                raise ValueError("row and col required for set_table_cell")
+            if text is None:
+                raise ValueError("text required for set_table_cell")
+            result = _edit_set_table_cell(pkg, shape_key, row, col, text)
 
         else:
             raise ValueError(f"Unknown operation: {operation}")
@@ -492,4 +521,55 @@ def _edit_delete_image(
         return PowerPointEditResult(
             success=False,
             message=f"Image {shape_key} not found",
+        )
+
+
+def _edit_add_table(
+    pkg: PowerPointPackage,
+    slide_num: int,
+    rows: int,
+    cols: int,
+    x: float | None,
+    y: float | None,
+    width: float | None,
+    height: float | None,
+) -> PowerPointEditResult:
+    """Add a table to a slide."""
+    shape_key = add_table(
+        pkg,
+        slide_num,
+        rows,
+        cols,
+        x=x if x is not None else 1.0,
+        y=y if y is not None else 1.0,
+        width=width if width is not None else 6.0,
+        height=height if height is not None else 2.0,
+    )
+
+    return PowerPointEditResult(
+        success=True,
+        message=f"Added {rows}x{cols} table on slide {slide_num}",
+        element_id=shape_key,
+    )
+
+
+def _edit_set_table_cell(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    row: int,
+    col: int,
+    text: str,
+) -> PowerPointEditResult:
+    """Set text in a table cell."""
+    success = set_table_cell(pkg, shape_key, row, col, text)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Set cell ({row}, {col}) in table {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Cell ({row}, {col}) not found in table {shape_key}",
         )
