@@ -143,56 +143,196 @@ class PowerPointPackage(OpcPackage):
 
     @classmethod
     def new(cls) -> PowerPointPackage:
-        """Create a new PowerPoint presentation from template.
+        """Create a new PowerPoint presentation.
 
-        Uses a minimal valid template to avoid repair issues.
+        Uses a bundled template if available, otherwise creates a minimal valid
+        presentation structure programmatically.
         """
         template_path = Path(__file__).parent / "template.pptx"
         if template_path.exists():
             return cls.open(template_path)
 
-        # Fallback: create minimal presentation
-        # Note: This minimal version may trigger repairs in PowerPoint
+        # Create minimal valid presentation programmatically
         pkg = cls()
         pkg._init_minimal_presentation()
         return pkg
 
     def _init_minimal_presentation(self) -> None:
-        """Initialize a minimal valid presentation structure."""
-        # Content types
-        self._content_types["pptx"] = CT.PML_PRESENTATION_MAIN
+        """Initialize a minimal valid presentation structure.
+
+        Creates all required parts: presentation, slide master, slide layout, theme.
+        """
+        # Register content types for presentation parts
         self._content_types["/ppt/presentation.xml"] = CT.PML_PRESENTATION_MAIN
+        self._content_types["/ppt/slideMasters/slideMaster1.xml"] = CT.PML_SLIDE_MASTER
+        self._content_types["/ppt/slideLayouts/slideLayout1.xml"] = CT.PML_SLIDE_LAYOUT
+        self._content_types["/ppt/theme/theme1.xml"] = CT.THEME
 
         # Package relationships
         pkg_rels = self.get_pkg_rels()
         pkg_rels.get_or_add(RT.OFFICE_DOCUMENT, "/ppt/presentation.xml")
 
-        # Minimal presentation.xml
+        # Create presentation.xml
         pres = etree.Element(
             qn("p:presentation"),
-            nsmap={
-                "p": NSMAP["p"],
-                "a": NSMAP["a"],
-                "r": NSMAP["r"],
-            },
+            nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]},
         )
-        etree.SubElement(pres, qn("p:sldMasterIdLst"))
+        # Slide master ID list (required)
+        sld_master_id_lst = etree.SubElement(pres, qn("p:sldMasterIdLst"))
+        sld_master_id = etree.SubElement(sld_master_id_lst, qn("p:sldMasterId"))
+        sld_master_id.set("id", "2147483648")
+        sld_master_id.set(qn("r:id"), "rId1")
+        # Empty slide ID list
         etree.SubElement(pres, qn("p:sldIdLst"))
+        # Slide size
         etree.SubElement(
-            pres,
-            qn("p:sldSz"),
-            cx="9144000",
-            cy="6858000",
-            type="screen4x3",
+            pres, qn("p:sldSz"), cx="9144000", cy="6858000", type="screen4x3"
         )
-        etree.SubElement(
-            pres,
-            qn("p:notesSz"),
-            cx="6858000",
-            cy="9144000",
-        )
-
+        etree.SubElement(pres, qn("p:notesSz"), cx="6858000", cy="9144000")
         self.set_xml("/ppt/presentation.xml", pres)
+
+        # Presentation relationships
+        pres_rels = self.get_rels("/ppt/presentation.xml")
+        pres_rels.get_or_add(RT.SLIDE_MASTER, "/ppt/slideMasters/slideMaster1.xml")
+        pres_rels.get_or_add(RT.THEME, "/ppt/theme/theme1.xml")
+
+        # Create slide master
+        master = etree.Element(
+            qn("p:sldMaster"),
+            nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]},
+        )
+        cSld = etree.SubElement(master, qn("p:cSld"))
+        spTree = etree.SubElement(cSld, qn("p:spTree"))
+        # Non-visual group shape properties (required for spTree)
+        nvGrpSpPr = etree.SubElement(spTree, qn("p:nvGrpSpPr"))
+        cNvPr = etree.SubElement(nvGrpSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "1")
+        cNvPr.set("name", "")
+        etree.SubElement(nvGrpSpPr, qn("p:cNvGrpSpPr"))
+        etree.SubElement(nvGrpSpPr, qn("p:nvPr"))
+        grpSpPr = etree.SubElement(spTree, qn("p:grpSpPr"))
+        xfrm = etree.SubElement(grpSpPr, qn("a:xfrm"))
+        etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:ext"), cx="0", cy="0")
+        etree.SubElement(xfrm, qn("a:chOff"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:chExt"), cx="0", cy="0")
+        # Color map
+        clr_map = etree.SubElement(master, qn("p:clrMap"))
+        for attr, val in [
+            ("bg1", "lt1"),
+            ("tx1", "dk1"),
+            ("bg2", "lt2"),
+            ("tx2", "dk2"),
+            ("accent1", "accent1"),
+            ("accent2", "accent2"),
+            ("accent3", "accent3"),
+            ("accent4", "accent4"),
+            ("accent5", "accent5"),
+            ("accent6", "accent6"),
+            ("hlink", "hlink"),
+            ("folHlink", "folHlink"),
+        ]:
+            clr_map.set(attr, val)
+        # Slide layout ID list
+        sld_layout_id_lst = etree.SubElement(master, qn("p:sldLayoutIdLst"))
+        sld_layout_id = etree.SubElement(sld_layout_id_lst, qn("p:sldLayoutId"))
+        sld_layout_id.set("id", "2147483649")
+        sld_layout_id.set(qn("r:id"), "rId1")
+        self.set_xml("/ppt/slideMasters/slideMaster1.xml", master)
+
+        # Slide master relationships
+        master_rels = self.get_rels("/ppt/slideMasters/slideMaster1.xml")
+        master_rels.get_or_add(RT.SLIDE_LAYOUT, "/ppt/slideLayouts/slideLayout1.xml")
+        master_rels.get_or_add(RT.THEME, "/ppt/theme/theme1.xml")
+
+        # Create slide layout
+        layout = etree.Element(
+            qn("p:sldLayout"),
+            nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]},
+        )
+        layout.set("type", "blank")
+        cSld = etree.SubElement(layout, qn("p:cSld"))
+        cSld.set("name", "Blank")
+        spTree = etree.SubElement(cSld, qn("p:spTree"))
+        nvGrpSpPr = etree.SubElement(spTree, qn("p:nvGrpSpPr"))
+        cNvPr = etree.SubElement(nvGrpSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "1")
+        cNvPr.set("name", "")
+        etree.SubElement(nvGrpSpPr, qn("p:cNvGrpSpPr"))
+        etree.SubElement(nvGrpSpPr, qn("p:nvPr"))
+        grpSpPr = etree.SubElement(spTree, qn("p:grpSpPr"))
+        xfrm = etree.SubElement(grpSpPr, qn("a:xfrm"))
+        etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:ext"), cx="0", cy="0")
+        etree.SubElement(xfrm, qn("a:chOff"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:chExt"), cx="0", cy="0")
+        etree.SubElement(layout, qn("p:clrMapOvr"))
+        self.set_xml("/ppt/slideLayouts/slideLayout1.xml", layout)
+
+        # Slide layout relationships
+        layout_rels = self.get_rels("/ppt/slideLayouts/slideLayout1.xml")
+        layout_rels.get_or_add(RT.SLIDE_MASTER, "/ppt/slideMasters/slideMaster1.xml")
+
+        # Create minimal theme
+        theme = etree.Element(
+            qn("a:theme"),
+            nsmap={"a": NSMAP["a"]},
+        )
+        theme.set("name", "Office Theme")
+        # Theme elements (required)
+        theme_elements = etree.SubElement(theme, qn("a:themeElements"))
+        # Color scheme
+        clr_scheme = etree.SubElement(theme_elements, qn("a:clrScheme"))
+        clr_scheme.set("name", "Office")
+        for name, rgb in [
+            ("dk1", "000000"),
+            ("lt1", "FFFFFF"),
+            ("dk2", "44546A"),
+            ("lt2", "E7E6E6"),
+            ("accent1", "4472C4"),
+            ("accent2", "ED7D31"),
+            ("accent3", "A5A5A5"),
+            ("accent4", "FFC000"),
+            ("accent5", "5B9BD5"),
+            ("accent6", "70AD47"),
+            ("hlink", "0563C1"),
+            ("folHlink", "954F72"),
+        ]:
+            el = etree.SubElement(clr_scheme, qn(f"a:{name}"))
+            srgb = etree.SubElement(el, qn("a:srgbClr"))
+            srgb.set("val", rgb)
+        # Font scheme
+        font_scheme = etree.SubElement(theme_elements, qn("a:fontScheme"))
+        font_scheme.set("name", "Office")
+        for kind in ("majorFont", "minorFont"):
+            font = etree.SubElement(font_scheme, qn(f"a:{kind}"))
+            latin = etree.SubElement(font, qn("a:latin"))
+            latin.set("typeface", "Calibri")
+            ea = etree.SubElement(font, qn("a:ea"))
+            ea.set("typeface", "")
+            cs = etree.SubElement(font, qn("a:cs"))
+            cs.set("typeface", "")
+        # Format scheme
+        fmt_scheme = etree.SubElement(theme_elements, qn("a:fmtScheme"))
+        fmt_scheme.set("name", "Office")
+        # Fill style list
+        fill_lst = etree.SubElement(fmt_scheme, qn("a:fillStyleLst"))
+        for _ in range(3):
+            etree.SubElement(fill_lst, qn("a:solidFill"))
+        # Line style list
+        ln_lst = etree.SubElement(fmt_scheme, qn("a:lnStyleLst"))
+        for _ in range(3):
+            etree.SubElement(ln_lst, qn("a:ln"))
+        # Effect style list
+        effect_lst = etree.SubElement(fmt_scheme, qn("a:effectStyleLst"))
+        for _ in range(3):
+            etree.SubElement(effect_lst, qn("a:effectStyle"))
+        # Background fill style list
+        bg_fill_lst = etree.SubElement(fmt_scheme, qn("a:bgFillStyleLst"))
+        for _ in range(3):
+            etree.SubElement(bg_fill_lst, qn("a:solidFill"))
+        self.set_xml("/ppt/theme/theme1.xml", theme)
+
         self._presentation_path = "/ppt/presentation.xml"
 
     def invalidate_caches(self) -> None:
