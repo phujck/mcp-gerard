@@ -117,41 +117,75 @@ class TestSlideOperations:
 
 
 class TestImageDimensions:
-    """Tests for image dimension parsing."""
+    """Tests for Pillow-based image dimension parsing."""
 
     def test_png_dimensions(self):
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_png_dimensions
+        import io
 
-        # Minimal PNG: 1x1 pixel (signature + IHDR)
-        png_data = (
-            b"\x89PNG\r\n\x1a\n"  # PNG signature
-            b"\x00\x00\x00\rIHDR"  # IHDR chunk header (13 bytes)
-            b"\x00\x00\x00\x10"  # width = 16
-            b"\x00\x00\x00\x20"  # height = 32
-            b"\x08\x02\x00\x00\x00"  # bit depth, color type, etc.
-            b"\x00\x00\x00\x00"  # CRC placeholder
+        from PIL import Image
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+            _get_image_dimensions,
         )
-        width, height = _get_png_dimensions(png_data)
+
+        # Create a valid PNG in memory
+        img = Image.new("RGB", (16, 32), color="red")
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        png_data = buffer.getvalue()
+
+        width, height = _get_image_dimensions(png_data, "image/png")
         assert width == 16
         assert height == 32
 
     def test_gif_dimensions(self):
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_gif_dimensions
+        import io
 
-        # GIF header with dimensions
-        gif_data = b"GIF89a" + b"\x40\x00" + b"\x30\x00"  # 64x48
-        width, height = _get_gif_dimensions(gif_data)
+        from PIL import Image
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+            _get_image_dimensions,
+        )
+
+        # Create a valid GIF in memory
+        img = Image.new("P", (64, 48), color=0)
+        buffer = io.BytesIO()
+        img.save(buffer, format="GIF")
+        gif_data = buffer.getvalue()
+
+        width, height = _get_image_dimensions(gif_data, "image/gif")
         assert width == 64
         assert height == 48
 
     def test_bmp_dimensions(self):
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import _get_bmp_dimensions
+        import io
 
-        # BMP header with dimensions at offset 18 and 22
-        bmp_data = b"BM" + b"\x00" * 16 + b"\x80\x00\x00\x00" + b"\x60\x00\x00\x00"
-        width, height = _get_bmp_dimensions(bmp_data)
+        from PIL import Image
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+            _get_image_dimensions,
+        )
+
+        # Create a valid BMP in memory
+        img = Image.new("RGB", (128, 96), color="blue")
+        buffer = io.BytesIO()
+        img.save(buffer, format="BMP")
+        bmp_data = buffer.getvalue()
+
+        width, height = _get_image_dimensions(bmp_data, "image/bmp")
         assert width == 128
         assert height == 96
+
+    def test_corrupted_image_fallback(self):
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+            _get_image_dimensions,
+        )
+
+        # Invalid/corrupted data should return fallback dimensions
+        corrupted_data = b"not a valid image"
+        width, height = _get_image_dimensions(corrupted_data, "image/png")
+        assert width == 640
+        assert height == 480
 
 
 class TestNextPartname:

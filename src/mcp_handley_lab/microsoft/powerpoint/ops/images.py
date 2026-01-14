@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import mimetypes
 from pathlib import Path
 
 from lxml import etree
+from PIL import Image
 
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, RT, qn
 from mcp_handley_lab.microsoft.powerpoint.models import ImageInfo
@@ -67,6 +69,9 @@ def add_image(
     # Get image dimensions if width/height not specified
     if width is None or height is None:
         img_width, img_height = _get_image_dimensions(image_data, mime_type)
+        # Guard against zero/invalid dimensions from corrupted images
+        if img_width <= 0 or img_height <= 0:
+            img_width, img_height = 640, 480
         if width is None and height is None:
             # Auto-size: use image dimensions at 96 DPI
             width = img_width / 96.0
@@ -158,73 +163,20 @@ def _create_pic_element(
 
 
 def _get_image_dimensions(data: bytes, mime_type: str) -> tuple[int, int]:
-    """Get image dimensions (width, height) in pixels."""
-    if mime_type == "image/png":
-        return _get_png_dimensions(data)
-    elif mime_type == "image/jpeg":
-        return _get_jpeg_dimensions(data)
-    elif mime_type == "image/gif":
-        return _get_gif_dimensions(data)
-    elif mime_type == "image/bmp":
-        return _get_bmp_dimensions(data)
-    else:
-        # Default for unsupported formats
+    """Get image dimensions (width, height) in pixels using Pillow.
+
+    Args:
+        data: Raw image bytes
+        mime_type: MIME type (unused, kept for API compatibility)
+
+    Returns:
+        (width, height) tuple in pixels, or (640, 480) fallback for corrupted/unknown formats
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            return img.size
+    except Exception:
         return (640, 480)
-
-
-def _get_png_dimensions(data: bytes) -> tuple[int, int]:
-    """Get PNG dimensions from IHDR chunk."""
-    if data[:8] != b"\x89PNG\r\n\x1a\n":
-        return (640, 480)
-    # IHDR chunk starts at byte 8, width/height are 4-byte big-endian at offset 16/20
-    width = int.from_bytes(data[16:20], "big")
-    height = int.from_bytes(data[20:24], "big")
-    return (width, height)
-
-
-def _get_jpeg_dimensions(data: bytes) -> tuple[int, int]:
-    """Get JPEG dimensions from SOF marker."""
-    if data[:2] != b"\xff\xd8":
-        return (640, 480)
-    # Scan for SOF0 or SOF2 marker
-    i = 2
-    while i < len(data) - 9:
-        if data[i] != 0xFF:
-            i += 1
-            continue
-        marker = data[i + 1]
-        if marker in (0xC0, 0xC2):  # SOF0 or SOF2
-            height = int.from_bytes(data[i + 5 : i + 7], "big")
-            width = int.from_bytes(data[i + 7 : i + 9], "big")
-            return (width, height)
-        elif marker == 0xD9:  # EOI
-            break
-        elif marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0x01):
-            # Standalone markers without length
-            i += 2
-        else:
-            # Skip segment
-            length = int.from_bytes(data[i + 2 : i + 4], "big")
-            i += 2 + length
-    return (640, 480)
-
-
-def _get_gif_dimensions(data: bytes) -> tuple[int, int]:
-    """Get GIF dimensions from header."""
-    if data[:3] not in (b"GIF", b"gif"):
-        return (640, 480)
-    width = int.from_bytes(data[6:8], "little")
-    height = int.from_bytes(data[8:10], "little")
-    return (width, height)
-
-
-def _get_bmp_dimensions(data: bytes) -> tuple[int, int]:
-    """Get BMP dimensions from header."""
-    if data[:2] != b"BM":
-        return (640, 480)
-    width = int.from_bytes(data[18:22], "little")
-    height = abs(int.from_bytes(data[22:26], "little", signed=True))
-    return (width, height)
 
 
 def list_images(
