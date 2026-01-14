@@ -203,8 +203,14 @@ def _materialize_placeholder(
     else:
         etree.SubElement(nvSpPr, qn("p:nvPr"))
 
-    # spPr - empty (inherits from layout)
-    etree.SubElement(sp, qn("p:spPr"))
+    # spPr - copy from template if it has geometry, otherwise empty (inherits from layout)
+    template_spPr = template.find(qn("p:spPr"), NSMAP)
+    if template_spPr is not None:
+        # Deep copy to get all geometry including xfrm
+        spPr = template_spPr.__copy__()
+        sp.append(spPr)
+    else:
+        etree.SubElement(sp, qn("p:spPr"))
 
     # txBody with empty paragraph
     txBody = etree.SubElement(sp, qn("p:txBody"))

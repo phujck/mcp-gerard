@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import BinaryIO
 
@@ -197,3 +198,24 @@ class PowerPointPackage(OpcPackage):
     def invalidate_caches(self) -> None:
         """Clear cached values after modifications."""
         self._slide_paths = None
+
+    def next_partname(self, prefix: str, ext: str) -> str:
+        """Get next available partname, avoiding collisions.
+
+        Scans existing partnames to find the maximum number and returns prefix + (max+1) + ext.
+        This is essential for avoiding collisions after slide/notes deletions.
+
+        Args:
+            prefix: Path prefix (e.g., "/ppt/slides/slide")
+            ext: File extension (e.g., ".xml")
+
+        Returns:
+            Next available partname (e.g., "/ppt/slides/slide4.xml")
+        """
+        pattern = re.compile(rf"{re.escape(prefix)}(\d+){re.escape(ext)}$")
+        max_num = 0
+        for partname in self._bytes.keys() | self._xml.keys():
+            match = pattern.search(partname)
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+        return f"{prefix}{max_num + 1}{ext}"

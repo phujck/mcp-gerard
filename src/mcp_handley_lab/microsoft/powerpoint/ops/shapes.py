@@ -66,11 +66,15 @@ def _parse_shape(
         return None
 
     position = get_shape_position(shape, parent_transform)
-    if position is None:
-        # Shape without position - skip
-        return None
+    position_inherited = position is None
 
-    x, y, cx, cy = position
+    # Shapes without local xfrm inherit position from layout/master
+    # Use (0, 0, 0, 0) as default - actual position comes from layout
+    if position_inherited:
+        x, y, cx, cy = 0, 0, 0, 0
+    else:
+        x, y, cx, cy = position
+
     shape_type = get_shape_type(shape)
     shape_name = get_shape_name(shape)
     text = extract_text_from_shape(shape)
@@ -85,6 +89,7 @@ def _parse_shape(
         y_inches=emu_to_inches(y),
         width_inches=emu_to_inches(cx),
         height_inches=emu_to_inches(cy),
+        position_inherited=position_inherited,
         z_order=z_order,
         text=text if text else None,
         placeholder_type=ph_type,

@@ -110,14 +110,8 @@ def _create_notes_slide(pkg: PowerPointPackage, slide_num: int) -> etree._Elemen
     """Create a new notes slide with proper relationships."""
     slide_partname = pkg.get_slide_partname(slide_num)
 
-    # Determine notes slide path
-    # Extract slide number from partname
-    import re
-
-    match = re.search(r"slide(\d+)\.xml", slide_partname)
-    slide_file_num = match.group(1) if match else str(slide_num)
-
-    notes_path = f"/ppt/notesSlides/notesSlide{slide_file_num}.xml"
+    # Determine notes slide path (avoid collisions after deletions/reorders)
+    notes_path = pkg.next_partname("/ppt/notesSlides/notesSlide", ".xml")
 
     # Create notes slide XML
     notes = etree.Element(
@@ -152,11 +146,11 @@ def _create_notes_slide(pkg: PowerPointPackage, slide_num: int) -> etree._Elemen
 
     # Create slide → notesSlide relationship
     slide_rels = pkg.get_rels(slide_partname)
-    slide_rels.get_or_add(notes_path, RT.NOTES_SLIDE)
+    slide_rels.get_or_add(RT.NOTES_SLIDE, notes_path)
 
     # Create notesSlide → slide relationship (bidirectional)
     notes_rels = pkg.get_rels(notes_path)
-    notes_rels.get_or_add(slide_partname, RT.SLIDE)
+    notes_rels.get_or_add(RT.SLIDE, slide_partname)
 
     # Find and add notesMaster relationship
     pres_rels = pkg.get_rels(pkg.presentation_path)
@@ -165,7 +159,7 @@ def _create_notes_slide(pkg: PowerPointPackage, slide_num: int) -> etree._Elemen
         notes_master_path = pkg.resolve_rel_target(
             pkg.presentation_path, notes_master_rid
         )
-        notes_rels.get_or_add(notes_master_path, RT.NOTES_MASTER)
+        notes_rels.get_or_add(RT.NOTES_MASTER, notes_master_path)
 
     return notes
 

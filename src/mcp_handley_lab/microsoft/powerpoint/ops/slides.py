@@ -85,10 +85,10 @@ def add_slide(
     # Find layout
     layout_path = _find_layout_by_name(pkg, layout_name)
 
-    # Determine new slide number and path
+    # Determine new slide path (avoid collisions after deletions)
+    new_slide_path = pkg.next_partname("/ppt/slides/slide", ".xml")
     existing_slides = pkg.get_slide_paths()
     new_num = len(existing_slides) + 1
-    new_slide_path = f"/ppt/slides/slide{new_num}.xml"
 
     # Create minimal slide XML
     slide = _create_minimal_slide()
@@ -100,7 +100,7 @@ def add_slide(
     pkg._content_types[new_slide_path] = CT.PML_SLIDE
 
     # Add relationship from presentation to slide
-    new_rid = pres_rels.get_or_add(new_slide_path, RT.SLIDE)
+    new_rid = pres_rels.get_or_add(RT.SLIDE, new_slide_path)
 
     # Add slide to sldIdLst
     sld_id_lst = pres.find(qn("p:sldIdLst"), NSMAP)
@@ -123,7 +123,7 @@ def add_slide(
 
     # Add relationship from slide to layout
     slide_rels = pkg.get_rels(new_slide_path)
-    slide_rels.get_or_add(layout_path, RT.SLIDE_LAYOUT)
+    slide_rels.get_or_add(RT.SLIDE_LAYOUT, layout_path)
 
     # Mark dirty and invalidate caches
     pkg.mark_xml_dirty(pres_path)

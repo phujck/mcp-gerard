@@ -44,6 +44,9 @@ class ShapeInfo(BaseModel):
     width_inches: float
     height_inches: float
 
+    # True if position is inherited from layout/master (no local xfrm)
+    position_inherited: bool = False
+
     # Reading order position
     z_order: int = 0
     reading_order: int = 0
