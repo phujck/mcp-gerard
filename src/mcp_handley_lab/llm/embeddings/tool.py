@@ -92,7 +92,10 @@ def get_embeddings(
     }
 
     if output_file:
-        Path(output_file).write_text(json.dumps(result, indent=2))
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+        result["output_file"] = output_file
 
     return result
 
@@ -169,7 +172,9 @@ def index_documents(
     }
 
     # Save index
-    Path(output_index_path).write_text(json.dumps(index, indent=2))
+    output_path = Path(output_index_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return {
         "message": f"Indexed {len(documents)} documents",

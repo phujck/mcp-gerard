@@ -47,7 +47,15 @@ def transcribe(
         include_timestamps=include_timestamps,
     )
 
-    if output_file:
-        Path(output_file).write_text(json.dumps(result, indent=2))
+    # Copy to avoid mutating adapter result
+    response = dict(result)
 
-    return result
+    if output_file:
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        response["output_file"] = output_file
+
+    return response

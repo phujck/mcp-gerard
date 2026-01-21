@@ -146,8 +146,12 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
         )
 
         assert "error" not in str(response).lower()
+        # New format returns full result with pages array (not count)
         assert "pages" in response
-        assert response["status"] == "success"
+        assert isinstance(response["pages"], list)
+        assert len(response["pages"]) >= 1
+        assert "model" in response
+        assert response["output_file"] == test_output_file
 
     finally:
         Path(image_path).unlink(missing_ok=True)

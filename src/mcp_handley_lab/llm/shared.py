@@ -167,7 +167,8 @@ def process_llm_request(
     # Handle output - write to file if path provided
     if output_file:
         output_path = Path(output_file)
-        output_path.write_text(metadata["response_text"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(metadata["response_text"], encoding="utf-8")
 
     from mcp_handley_lab.shared.models import UsageStats
 

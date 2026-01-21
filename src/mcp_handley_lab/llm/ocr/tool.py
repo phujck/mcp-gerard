@@ -17,7 +17,8 @@ mcp = FastMCP("OCR Tool")
 @mcp.tool(
     description="Extract text from documents using Mistral OCR. "
     "Supports PDFs, images (PNG, JPG), PPTX, and DOCX. "
-    "Returns: {status, pages, output_file?, message}. Full OCR JSON saved to output_file if provided."
+    "Returns: {pages: [{markdown, images?}], model, usage_info, output_file?}. "
+    "Creates parent directories automatically."
 )
 def process(
     document_path: str = Field(
@@ -39,16 +40,16 @@ def process(
     adapter = get_adapter("mistral", "ocr")
     result = adapter(document_path, include_images)
 
-    pages = result.get("pages", [])
-    response: dict[str, Any] = {
-        "status": "success",
-        "pages": len(pages),
-        "message": f"OCR complete. {len(pages)} page(s) extracted.",
-    }
+    # Return full result directly (like audio tool does)
+    # Copy to avoid mutating adapter's result
+    response = dict(result)
 
     if output_file:
-        Path(output_file).write_text(json.dumps(result, indent=2))
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         response["output_file"] = output_file
-        response["message"] += f" Full results saved to {output_file}"
 
     return response

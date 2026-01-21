@@ -770,9 +770,11 @@ class TestLLMOutputFileErrors:
             # If successful, file should exist
             assert Path(output_file).exists()
 
-        except (ValueError, RuntimeError, FileNotFoundError, ToolError) as e:
+        except (ValueError, RuntimeError, FileNotFoundError, PermissionError, ToolError) as e:
             # Directory creation errors are acceptable
+            # Now that tools try to create parent directories, permission errors are expected
+            # for paths like /nonexistent/... that require root access
             assert any(
                 keyword in str(e).lower()
-                for keyword in ["directory", "not found", "no such", "path", "create"]
+                for keyword in ["directory", "not found", "no such", "path", "create", "permission"]
             )
