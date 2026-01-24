@@ -289,7 +289,8 @@ class TestBranchOperations:
 
         assert not memory.branch_exists(project_dir, "test-branch")
 
-        memory.create_orphan_branch(project_dir, "test-branch")
+        content = memory.append_message("", "user", "hello")
+        memory.write_conversation(project_dir, "test-branch", content, "Initial")
 
         assert memory.branch_exists(project_dir, "test-branch")
 
@@ -304,9 +305,11 @@ class TestBranchOperations:
         branches = memory.list_branches(project_dir)
         assert len(branches) == 0
 
-        # Create branches
-        memory.create_agent(project_dir, "branch1")
-        memory.create_agent(project_dir, "branch2")
+        # Create branches via write_conversation
+        content1 = memory.append_message("", "user", "hello")
+        memory.write_conversation(project_dir, "branch1", content1, "Initial")
+        content2 = memory.append_message("", "user", "world")
+        memory.write_conversation(project_dir, "branch2", content2, "Initial")
 
         branches = memory.list_branches(project_dir)
         names = [b["name"] for b in branches]
@@ -321,7 +324,8 @@ class TestBranchOperations:
         monkeypatch.chdir(tmp_path)
 
         project_dir = memory.get_project_dir()
-        memory.create_orphan_branch(project_dir, "test-branch")
+        content = memory.append_message("", "user", "hello")
+        memory.write_conversation(project_dir, "test-branch", content, "Initial")
 
         sha = memory.get_branch_sha(project_dir, "test-branch")
 
@@ -401,86 +405,8 @@ class TestForkOnConflict:
         assert "response 1" in fork_content
 
 
-class TestAgentUtils:
-    """Test agent utility functions."""
-
-    def test_create_agent(self, tmp_path, monkeypatch):
-        """Test creating a new agent."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent", "You are helpful.")
-
-        assert memory.branch_exists(project_dir, "test-agent")
-
-        content = memory.read_branch(project_dir, "test-agent")
-        events = memory.parse_messages(content)
-
-        assert len(events) == 1
-        assert events[0]["type"] == "system_prompt"
-        assert events[0]["content"] == "You are helpful."
-
-    def test_create_agent_no_system_prompt(self, tmp_path, monkeypatch):
-        """Test creating agent without system prompt."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent")
-
-        content = memory.read_branch(project_dir, "test-agent")
-        assert content == ""
-
-    def test_agent_stats(self, tmp_path, monkeypatch):
-        """Test getting agent statistics."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent", "You are helpful.")
-
-        content = memory.read_branch(project_dir, "test-agent")
-        content = memory.append_message(
-            content,
-            "user",
-            "hello",
-            usage={"input_tokens": 10, "output_tokens": 0, "cost": 0.001},
-        )
-        content = memory.append_message(
-            content,
-            "assistant",
-            "hi there",
-            usage={"input_tokens": 10, "output_tokens": 20, "cost": 0.002},
-        )
-        memory.write_conversation(project_dir, "test-agent", content, "Add messages")
-
-        stats = memory.agent_stats(project_dir, "test-agent")
-
-        assert stats["name"] == "test-agent"
-        assert stats["message_count"] == 2
-        assert stats["total_tokens"] == 40
-        assert stats["total_cost"] == 0.003
-        assert stats["system_prompt"] == "You are helpful."
-
-    def test_clear_agent(self, tmp_path, monkeypatch):
-        """Test clearing agent history."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent")
-
-        content = memory.read_branch(project_dir, "test-agent")
-        content = memory.append_message(content, "user", "hello")
-        content = memory.append_message(content, "assistant", "hi")
-        memory.write_conversation(project_dir, "test-agent", content, "Add messages")
-
-        memory.clear_agent(project_dir, "test-agent")
-
-        # After clear, get_llm_context should return empty history
-        history, _ = memory.get_llm_context(project_dir, "test-agent")
-        assert len(history) == 0
+class TestGetResponse:
+    """Test get_response functionality."""
 
     def test_get_response(self, tmp_path, monkeypatch):
         """Test getting response by index."""
@@ -488,25 +414,24 @@ class TestAgentUtils:
         monkeypatch.chdir(tmp_path)
 
         project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent")
 
         content = ""
         content = memory.append_message(content, "user", "Q1")
         content = memory.append_message(content, "assistant", "A1")
         content = memory.append_message(content, "user", "Q2")
         content = memory.append_message(content, "assistant", "A2")
-        memory.write_conversation(project_dir, "test-agent", content, "Add messages")
+        memory.write_conversation(project_dir, "test-branch", content, "Add messages")
 
         # Last response (default)
-        response = memory.get_response(project_dir, "test-agent")
+        response = memory.get_response(project_dir, "test-branch")
         assert response["content"] == "A2"
 
         # First response
-        response = memory.get_response(project_dir, "test-agent", 0)
+        response = memory.get_response(project_dir, "test-branch", 0)
         assert response["content"] == "A1"
 
         # Second-to-last
-        response = memory.get_response(project_dir, "test-agent", -2)
+        response = memory.get_response(project_dir, "test-branch", -2)
         assert response["content"] == "A1"
 
     def test_get_response_empty_raises(self, tmp_path, monkeypatch):
@@ -515,10 +440,13 @@ class TestAgentUtils:
         monkeypatch.chdir(tmp_path)
 
         project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test-agent")
+
+        # Create branch with only user messages
+        content = memory.append_message("", "user", "hello")
+        memory.write_conversation(project_dir, "test-branch", content, "Initial")
 
         with pytest.raises(IndexError, match="no assistant responses"):
-            memory.get_response(project_dir, "test-agent")
+            memory.get_response(project_dir, "test-branch")
 
 
 class TestWorktreeEditing:
@@ -661,89 +589,3 @@ class TestReadRef:
 
         with pytest.raises(ValueError, match="Ref not found"):
             memory.read_ref(project_dir, "0000000000000000000000000000000000000000")
-
-
-class TestConversationSummary:
-    """Test conversation summary generation."""
-
-    def test_get_conversation_summary(self, tmp_path, monkeypatch):
-        """Test getting conversation summary."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test", "You are helpful.")
-
-        content = memory.read_branch(project_dir, "test")
-        content = memory.append_message(content, "user", "Q1")
-        content = memory.append_message(content, "assistant", "A1")
-        content = memory.append_message(content, "user", "Q2")
-        content = memory.append_message(content, "assistant", "A2")
-        memory.write_conversation(project_dir, "test", content, "Add messages")
-
-        summary = memory.get_conversation_summary(project_dir, "test")
-
-        assert summary["name"] == "test"
-        assert summary["system_prompt"] == "You are helpful."
-        assert len(summary["messages"]) == 4
-        assert summary["stats"]["messages"] == 4
-
-    def test_get_conversation_summary_truncation(self, tmp_path, monkeypatch):
-        """Test that assistant responses are truncated."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test")
-
-        long_response = "A" * 500
-        content = ""
-        content = memory.append_message(content, "user", "Question")
-        content = memory.append_message(content, "assistant", long_response)
-        memory.write_conversation(project_dir, "test", content, "Add messages")
-
-        summary = memory.get_conversation_summary(
-            project_dir, "test", max_response_chars=100
-        )
-
-        assistant_msg = summary["messages"][1]
-        assert assistant_msg["truncated"] is True
-        assert assistant_msg["full_length"] == 500
-        assert len(assistant_msg["content"]) == 103  # 100 + "..."
-
-    def test_get_conversation_summary_response_index(self, tmp_path, monkeypatch):
-        """Test that response_index matches get_response() indexing."""
-        monkeypatch.setenv("MCP_HANDLEY_LAB_MEMORY_DIR", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-
-        project_dir = memory.get_project_dir()
-        memory.create_agent(project_dir, "test")
-
-        content = ""
-        content = memory.append_message(content, "user", "Q1")
-        content = memory.append_message(content, "assistant", "A1")
-        content = memory.append_message(content, "user", "Q2")
-        content = memory.append_message(content, "assistant", "A2")
-        content = memory.append_message(content, "user", "Q3")
-        content = memory.append_message(content, "assistant", "A3")
-        memory.write_conversation(project_dir, "test", content, "Add messages")
-
-        summary = memory.get_conversation_summary(project_dir, "test")
-
-        # Verify indices work with get_response()
-        assert summary["messages"][1]["response_index"] == -3
-        assert summary["messages"][3]["response_index"] == -2
-        assert summary["messages"][5]["response_index"] == -1
-
-        assert memory.get_response(project_dir, "test", -3)["content"] == "A1"
-        assert memory.get_response(project_dir, "test", -2)["content"] == "A2"
-        assert memory.get_response(project_dir, "test", -1)["content"] == "A3"
-
-
-class TestBackwardCompatibility:
-    """Test backward compatibility shim."""
-
-    def test_get_memory_manager_raises(self):
-        """Test that get_memory_manager raises helpful error."""
-        with pytest.raises(NotImplementedError, match="removed"):
-            memory.get_memory_manager()

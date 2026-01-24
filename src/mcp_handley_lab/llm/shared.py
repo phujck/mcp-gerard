@@ -51,11 +51,15 @@ def _handle_memory_setup(
     mcp_instance,
     provider: str,
     from_ref: str | None = None,
-) -> tuple[bool, str, list, str | None, Path | None]:
+) -> tuple[bool, str, list, str | None, Path | None, str | None]:
     """Set up memory for the LLM request.
 
     Returns:
-        (use_memory, actual_branch, history, system_instruction, project_dir)
+        (use_memory, actual_branch, history, system_instruction, project_dir, pending_system_prompt)
+
+    The pending_system_prompt is returned when:
+    - Branch is new and system_prompt was provided
+    - This should be included in the first commit by _save_conversation_turn()
     """
     # Normalize branch - returns None if memory should be disabled
     normalized = normalize_branch(branch) if branch else None
@@ -65,6 +69,7 @@ def _handle_memory_setup(
     history = []
     system_instruction = None
     project_dir = None
+    pending_system_prompt = None
 
     if use_memory:
         actual_branch = normalized  # Use normalized branch name
@@ -85,35 +90,49 @@ def _handle_memory_setup(
         if from_ref and not memory.branch_exists(project_dir, actual_branch):
             memory.fork_branch(project_dir, actual_branch, from_ref)
 
-        # Get or create branch with system prompt
-        if not memory.branch_exists(project_dir, actual_branch):
-            memory.create_agent(project_dir, actual_branch, system_prompt)
-        elif system_prompt is not None:
-            # Check if system prompt changed
-            content = memory.read_branch(project_dir, actual_branch)
-            events = memory.parse_messages(content)
+        branch_exists = memory.branch_exists(project_dir, actual_branch)
 
-            # Find current system prompt (after last clear)
-            last_clear_idx = -1
-            for i, event in enumerate(events):
-                if event.get("type") == "clear":
-                    last_clear_idx = i
+        if not branch_exists:
+            # New branch - don't create yet, let _save_conversation_turn() do it
+            # Pass system_prompt to be included in first commit
+            pending_system_prompt = system_prompt
+            system_instruction = system_prompt
+        else:
+            # Existing branch - handle system prompt changes
+            if system_prompt is not None:
+                content = memory.read_branch(project_dir, actual_branch)
+                events = memory.parse_messages(content)
 
-            current_system_prompt = None
-            for i, event in enumerate(events):
-                if i > last_clear_idx and event.get("type") == "system_prompt":
-                    current_system_prompt = event.get("content")
+                # Find current system prompt (after last clear)
+                last_clear_idx = -1
+                for i, event in enumerate(events):
+                    if event.get("type") == "clear":
+                        last_clear_idx = i
 
-            if system_prompt != current_system_prompt:
-                content = memory.append_system_prompt(content, system_prompt)
-                memory.write_conversation(
-                    project_dir, actual_branch, content, "Update system prompt"
-                )
+                current_system_prompt = None
+                for i, event in enumerate(events):
+                    if i > last_clear_idx and event.get("type") == "system_prompt":
+                        current_system_prompt = event.get("content")
 
-        # Get conversation context
-        history, system_instruction = memory.get_llm_context(project_dir, actual_branch)
+                if system_prompt != current_system_prompt:
+                    content = memory.append_system_prompt(content, system_prompt)
+                    memory.write_conversation(
+                        project_dir, actual_branch, content, "Update system prompt"
+                    )
 
-    return use_memory, actual_branch, history, system_instruction, project_dir
+            # Get conversation context
+            history, system_instruction = memory.get_llm_context(
+                project_dir, actual_branch
+            )
+
+    return (
+        use_memory,
+        actual_branch,
+        history,
+        system_instruction,
+        project_dir,
+        pending_system_prompt,
+    )
 
 
 def _extract_response_metadata(response_data: dict, model: str, provider: str) -> dict:
@@ -175,7 +194,7 @@ def _enhance_prompt_for_images(
     return prompt, user_prompt
 
 
-def _handle_agent_memory(
+def _save_conversation_turn(
     project_dir: Path,
     branch: str,
     user_prompt: str,
@@ -183,8 +202,12 @@ def _handle_agent_memory(
     provider: str,
     model: str,
     metadata: dict | None = None,
+    pending_system_prompt: str | None = None,
 ) -> dict:
-    """Store conversation messages in agent memory with full response metadata.
+    """Save a conversation turn (user + assistant messages) to memory.
+
+    For new branches, creates the branch with the first commit containing
+    the optional system_prompt event followed by the conversation turn.
 
     Returns the write result including commit_sha and forking info.
     """
@@ -217,8 +240,12 @@ def _handle_agent_memory(
             if metadata.get(field):
                 usage[field] = metadata[field]
 
-    # Read current content
+    # Read current content (empty string for new branches)
     content = memory.read_branch(project_dir, branch)
+
+    # For new branches with a system prompt, prepend the system_prompt event
+    if not content and pending_system_prompt:
+        content = memory.append_system_prompt("", pending_system_prompt)
 
     # Add user message
     content = memory.append_message(content, "user", user_prompt)
@@ -226,10 +253,11 @@ def _handle_agent_memory(
     # Add assistant message with usage
     content = memory.append_message(content, "assistant", response_text, usage=usage)
 
-    # Write back
-    return memory.write_conversation(
-        project_dir, branch, content, "Add conversation turn"
-    )
+    # Write back with user message preview as commit message
+    commit_message = user_prompt[:50] + "..." if len(user_prompt) > 50 else user_prompt
+    # Replace newlines with spaces for cleaner git log
+    commit_message = commit_message.replace("\n", " ").strip()
+    return memory.write_conversation(project_dir, branch, content, commit_message)
 
 
 def process_llm_request(
@@ -274,10 +302,15 @@ def process_llm_request(
     user_prompt = final_prompt
 
     # Set up memory and get conversation context
-    use_memory, actual_branch, history, system_instruction, project_dir = (
-        _handle_memory_setup(
-            branch, final_system_prompt, mcp_instance, provider, from_ref
-        )
+    (
+        use_memory,
+        actual_branch,
+        history,
+        system_instruction,
+        project_dir,
+        pending_system_prompt,
+    ) = _handle_memory_setup(
+        branch, final_system_prompt, mcp_instance, provider, from_ref
     )
 
     # Enhance prompt for image analysis
@@ -300,7 +333,7 @@ def process_llm_request(
     # Handle memory with full response metadata
     commit_sha = None
     if use_memory and project_dir:
-        write_result = _handle_agent_memory(
+        write_result = _save_conversation_turn(
             project_dir,
             actual_branch,
             user_prompt,
@@ -308,6 +341,7 @@ def process_llm_request(
             provider=provider,
             model=model,
             metadata=metadata,
+            pending_system_prompt=pending_system_prompt,
         )
         commit_sha = write_result.get("commit_sha")
 
@@ -332,7 +366,7 @@ def process_llm_request(
     return LLMResult(
         content=metadata["response_text"],
         usage=usage_stats,
-        agent_name=actual_branch if use_memory else "",
+        branch=actual_branch if use_memory else "",
         commit_sha=commit_sha,
         grounding_metadata=grounding_metadata,
         finish_reason=metadata["finish_reason"],
@@ -418,7 +452,7 @@ def process_image_generation(
             "cost": cost,
         }
 
-        write_result = _handle_agent_memory(
+        write_result = _save_conversation_turn(
             project_dir,
             actual_branch,
             f"Generate image: {prompt}",
@@ -445,7 +479,7 @@ def process_image_generation(
         file_path=str(filepath),
         file_size_bytes=file_size,
         usage=usage_stats,
-        agent_name=actual_branch if use_memory else "",
+        branch=actual_branch if use_memory else "",
         commit_sha=commit_sha,
         # Metadata from provider response
         generation_timestamp=response_data.get("generation_timestamp", 0),

@@ -10,15 +10,12 @@ Breaking changes from v1:
 """
 
 import json
-import logging
 import os
 import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 # Valid branch name checking is done via git check-ref-format
 # This pattern is used for quick pre-filtering only
@@ -421,13 +418,16 @@ def create_branch(project_dir: Path, branch: str, commit_sha: str) -> bool:
     return result.returncode == 0
 
 
-def create_orphan_branch(project_dir: Path, branch: str, content: str = "") -> str:
+def create_orphan_branch(
+    project_dir: Path, branch: str, content: str, message: str
+) -> str:
     """Create a new orphan branch with initial content.
 
     Args:
         project_dir: Path to the Git repository
         branch: Branch name to create
-        content: Initial JSONL content (default empty)
+        content: JSONL content for the initial commit
+        message: Commit message
 
     Returns:
         Commit SHA of the initial commit
@@ -439,7 +439,7 @@ def create_orphan_branch(project_dir: Path, branch: str, content: str = "") -> s
         raise ValueError(f"Branch '{branch}' already exists")
 
     # Create orphan commit (no parent)
-    commit_sha = create_commit(project_dir, content, None, "Initial commit")
+    commit_sha = create_commit(project_dir, content, None, message)
 
     # Create branch
     if not create_branch(project_dir, branch, commit_sha):
@@ -688,8 +688,8 @@ def write_conversation(
     old_sha = get_branch_sha(project_dir, branch)
 
     if old_sha is None:
-        # Branch doesn't exist - create as orphan
-        commit_sha = create_orphan_branch(project_dir, branch, content)
+        # Branch doesn't exist - create as orphan with the provided message
+        commit_sha = create_orphan_branch(project_dir, branch, content, message)
         return {
             "branch": branch,
             "commit_sha": commit_sha,
@@ -1073,122 +1073,6 @@ def end_edit(project_dir: Path, force: bool = False) -> dict[str, Any]:
     return {"success": True}
 
 
-# =============================================================================
-# Agent Utilities Compatibility Layer
-# =============================================================================
-
-
-def create_agent(project_dir: Path, name: str, system_prompt: str | None = None) -> str:
-    """Create a new conversation branch (agent).
-
-    Args:
-        project_dir: Path to the Git repository
-        name: Branch name
-        system_prompt: Optional initial system prompt
-
-    Returns:
-        Commit SHA of initial commit
-    """
-    validate_branch_name(name)
-
-    content = ""
-    if system_prompt:
-        content = append_system_prompt("", system_prompt)
-
-    if branch_exists(project_dir, name):
-        # Branch exists - update system prompt if provided
-        if system_prompt:
-            content = read_branch(project_dir, name)
-            content = append_system_prompt(content, system_prompt)
-            result = write_conversation(
-                project_dir, name, content, "Update system prompt"
-            )
-            return result["commit_sha"]
-        else:
-            # Nothing to do
-            return get_branch_sha(project_dir, name) or ""
-
-    return create_orphan_branch(project_dir, name, content)
-
-
-def agent_stats(project_dir: Path, name: str) -> dict[str, Any]:
-    """Get statistics for a conversation branch.
-
-    Args:
-        project_dir: Path to the Git repository
-        name: Branch name
-
-    Returns:
-        Stats dict with message_count, total_tokens, total_cost, system_prompt
-    """
-    content = read_branch(project_dir, name)
-    if not content:
-        raise ValueError(f"Branch '{name}' not found")
-
-    events = parse_messages(content)
-
-    total_input_tokens = 0
-    total_output_tokens = 0
-    total_cost = 0.0
-    message_count = 0
-    system_prompt = None
-    created_at = None
-
-    # Find last clear to determine active boundary
-    last_clear_idx = -1
-    for i, event in enumerate(events):
-        if event.get("type") == "clear":
-            last_clear_idx = i
-
-    for i, event in enumerate(events):
-        if i <= last_clear_idx:
-            continue
-
-        event_type = event.get("type")
-        if event_type == "message":
-            message_count += 1
-            if created_at is None:
-                created_at = event.get("timestamp")
-
-            usage = event.get("usage")
-            if usage:
-                total_input_tokens += usage.get("input_tokens", 0)
-                total_output_tokens += usage.get("output_tokens", 0)
-                total_cost += usage.get("cost", 0.0)
-
-        elif event_type == "system_prompt":
-            system_prompt = event.get("content")
-
-    return {
-        "name": name,
-        "created_at": created_at,
-        "message_count": message_count,
-        "total_tokens": total_input_tokens + total_output_tokens,
-        "total_input_tokens": total_input_tokens,
-        "total_output_tokens": total_output_tokens,
-        "total_cost": total_cost,
-        "system_prompt": system_prompt,
-    }
-
-
-def clear_agent(project_dir: Path, name: str) -> dict[str, Any]:
-    """Clear a conversation branch by appending a clear event.
-
-    Args:
-        project_dir: Path to the Git repository
-        name: Branch name
-
-    Returns:
-        Same as write_conversation()
-    """
-    content = read_branch(project_dir, name)
-    if not content and not branch_exists(project_dir, name):
-        raise ValueError(f"Branch '{name}' not found")
-
-    content = append_clear(content)
-    return write_conversation(project_dir, name, content, "Clear conversation")
-
-
 def get_response(
     project_dir: Path,
     name: str,
@@ -1266,152 +1150,6 @@ def get_response(
         if field in stored_usage:
             result[field] = stored_usage[field]
 
-    result["agent_name"] = name
+    result["branch"] = name
 
     return result
-
-
-def get_conversation_summary(
-    project_dir: Path,
-    name: str,
-    max_response_chars: int = 200,
-) -> dict[str, Any]:
-    """Get conversation summary for review.
-
-    Args:
-        project_dir: Path to the Git repository
-        name: Branch name
-        max_response_chars: Max chars per assistant response
-
-    Returns:
-        Summary dict with name, stats, messages, system_prompt
-    """
-    content = read_branch(project_dir, name)
-    events = parse_messages(content)
-
-    # Find last clear boundary
-    last_clear_idx = -1
-    for i, event in enumerate(events):
-        if event.get("type") == "clear":
-            last_clear_idx = i
-
-    messages = []
-    system_prompt = None
-    total_input_tokens = 0
-    total_output_tokens = 0
-    total_cost = 0.0
-    assistant_count = 0
-
-    # Count total assistants for negative indexing
-    total_assistants = sum(
-        1
-        for i, e in enumerate(events)
-        if i > last_clear_idx
-        and e.get("type") == "message"
-        and e.get("role") == "assistant"
-    )
-
-    for i, event in enumerate(events):
-        if i <= last_clear_idx:
-            continue
-
-        event_type = event.get("type")
-
-        if event_type == "system_prompt":
-            system_prompt = event.get("content")
-
-        elif event_type == "message":
-            msg_content = event["content"]
-            full_length = len(msg_content)
-            role = event["role"]
-
-            entry: dict[str, Any] = {"role": role}
-
-            if event.get("timestamp"):
-                entry["timestamp"] = event["timestamp"]
-
-            if role == "assistant":
-                entry["response_index"] = assistant_count - total_assistants
-                assistant_count += 1
-
-                if len(msg_content) > max_response_chars:
-                    msg_content = msg_content[:max_response_chars] + "..."
-                    entry["truncated"] = True
-                    entry["full_length"] = full_length
-
-                usage = event.get("usage")
-                if usage:
-                    total_input_tokens += usage.get("input_tokens", 0)
-                    total_output_tokens += usage.get("output_tokens", 0)
-                    total_cost += usage.get("cost", 0.0)
-
-            entry["content"] = msg_content
-            messages.append(entry)
-
-    stats = {
-        "messages": len(messages),
-        "tokens": total_input_tokens + total_output_tokens,
-        "cost": total_cost,
-    }
-
-    result: dict[str, Any] = {
-        "name": name,
-        "stats": stats,
-        "messages": messages,
-    }
-    if system_prompt:
-        result["system_prompt"] = system_prompt
-
-    return result
-
-
-# =============================================================================
-# Backward Compatibility: Deprecated Classes and Functions
-# =============================================================================
-
-
-# These are REMOVED in v2 but we provide clear error messages
-
-
-class AgentMemory:
-    """DEPRECATED: Use Git-backed functions directly.
-
-    This class is removed in v2. Migrate to:
-    - read_branch() / write_conversation() for content access
-    - add_message() for appending messages
-    - get_llm_context() for LLM API context
-    """
-
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError(
-            "AgentMemory class is removed. Use Git-backed functions: "
-            "read_branch(), add_message(), get_llm_context()"
-        )
-
-
-class GlobalMemoryManager:
-    """DEPRECATED: Use Git-backed functions directly.
-
-    This class is removed in v2. Migrate to:
-    - get_project_dir() for project directory access
-    - list_branches() for listing conversations
-    - create_agent() / agent_stats() for agent operations
-    """
-
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError(
-            "GlobalMemoryManager class is removed. Use Git-backed functions: "
-            "get_project_dir(), list_branches(), create_agent()"
-        )
-
-
-def get_memory_manager(*args, **kwargs):
-    """DEPRECATED: Use Git-backed functions directly."""
-    raise NotImplementedError(
-        "get_memory_manager() is removed. Use Git-backed functions: "
-        "get_project_dir(), list_branches(), etc."
-    )
-
-
-# Removed: memory_manager singleton
-# All call sites must be updated to use stateless functions

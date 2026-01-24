@@ -67,9 +67,9 @@ class LLMResult(BaseModel):
     usage: UsageStats = Field(
         ..., description="Token usage and cost information for the request."
     )
-    agent_name: str = Field(
+    branch: str = Field(
         default="",
-        description="Name of the conversational agent or session (branch name).",
+        description="Conversation branch name (empty if memory disabled).",
     )
     commit_sha: str | None = Field(
         default=None,
@@ -181,8 +181,8 @@ class ImageGenerationResult(BaseModel):
     usage: UsageStats = Field(
         ..., description="Cost and usage statistics for the image generation."
     )
-    agent_name: str = Field(
-        default="", description="Name of the agent or session that generated the image."
+    branch: str = Field(
+        default="", description="Conversation branch name (empty if memory disabled)."
     )
     commit_sha: str | None = Field(
         default=None,

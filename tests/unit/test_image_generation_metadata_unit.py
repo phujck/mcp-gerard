@@ -24,7 +24,7 @@ class TestImageGenerationMetadata:
             file_path="/tmp/test.png",
             file_size_bytes=1024,
             usage=usage,
-            agent_name="test_agent",
+            branch="test_branch",
             generation_timestamp=1234567890,
             enhanced_prompt="Enhanced test prompt with details",
             original_prompt="Test prompt",
@@ -46,7 +46,7 @@ class TestImageGenerationMetadata:
         assert result.file_path == "/tmp/test.png"
         assert result.file_size_bytes == 1024
         assert result.usage == usage
-        assert result.agent_name == "test_agent"
+        assert result.branch == "test_branch"
         assert result.generation_timestamp == 1234567890
         assert result.enhanced_prompt == "Enhanced test prompt with details"
         assert result.original_prompt == "Test prompt"
@@ -73,7 +73,7 @@ class TestImageGenerationMetadata:
         )
 
         # Verify defaults are set correctly
-        assert result.agent_name == ""
+        assert result.branch == ""
         assert result.generation_timestamp == 0
         assert result.enhanced_prompt == ""
         assert result.original_prompt == ""
@@ -89,13 +89,19 @@ class TestImageGenerationMetadata:
         assert result.cloud_uri == ""
         assert result.original_url == ""
 
+    @patch("mcp_handley_lab.llm.shared.memory")
     @patch("mcp_handley_lab.llm.shared.calculate_cost")
-    @patch("mcp_handley_lab.llm.shared.handle_agent_memory")
+    @patch("mcp_handley_lab.llm.shared._save_conversation_turn")
     def test_process_image_generation_metadata_passthrough(
-        self, mock_memory, mock_cost
+        self, mock_save_turn, mock_cost, mock_memory
     ):
         """Test that process_image_generation passes through metadata correctly."""
         mock_cost.return_value = 0.04
+        mock_memory.normalize_branch_input.return_value = "test_branch"
+        mock_memory.get_project_dir.return_value = Path("/tmp/test_project")
+        mock_memory.is_locked.return_value = None
+        mock_memory.branch_exists.return_value = False
+        mock_save_turn.return_value = {"commit_sha": "abc123", "branch": "test_branch"}
 
         # Mock generation function that returns comprehensive metadata
         def mock_generation_func(prompt, model, **kwargs):
@@ -128,7 +134,7 @@ class TestImageGenerationMetadata:
         ):
             result = process_image_generation(
                 prompt="Test prompt",
-                agent_name="test_agent",
+                branch="test_branch",
                 model="test-model",
                 provider="test",
                 generation_func=mock_generation_func,
@@ -145,7 +151,7 @@ class TestImageGenerationMetadata:
         assert isinstance(result, ImageGenerationResult)
         assert result.message == "Image Generated Successfully"
         assert result.file_size_bytes == len(b"fake_image_data")
-        assert result.agent_name == "test_agent"
+        assert result.branch == "test_branch"
         assert result.generation_timestamp == 1234567890
         assert result.enhanced_prompt == "Enhanced: Test prompt"
         assert result.original_prompt == "Test prompt"
@@ -161,11 +167,22 @@ class TestImageGenerationMetadata:
         assert result.cloud_uri == ""
         assert result.original_url == "https://api.example.com/image.png"
 
+    @patch("mcp_handley_lab.llm.shared.memory")
     @patch("mcp_handley_lab.llm.shared.calculate_cost")
-    @patch("mcp_handley_lab.llm.shared.handle_agent_memory")
-    def test_process_image_generation_minimal_metadata(self, mock_memory, mock_cost):
+    @patch("mcp_handley_lab.llm.shared._save_conversation_turn")
+    def test_process_image_generation_minimal_metadata(
+        self, mock_save_turn, mock_cost, mock_memory
+    ):
         """Test process_image_generation with minimal metadata from provider."""
         mock_cost.return_value = 0.03
+        mock_memory.normalize_branch_input.return_value = "minimal_branch"
+        mock_memory.get_project_dir.return_value = Path("/tmp/test_project")
+        mock_memory.is_locked.return_value = None
+        mock_memory.branch_exists.return_value = False
+        mock_save_turn.return_value = {
+            "commit_sha": "def456",
+            "branch": "minimal_branch",
+        }
 
         # Mock generation function with minimal metadata
         def mock_minimal_func(prompt, model, **kwargs):
@@ -184,7 +201,7 @@ class TestImageGenerationMetadata:
         ):
             result = process_image_generation(
                 prompt="Minimal test",
-                agent_name="minimal_agent",
+                branch="minimal_branch",
                 model="minimal-model",
                 provider="minimal",
                 generation_func=mock_minimal_func,
@@ -193,7 +210,7 @@ class TestImageGenerationMetadata:
 
         # Verify core fields are set
         assert result.message == "Image Generated Successfully"
-        assert result.agent_name == "minimal_agent"
+        assert result.branch == "minimal_branch"
         assert result.usage.model_used == "minimal-model"
         assert result.usage.cost == 0.03
 
@@ -213,7 +230,7 @@ class TestImageGenerationMetadata:
         with pytest.raises(ValueError, match="Prompt is required and cannot be empty"):
             process_image_generation(
                 prompt="",
-                agent_name="test",
+                branch="test",
                 model="test",
                 provider="test",
                 generation_func=mock_func,
@@ -231,7 +248,7 @@ class TestImageGenerationMetadata:
         with pytest.raises(ValueError, match="Prompt is required and cannot be empty"):
             process_image_generation(
                 prompt="   \n\t  ",
-                agent_name="test",
+                branch="test",
                 model="test",
                 provider="test",
                 generation_func=mock_func,

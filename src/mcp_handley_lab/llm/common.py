@@ -6,8 +6,6 @@ import os
 from pathlib import Path
 from string import Template
 
-from mcp_handley_lab.shared.models import ServerInfo
-
 # Enhance mimetypes with common text file types that might not be in the default database
 # This runs once when the module is imported
 
@@ -165,11 +163,6 @@ def get_gemini_safe_mime_type(file_path: Path) -> str:
     return original_mime
 
 
-def is_gemini_mime_error(error_message: str) -> bool:
-    """Check if an error message indicates an unsupported MIME type."""
-    return "Unsupported MIME type" in str(error_message)
-
-
 def is_text_file(file_path: Path) -> bool:
     """Check if file is likely a text file based on its MIME type."""
     mime_type = determine_mime_type(file_path)
@@ -180,20 +173,6 @@ def is_text_file(file_path: Path) -> bool:
 
     # Other common text-based formats categorized as 'application/*'
     return mime_type in TEXT_BASED_APPLICATION_TYPES
-
-
-def resolve_file_content(
-    file_item: str | dict[str, str],
-) -> tuple[str | None, Path | None]:
-    """Resolve file input to content string and optional path."""
-    if isinstance(file_item, str):
-        return file_item, None
-    elif isinstance(file_item, dict):
-        if "content" in file_item:
-            return file_item["content"], None
-        elif "path" in file_item:
-            return None, Path(file_item["path"])
-    return None, None
 
 
 def read_file_smart(
@@ -298,70 +277,6 @@ def resolve_files_for_llm(
         inline_content.append(content)
 
     return inline_content
-
-
-def build_server_info(
-    provider_name: str,
-    available_models: list[str],
-    storage_dir: Path,
-    agent_count: int,
-    vision_support: bool = False,
-    image_generation: bool = False,
-) -> ServerInfo:
-    """Build standardized ServerInfo object for LLM providers.
-
-    Args:
-        provider_name: Name of the LLM provider
-        available_models: List of available model names
-        storage_dir: Path to the storage directory
-        agent_count: Number of active conversation branches
-        vision_support: Whether provider supports vision
-        image_generation: Whether provider supports image generation
-    """
-    # Build capabilities list
-    capabilities = [
-        f"chat - Chat with {provider_name} models (persistent memory enabled by default)",
-        "list_models - List available models with detailed information",
-        "server_info - Get server status",
-    ]
-
-    if vision_support:
-        capabilities.insert(
-            1,
-            "analyze_image - Image analysis with vision models (persistent memory enabled by default)",
-        )
-
-    if image_generation:
-        if vision_support:
-            capabilities.insert(
-                2, f"generate_image - Generate images with {provider_name}"
-            )
-        else:
-            capabilities.insert(
-                1, f"generate_image - Generate images with {provider_name}"
-            )
-
-    # Build dependencies dict
-    dependencies = {
-        "api_key": "configured",
-        "available_models": f"{len(available_models)} models",
-        "active_agents": str(agent_count),
-        "memory_storage": str(storage_dir),
-    }
-
-    if vision_support:
-        dependencies["vision_support"] = "true"
-
-    if image_generation:
-        dependencies["image_generation"] = "true"
-
-    return ServerInfo(
-        name=f"{provider_name} Tool",
-        version="1.0.0",
-        status="active",
-        capabilities=capabilities,
-        dependencies=dependencies,
-    )
 
 
 def load_provider_models(provider: str) -> tuple[dict, str]:

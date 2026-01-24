@@ -19,7 +19,7 @@ def format_llm_response(response: dict[str, Any], max_content_length: int = 200)
     # Extract key information
     content = response.get("content", "")
     usage = response.get("usage", {})
-    agent_name = response.get("agent_name", "")
+    branch = response.get("branch", "")
     model = usage.get("model_used", "")
 
     # Format content preview
@@ -34,12 +34,12 @@ def format_llm_response(response: dict[str, Any], max_content_length: int = 200)
     # Build formatted output
     output = []
 
-    # Header with model and agent info
+    # Header with model and branch info
     header_parts = []
     if model:
         header_parts.append(f"Model: {model}")
-    if agent_name:
-        header_parts.append(f"Agent: {agent_name}")
+    if branch:
+        header_parts.append(f"Branch: {branch}")
 
     if header_parts:
         output.append("🤖 " + " | ".join(header_parts))
