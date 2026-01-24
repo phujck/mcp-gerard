@@ -16,7 +16,7 @@ interactions:
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.7.2
+      - OpenAI/Python 2.15.0
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -26,11 +26,11 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.7.2
+      - 2.15.0
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
-      - 3.13.7
+      - 3.14.2
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
@@ -40,16 +40,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA1SRXY7jIBCE3/cY/YwjfhwCnGDusFpZGLcTNhhsIDvxRrn7ytE4o30t9VddXf0A
-        P4ABd7HVTXNotFP9wE9tY/WomlZp3ihpXSMZRStOmouRAoHU/0ZXv8CDS9McsPoUgYDLaCsOYNhJ
-        Sn5s9VETmNKAAQyEYCfbiANrVN/4WKqNdWMuyTssYH4+wMcB72AogQlLsWcE84CcAoIBW4p/MylW
-        jFuGDwwhHeBJIKTznFNfwMRbCARGH325dBltSREMlJpmeP4icNuNlxvesKt+QjD0QJXSVEiuCMw5
-        TXPtarpiLGBa8S3tw5RToYTkW5a9gDcg/lffjGK0VVITqKna8O0v38o+yihrBRfs+RW36zPa65A+
-        435eWUvFqRt9PGOes3+1Mc4dY0c2tCMXDgjcu3NOy3br69MZl46yq1vHv4vUY/wsfFnWuN77s5Ir
-        ECj4et5RMap1q7b1BfMf77aaMIOBFLsBJxsHeP74BwAA//8DAMDIKBxAAgAA
+        H4sIAAAAAAAAA1SRW26rMBCG37uMeTaRAYMvKzh7OKqQMWPixtjEdnpRxN4ropKqr7/mG/2XO7gJ
+        FJizLmZZfdWzVktju8oIIStmuK7GkduK9ZJJyRppugYIxPENTfkBTyYuq8fiYgACJqEuOIGqeS8b
+        3tWME1jihB4UeK8XXbWnuhJj5UIuOpSdOUdnMIP6fwcXJvwERQksmLOeEdQdUvQICnTO7snEUDDs
+        Hv6h9/EEGwEf5zXFMYMKN+8JWBdcPg8JdY4BFOQSV9heCdyOx9cb3nAobkFQ9ESFFIJ2jSSwpris
+        ZSjxgiGDYu2vdBzTpqU9bdnu5SjgCbR/1ScjaC16JgiUWLT//d8/leO0pm3DetFsP3aHMaG+TPEj
+        HPHyVy64DNaFGdOa3KMNuw6Wd9yykY4WCHwOc4rXPetj6YTXgdYXm2ZxbqmtL/l95Pyjz1Kn6wwE
+        Mj7G6xrBJGct23YpvTuz14QJFMQwTLjoMMH28g0AAP//AwBLBysGQAIAAA==
     headers:
       CF-RAY:
-      - 9b112a9aa820d180-LHR
+      - 9c3131a6c832ef46-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -59,7 +59,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 20 Dec 2025 18:22:39 GMT
+      - Sat, 24 Jan 2026 17:19:07 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -81,15 +81,15 @@ interactions:
       x-ratelimit-limit-tokens:
       - '6000'
       x-ratelimit-remaining-requests:
-      - '14398'
+      - '14395'
       x-ratelimit-remaining-tokens:
-      - '4'
+      - '5579'
       x-ratelimit-reset-requests:
-      - 12s
+      - 30s
       x-ratelimit-reset-tokens:
-      - 59.96s
+      - 4.21s
       x-request-id:
-      - req_01kcyfzq69fnws2qqynyxbg86y
+      - req_01kfrg8h30f1ksvb77w6s9arqg
     status:
       code: 200
       message: OK
@@ -110,7 +110,7 @@ interactions:
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.7.2
+      - OpenAI/Python 2.15.0
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -120,11 +120,11 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.7.2
+      - 2.15.0
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
-      - 3.13.7
+      - 3.14.2
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
@@ -134,16 +134,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA1SR226jMBCG7/sYc20iDD6An6DvsFohY4bEjQ9gO9m2Ee++IkpS9fbXfKP/cAM7
-        gQJz0sX4xVUzm+uJSV31Xd9VTKCoNLZzxaXRjHY4UaaBQBw/0JQHeDDRLw6LjQEImIS64ASKSiEa
-        znpRE/BxQgcKnNNeV+2hrWQ9VldMWRfrcMdO0RrMoP7cwIYJP0HtHOasjwjqBik6BAU6Z5uLDmVn
-        YigYdhvv6FyEjYCLxyXFMYMKF+cIzDbYfBoS6hwDKMglLrD9JXB5/l0veMGhWI+g6gNlQkpRt4zA
-        kqJfylDiGUMGxdof6XFc17RpO16L3cqzghfQ/FafDOWUd03TEiixaPfzn7+U16loeyGbfnvYHcaE
-        +jzFf+EZL3/lgn6YbThiWpK9lzEvQ9+OfO6RCwYEPodjiuue9b51wnWo6dl8zd+r+cAz7cW4fi+U
-        JfQjBwIZ7/MxySXlXLJtl9LVmr0mTKAghmFCr8ME29t/AAAA//8DACYvxL9CAgAA
+        H4sIAAAAAAAAAwAAAP//VJHbbqMwEIbv9zHm2kQ2GAN+gr5DVVnGDMQbH4jtdNuNePcVUcm2t7/m
+        G/2HO9gJJJizLsavrmK6H1tj6oripCs+dbzqh1pURgg21LOgsxiBQBx/oylf4MlEvzosNgYgYBLq
+        ghNI1omh7lrGOwI+TuhAgnPa66o5NVVHx+odU9bFOtyxc7QGM8jXO9gw4QdISsBjznpBkHdI0SFI
+        0DnbXHQoOxNDwbDbeEHn4gk2Ai4ua4pjBhluzhGYbbD5rBLqHANIyCWusL0RuB2Prze8oSrWI0h6
+        onwYKG0IrCn6tagSLxgySP5NOk4pa6jo2nZ3cjTwBJqf6sGwljesES2BEot2//+Lp/I8FV3Ts3r7
+        8qrGhPoyxT/hyJY/c0GvZhsWTGuyjyrmVc39yBnvKNuL/VBLitc96GPphFdF2WVOS38expn5Uofc
+        X8Vn+7ftORDI+BhvaOq+YzVj2y6ld2v2jjCBhBjUhF6HCbZf/wAAAP//AwCiyJ3EQAIAAA==
     headers:
       CF-RAY:
-      - 9b112a9beede386b-LHR
+      - 9c3131a80dd1b874-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -153,7 +153,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 20 Dec 2025 18:22:40 GMT
+      - Sat, 24 Jan 2026 17:19:07 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -183,7 +183,7 @@ interactions:
       x-ratelimit-reset-tokens:
       - 220ms
       x-request-id:
-      - req_01kcyfzqcjek196bqzp14remb5
+      - req_01kfrg8h9bf1mt2ns8q6y5z584
     status:
       code: 200
       message: OK

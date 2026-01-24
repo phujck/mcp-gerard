@@ -6,7 +6,6 @@ from pathlib import Path
 from mcp_handley_lab.llm.common import (
     determine_mime_type,
     get_gemini_safe_mime_type,
-    is_gemini_mime_error,
     is_gemini_supported_mime_type,
     is_text_file,
 )
@@ -153,29 +152,6 @@ class TestGeminiSafeMimeType:
             path = Path(f.name)
             # Should remain as application/octet-stream (let Gemini handle rejection)
             assert get_gemini_safe_mime_type(path) == "application/octet-stream"
-
-
-class TestGeminiErrorDetection:
-    """Test Gemini error message detection."""
-
-    def test_mime_error_detection(self):
-        """Test detection of MIME type error messages."""
-        error_msg1 = "400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'Unsupported MIME type: application/x-tex', 'status': 'INVALID_ARGUMENT'}}"
-        assert is_gemini_mime_error(error_msg1) is True
-
-        error_msg2 = "Unsupported MIME type: text/x-patch"
-        assert is_gemini_mime_error(error_msg2) is True
-
-    def test_non_mime_error_detection(self):
-        """Test that non-MIME errors are not detected as MIME errors."""
-        error_msg1 = "The input token count (1786223) exceeds the maximum number of tokens allowed"
-        assert is_gemini_mime_error(error_msg1) is False
-
-        error_msg2 = "Authentication failed"
-        assert is_gemini_mime_error(error_msg2) is False
-
-        error_msg3 = "File not found"
-        assert is_gemini_mime_error(error_msg3) is False
 
 
 class TestExtensionToMimeMappings:

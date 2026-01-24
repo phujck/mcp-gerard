@@ -262,23 +262,27 @@ For advanced workflows, you can use the `llm` module directly from Python withou
 ```python
 from mcp_handley_lab import llm
 
-# Simple query
-result = llm.query("What is 2+2?")
-print(result.text)  # "The answer is 4."
+# Stateless query (branch="" disables memory)
+result = llm.chat("What is 2+2?", branch="")
+print(result.content)  # "The answer is 4."
+
+# With conversation memory (default branch="session")
+result = llm.chat("What is 2+2?")
+result = llm.chat("Double that")  # Knows context, returns 8
 
 # With different provider
-result = llm.query("Hello", model="openai")
+result = llm.chat("Hello", model="openai", branch="")
 
 # With provider-specific options
-result = llm.query("Search for Python tutorials", model="gemini", options={"grounding": True})
+result = llm.chat("Search for Python tutorials", model="gemini", branch="", options={"grounding": True})
 
 # Access token usage
-print(f"Input: {result.input_tokens}, Output: {result.output_tokens}")
+print(f"Input: {result.usage.input_tokens}, Output: {result.usage.output_tokens}")
 ```
 
 ### Recursive LLM Pattern for Large Documents
 
-For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2502.07413). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
+For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2512.24601). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
 
 ```python
 # In a Python REPL session (mcp__repl__session)
@@ -294,17 +298,17 @@ with open(context_path, 'rb') as f:
     offset = 0
     while chunk := f.read(chunk_size):
         text = chunk.decode('utf-8', errors='replace')
-        result = llm.query(f'''Extract key facts from this chunk.
+        result = llm.chat(f'''Extract key facts from this chunk.
 <document_chunk offset="{offset}">
 {text}
-</document_chunk>''')
-        results.append({"offset": offset, "summary": result.text})
+</document_chunk>''', branch="")  # Stateless sub-calls
+        results.append({"offset": offset, "summary": result.content})
         offset += len(chunk)
 
 # Aggregate results
 summaries = "\n".join(f"[{r['offset']}]: {r['summary']}" for r in results)
-final = llm.query(f"Synthesize these summaries:\n{summaries}")
-print(final.text)
+final = llm.chat(f"Synthesize these summaries:\n{summaries}", branch="")
+print(final.content)
 ```
 
 The `/recursive-llm` skill (in `.claude/skills/recursive-llm/SKILL.md`) provides detailed guidance on when and how to use this pattern.

@@ -1,5 +1,5 @@
 """LLM utilities for direct use (no MCP required)."""
 
-from mcp_handley_lab.llm.query import QueryResult, query
+from mcp_handley_lab.llm.query import chat, conversation
 
-__all__ = ["query", "QueryResult"]
+__all__ = ["chat", "conversation"]

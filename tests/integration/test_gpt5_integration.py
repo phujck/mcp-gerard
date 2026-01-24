@@ -24,11 +24,11 @@ class TestGPT5Integration:
 
         # GPT-5 doesn't support temperature parameter
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is 3+3? Answer with just the number.",
                 "output_file": "-",
-                "agent_name": "false",
+                "branch": "false",
                 "model": "gpt-5",
                 "files": [],
                 "system_prompt": "",
@@ -48,11 +48,11 @@ class TestGPT5Integration:
 
         # GPT-5-mini doesn't support temperature parameter
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is 2+2? Answer with just the number.",
                 "output_file": "-",
-                "agent_name": "false",
+                "branch": "false",
                 "model": "gpt-5-mini",
                 "files": [],
                 "system_prompt": "",
@@ -71,11 +71,11 @@ class TestGPT5Integration:
 
         # GPT-5-nano doesn't support temperature parameter
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is 1+1? Answer with just the number.",
                 "output_file": "-",
-                "agent_name": "false",
+                "branch": "false",
                 "model": "gpt-5-nano",
                 "files": [],
                 "system_prompt": "",
@@ -97,11 +97,11 @@ class TestGPT5Integration:
 
         # GPT-5-nano doesn't support temperature parameter
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": f"Count how many words are in this text: {long_text}",
                 "output_file": "-",
-                "agent_name": "false",
+                "branch": "false",
                 "model": "gpt-5-nano",
                 "files": [],
                 "system_prompt": "",
@@ -123,11 +123,11 @@ class TestGPT5Integration:
         # MCP wraps exceptions in ToolError, so we need to catch that
         try:
             _, response = await mcp.call_tool(
-                "ask",
+                "chat",
                 {
                     "prompt": "Say hello",
                     "output_file": "-",
-                    "agent_name": "false",
+                    "branch": "false",
                     "model": "gpt-5-nano",
                     "temperature": 0.1,  # Should fail
                     "files": [],
@@ -147,11 +147,11 @@ class TestGPT5Integration:
 
         # GPT-5-nano works without temperature parameter
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "Say hello",
                 "output_file": "-",
-                "agent_name": "false",
+                "branch": "false",
                 "model": "gpt-5-nano",
                 "files": [],
                 "system_prompt": "",

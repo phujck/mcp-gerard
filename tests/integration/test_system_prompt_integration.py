@@ -1,8 +1,6 @@
 """Integration tests for system_prompt functionality across all LLM providers."""
 
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -114,7 +112,7 @@ class TestSystemPromptBasic:
         base_params = {
             "prompt": "What is 2+2?",
             "output_file": "/tmp/test_system_prompt.txt",
-            "agent_name": "test_system_prompt_param",
+            "branch": "test_system_prompt_param",
             "model": model,
             "system_prompt": "You are a helpful math tutor. Always explain your reasoning.",
             "files": [],
@@ -141,7 +139,7 @@ class TestSystemPromptBasic:
                 }
             )
 
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         assert "error" not in response, response.get("error")
 
         assert response["content"] is not None
@@ -162,7 +160,7 @@ class TestSystemPromptBasic:
         base_params = {
             "prompt": "What do you see in this image?",
             "output_file": "/tmp/test_image_system_prompt.txt",
-            "agent_name": "test_image_system_prompt",
+            "branch": "test_image_system_prompt",
             "model": model,
             "images": [str(sample_image_path)],
             "system_prompt": "You are a professional art critic. Provide detailed, sophisticated analysis.",
@@ -194,7 +192,7 @@ class TestSystemPromptPersistence:
             base_params = {
                 "prompt": prompt,
                 "output_file": output_file,
-                "agent_name": agent_name,
+                "branch": agent_name,
                 "model": model,
                 "files": [],
             }
@@ -229,7 +227,7 @@ class TestSystemPromptPersistence:
             "/tmp/test_persistence1.txt",
             "You are a concise math expert. Give only the answer and one short explanation.",
         )
-        _, response1 = await mcp.call_tool("ask", params1)
+        _, response1 = await mcp.call_tool("chat", params1)
         assert "error" not in response1, response1.get("error")
 
         assert response1["content"] is not None
@@ -241,7 +239,7 @@ class TestSystemPromptPersistence:
             "/tmp/test_persistence2.txt",
             None,  # No system prompt - should use remembered one
         )
-        _, response2 = await mcp.call_tool("ask", params2)
+        _, response2 = await mcp.call_tool("chat", params2)
         assert "error" not in response2, response2.get("error")
 
         assert response2["content"] is not None
@@ -264,7 +262,7 @@ class TestSystemPromptPersistence:
             base_params = {
                 "prompt": prompt,
                 "output_file": output_file,
-                "agent_name": agent_name,
+                "branch": agent_name,
                 "model": model,
                 "files": [],
             }
@@ -299,7 +297,7 @@ class TestSystemPromptPersistence:
             "/tmp/test_update1.txt",
             "You are a verbose math teacher. Explain everything in great detail with examples.",
         )
-        _, response1 = await mcp.call_tool("ask", params1)
+        _, response1 = await mcp.call_tool("chat", params1)
         assert "error" not in response1, response1.get("error")
         assert response1["content"] is not None
         content1 = response1["content"]
@@ -310,7 +308,7 @@ class TestSystemPromptPersistence:
             "/tmp/test_update2.txt",
             "You are brief. Give only the answer.",
         )
-        _, response2 = await mcp.call_tool("ask", params2)
+        _, response2 = await mcp.call_tool("chat", params2)
         assert "error" not in response2, response2.get("error")
         assert response2["content"] is not None
         content2 = response2["content"]
@@ -321,7 +319,7 @@ class TestSystemPromptPersistence:
             "/tmp/test_update3.txt",
             None,  # No system prompt
         )
-        _, response3 = await mcp.call_tool("ask", params3)
+        _, response3 = await mcp.call_tool("chat", params3)
         assert "error" not in response3, response3.get("error")
         assert response3["content"] is not None
         content3 = response3["content"]
@@ -341,7 +339,7 @@ class TestSystemPromptPersistence:
             base_params = {
                 "prompt": prompt,
                 "output_file": output_file,
-                "agent_name": agent_name,
+                "branch": agent_name,
                 "model": model,
                 "files": [],
             }
@@ -377,7 +375,7 @@ class TestSystemPromptPersistence:
             f"formal_agent_{model.replace('-', '_')}",
             "You are a formal mathematics professor. Use proper mathematical terminology.",
         )
-        _, response1 = await mcp.call_tool("ask", params1)
+        _, response1 = await mcp.call_tool("chat", params1)
         assert "error" not in response1, response1.get("error")
         assert response1["content"] is not None
         content1 = response1["content"]
@@ -389,7 +387,7 @@ class TestSystemPromptPersistence:
             f"casual_agent_{model.replace('-', '_')}",
             "You are a friendly buddy. Be casual and use simple words.",
         )
-        _, response2 = await mcp.call_tool("ask", params2)
+        _, response2 = await mcp.call_tool("chat", params2)
         assert "error" not in response2, response2.get("error")
         assert response2["content"] is not None
         content2 = response2["content"]
@@ -399,50 +397,6 @@ class TestSystemPromptPersistence:
         assert "10" in content2 or "ten" in content2.lower()
         # Responses should be different due to different system prompts
         assert content1 != content2
-
-
-class TestSystemPromptMemoryIntegration:
-    """Test integration between system prompts and agent memory."""
-
-    def test_agent_creation_with_system_prompt(self):
-        """Test that agents are created with system prompts in memory."""
-        from mcp_handley_lab.llm.memory import GlobalMemoryManager
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create fresh memory manager with temp directory
-            mgr = GlobalMemoryManager(cwd=Path(temp_dir))
-
-            # Create agent with system prompt
-            agent = mgr.create_agent("test_agent", "You are helpful")
-
-            assert agent.system_prompt == "You are helpful"
-            assert mgr.get_agent("test_agent").system_prompt == "You are helpful"
-
-            # Check file persistence
-            agent_file = mgr._agents_dir / "test_agent.jsonl"
-            assert agent_file.exists()
-
-    def test_system_prompt_update_in_memory(self):
-        """Test that system prompt updates are persisted in memory."""
-        from mcp_handley_lab.llm.memory import GlobalMemoryManager
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Create fresh memory manager with temp directory
-            mgr = GlobalMemoryManager(cwd=Path(temp_dir))
-
-            # Create agent
-            agent = mgr.create_agent("test_agent", "Original prompt")
-            assert agent.system_prompt == "Original prompt"
-
-            # Update system prompt (AgentMemory auto-saves on property set)
-            agent.system_prompt = "Updated prompt"
-
-            # Create new manager to test persistence
-            mgr2 = GlobalMemoryManager(cwd=Path(temp_dir))
-            reloaded_agent = mgr2.get_agent("test_agent")
-
-            assert reloaded_agent is not None
-            assert reloaded_agent.system_prompt == "Updated prompt"
 
 
 class TestSystemPromptEdgeCases:
@@ -458,7 +412,7 @@ class TestSystemPromptEdgeCases:
         base_params = {
             "prompt": "What is 9+1?",
             "output_file": "/tmp/test_empty_prompt.txt",
-            "agent_name": f"empty_prompt_agent_{model.replace('-', '_')}",
+            "branch": f"empty_prompt_agent_{model.replace('-', '_')}",
             "model": model,
             "system_prompt": "",  # Empty string
             "files": [],
@@ -485,7 +439,7 @@ class TestSystemPromptEdgeCases:
                 }
             )
 
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         assert "error" not in response, response.get("error")
         assert response["content"] is not None
 
@@ -499,7 +453,7 @@ class TestSystemPromptEdgeCases:
         base_params = {
             "prompt": "What is 1+9?",
             "output_file": "/tmp/test_none_prompt.txt",
-            "agent_name": f"none_prompt_agent_{model.replace('-', '_')}",
+            "branch": f"none_prompt_agent_{model.replace('-', '_')}",
             "model": model,
             "files": [],
         }
@@ -525,7 +479,7 @@ class TestSystemPromptEdgeCases:
                 }
             )
 
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         assert "error" not in response, response.get("error")
         assert response["content"] is not None
 
@@ -540,7 +494,7 @@ class TestSystemPromptEdgeCases:
         base_params = {
             "prompt": "What is 6+4?",
             "output_file": "/tmp/test_long_prompt.txt",
-            "agent_name": f"long_prompt_agent_{model.replace('-', '_')}",
+            "branch": f"long_prompt_agent_{model.replace('-', '_')}",
             "model": model,
             "system_prompt": long_prompt,
             "files": [],
@@ -567,7 +521,7 @@ class TestSystemPromptEdgeCases:
                 }
             )
 
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         assert "error" not in response, response.get("error")
         assert response["content"] is not None
 
@@ -584,7 +538,7 @@ class TestSystemPromptEdgeCases:
         base_params = {
             "prompt": "What is 3+7?",
             "output_file": "/tmp/test_special_prompt.txt",
-            "agent_name": f"special_prompt_agent_{model.replace('-', '_')}",
+            "branch": f"special_prompt_agent_{model.replace('-', '_')}",
             "model": model,
             "system_prompt": special_prompt,
             "files": [],
@@ -611,6 +565,6 @@ class TestSystemPromptEdgeCases:
                 }
             )
 
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         assert "error" not in response, response.get("error")
         assert response["content"] is not None

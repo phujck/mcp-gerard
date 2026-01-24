@@ -4,7 +4,7 @@ import inspect
 
 import pytest
 
-from mcp_handley_lab.llm.chat.tool import analyze_image, ask
+from mcp_handley_lab.llm.chat.tool import analyze_image, chat
 from mcp_handley_lab.llm.common import load_prompt_text
 from mcp_handley_lab.llm.registry import PROVIDERS, get_default_model, resolve_model
 
@@ -116,15 +116,15 @@ class TestProviderAliasResolution:
 class TestUnifiedChatParameterConsistency:
     """Test that the unified chat tool has consistent parameters."""
 
-    def test_ask_has_required_parameters(self):
-        """Test that ask() has all required parameters."""
-        sig = inspect.signature(ask)
+    def test_chat_has_required_parameters(self):
+        """Test that chat() has all required parameters."""
+        sig = inspect.signature(chat)
         required_params = {
             "prompt",
             "prompt_file",
             "prompt_vars",
             "output_file",
-            "agent_name",
+            "branch",
             "model",
             "temperature",
             "files",
@@ -147,7 +147,7 @@ class TestUnifiedChatParameterConsistency:
             "output_file",
             "model",
             "focus",
-            "agent_name",
+            "branch",
         }
 
         actual_params = set(sig.parameters.keys())

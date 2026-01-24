@@ -44,7 +44,7 @@ def generate(
         description="Image model. Provider auto-detected from name.",
     ),
     input_images: list[str] = Field(
-        default=[],
+        default_factory=list,
         description="Input images for editing (Nano Banana models only). "
         "Provide images to edit/transform based on the prompt. "
         "Accepts: local paths, URLs, or data URIs.",

@@ -1,8 +1,8 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": "What number is mentioned in
-      the file?\n\n[File: tmpdj8fx7gw.txt]\nTest document content: The answer is 42"}],
-      "model": "llama-3.1-8b-instant", "max_tokens": 131072, "temperature": 1.0}'
+    body: '{"messages": [{"role": "user", "content": "What is 2+2? Answer with just
+      the number."}], "model": "llama-3.1-8b-instant", "max_tokens": 131072, "temperature":
+      1.0}'
     headers:
       Accept:
       - application/json
@@ -11,13 +11,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '217'
+      - '153'
       Content-Type:
       - application/json
       Host:
       - api.groq.com
       User-Agent:
-      - OpenAI/Python 2.7.2
+      - OpenAI/Python 2.15.0
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -27,11 +27,11 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 2.7.2
+      - 2.15.0
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
-      - 3.13.7
+      - 3.14.2
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
@@ -41,17 +41,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA1SSzY6cMBCE73kK1Gczwtj82M+RWxQhY5oZB/+AbZLZHc27R2yWWeVaqk9dXd0P
-        MBNI0DeVtVttyVRfd1rxEkVHS143rBw71ZV1N4t+nKkWnAOBMP5CnT/Biw5utZhN8EBAR1QZJ5C0
-        a9u64YJ1BFyY0IIEa5VTJbvQsh9L41NWPh/MLRiNCeSPBxg/4R1kRcBhSuqKIB8Qg0WQoFIyLyb4
-        jP7I8P2Ghd/diLFw6I8YOBXGF/mGxWwsFiYVvL7Ak4AN1zWGMYH0u7UEZuNNug0RVQoeJKQcVnj+
-        JLCfk7cddxyycQiyulS9aFjV1JTAGoNb85DDgj6BbNmXdJor3rGubZsj7NnQC6D0f/kFib5qa8EJ
-        5JCVffm7L+W0Ut5wJhrx/Mw7jBHVMoU//twvvaWMbpiNv2Jco/noa14HShs68blmGgjch2sM27Hs
-        xy9E3IaKLvptfqdczMuoNrXe+X15H5eNAoGE/87bs0owKtrnIcXfRh89YQQJwQ8TOuUneH77CwAA
-        //8DAMQ1xfhiAgAA
+        H4sIAAAAAAAAA1yRwY7jIBBE7/sZfcaRjQlgfmW1QhjaDhMMDpBJRpH/feXRxCvttVSvVdX1Au9A
+        gb2Yapc1NFRaNAKHZhq5a5ijsjGMnRvTWzaKzg7OWCCQxg+09Qc82bSsAatPEQjYjKaiA9UJPlBx
+        7hgnsCSHARSEYBbT9KeukWPjY6km1p25JG+xgPr9Ah8dPkG1BBYsxcwI6gU5BQQFphR/MClWjHsG
+        BhuBkOY1p7GAivcQCEw++nLRGU1JERSUmlbY/hC4v2/e7nhHXf2CoNpTK4eO9ueWE1hzWtaqa7pi
+        LKCY/Ce9zS3lgraS7jHe3Q/gP/VgesG5kARqqiYc7nN7KIeTs15KTreftHrMaK4uPeK7XfkqFRc9
+        +ThjXrP//sO0atZL4Xp04wgEnnrO6bZX/d4440233XXKs5wpxyfLn4O7fTzzgz6+GBAouM/WMyoH
+        wWi/7Ur+9HZ/EmZQkKJ2uJjoYPv1FwAA//8DAEKPaYU5AgAA
     headers:
       CF-RAY:
-      - 9b112a0d5f767779-LHR
+      - 9c3131a04f34fc2b-LHR
       Cache-Control:
       - private, max-age=0, no-store, no-cache, must-revalidate
       Connection:
@@ -61,9 +60,13 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 20 Dec 2025 18:22:17 GMT
+      - Sat, 24 Jan 2026 17:19:06 GMT
       Server:
       - cloudflare
+      Set-Cookie:
+      - __cf_bm=J0SQujjH_lAEGpU.2rj8N.fVTHnVzkm6AtM.UvJqKww-1769275146-1.0.1.1-W9eYaX0bzNOTfrBtUzGbxesdST67YBexHadH1KoNEf_Ff_f08_O6dxMA3qSoY1wiGseKLzQ.oNumV8SNnYntShAMzklqwP.nMBLdJccNcQY;
+        path=/; expires=Sat, 24-Jan-26 17:49:06 GMT; domain=.groq.com; HttpOnly; Secure;
+        SameSite=None
       Strict-Transport-Security:
       - max-age=15552000
       Transfer-Encoding:
@@ -83,15 +86,15 @@ interactions:
       x-ratelimit-limit-tokens:
       - '6000'
       x-ratelimit-remaining-requests:
-      - '14398'
+      - '14399'
       x-ratelimit-remaining-tokens:
-      - '5907'
+      - '5951'
       x-ratelimit-reset-requests:
-      - 12s
+      - 6s
       x-ratelimit-reset-tokens:
-      - 929ms
+      - 489ms
       x-request-id:
-      - req_01kcyfz149fkbaqapx4xkzbkq1
+      - req_01kfrg8g26ex4rv9dqjxrw2wy4
     status:
       code: 200
       message: OK

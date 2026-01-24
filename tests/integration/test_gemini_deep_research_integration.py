@@ -25,18 +25,18 @@ class TestGeminiDeepResearch:
         skip_if_no_gemini_key()
 
         _, result = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is the capital of France?",
                 "model": "gemini-deep-research",
-                "agent_name": "test-deep-research",
+                "branch": "test-deep-research",
             },
         )
 
         assert "content" in result
         assert "Paris" in result["content"]
         assert "usage" in result
-        assert result["agent_name"] == "test-deep-research"
+        assert result["branch"] == "test-deep-research"
 
     @pytest.mark.asyncio
     async def test_deep_research_with_grounding(self):
@@ -44,11 +44,11 @@ class TestGeminiDeepResearch:
         skip_if_no_gemini_key()
 
         _, result = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What are the latest developments in fusion energy research in 2025?",
                 "model": "gemini-deep-research",
-                "agent_name": "test-deep-research-grounding",
+                "branch": "test-deep-research-grounding",
             },
         )
 

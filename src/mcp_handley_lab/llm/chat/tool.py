@@ -1,7 +1,7 @@
 """Unified Chat Tool for AI interactions via MCP.
 
 Provides a single entry point for multiple LLM providers (Gemini, OpenAI, Claude,
-Mistral, Grok, Groq) with model-based provider inference.
+Mistral, Grok, Groq) with model-based provider inference and Git-backed memory.
 """
 
 from typing import Any
@@ -9,7 +9,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from mcp_handley_lab.llm.memory import get_memory_manager
+from mcp_handley_lab.llm import memory
 from mcp_handley_lab.llm.registry import (
     get_adapter,
     resolve_model,
@@ -25,9 +25,9 @@ mcp = FastMCP("Chat Tool")
     description="Send a message to an LLM. Provider is auto-detected from model name. "
     "Supports Gemini, OpenAI, Claude, Mistral, Grok, and Groq. "
     "Use provider names for latest defaults (e.g., model='gemini'). "
-    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, agent_name}."
+    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch}."
 )
-def ask(
+def chat(
     prompt: str | None = Field(
         default=None,
         description="The message to send to the LLM.",
@@ -44,13 +44,13 @@ def ask(
         default="",
         description="File path to save the response. Empty string means no file output. "
         "Responses are always stored in memory (~/.mcp-handley-lab/) and can be "
-        "retrieved via get_response().",
+        "retrieved via conversation(action='response').",
     ),
-    agent_name: str = Field(
+    branch: str = Field(
         default="session",
-        description="Conversation thread name. 'session' uses a shared auto-generated ID "
-        "(WARNING: collides across sub-agents). Use unique names for isolated conversations, "
-        "'false' to disable memory.",
+        description="Conversation branch name. 'session' uses a shared auto-generated ID "
+        "(WARNING: collides across concurrent processes). Use unique names for isolated "
+        "conversations, 'false' to disable memory.",
     ),
     model: str = Field(
         default="gemini",
@@ -85,6 +85,11 @@ def ask(
         description="Provider-specific options. Use mcp-models list_models() to discover. "
         "Examples: grounding (Gemini), reasoning_effort (OpenAI), enable_thinking (Claude).",
     ),
+    from_ref: str | None = Field(
+        default=None,
+        description="Fork from this ref when creating a new conversation branch. "
+        "Use commit_sha from a previous response to fork from that point.",
+    ),
 ) -> LLMResult:
     """Send a message to an LLM with automatic provider detection."""
     provider, canonical_model, model_config = resolve_model(model)
@@ -99,11 +104,12 @@ def ask(
         prompt_file=prompt_file,
         prompt_vars=prompt_vars,
         output_file=output_file,
-        agent_name=agent_name,
+        branch=branch,
         model=canonical_model,
         provider=provider,
         generation_func=generation_func,
         mcp_instance=mcp,
+        from_ref=from_ref,
         temperature=temperature,
         files=files,
         system_prompt=system_prompt,
@@ -116,7 +122,7 @@ def ask(
 @mcp.tool(
     description="Analyze images with vision-capable LLMs. Provider auto-detected from model. "
     "Supports Gemini, OpenAI, Claude, Mistral, and Grok vision models. "
-    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, agent_name}."
+    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch}."
 )
 def analyze_image(
     prompt: str = Field(
@@ -131,7 +137,7 @@ def analyze_image(
     output_file: str = Field(
         default="",
         description="File path to save analysis. Empty string means no file output. "
-        "Responses stored in memory and retrievable via get_response().",
+        "Responses stored in memory and retrievable via conversation(action='response').",
     ),
     model: str = Field(
         default="gemini",
@@ -142,9 +148,9 @@ def analyze_image(
         default="general",
         description="Analysis focus (e.g., 'ocr', 'objects', 'general').",
     ),
-    agent_name: str = Field(
+    branch: str = Field(
         default="session",
-        description="Conversation thread name. 'session' uses a shared auto-generated ID "
+        description="Conversation branch name. 'session' uses a shared auto-generated ID "
         "(WARNING: collides across sub-agents). Use unique names for isolated conversations.",
     ),
     system_prompt: str | None = Field(
@@ -165,7 +171,7 @@ def analyze_image(
     return process_llm_request(
         prompt=prompt,
         output_file=output_file,
-        agent_name=agent_name,
+        branch=branch,
         model=canonical_model,
         provider=provider,
         generation_func=analysis_func,
@@ -178,99 +184,90 @@ def analyze_image(
 
 
 @mcp.tool(
-    description="Retrieve a past assistant response from an agent's conversation history. "
-    "Only returns assistant messages (LLM responses), not user messages. "
-    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, agent_name, ...metadata}."
+    description="Manage conversation branches. Actions: "
+    "'list' (all branches), 'log' (history with hashes), 'show' (content at ref), "
+    "'response' (get assistant message by index), "
+    "'edit' (start editing session with worktree), 'done' (end editing session)."
 )
-def get_response(
-    agent_name: str = Field(
+def conversation(
+    action: str = Field(
         ...,
-        description="The agent name to retrieve the response from. "
-        "Use 'session' with provider param to get current session's responses.",
+        description="Action to perform: 'list', 'log', 'show', 'response', 'edit', 'done'.",
+    ),
+    branch: str = Field(
+        default="",
+        description="Target branch for log/show/response actions.",
+    ),
+    ref: str = Field(
+        default="",
+        description="Specific commit ref for show action. If provided, takes precedence over branch.",
     ),
     index: int = Field(
         default=-1,
-        description="Response index among assistant messages only. "
-        "Use -1 for last response, -2 for second-to-last, 0 for first, etc.",
+        description="For response action: assistant message index (-1=last, -2=second-to-last, 0=first).",
     ),
-    provider: str = Field(
-        default="",
-        description="Provider name (gemini, openai, etc.) to resolve 'session' agent name. "
-        "Required when agent_name is 'session'.",
+    limit: int = Field(
+        default=20,
+        description="For log action: maximum number of entries to return.",
     ),
-    output_file: str = Field(
-        default="",
-        description="File path to save response content. Empty string means no file output.",
+    force: bool = Field(
+        default=False,
+        description="For done action: force removal even if lock not held by this process.",
     ),
 ) -> dict[str, Any]:
-    """Retrieve an assistant response from an agent's conversation history.
+    """Git interface for conversation management.
 
-    Returns the full message dict including content and usage metadata.
-    Raises ValueError if agent not found, IndexError if no assistant responses or out of range.
+    Actions:
+    - list: List all conversation branches with stats (message count, latest timestamp)
+    - log: Get commit history for a branch with hashes for progressive disclosure
+    - show: Get full JSONL content at branch tip or specific ref
+    - response: Get assistant message by index (returns content, usage, metadata)
+    - edit: Start editing session (creates lock + worktree for Git operations)
+    - done: End editing session (removes worktree + lock)
     """
-    from pathlib import Path
+    project_dir = memory.get_project_dir()
 
-    from mcp_handley_lab.llm.common import get_session_id
+    if action == "list":
+        branches = memory.list_branches(project_dir)
+        return {"branches": branches}
 
-    actual_agent_name = agent_name
-    if agent_name == "session":
-        if not provider:
+    elif action == "log":
+        if not branch:
+            raise ValueError("branch parameter is required for 'log' action")
+        log_entries = memory.get_log(project_dir, branch, limit)
+        return {"branch": branch, "entries": log_entries}
+
+    elif action == "show":
+        if not ref and not branch:
             raise ValueError(
-                "provider parameter is required when agent_name is 'session'"
+                "Either 'ref' or 'branch' must be specified for 'show' action"
             )
-        actual_agent_name = get_session_id(mcp, provider)
 
-    memory_manager = get_memory_manager()
-    response = memory_manager.get_response(actual_agent_name, index)
+        if ref:
+            content, resolved_sha = memory.read_ref(project_dir, ref)
+            return {"content": content, "ref": resolved_sha}
+        else:
+            # Check branch exists before reading
+            sha = memory.get_branch_sha(project_dir, branch)
+            if sha is None:
+                raise ValueError(f"Branch '{branch}' not found")
+            content = memory.read_branch(project_dir, branch)
+            return {"content": content, "ref": sha, "branch": branch}
 
-    if output_file:
-        Path(output_file).write_text(response["content"])
+    elif action == "response":
+        if not branch:
+            raise ValueError("branch parameter is required for 'response' action")
+        return memory.get_response(project_dir, branch, index)
 
-    return response
+    elif action == "edit":
+        # start_edit returns {"path": str} dict directly
+        return memory.start_edit(project_dir)
 
+    elif action == "done":
+        memory.end_edit(project_dir, force=force)
+        return {"status": "success", "message": "Edit session ended"}
 
-@mcp.tool(
-    description="Review conversation histories in JSON format. "
-    "Shows user questions in full and abbreviated assistant responses. "
-    "Returns: {project, agents: [{name, stats, messages: [{role, content, timestamp, response_index?}]}]}."
-)
-def review_conversations(
-    agent_name: str = Field(
-        default="",
-        description="Filter to specific agent. Empty for all agents.",
-    ),
-    output_file: str = Field(
-        default="",
-        description="File path to save review. Empty string means no file output.",
-    ),
-    max_response_chars: int = Field(
-        default=200,
-        description="Max characters per assistant response (truncated with ...).",
-    ),
-) -> dict[str, Any]:
-    """Review all agents' conversation histories with truncated assistant responses.
-
-    Returns JSON with agent stats, system prompts, and messages.
-    Assistant responses show response_index for use with get_response().
-    """
-    import json
-    from pathlib import Path
-
-    memory_manager = get_memory_manager()
-    agents = memory_manager.list_agents()
-
-    # Filter to specific agent if requested
-    if agent_name:
-        agents = [a for a in agents if a.name == agent_name]
-        if not agents:
-            raise ValueError(f"Agent '{agent_name}' not found")
-
-    result = {
-        "project": str(memory_manager.cwd),
-        "agents": [a.get_conversation_summary(max_response_chars) for a in agents],
-    }
-
-    if output_file:
-        Path(output_file).write_text(json.dumps(result, indent=2))
-
-    return result
+    else:
+        raise ValueError(
+            f"Unknown action: {action}. Valid actions: list, log, show, response, edit, done"
+        )

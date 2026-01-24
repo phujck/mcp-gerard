@@ -6,7 +6,6 @@ These adapters are used by the unified mcp-chat tool.
 
 import base64
 import io
-import os
 import threading
 import time
 from pathlib import Path
@@ -61,10 +60,6 @@ def reset_client() -> None:
     global _client
     with _client_lock:
         _client = None
-
-
-# Generate session ID once at module load time
-_SESSION_ID = f"_session_{os.getpid()}_{int(time.time())}"
 
 
 # Load model configurations using shared loader
@@ -571,7 +566,6 @@ def deep_research_adapter(
     Uses the separate Interactions API endpoint for autonomous web research.
     Supports long-running tasks with background polling.
     """
-    import time
 
     import httpx
 
