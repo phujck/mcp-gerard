@@ -5,6 +5,12 @@
       "command": "mcp-google-calendar",
       "args": [],
       "env": {}
+    },
+    "mathematica": {
+      "type": "stdio",
+      "command": "mcp-mathematica",
+      "args": [],
+      "env": {}
     }
   }
 }
