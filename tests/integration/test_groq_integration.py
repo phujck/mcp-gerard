@@ -18,7 +18,7 @@ def test_output_file():
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_groq_ask_simple(test_output_file):
+async def test_groq_chat_simple(test_output_file):
     """Test basic text generation with Groq."""
     _, response = await mcp.call_tool(
         "chat",
@@ -41,7 +41,7 @@ async def test_groq_ask_simple(test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_groq_ask_with_files(test_output_file):
+async def test_groq_chat_with_files(test_output_file):
     """Test text generation with file input."""
     with tempfile.NamedTemporaryFile(
         mode="w", delete=False, suffix=".txt"
@@ -74,7 +74,7 @@ async def test_groq_ask_with_files(test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_groq_ask_with_memory(test_output_file):
+async def test_groq_chat_with_memory(test_output_file):
     """Test conversation memory with agent_name."""
     # First message
     _, response1 = await mcp.call_tool(
@@ -107,7 +107,7 @@ async def test_groq_ask_with_memory(test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_groq_ask_different_models(test_output_file):
+async def test_groq_chat_different_models(test_output_file):
     """Test with different Groq models."""
     models_to_test = [
         "llama-3.1-8b-instant",

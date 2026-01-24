@@ -94,7 +94,7 @@ def create_test_image(tmp_path):
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
-async def test_llm_ask_basic(
+async def test_llm_chat_basic(
     skip_if_no_api_key,
     test_output_file,
     provider,
@@ -150,7 +150,7 @@ async def test_llm_ask_basic(
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider, api_key, model, question, answer", llm_providers)
-async def test_llm_ask_with_files(
+async def test_llm_chat_with_files(
     skip_if_no_api_key,
     test_output_file,
     tmp_path,

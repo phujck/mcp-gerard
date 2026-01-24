@@ -17,7 +17,7 @@ interactions:
       Host:
       - api.anthropic.com
       User-Agent:
-      - Anthropic/Python 0.74.0
+      - Anthropic/Python 0.76.0
       X-Stainless-Arch:
       - x64
       X-Stainless-Async:
@@ -27,11 +27,11 @@ interactions:
       X-Stainless-OS:
       - Linux
       X-Stainless-Package-Version:
-      - 0.74.0
+      - 0.76.0
       X-Stainless-Runtime:
       - CPython
       X-Stainless-Runtime-Version:
-      - 3.13.7
+      - 3.14.2
       anthropic-version:
       - '2023-06-01'
       x-stainless-read-timeout:
@@ -45,17 +45,16 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAA/3WSb2vbMBDGv4rQm0Gwg501bPO7vesGgw4Gg87DaNY1FpVPnu7UpAv57js5zv60
-        FAwS9/zu8XOSjnoMFrxudO9NslAOxt2n8qrclptqs62rqtaFdlaAkXZdVd+Et7f9zfR5e02f3u1v
-        Px7c1a+9FYYfJ8gUEJkdSCEGnwuGyBEbZCn1ARlk13w7XniGQ1bmpdFfBkfqznlQGTUOqWmxxXqt
-        VqtWX4P3QX0N0dtWr1aqVO8VuXESfBcB2OFOBVQ8gHhEYuUdQoubc/fsLZ9RDKLlv6z/2FigPrqJ
-        3QOoZYSLFYFksYtXix/4Vfb4Ycj1Ksc+5907HhTvw8yRCndq8pL/TCxzF7IZx4D+USUCq0w2WgaA
-        g5nXEM/xbOjTKD1rffpeaOIwdREMBZRTArQdp4h6EQh+JsBejhOT94VO8w00R+1wStxxuAck3byu
-        5QZMP0DXixW7gN3/QHXRRbYvaZfe7A/TACNE47vt+Jz/q9bDU/VU6JD439Ib6SCID66Hjh1EmTM/
-        G2ui1afTb7uxJrKoAgAA
+        H4sIAAAAAAAA/3WR7UvDMBDG/5VwfhDGNtrpfOlXYSjqQCaIWmlDe65h6aVrLk4Z+99NNqfzDQpp
+        nt9zz3GXJdSmRA0JFFq6EnuVVDPXO+wNe4NoMIyjKIYuqNIbajvNovh4OhmP65vp6f3odP7gJic3
+        c3t57T381mBwobVyil5ojQ6CtFZZlsReKgwx+r/kcbn1M74Gsj4S2BMjpVGcbXw2pZRuKxTPQcwZ
+        Lff5lXMRcqQimwRDnucpnaPWRtyZVpehRFnhPylCybq6/+FL6YL3A7Gqbnxo6LuJXyiuBC+M0Iow
+        JMd90elc+YuIk05HpLDbA1IafPLBhv/ZFmD11AXLpslalNaQnxKpzNi1BB/A4twhFX4d5LTugltv
+        MFmCosZxxmaGZCE5iP0GZVFhVvgoVoay74Zoyz0u/2Pb2pCPTYU1tlJnw/q3/4vG1U+66oJxvCsd
+        nfhpsH1RBWassPVzhmcvZVvCavUOmhD1lWgCAAA=
     headers:
       CF-RAY:
-      - 9b111505ecc406aa-LHR
+      - 9c313122396bef55-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -63,7 +62,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 20 Dec 2025 18:07:56 GMT
+      - Sat, 24 Jan 2026 17:18:47 GMT
       Server:
       - cloudflare
       Transfer-Encoding:
@@ -77,33 +76,33 @@ interactions:
       anthropic-ratelimit-input-tokens-remaining:
       - '4000000'
       anthropic-ratelimit-input-tokens-reset:
-      - '2025-12-20T18:07:56Z'
+      - '2026-01-24T17:18:46Z'
       anthropic-ratelimit-output-tokens-limit:
       - '800000'
       anthropic-ratelimit-output-tokens-remaining:
       - '800000'
       anthropic-ratelimit-output-tokens-reset:
-      - '2025-12-20T18:07:56Z'
+      - '2026-01-24T17:18:46Z'
       anthropic-ratelimit-requests-limit:
       - '4000'
       anthropic-ratelimit-requests-remaining:
       - '3999'
       anthropic-ratelimit-requests-reset:
-      - '2025-12-20T18:07:55Z'
+      - '2026-01-24T17:18:46Z'
       anthropic-ratelimit-tokens-limit:
       - '4800000'
       anthropic-ratelimit-tokens-remaining:
       - '4800000'
       anthropic-ratelimit-tokens-reset:
-      - '2025-12-20T18:07:56Z'
+      - '2026-01-24T17:18:46Z'
       cf-cache-status:
       - DYNAMIC
       request-id:
-      - req_011CWJPJvZNeKdAnrUPG9d3G
+      - req_011CXSasY4Up6vHkRbidSTvR
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
       x-envoy-upstream-service-time:
-      - '955'
+      - '825'
     status:
       code: 200
       message: OK

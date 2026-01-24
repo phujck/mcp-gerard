@@ -28,7 +28,7 @@ def test_output_file():
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_simple(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_simple(skip_if_no_api_key, test_output_file):
     """Test basic text generation with Mistral."""
     _, response = await mcp.call_tool(
         "chat",
@@ -51,7 +51,7 @@ async def test_mistral_ask_simple(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_with_files(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_with_files(skip_if_no_api_key, test_output_file):
     """Test text generation with file input."""
     # Create a temporary test file
     with tempfile.NamedTemporaryFile(
@@ -155,7 +155,7 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_with_memory(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_with_memory(skip_if_no_api_key, test_output_file):
     """Test conversation memory with agent_name."""
     # First message
     _, response1 = await mcp.call_tool(
@@ -188,7 +188,7 @@ async def test_mistral_ask_with_memory(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_different_models(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_different_models(skip_if_no_api_key, test_output_file):
     """Test with different Mistral models."""
     models_to_test = [
         "mistral-small-latest",

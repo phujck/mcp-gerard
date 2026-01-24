@@ -1,9 +1,8 @@
 interactions:
 - request:
-    body: '{"model": "mistral-small-latest", "messages": [{"content": [{"text": "What
-      number is mentioned in the file?", "type": "text"}, {"text": "[File: tmp2ij3l9iq.txt]\nTest
-      document content: The answer is 42", "type": "text"}], "role": "user"}], "temperature":
-      1.0, "max_tokens": 8192, "stream": false}'
+    body: '{"model": "mistral-small-latest", "messages": [{"content": "What is 2+2?
+      Answer with just the number.", "role": "user"}], "temperature": 1.0, "max_tokens":
+      8192, "stream": false}'
     headers:
       Accept:
       - application/json
@@ -12,27 +11,26 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '277'
+      - '166'
       Host:
       - api.mistral.ai
       content-type:
       - application/json
       user-agent:
-      - mistral-client-python/1.9.11
+      - mistral-client-python/1.10.0
     method: POST
     uri: https://api.mistral.ai/v1/chat/completions
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAA0SO226DMAxAfyXyyyREq3ItzRfsA/o2pjYEM7IFB8VGm1Tx7xPVur7axz7nBq4H
-        DZiVTWay7GSGujw1xwYri3VX5UXXHQ9VCSnYiEawB50d6zqvyrwpUphCjx40TI4lGr/jyXi/80aQ
-        BVJY2Hwg6BvMMUyzXCR8ITHookhBghj/P6mbFGyYZo/iAj3Bak0hdJ9oBTTY0cj+SW1RY3AWGfTb
-        DRz1+AP6kMLgyPF4iWg4EGhgCTOkMCE/emLwCBoMs2MxtLVKCP5ijfcMmhbvtx4SpE18HlHRMnUY
-        1YS0ubFXjpSMqAbnUTlWSVLmSbJvqaVXjPjC9+3fDxWGJzyEqCIOGJEs6pau12tLZ2RRfbDLJnic
-        abWZDfE3xs1R5nca1vV9/QUAAP//AwDIqCVLugEAAA==
+        H4sIAAAAAAAAA0SP22rDMBAF/+U8K8WXxIn1K6EYRdrUalda491AIfjfix+avA4MZ84TOcGjS+nU
+        9sOpGRo63qgd+yFe4vned8duHAeCQ1wpGCX49jyM3fnU9heHIokYHiWrrYEPWgLzgYORGhweGr4I
+        /olllbLYZPJDVeHbwcHEAr/JxSFKWZgsS33hzqE+yhRDnCm9aLM5yO2bosEjzsE+3upeOkuOpPDX
+        J3JN9AvfONxzzTpPKwWVCg81WeBQSP8jV2GCR1DNaqHuB0yEpxiYFb4+mPfIalT34SO27XP7AwAA
+        //8DAFKJwMlBAQAA
     headers:
       CF-RAY:
-      - 9b111a19ef52413a-LHR
+      - 9c31316eff06d77e-LHR
       Connection:
       - keep-alive
       Content-Encoding:
@@ -40,9 +38,15 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Sat, 20 Dec 2025 18:11:24 GMT
+      - Sat, 24 Jan 2026 17:18:58 GMT
       Server:
       - cloudflare
+      Set-Cookie:
+      - __cf_bm=GybDEdXWinKDZ4IrfhGpYz0mbRnEs81Pt.uUVXAiIgU-1769275138-1.0.1.1-JlZA2GmnXybpRovsMscnXVAh4rF.v4qx4D2yFEBp6LHtMXfmfSx.ED__84l5ySh.sHDOqfohlxjKS3th3r5TVpnyPxJVpgKqWBMYIPKyLF4;
+        path=/; expires=Sat, 24-Jan-26 17:48:58 GMT; domain=.mistral.ai; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=9t4zL3g1YN4u4PgTk98isEW_9fwFlPnGnjQJ1MlO.YY-1769275138526-0.0.1.1-604800000;
+        path=/; domain=.mistral.ai; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=15552000; includeSubDomains; preload
       Transfer-Encoding:
@@ -56,15 +60,15 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       mistral-correlation-id:
-      - 019b3cf5-8c50-7172-914a-eba45de8eff5
+      - 019bf104-2181-7e33-86ff-1670612e6899
       x-envoy-upstream-service-time:
-      - '414'
+      - '65'
       x-kong-proxy-latency:
       - '9'
       x-kong-request-id:
-      - 019b3cf5-8c50-7172-914a-eba45de8eff5
+      - 019bf104-2181-7e33-86ff-1670612e6899
       x-kong-upstream-latency:
-      - '415'
+      - '66'
       x-ratelimit-limit-req-minute:
       - '60'
       x-ratelimit-limit-tokens-minute:
@@ -72,13 +76,13 @@ interactions:
       x-ratelimit-limit-tokens-month:
       - '1000000000'
       x-ratelimit-remaining-req-minute:
-      - '58'
+      - '59'
       x-ratelimit-remaining-tokens-minute:
-      - '499914'
+      - '499982'
       x-ratelimit-remaining-tokens-month:
-      - '999992966'
+      - '999993676'
       x-ratelimit-tokens-query-cost:
-      - '68'
+      - '18'
     status:
       code: 200
       message: OK
