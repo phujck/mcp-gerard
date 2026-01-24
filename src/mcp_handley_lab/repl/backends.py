@@ -23,7 +23,6 @@ BACKENDS = {
         "Python interpreter",
         r"^>>> ?$",
         r"^\.\.\.",
-        supports_bracketed_paste=False,
     ),
     "ipython": BackendConfig(
         "ipython",
