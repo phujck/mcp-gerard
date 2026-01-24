@@ -2,11 +2,6 @@
 
 Uses Git branches as conversations with checkout-free operations for reading/writing.
 Each project gets its own Git repository under ~/.mcp-handley-lab/conversations/.
-
-Breaking changes from v1:
-- Fresh start in `conversations/` directory; old `projects/` data preserved but not migrated
-- `agent_name` parameter renamed to `branch`
-- Event types renamed: `system_prompt` (was `system_prompt_set`), `clear` (was `agent_cleared`)
 """
 
 import json
@@ -723,62 +718,6 @@ def write_conversation(
     }
 
 
-def add_message(
-    project_dir: Path,
-    branch: str,
-    role: str,
-    text: str,
-    from_ref: str | None = None,
-    **meta: Any,
-) -> dict[str, Any]:
-    """Add a message to a conversation branch.
-
-    Auto-creates branch if it doesn't exist.
-    Forks on conflict if branch moved.
-
-    If from_ref is provided and branch doesn't exist, creates the branch
-    by forking from that ref (non-destructive forking without worktree).
-
-    Args:
-        project_dir: Path to the Git repository
-        branch: Target branch name
-        role: Message role (user/assistant)
-        text: Message content
-        from_ref: Optional ref to fork from when creating new branch
-        **meta: Additional metadata
-
-    Returns:
-        Same as write_conversation(), plus:
-        - "forked_from_ref": str if created via from_ref forking
-    """
-    exists = branch_exists(project_dir, branch)
-
-    if from_ref:
-        if exists:
-            raise ValueError(
-                f"Branch '{branch}' already exists. "
-                "Cannot use from_ref with existing branch. "
-                "Use a different branch name to fork."
-            )
-        # Fork from the specified ref
-        fork_branch(project_dir, branch, from_ref)
-
-    # Read current content (now branch exists if we forked)
-    content = read_branch(project_dir, branch)
-
-    # Append message
-    content = append_message(content, role, text, **meta)
-
-    # Write back
-    result = write_conversation(project_dir, branch, content, f"Add {role} message")
-
-    # Add forking info if applicable
-    if from_ref:
-        result["forked_from_ref"] = from_ref
-
-    return result
-
-
 # =============================================================================
 # LLM Context Extraction
 # =============================================================================
@@ -1075,14 +1014,14 @@ def end_edit(project_dir: Path, force: bool = False) -> dict[str, Any]:
 
 def get_response(
     project_dir: Path,
-    name: str,
+    branch: str,
     index: int = -1,
 ) -> dict[str, Any]:
     """Get an assistant response by index.
 
     Args:
         project_dir: Path to the Git repository
-        name: Branch name
+        branch: Branch name
         index: Response index (0 = first, -1 = last, -2 = second-to-last)
 
     Returns:
@@ -1092,9 +1031,9 @@ def get_response(
         ValueError: If branch not found
         IndexError: If no assistant responses or index out of range
     """
-    content = read_branch(project_dir, name)
-    if not content and not branch_exists(project_dir, name):
-        raise ValueError(f"Branch '{name}' not found")
+    content = read_branch(project_dir, branch)
+    if not content and not branch_exists(project_dir, branch):
+        raise ValueError(f"Branch '{branch}' not found")
 
     events = parse_messages(content)
 
@@ -1150,6 +1089,6 @@ def get_response(
         if field in stored_usage:
             result[field] = stored_usage[field]
 
-    result["branch"] = name
+    result["branch"] = branch
 
     return result

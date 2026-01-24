@@ -21,11 +21,11 @@ def test_output_file():
 async def test_groq_ask_simple(test_output_file):
     """Test basic text generation with Groq."""
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What is 2+2? Answer with just the number.",
             "output_file": test_output_file,
-            "agent_name": "",
+            "branch": "",
             "model": "llama-3.1-8b-instant",
         },
     )
@@ -51,11 +51,11 @@ async def test_groq_ask_with_files(test_output_file):
 
     try:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What number is mentioned in the file?",
                 "output_file": test_output_file,
-                "agent_name": "",
+                "branch": "",
                 "model": "llama-3.1-8b-instant",
                 "files": [test_file_path],
             },
@@ -78,11 +78,11 @@ async def test_groq_ask_with_memory(test_output_file):
     """Test conversation memory with agent_name."""
     # First message
     _, response1 = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "Remember this number: 777. Just confirm you remember it.",
             "output_file": test_output_file,
-            "agent_name": "test_memory_agent",
+            "branch": "test_memory_agent",
             "model": "llama-3.1-8b-instant",
         },
     )
@@ -91,11 +91,11 @@ async def test_groq_ask_with_memory(test_output_file):
 
     # Second message - should remember
     _, response2 = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What number did I ask you to remember?",
             "output_file": test_output_file,
-            "agent_name": "test_memory_agent",
+            "branch": "test_memory_agent",
             "model": "llama-3.1-8b-instant",
         },
     )
@@ -116,11 +116,11 @@ async def test_groq_ask_different_models(test_output_file):
 
     for model in models_to_test:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "Say 'hello' in one word.",
                 "output_file": test_output_file,
-                "agent_name": "",
+                "branch": "",
                 "model": model,
             },
         )
@@ -134,11 +134,11 @@ async def test_groq_ask_different_models(test_output_file):
 async def test_groq_kimi_model(test_output_file):
     """Test Kimi K2 model with large context."""
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What is the capital of France? Answer briefly.",
             "output_file": test_output_file,
-            "agent_name": "",
+            "branch": "",
             "model": "moonshotai/kimi-k2-instruct-0905",
         },
     )

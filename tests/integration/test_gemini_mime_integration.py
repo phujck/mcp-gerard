@@ -110,13 +110,13 @@ async def test_gemini_file_upload_by_type(
 
     try:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": prompt,
                 "files": [file_path],
                 "output_file": test_output_file,
                 "model": "gemini-2.5-flash",
-                "agent_name": "",
+                "branch": "",
                 "temperature": 1.0,
                 "options": {"grounding": False},
             },
@@ -157,13 +157,13 @@ async def test_gemini_multiple_unsupported_files(skip_if_no_api_key, test_output
 
         # Test with multiple files
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What types of files are these and what do they contain?",
                 "files": file_paths,
                 "output_file": test_output_file,
                 "model": "gemini-2.5-flash",
-                "agent_name": "",
+                "branch": "",
                 "temperature": 1.0,
                 "options": {"grounding": False},
             },
@@ -202,13 +202,13 @@ async def test_gemini_supported_file_unchanged(skip_if_no_api_key, test_output_f
 
     try:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is in this text file?",
                 "files": [txt_file_path],
                 "output_file": test_output_file,
                 "model": "gemini-2.5-flash",
-                "agent_name": "",
+                "branch": "",
                 "temperature": 1.0,
                 "options": {"grounding": False},
             },
@@ -235,13 +235,13 @@ async def test_gemini_grounding_metadata_fields(skip_if_no_api_key, test_output_
     skip_if_no_api_key("GEMINI_API_KEY")
 
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "Latest quantum computing breakthroughs 2024",
             "output_file": test_output_file,
             "model": "gemini-2.5-flash",
             "options": {"grounding": True},
-            "agent_name": "",  # No agent - test grounding metadata fields only
+            "branch": "",  # No agent - test grounding metadata fields only
             "temperature": 1.0,
             "files": [],
         },
@@ -297,13 +297,13 @@ async def test_gemini_without_grounding_no_metadata(
     skip_if_no_api_key("GEMINI_API_KEY")
 
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What is 2+2?",
             "output_file": test_output_file,
             "model": "gemini-2.5-flash",
             "options": {"grounding": False},
-            "agent_name": "test_no_grounding",
+            "branch": "test_no_grounding",
             "temperature": 1.0,
             "files": [],
         },
@@ -334,13 +334,13 @@ async def test_gemini_grounding_search_entry_point_structure(
     skip_if_no_api_key("GEMINI_API_KEY")
 
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "Latest developments in quantum computing 2024",
             "output_file": test_output_file,
             "model": "gemini-2.5-flash",
             "options": {"grounding": True},
-            "agent_name": "",  # No agent - test grounding metadata structure only
+            "branch": "",  # No agent - test grounding metadata structure only
             "temperature": 1.0,
             "files": [],
         },

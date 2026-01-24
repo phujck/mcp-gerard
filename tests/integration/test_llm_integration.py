@@ -111,7 +111,7 @@ async def test_llm_ask_basic(
         "prompt": f"What is {question}? Answer with just the number.",
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",  # Disable memory
+        "branch": "",  # Disable memory
         "files": [],
     }
 
@@ -136,7 +136,7 @@ async def test_llm_ask_basic(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -173,7 +173,7 @@ async def test_llm_ask_with_files(
         "output_file": test_output_file,
         "files": [str(test_file)],
         "model": model,
-        "agent_name": "",
+        "branch": "",
     }
 
     # Add provider-specific parameters
@@ -197,7 +197,7 @@ async def test_llm_ask_with_files(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -231,7 +231,7 @@ async def test_llm_analyze_image(
         "output_file": test_output_file,
         "images": [str(image_path)],
         "model": model,
-        "agent_name": "",
+        "branch": "",
     }
 
     # Add provider-specific parameters
@@ -269,7 +269,7 @@ async def test_llm_memory_disabled(
         "prompt": f"Remember this number: {answer}. What is {question}?",
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -294,7 +294,7 @@ async def test_llm_memory_disabled(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -323,7 +323,7 @@ async def test_llm_input_validation(
     # Provider-specific base parameters
     base_params = {
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -351,7 +351,7 @@ async def test_llm_input_validation(
     # Test empty prompt should raise error
     with pytest.raises(ToolError) as e1:
         await mcp.call_tool(
-            "ask", {**base_params, "prompt": "", "output_file": test_output_file}
+            "chat", {**base_params, "prompt": "", "output_file": test_output_file}
         )
     assert "prompt" in str(e1.value).lower() or "empty" in str(e1.value).lower()
 
@@ -422,7 +422,7 @@ async def test_llm_error_scenarios(
         "prompt": "Test prompt",
         "output_file": test_output_file,
         "model": invalid_value if error_param == "model" else valid_model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -449,7 +449,7 @@ async def test_llm_error_scenarios(
 
     # Test invalid model name should raise error
     with pytest.raises((ValueError, RuntimeError, Exception)):
-        _, response = await mcp.call_tool("ask", base_params)
+        _, response = await mcp.call_tool("chat", base_params)
         # If no exception, check for error in response
         if "error" not in response:
             raise RuntimeError("Expected error for invalid model but call succeeded")
@@ -475,7 +475,7 @@ async def test_llm_response_metadata_fields(
         "prompt": prompt,
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "test_metadata",
+        "branch": "test_metadata",
         "files": [],
     }
 
@@ -500,7 +500,7 @@ async def test_llm_response_metadata_fields(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     # Check basic response
@@ -570,12 +570,12 @@ class TestLLMMemory:
 
         # Call 1: Provide a piece of information
         _, response1 = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "My user ID is 789. Remember this important number.",
                 "output_file": test_output_file,
                 "model": "gpt-4o-mini",
-                "agent_name": agent_name,
+                "branch": agent_name,
                 "temperature": 0.1,
                 "files": [],
             },
@@ -586,12 +586,12 @@ class TestLLMMemory:
         # Call 2: Ask a question that relies on the information from Call 1
         test_output_file2 = test_output_file.replace(".txt", "_2.txt")
         _, response2 = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What was my user ID that I told you?",
                 "output_file": test_output_file2,
                 "model": "gpt-4o-mini",
-                "agent_name": agent_name,
+                "branch": agent_name,
                 "temperature": 0.1,
                 "files": [],
             },
@@ -616,12 +616,12 @@ class TestLLMMemory:
 
         # Agent 1: Remember number 123
         _, _ = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "My favorite number is 123. Remember this.",
                 "output_file": test_output_file,
                 "model": "gpt-4o-mini",
-                "agent_name": agent_name1,
+                "branch": agent_name1,
                 "temperature": 0.1,
                 "files": [],
             },
@@ -630,12 +630,12 @@ class TestLLMMemory:
         # Agent 2: Ask about the number (should NOT know it)
         test_output_file2 = test_output_file.replace(".txt", "_agent2.txt")
         _, _ = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What is my favorite number?",
                 "output_file": test_output_file2,
                 "model": "gpt-4o-mini",
-                "agent_name": agent_name2,
+                "branch": agent_name2,
                 "temperature": 0.1,
                 "files": [],
             },
@@ -686,7 +686,7 @@ async def test_llm_prompt_file_basic(
         "prompt_file": str(prompt_file),
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -711,7 +711,7 @@ async def test_llm_prompt_file_basic(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -750,7 +750,7 @@ async def test_llm_prompt_file_with_template_vars(
         "prompt_vars": {"math_problem": question, "output_format": "number"},
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -775,7 +775,7 @@ async def test_llm_prompt_file_with_template_vars(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -816,7 +816,7 @@ async def test_llm_system_prompt_file_with_templates(
         },
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -841,7 +841,7 @@ async def test_llm_system_prompt_file_with_templates(
             }
         )
 
-    _, response = await mcp.call_tool("ask", base_params)
+    _, response = await mcp.call_tool("chat", base_params)
     assert "error" not in response, response.get("error")
 
     assert response["content"] is not None
@@ -876,7 +876,7 @@ async def test_llm_prompt_file_xor_validation(
     base_params = {
         "output_file": test_output_file,
         "model": model,
-        "agent_name": "",
+        "branch": "",
         "files": [],
     }
 
@@ -910,10 +910,10 @@ async def test_llm_prompt_file_xor_validation(
                 "prompt_file": str(prompt_file),
             }
         )
-        await mcp.call_tool("ask", params_both)
+        await mcp.call_tool("chat", params_both)
     assert "exactly one of 'prompt' or 'prompt_file'" in str(exc_info.value).lower()
 
     # Test: neither prompt nor prompt_file provided (should fail)
     with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool("ask", base_params)
+        await mcp.call_tool("chat", base_params)
     assert "exactly one of 'prompt' or 'prompt_file'" in str(exc_info.value).lower()

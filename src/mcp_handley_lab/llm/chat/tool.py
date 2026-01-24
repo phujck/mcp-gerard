@@ -49,8 +49,8 @@ def chat(
     branch: str = Field(
         default="session",
         description="Conversation branch name. 'session' uses a shared auto-generated ID "
-        "(WARNING: collides across sub-agents). Use unique names for isolated conversations, "
-        "'false' to disable memory.",
+        "(WARNING: collides across concurrent processes). Use unique names for isolated "
+        "conversations, 'false' to disable memory.",
     ),
     model: str = Field(
         default="gemini",
