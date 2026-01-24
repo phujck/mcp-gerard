@@ -14,6 +14,8 @@ A toolkit that bridges AI assistants with command-line tools and services. Built
 Some tools require additional system packages:
 - **code2prompt tool**: `cargo install code2prompt`
 - **email tools**: `msmtp`, `mutt`, `notmuch` for email management
+- **repl tool**: `tmux` for session management
+- **screenshot tool**: `maim`, `wmctrl` for X11 window capture
 
 ## Quick Start
 
@@ -67,6 +69,8 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add email --scope user mcp-email
 # claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
+# claude mcp add repl --scope user mcp-repl
+# claude mcp add screenshot --scope user mcp-screenshot
 
 # 6. Verify tools are working
 # Use /mcp command in Claude to check tool status
@@ -123,6 +127,8 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add email --scope user mcp-email
 # claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add mathematica --scope user mcp-mathematica
+# claude mcp add repl --scope user mcp-repl
+# claude mcp add screenshot --scope user mcp-screenshot
 
 # 6. Verify tools are working
 # Use /mcp command in Claude to check tool status
@@ -219,6 +225,23 @@ Comprehensive Word document manipulation via pure OOXML
   - **Other**: Content controls, equations, hyperlinks, custom properties
   - _Claude example_: `> read the outline of my thesis, then add a citation to Smith2020 in the introduction`
 
+### 🖥️ **REPL Sessions** (`repl`)
+Manage interactive REPL sessions for various interpreters
+  - Create persistent sessions (bash, python, ipython, aichat, ollama, mathematica)
+  - Execute code and retrieve output with cell indexing (In[N]/Out[N])
+  - Pass extra arguments to interpreters (e.g., `--matplotlib` for ipython)
+  - _Claude example_: `> start an ipython session with matplotlib, create a plot, and show me the figure`
+  - **Requires**: `tmux` and the desired interpreter installed
+
+### 📸 **Screenshot Capture** (`screenshot`)
+Capture screenshots of windows or the full screen
+  - List all windows with ID, class, desktop, and name
+  - Capture specific window by name or hex ID
+  - Capture full screen
+  - Save to file or return image directly
+  - _Claude example_: `> show me the matplotlib Figure 1 window`
+  - **Requires**: `maim` and `wmctrl` (X11)
+
 ## Recommended External MCPs
 
 These MCP servers from other projects complement this toolkit:
@@ -245,6 +268,60 @@ This pattern works because:
 - `code2prompt` creates a structured markdown file with your code
 - The unified `llm-chat` tool can read files as context
 - The provider is automatically inferred from the model name
+
+## Direct LLM Access in Python
+
+For advanced workflows, you can use the `llm` module directly from Python without going through MCP:
+
+```python
+from mcp_handley_lab import llm
+
+# Simple query
+result = llm.query("What is 2+2?")
+print(result.text)  # "The answer is 4."
+
+# With different provider
+result = llm.query("Hello", model="openai")
+
+# With provider-specific options
+result = llm.query("Search for Python tutorials", model="gemini", options={"grounding": True})
+
+# Access token usage
+print(f"Input: {result.input_tokens}, Output: {result.output_tokens}")
+```
+
+### Recursive LLM Pattern for Large Documents
+
+For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2502.07413). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
+
+```python
+# In a Python REPL session (mcp__repl__session)
+from mcp_handley_lab import llm
+from pathlib import Path
+
+# Process a large file in chunks
+context_path = Path("/path/to/large/document.txt")
+results = []
+chunk_size = 100_000  # ~25K tokens
+
+with open(context_path, 'rb') as f:
+    offset = 0
+    while chunk := f.read(chunk_size):
+        text = chunk.decode('utf-8', errors='replace')
+        result = llm.query(f'''Extract key facts from this chunk.
+<document_chunk offset="{offset}">
+{text}
+</document_chunk>''')
+        results.append({"offset": offset, "summary": result.text})
+        offset += len(chunk)
+
+# Aggregate results
+summaries = "\n".join(f"[{r['offset']}]: {r['summary']}" for r in results)
+final = llm.query(f"Synthesize these summaries:\n{summaries}")
+print(final.text)
+```
+
+The `/recursive-llm` skill (in `.claude/skills/recursive-llm/SKILL.md`) provides detailed guidance on when and how to use this pattern.
 
 
 ## Testing
