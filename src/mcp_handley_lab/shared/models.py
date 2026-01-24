@@ -68,7 +68,13 @@ class LLMResult(BaseModel):
         ..., description="Token usage and cost information for the request."
     )
     agent_name: str = Field(
-        default="", description="Name of the conversational agent or session."
+        default="",
+        description="Name of the conversational agent or session (branch name).",
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="Git commit SHA for this conversation turn. "
+        "Use with from_ref to fork conversations from specific points.",
     )
     grounding_metadata: GroundingMetadata | None = Field(
         default=None,
@@ -177,6 +183,10 @@ class ImageGenerationResult(BaseModel):
     )
     agent_name: str = Field(
         default="", description="Name of the agent or session that generated the image."
+    )
+    commit_sha: str | None = Field(
+        default=None,
+        description="Git commit SHA for this image generation turn.",
     )
 
     # Generation metadata

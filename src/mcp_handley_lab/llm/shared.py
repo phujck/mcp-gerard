@@ -6,12 +6,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from mcp_handley_lab.common.pricing import calculate_cost
+from mcp_handley_lab.llm import memory
 from mcp_handley_lab.llm.common import (
     get_session_id,
-    handle_agent_memory,
     load_prompt_text,
 )
-from mcp_handley_lab.llm.memory import memory_manager
 from mcp_handley_lab.shared.models import (
     GroundingMetadata,
     ImageGenerationResult,
@@ -19,29 +18,102 @@ from mcp_handley_lab.shared.models import (
 )
 
 
+def should_use_memory(branch: str) -> bool:
+    """Determines if memory should be used based on the branch parameter.
+
+    Returns False when branch is empty or "false" (case-insensitive).
+    Returns True for any other non-empty string.
+
+    Note: This is a simple check. For full validation with whitespace handling,
+    use memory.normalize_branch_input() which raises ValueError on invalid input.
+    """
+    return bool(branch) and branch.lower() != "false"
+
+
+def normalize_branch(branch: str) -> str | None:
+    """Normalize branch input, returning None if memory should be disabled.
+
+    Args:
+        branch: Branch name to normalize
+
+    Returns:
+        Normalized branch name, or None if memory should be disabled
+
+    Raises:
+        ValueError: If branch name is whitespace-only or invalid
+    """
+    return memory.normalize_branch_input(branch)
+
+
 def _handle_memory_setup(
-    agent_name: str, system_prompt: str | None, mcp_instance, provider: str
-) -> tuple[bool, str, list, str | None]:
-    """Set up memory for the LLM request."""
-    use_memory = should_use_memory(agent_name)
-    actual_agent_name = agent_name
+    branch: str,
+    system_prompt: str | None,
+    mcp_instance,
+    provider: str,
+    from_ref: str | None = None,
+) -> tuple[bool, str, list, str | None, Path | None]:
+    """Set up memory for the LLM request.
+
+    Returns:
+        (use_memory, actual_branch, history, system_instruction, project_dir)
+    """
+    # Normalize branch - returns None if memory should be disabled
+    normalized = normalize_branch(branch) if branch else None
+
+    use_memory = normalized is not None
+    actual_branch = branch
     history = []
     system_instruction = None
+    project_dir = None
 
     if use_memory:
-        if agent_name == "session":
-            actual_agent_name = get_session_id(mcp_instance, provider)
+        actual_branch = normalized  # Use normalized branch name
+        if actual_branch == "session":
+            actual_branch = get_session_id(mcp_instance, provider)
 
-        agent = memory_manager.get_agent(actual_agent_name)
-        if not agent:
-            agent = memory_manager.create_agent(actual_agent_name, system_prompt)
+        project_dir = memory.get_project_dir()
+
+        # Check if editing is in progress
+        lock_info = memory.is_locked(project_dir)
+        if lock_info is not None:
+            raise ValueError(
+                f"Editing in progress (pid={lock_info.get('pid')}). "
+                "Use conversation(action='done') to finish editing before sending messages."
+            )
+
+        # Handle from_ref for forking
+        if from_ref and not memory.branch_exists(project_dir, actual_branch):
+            memory.fork_branch(project_dir, actual_branch, from_ref)
+
+        # Get or create branch with system prompt
+        if not memory.branch_exists(project_dir, actual_branch):
+            memory.create_agent(project_dir, actual_branch, system_prompt)
         elif system_prompt is not None:
-            agent.system_prompt = system_prompt
+            # Check if system prompt changed
+            content = memory.read_branch(project_dir, actual_branch)
+            events = memory.parse_messages(content)
 
-        history = agent.get_history()
-        system_instruction = agent.system_prompt
+            # Find current system prompt (after last clear)
+            last_clear_idx = -1
+            for i, event in enumerate(events):
+                if event.get("type") == "clear":
+                    last_clear_idx = i
 
-    return use_memory, actual_agent_name, history, system_instruction
+            current_system_prompt = None
+            for i, event in enumerate(events):
+                if i > last_clear_idx and event.get("type") == "system_prompt":
+                    current_system_prompt = event.get("content")
+
+            if system_prompt != current_system_prompt:
+                content = memory.append_system_prompt(content, system_prompt)
+                memory.write_conversation(
+                    project_dir, actual_branch, content, "Update system prompt"
+                )
+
+        # Get conversation context
+        history, system_instruction = memory.get_llm_context(project_dir, actual_branch)
+
+    return use_memory, actual_branch, history, system_instruction, project_dir
 
 
 def _extract_response_metadata(response_data: dict, model: str, provider: str) -> dict:
@@ -103,17 +175,87 @@ def _enhance_prompt_for_images(
     return prompt, user_prompt
 
 
+def _handle_agent_memory(
+    project_dir: Path,
+    branch: str,
+    user_prompt: str,
+    response_text: str,
+    provider: str,
+    model: str,
+    metadata: dict | None = None,
+) -> dict:
+    """Store conversation messages in agent memory with full response metadata.
+
+    Returns the write result including commit_sha and forking info.
+    """
+    # Build usage dict for storage
+    usage = None
+    if metadata:
+        usage = {
+            "provider": provider,
+            "model": model,
+            "input_tokens": metadata.get("input_tokens", 0),
+            "output_tokens": metadata.get("output_tokens", 0),
+            "cost": metadata.get("cost", 0.0),
+        }
+        # Include additional metadata fields
+        for field in [
+            "finish_reason",
+            "avg_logprobs",
+            "model_version",
+            "generation_time_ms",
+            "response_id",
+            "system_fingerprint",
+            "service_tier",
+            "completion_tokens_details",
+            "prompt_tokens_details",
+            "stop_sequence",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+            "grounding_metadata",
+        ]:
+            if metadata.get(field):
+                usage[field] = metadata[field]
+
+    # Read current content
+    content = memory.read_branch(project_dir, branch)
+
+    # Add user message
+    content = memory.append_message(content, "user", user_prompt)
+
+    # Add assistant message with usage
+    content = memory.append_message(content, "assistant", response_text, usage=usage)
+
+    # Write back
+    return memory.write_conversation(
+        project_dir, branch, content, "Add conversation turn"
+    )
+
+
 def process_llm_request(
     prompt: str | None,
     output_file: str,
-    agent_name: str,
+    branch: str,
     model: str,
     provider: str,
     generation_func: Callable,
     mcp_instance,
+    from_ref: str | None = None,
     **kwargs,
 ) -> LLMResult:
-    """Generic handler for LLM requests that abstracts common patterns."""
+    """Generic handler for LLM requests that abstracts common patterns.
+
+    Args:
+        prompt: The prompt text
+        output_file: File path to save response
+        branch: Conversation branch name (replaces agent_name)
+        model: Model identifier
+        provider: Provider name
+        generation_func: Provider-specific generation function
+        mcp_instance: MCP server instance
+        from_ref: Optional ref to fork from when creating new branch
+        **kwargs: Additional arguments for the generation function
+    """
     # Extract prompt resolution parameters
     prompt_file = kwargs.pop("prompt_file", None)
     prompt_vars = kwargs.pop("prompt_vars", None)
@@ -132,8 +274,10 @@ def process_llm_request(
     user_prompt = final_prompt
 
     # Set up memory and get conversation context
-    use_memory, actual_agent_name, history, system_instruction = _handle_memory_setup(
-        agent_name, final_system_prompt, mcp_instance, provider
+    use_memory, actual_branch, history, system_instruction, project_dir = (
+        _handle_memory_setup(
+            branch, final_system_prompt, mcp_instance, provider, from_ref
+        )
     )
 
     # Enhance prompt for image analysis
@@ -154,19 +298,22 @@ def process_llm_request(
     metadata = _extract_response_metadata(response_data, model, provider)
 
     # Handle memory with full response metadata
-    if use_memory:
-        handle_agent_memory(
-            actual_agent_name,
+    commit_sha = None
+    if use_memory and project_dir:
+        write_result = _handle_agent_memory(
+            project_dir,
+            actual_branch,
             user_prompt,
             metadata["response_text"],
             provider=provider,
             model=model,
             metadata=metadata,
         )
+        commit_sha = write_result.get("commit_sha")
 
     # Handle output - write to file if path provided
     if output_file:
-        output_path = Path(output_file)
+        output_path = Path(output_file).expanduser()
         output_path.write_text(metadata["response_text"])
 
     from mcp_handley_lab.shared.models import UsageStats
@@ -185,7 +332,8 @@ def process_llm_request(
     return LLMResult(
         content=metadata["response_text"],
         usage=usage_stats,
-        agent_name=actual_agent_name if use_memory else "",
+        agent_name=actual_branch if use_memory else "",
+        commit_sha=commit_sha,
         grounding_metadata=grounding_metadata,
         finish_reason=metadata["finish_reason"],
         avg_logprobs=metadata["avg_logprobs"],
@@ -213,20 +361,9 @@ def process_llm_request(
     )
 
 
-def should_use_memory(agent_name: str) -> bool:
-    """Determines if agent memory should be used based on the agent_name parameter.
-
-    Returns False when agent_name is empty or "false" (case-insensitive).
-    Returns True for any other non-empty string.
-
-    Note: MCP layer handles type validation - we trust the input is a string.
-    """
-    return bool(agent_name) and agent_name.lower() != "false"
-
-
 def process_image_generation(
     prompt: str,
-    agent_name: str,
+    branch: str,
     model: str,
     provider: str,
     generation_func: Callable,
@@ -237,9 +374,10 @@ def process_image_generation(
     if not prompt.strip():
         raise ValueError("Prompt is required and cannot be empty")
 
-    # Check if memory should be used
-    use_memory = should_use_memory(agent_name)
-    actual_agent_name = agent_name
+    # Normalize branch - returns None if memory should be disabled
+    normalized = normalize_branch(branch) if branch else None
+    use_memory = normalized is not None
+    actual_branch = branch
 
     # Call the provider-specific generation function to get the image
     response_data = generation_func(prompt=prompt, model=model, **kwargs)
@@ -257,26 +395,39 @@ def process_image_generation(
     )
 
     # Only handle memory if enabled
+    commit_sha = None
     if use_memory:
-        if agent_name == "session":
-            actual_agent_name = get_session_id(mcp_instance, provider)
+        actual_branch = normalized  # Use normalized branch name
+        if actual_branch == "session":
+            actual_branch = get_session_id(mcp_instance, provider)
+
+        project_dir = memory.get_project_dir()
+
+        # Check if editing is in progress
+        lock_info = memory.is_locked(project_dir)
+        if lock_info is not None:
+            raise ValueError(
+                f"Editing in progress (pid={lock_info.get('pid')}). "
+                "Use conversation(action='done') to finish editing."
+            )
 
         # Build metadata for image generation
         image_metadata = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cost": cost,
-            "file_path": str(filepath),
-            "file_size_bytes": len(image_bytes),
         }
-        handle_agent_memory(
-            actual_agent_name,
+
+        write_result = _handle_agent_memory(
+            project_dir,
+            actual_branch,
             f"Generate image: {prompt}",
             f"Generated image saved to {filepath}",
             provider=provider,
             model=model,
             metadata=image_metadata,
         )
+        commit_sha = write_result.get("commit_sha")
 
     file_size = len(image_bytes)
 
@@ -294,7 +445,8 @@ def process_image_generation(
         file_path=str(filepath),
         file_size_bytes=file_size,
         usage=usage_stats,
-        agent_name=actual_agent_name if use_memory else "",
+        agent_name=actual_branch if use_memory else "",
+        commit_sha=commit_sha,
         # Metadata from provider response
         generation_timestamp=response_data.get("generation_timestamp", 0),
         enhanced_prompt=response_data.get("enhanced_prompt", ""),

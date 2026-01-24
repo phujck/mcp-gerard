@@ -107,6 +107,42 @@ git commit --no-verify -m "bypass hooks"
 - **Beta software mindset**: APIs may change to improve design, though we aim for stability
 - **Always use absolute imports**: NEVER use relative imports (`from .module import`) - always use absolute imports (`from mcp_handley_lab.module import`)
 
+### MCP Tool Design - MINIMAL TOOLS, MAXIMUM CAPABILITY
+
+**Prefer fewer tools with more operations over many specialized tools.**
+
+- **Tool count matters**: Each MCP tool consumes context and increases cognitive load for Claude Code. Aim for the minimum number of tools that cover the use cases.
+- **Operations over tools**: Prefer a single tool with an `operation` or `action` parameter over multiple tools (e.g., `memory(action="fork")` not `memory_fork()`, `memory_edit()`, `memory_list()`).
+- **Claude Code recognizes patterns**: Design tool signatures that Claude naturally understands - simple parameters, clear names, predictable behavior.
+- **Avoid tool sprawl**: Before adding a new tool, ask: can this be an operation on an existing tool? Can this be a parameter variation?
+- **Context is precious**: Every tool description injected into Claude's context reduces available space for actual work. Keep descriptions concise.
+
+Example of what NOT to do:
+```python
+# BAD: 5 tools for one concept
+@mcp.tool
+def memory_list(): ...
+@mcp.tool
+def memory_fork(): ...
+@mcp.tool
+def memory_edit(): ...
+@mcp.tool
+def memory_delete(): ...
+@mcp.tool
+def memory_history(): ...
+```
+
+Example of preferred approach:
+```python
+# GOOD: 1 tool with operations
+@mcp.tool
+def memory(
+    action: str,  # "list", "fork", "edit", "delete", "history"
+    conversation: str = "main",
+    **kwargs
+): ...
+```
+
 ### ⚠️ CRITICAL ERROR HANDLING RULE
 
 **NEVER SILENCE ERRORS BY DISABLING FUNCTIONALITY**

@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from string import Template
 
-from mcp_handley_lab.llm.memory import memory_manager
 from mcp_handley_lab.shared.models import ServerInfo
 
 # Enhance mimetypes with common text file types that might not be in the default database
@@ -237,48 +236,6 @@ def resolve_image_data(image_item: str | dict[str, str]) -> bytes:
     raise ValueError(f"Invalid image format: {image_item}")
 
 
-def handle_agent_memory(
-    agent_name: str,
-    user_prompt: str,
-    response_text: str,
-    provider: str,
-    model: str,
-    metadata: dict | None = None,
-) -> None:
-    """Store conversation messages in agent memory with full response metadata.
-
-    IMPORTANT: This function assumes agent_name is already resolved (not "session")
-    and memory is enabled. The caller (e.g., process_llm_request) should use
-    should_use_memory() to check if memory is enabled, and resolve "session" to
-    actual session ID before calling this function.
-
-    Args:
-        agent_name: Resolved agent name (must be a valid string, not "session")
-        user_prompt: The user's prompt
-        response_text: The assistant's response
-        provider: Provider name (e.g., "openai", "gemini")
-        model: Model name (e.g., "gpt-4o", "gemini-2.5-pro")
-        metadata: Full response metadata dict (tokens, cost, timing, etc.)
-    """
-    # Store user message (no usage attribution - input counted on assistant message)
-    memory_manager.add_message(
-        agent_name,
-        "user",
-        user_prompt,
-        provider=provider,
-        model=model,
-    )
-    # Store assistant message with full metadata
-    memory_manager.add_message(
-        agent_name,
-        "assistant",
-        response_text,
-        provider=provider,
-        model=model,
-        metadata=metadata,
-    )
-
-
 def resolve_images_for_multimodal_prompt(
     prompt: str, images: list[str]
 ) -> tuple[str, list[dict]]:
@@ -346,18 +303,24 @@ def resolve_files_for_llm(
 def build_server_info(
     provider_name: str,
     available_models: list[str],
-    memory_manager,
+    storage_dir: Path,
+    agent_count: int,
     vision_support: bool = False,
     image_generation: bool = False,
 ) -> ServerInfo:
-    """Build standardized ServerInfo object for LLM providers."""
+    """Build standardized ServerInfo object for LLM providers.
 
-    # Get agent count
-    agent_count = len(memory_manager.list_agents())
-
+    Args:
+        provider_name: Name of the LLM provider
+        available_models: List of available model names
+        storage_dir: Path to the storage directory
+        agent_count: Number of active conversation branches
+        vision_support: Whether provider supports vision
+        image_generation: Whether provider supports image generation
+    """
     # Build capabilities list
     capabilities = [
-        f"ask - Chat with {provider_name} models (persistent memory enabled by default)",
+        f"chat - Chat with {provider_name} models (persistent memory enabled by default)",
         "list_models - List available models with detailed information",
         "server_info - Get server status",
     ]
@@ -383,7 +346,7 @@ def build_server_info(
         "api_key": "configured",
         "available_models": f"{len(available_models)} models",
         "active_agents": str(agent_count),
-        "memory_storage": str(memory_manager.storage_dir),
+        "memory_storage": str(storage_dir),
     }
 
     if vision_support:
