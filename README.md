@@ -292,7 +292,7 @@ print(f"Input: {result.input_tokens}, Output: {result.output_tokens}")
 
 ### Recursive LLM Pattern for Large Documents
 
-For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2502.07413). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
+For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2512.24601). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
 
 ```python
 # In a Python REPL session (mcp__repl__session)
