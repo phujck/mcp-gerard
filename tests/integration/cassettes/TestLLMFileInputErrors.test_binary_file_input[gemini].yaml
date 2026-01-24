@@ -1,0 +1,60 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "Analyze this binary file."}, {"inlineData":
+      {"data": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn-AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq-wsbKztLW2t7i5uru8vb6_wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t_g4eLj5OXm5-jp6uvs7e7v8PHy8_T19vf4-fr7_P3-_w==",
+      "mimeType": "application/octet-stream"}}], "role": "user"}], "generationConfig":
+      {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '564'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/y2MsQqDMBBA93zFkdlSByc3oVICjUPRruWIRxGqCXfnUMR/b6Qd3+PxNgNgiTmy
+        rWHLkDHEkTJVZVn8xEwi+DqcHRZZU4qsNIJ3vgX9JKoBU3pPAXWKyzkGJT2JMuFs/wdR1FWOgese
+        zc1dns39Ovi2620OdrObLyAJfgCJAAAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 19:51:57 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=59
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 400
+      message: Bad Request
+version: 1

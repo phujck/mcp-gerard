@@ -1,172 +1,133 @@
-"""Integration tests for list_models function across all LLM providers."""
+"""Integration tests for unified list_models function."""
 
-import pytest
-
-from mcp_handley_lab.llm.claude.tool import list_models as claude_list_models
-from mcp_handley_lab.llm.gemini.tool import list_models as gemini_list_models
-from mcp_handley_lab.llm.openai.tool import list_models as openai_list_models
-from mcp_handley_lab.shared.models import ModelListing
+from mcp_handley_lab.llm.models.tool import list_models
 
 
-@pytest.mark.live
-def test_claude_list_models():
-    """Test Claude list_models function returns valid model listing."""
-    result = claude_list_models()
+def test_list_models_returns_all_providers():
+    """Test list_models returns models for all providers."""
+    result = list_models()
 
-    # Verify response structure
-    assert isinstance(result, ModelListing)
-    assert result.summary.provider == "claude"
-    assert len(result.models) > 0
+    # Should have models for major providers
+    assert "claude" in result
+    assert "gemini" in result
+    assert "openai" in result
+    assert "mistral" in result
+    assert "grok" in result
+    assert "groq" in result
+
+
+def test_list_models_claude_models():
+    """Test Claude models are included in list_models result."""
+    result = list_models()
+
+    # Verify Claude models exist
+    assert len(result["claude"]) > 0
 
     # Check that we have expected Claude models
-    model_names = [model.name for model in result.models]
-    assert any("claude" in name.lower() for name in model_names)
+    model_ids = [model["id"] for model in result["claude"]]
+    assert any("claude" in name.lower() for name in model_ids)
 
     # Verify each model has required fields
-    for model in result.models:
-        assert model.name != ""
-        assert model.pricing.input_cost_per_1m >= 0
-        assert model.pricing.output_cost_per_1m >= 0
-        assert model.context_window != ""
+    for model in result["claude"]:
+        assert model["id"] != ""
+        assert "capabilities" in model
+        assert "context_window" in model
 
 
-@pytest.mark.live
-def test_gemini_list_models():
-    """Test Gemini list_models function returns valid model listing."""
-    result = gemini_list_models()
+def test_list_models_gemini_models():
+    """Test Gemini models are included in list_models result."""
+    result = list_models()
 
-    # Verify response structure
-    assert isinstance(result, ModelListing)
-    assert result.summary.provider == "gemini"
-    assert len(result.models) > 0
+    # Verify Gemini models exist
+    assert len(result["gemini"]) > 0
 
     # Check that we have expected Gemini models
-    model_names = [model.name for model in result.models]
-    assert any("gemini" in name.lower() for name in model_names)
+    model_ids = [model["id"] for model in result["gemini"]]
+    assert any("gemini" in name.lower() for name in model_ids)
 
     # Verify each model has required fields
-    for model in result.models:
-        assert model.name != ""
-        assert model.pricing.input_cost_per_1m >= 0
-        assert model.pricing.output_cost_per_1m >= 0
-        assert model.context_window != ""
+    for model in result["gemini"]:
+        assert model["id"] != ""
+        assert "capabilities" in model
+        assert "context_window" in model
 
 
-@pytest.mark.live
-def test_openai_list_models():
-    """Test OpenAI list_models function returns valid model listing."""
-    result = openai_list_models()
+def test_list_models_openai_models():
+    """Test OpenAI models are included in list_models result."""
+    result = list_models()
 
-    # Verify response structure
-    assert isinstance(result, ModelListing)
-    assert result.summary.provider == "openai"
-    assert len(result.models) > 0
+    # Verify OpenAI models exist
+    assert len(result["openai"]) > 0
 
     # Check that we have expected OpenAI models
-    model_names = [model.name for model in result.models]
-    assert any("gpt" in name.lower() for name in model_names)
+    model_ids = [model["id"] for model in result["openai"]]
+    assert any("gpt" in name.lower() for name in model_ids)
 
     # Verify each model has required fields
-    for model in result.models:
-        assert model.name != ""
-        assert model.pricing.input_cost_per_1m >= 0
-        assert model.pricing.output_cost_per_1m >= 0
-        assert model.context_window != ""
+    for model in result["openai"]:
+        assert model["id"] != ""
+        assert "capabilities" in model
+        assert "context_window" in model
 
 
-@pytest.mark.vcr
-def test_model_listings_consistency():
-    """Test that all providers return consistent model listing structure."""
-    claude_result = claude_list_models()
-    gemini_result = gemini_list_models()
-    openai_result = openai_list_models()
+def test_list_models_structure_consistency():
+    """Test that all providers have consistent model structure."""
+    result = list_models()
 
-    # All should be ModelListing instances
-    for result in [claude_result, gemini_result, openai_result]:
-        assert isinstance(result, ModelListing)
-        assert len(result.models) > 0
-        assert result.summary.provider != ""
-        assert len(result.categories) > 0
+    for provider in ["claude", "gemini", "openai", "mistral", "grok", "groq"]:
+        if provider not in result or len(result[provider]) == 0:
+            continue
 
-    # Each provider should have different provider names
-    providers = {
-        claude_result.summary.provider,
-        gemini_result.summary.provider,
-        openai_result.summary.provider,
-    }
-    assert len(providers) == 3
-    assert "claude" in providers
-    assert "gemini" in providers
-    assert "openai" in providers
+        for model in result[provider]:
+            # All models should have these keys
+            assert "id" in model
+            assert "description" in model
+            assert "context_window" in model
+            assert "tags" in model
+            assert "capabilities" in model
+            assert "supported_options" in model
+
+            # Capabilities should be a dict with boolean values
+            caps = model["capabilities"]
+            assert isinstance(caps, dict)
+            assert "vision" in caps
+            assert isinstance(caps["vision"], bool)
 
 
-@pytest.mark.live
-def test_model_capabilities_fields():
+def test_list_models_capabilities():
     """Test that model capabilities are properly populated."""
-    # Test Claude models for specific capabilities
-    claude_result = claude_list_models()
+    result = list_models()
 
-    # Find a Claude vision model
-    vision_models = [
-        m
-        for m in claude_result.models
-        if "vision" in m.capabilities or "sonnet" in m.name.lower()
-    ]
-    if vision_models:
-        model = vision_models[0]
-        assert isinstance(model.capabilities, list)
+    # Find models with vision capability
+    vision_models = []
+    for provider, models in result.items():
+        for model in models:
+            if model["capabilities"].get("vision", False):
+                vision_models.append((provider, model))
 
-    # Test Gemini models
-    gemini_result = gemini_list_models()
+    # Should have some vision-capable models
+    assert len(vision_models) > 0
 
-    # Gemini should have both text and vision models
-    model_caps = [model.capabilities for model in gemini_result.models]
-    assert len(model_caps) > 0
+    # Find models with reasoning capability
+    reasoning_models = []
+    for provider, models in result.items():
+        for model in models:
+            if model["capabilities"].get("reasoning", False):
+                reasoning_models.append((provider, model))
 
-    # Test OpenAI models
-    openai_result = openai_list_models()
-
-    # OpenAI should have GPT models
-    gpt_models = [m for m in openai_result.models if "gpt" in m.name.lower()]
-    assert len(gpt_models) > 0
-
-    for model in gpt_models[:3]:  # Check first 3 GPT models
-        assert isinstance(model.capabilities, list)
-
-
-@pytest.mark.live
-def test_model_pricing_consistency():
-    """Test that model pricing information is reasonable and consistent."""
-    for provider_func in [claude_list_models, gemini_list_models, openai_list_models]:
-        result = provider_func()
-
-        for model in result.models:
-            # Skip image/video models which have different pricing structure
-            if model.pricing.type in ["per_image", "per_second"]:
-                continue
-
-            # Input cost should be reasonable (less than $10,000 per 1M tokens)
-            assert 0 <= model.pricing.input_cost_per_1m <= 10000
-
-            # Output cost should be reasonable
-            assert 0 <= model.pricing.output_cost_per_1m <= 50000
-
-            # Context window should be meaningful
-            assert model.context_window != ""
+    # Reasoning models should exist (o-series, gemini with thinking, etc.)
+    assert len(reasoning_models) > 0
 
 
 if __name__ == "__main__":
-    # Run basic smoke tests
-    print("Testing Claude list_models...")
-    claude_result = claude_list_models()
-    print(f"✅ Claude: {len(claude_result.models)} models available")
+    # Run basic smoke test
+    print("Testing unified list_models...")
+    result = list_models()
 
-    print("Testing Gemini list_models...")
-    gemini_result = gemini_list_models()
-    print(f"✅ Gemini: {len(gemini_result.models)} models available")
+    total_models = sum(len(models) for models in result.values())
+    print(f"✅ Total: {total_models} models available")
 
-    print("Testing OpenAI list_models...")
-    openai_result = openai_list_models()
-    print(f"✅ OpenAI: {len(openai_result.models)} models available")
+    for provider, models in result.items():
+        print(f"  {provider}: {len(models)} models")
 
-    print("✅ All list_models functions working correctly!")
+    print("✅ list_models working correctly!")

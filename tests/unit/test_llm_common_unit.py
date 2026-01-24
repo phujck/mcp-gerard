@@ -11,7 +11,6 @@ from mcp_handley_lab.llm.common import (
     get_gemini_safe_mime_type,
     get_session_id,
     handle_agent_memory,
-    handle_output,
     is_gemini_supported_mime_type,
     is_text_file,
     load_prompt_text,
@@ -31,8 +30,8 @@ class TestGetSessionId:
         mock_context.client_id = "test_client_123"
         mock_mcp.get_context.return_value = mock_context
 
-        result = get_session_id(mock_mcp)
-        assert result == "_session_test_client_123"
+        result = get_session_id(mock_mcp, "openai")
+        assert result == "_session_openai_test_client_123"
 
     def test_get_session_id_no_client_id(self):
         """Test session ID when context has no client_id."""
@@ -42,8 +41,18 @@ class TestGetSessionId:
         mock_mcp.get_context.return_value = mock_context
 
         with patch("os.getpid", return_value=12345):
-            result = get_session_id(mock_mcp)
-            assert result == "_session_12345"
+            result = get_session_id(mock_mcp, "gemini")
+            assert result == "_session_gemini_12345"
+
+    def test_get_session_id_default_provider(self):
+        """Test session ID with default provider."""
+        mock_mcp = Mock()
+        mock_context = Mock()
+        mock_context.client_id = "test_client_456"
+        mock_mcp.get_context.return_value = mock_context
+
+        result = get_session_id(mock_mcp)
+        assert result == "_session_default_test_client_456"
 
 
 class TestDetermineMimeType:
@@ -265,24 +274,14 @@ class TestResolveFileContent:
         assert content == "Dict content"
         assert path is None
 
-    @patch("pathlib.Path.exists")
-    def test_resolve_file_content_dict_with_existing_path(self, mock_exists):
-        """Test resolving dict with existing file path."""
-        mock_exists.return_value = True
+    def test_resolve_file_content_dict_with_path(self):
+        """Test resolving dict with file path.
 
+        Returns path without checking existence - errors happen at read time.
+        """
         content, path = resolve_file_content({"path": "/tmp/test.txt"})
         assert content is None
         assert path == Path("/tmp/test.txt")
-
-    @patch("pathlib.Path.exists")
-    def test_resolve_file_content_dict_with_nonexistent_path(self, mock_exists):
-        """Test resolving dict with non-existent file path."""
-        mock_exists.return_value = False
-
-        with pytest.raises(
-            FileNotFoundError, match="File not found: /tmp/nonexistent.txt"
-        ):
-            resolve_file_content({"path": "/tmp/nonexistent.txt"})
 
     def test_resolve_file_content_invalid_input(self):
         """Test resolving invalid input types."""
@@ -407,128 +406,62 @@ class TestResolveImageData:
             resolve_image_data(123)
 
 
-class TestHandleOutput:
-    """Test output handling."""
-
-    @patch("pathlib.Path.write_text")
-    def test_handle_output_to_file(self, mock_write_text):
-        """Test output to file."""
-        with patch(
-            "mcp_handley_lab.common.pricing.format_usage", return_value="Usage: $0.001"
-        ):
-            result = handle_output(
-                response_text="Test response",
-                output_file="/tmp/test.txt",
-                model="gpt-4o",
-                input_tokens=100,
-                output_tokens=50,
-                cost=0.001,
-                provider="openai",
-            )
-
-        mock_write_text.assert_called_once_with("Test response")
-        assert "Response saved to: /tmp/test.txt" in result
-        assert "Content: 13 characters, 1 lines" in result
-        assert "Usage: $0.001" in result
-
-    def test_handle_output_to_stdout(self):
-        """Test output to stdout."""
-        with patch(
-            "mcp_handley_lab.common.pricing.format_usage", return_value="Usage: $0.001"
-        ):
-            result = handle_output(
-                response_text="Test response",
-                output_file="-",
-                model="gpt-4o",
-                input_tokens=100,
-                output_tokens=50,
-                cost=0.001,
-                provider="openai",
-            )
-
-        assert result == "Test response\n\nUsage: $0.001"
-
-
 class TestHandleAgentMemory:
     """Test agent memory handling."""
 
     @patch("mcp_handley_lab.llm.common.memory_manager")
-    def test_handle_agent_memory_with_named_agent(self, mock_memory_manager):
-        """Test memory handling with named agent."""
-        mock_agent = Mock()
-        mock_memory_manager.get_agent.return_value = mock_agent
-
-        result = handle_agent_memory(
+    def test_handle_agent_memory_stores_messages(self, mock_memory_manager):
+        """Test that handle_agent_memory stores user and assistant messages."""
+        metadata = {"input_tokens": 100, "output_tokens": 50, "cost": 0.001}
+        handle_agent_memory(
             agent_name="test_agent",
             user_prompt="Test prompt",
             response_text="Test response",
-            input_tokens=100,
-            output_tokens=50,
-            cost=0.001,
-            session_id_func=lambda: "session_123",
+            provider="gemini",
+            model="gemini-2.5-pro",
+            metadata=metadata,
         )
 
-        assert result == "test_agent"
+        # User message: no metadata
         mock_memory_manager.add_message.assert_any_call(
-            "test_agent", "user", "Test prompt", 100, 0.0005
+            "test_agent",
+            "user",
+            "Test prompt",
+            provider="gemini",
+            model="gemini-2.5-pro",
         )
+        # Assistant message: full metadata
         mock_memory_manager.add_message.assert_any_call(
-            "test_agent", "assistant", "Test response", 50, 0.0005
+            "test_agent",
+            "assistant",
+            "Test response",
+            provider="gemini",
+            model="gemini-2.5-pro",
+            metadata=metadata,
         )
 
     @patch("mcp_handley_lab.llm.common.memory_manager")
-    def test_handle_agent_memory_create_new_agent(self, mock_memory_manager):
-        """Test memory handling when agent needs to be created."""
-        mock_memory_manager.get_agent.return_value = None
-        mock_agent = Mock()
-        mock_memory_manager.create_agent.return_value = mock_agent
-
-        result = handle_agent_memory(
-            agent_name="new_agent",
+    def test_handle_agent_memory_with_provider_attribution(self, mock_memory_manager):
+        """Test that provider and model are stored with messages."""
+        metadata = {"input_tokens": 100, "output_tokens": 50, "cost": 0.001}
+        handle_agent_memory(
+            agent_name="test_agent",
             user_prompt="Test prompt",
             response_text="Test response",
-            input_tokens=100,
-            output_tokens=50,
-            cost=0.001,
-            session_id_func=lambda: "session_123",
+            provider="openai",
+            model="gpt-4o",
+            metadata=metadata,
         )
 
-        assert result == "new_agent"
-        mock_memory_manager.create_agent.assert_called_once_with("new_agent")
-
-    @patch("mcp_handley_lab.llm.common.memory_manager")
-    def test_handle_agent_memory_session_fallback(self, mock_memory_manager):
-        """Test memory handling with session fallback when no agent name."""
-        mock_agent = Mock()
-        mock_memory_manager.get_agent.return_value = None
-        mock_memory_manager.create_agent.return_value = mock_agent
-
-        result = handle_agent_memory(
-            agent_name=None,
-            user_prompt="Test prompt",
-            response_text="Test response",
-            input_tokens=100,
-            output_tokens=50,
-            cost=0.001,
-            session_id_func=lambda: "session_123",
+        # Check assistant message has provider/model and metadata
+        mock_memory_manager.add_message.assert_any_call(
+            "test_agent",
+            "assistant",
+            "Test response",
+            provider="openai",
+            model="gpt-4o",
+            metadata=metadata,
         )
-
-        assert result == "session_123"
-        mock_memory_manager.create_agent.assert_called_once_with("session_123")
-
-    def test_handle_agent_memory_disabled(self):
-        """Test memory handling when disabled."""
-        result = handle_agent_memory(
-            agent_name=False,
-            user_prompt="Test prompt",
-            response_text="Test response",
-            input_tokens=100,
-            output_tokens=50,
-            cost=0.001,
-            session_id_func=lambda: "session_123",
-        )
-
-        assert result is None
 
 
 class TestLoadPromptText:
@@ -657,17 +590,3 @@ class TestLoadPromptText:
             prompt_vars={"name": "世界"},
         )
         assert result == "你好, 世界! 🌍"
-
-    def test_handle_agent_memory_string_false_normalization(self):
-        """Test that string 'false' is normalized to boolean False."""
-        result = handle_agent_memory(
-            agent_name="false",  # String "false" should be treated as False
-            user_prompt="Test prompt",
-            response_text="Test response",
-            input_tokens=100,
-            output_tokens=50,
-            cost=0.001,
-            session_id_func=lambda: "session_123",
-        )
-
-        assert result is None

@@ -275,8 +275,8 @@ class TestProviderSpecificMetadata:
             ),
             gemini_metadata={
                 "positive_prompt_safety_attributes": None,
-                "actual_model_used": "imagen-3.0-generate-002",
-                "requested_model": "imagen-3",
+                "actual_model_used": "imagen-4.0-generate-001",
+                "requested_model": "imagen-4",
             },
             safety_attributes={
                 "categories": None,
@@ -285,8 +285,8 @@ class TestProviderSpecificMetadata:
             },
         )
 
-        assert result.gemini_metadata["actual_model_used"] == "imagen-3.0-generate-002"
-        assert result.gemini_metadata["requested_model"] == "imagen-3"
+        assert result.gemini_metadata["actual_model_used"] == "imagen-4.0-generate-001"
+        assert result.gemini_metadata["requested_model"] == "imagen-4"
         assert result.safety_attributes["categories"] is None
 
     def test_cross_provider_metadata_isolation(self):

@@ -1,0 +1,95 @@
+interactions:
+- request:
+    body: '{"input": [], "model": "text-embedding-3-small", "encoding_format": "base64"}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '72'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/embeddings
+  response:
+    body:
+      string: "{\n  \"error\": {\n    \"message\": \"'$.input' is invalid. Please
+        check the API reference: https://platform.openai.com/docs/api-reference.\",\n
+        \   \"type\": \"invalid_request_error\",\n    \"param\": null,\n    \"code\":
+        null\n  }\n}\n"
+    headers:
+      CF-RAY:
+      - 9b11165b6f50bd6f-LHR
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '214'
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:08:50 GMT
+      Server:
+      - cloudflare
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '28'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      via:
+      - envoy-router-6fd47f457c-zrxb8
+      x-envoy-upstream-service-time:
+      - '47'
+      x-openai-proxy-wasm:
+      - v0.1
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-reset-requests:
+      - 6ms
+      x-request-id:
+      - req_ce2bd9858ed3420a93b486285a3d00b3
+    status:
+      code: 400
+      message: Bad Request
+version: 1

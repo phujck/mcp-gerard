@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"max_tokens": 8192, "messages": [{"role": "user", "content": "Summarize
+    body: '{"max_tokens": 64000, "messages": [{"role": "user", "content": "Summarize
       this large file in one sentence.\n\n[File: large_input.txt]\nThis is a large
       file. This is a large file. This is a large file. This is a large file. This
       is a large file. This is a large file. This is a large file. This is a large
@@ -14287,43 +14287,43 @@ interactions:
       file. This is a large file. This is a large file. This is a large file. This
       is a large file. This is a large file. This is a large file. This is a large
       file. This is a large file. This is a large file. This is a large file. This
-      is a large file. This is a large file. "}], "model": "claude-3-5-haiku-20241022",
+      is a large file. This is a large file. "}], "model": "claude-haiku-4-5-20251001",
       "temperature": 1.0}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1100187'
+      Content-Type:
+      - application/json
+      Host:
+      - api.anthropic.com
+      User-Agent:
+      - Anthropic/Python 0.74.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 0.74.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       anthropic-version:
       - '2023-06-01'
-      connection:
-      - keep-alive
-      content-length:
-      - '1100186'
-      content-type:
-      - application/json
-      host:
-      - api.anthropic.com
-      user-agent:
-      - Anthropic/Python 0.61.0
-      x-stainless-arch:
-      - x64
-      x-stainless-async:
-      - 'false'
-      x-stainless-lang:
-      - python
-      x-stainless-os:
-      - Linux
-      x-stainless-package-version:
-      - 0.61.0
       x-stainless-read-timeout:
       - '599'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
       x-stainless-timeout:
       - '599'
     method: POST
@@ -14331,18 +14331,18 @@ interactions:
   response:
     body:
       string: '{"type":"error","error":{"type":"invalid_request_error","message":"prompt
-        is too long: 204567 tokens > 200000 maximum"}}'
+        is too long: 204567 tokens > 200000 maximum"},"request_id":"req_011CWJPh7TZzQDSdJscZ39xH"}'
     headers:
       CF-RAY:
-      - 96eea033ba56dff7-LHR
+      - 9b111c5e0c8a2d9c-LHR
       Connection:
       - keep-alive
       Content-Length:
-      - '120'
+      - '164'
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 07:09:17 GMT
+      - Sat, 20 Dec 2025 18:12:57 GMT
       Server:
       - cloudflare
       X-Robots-Tag:
@@ -14352,11 +14352,11 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       request-id:
-      - req_011CS7BYbwWZaubJGDQny9FG
+      - req_011CWJPh7TZzQDSdJscZ39xH
       strict-transport-security:
       - max-age=31536000; includeSubDomains; preload
-      via:
-      - 1.1 google
+      x-envoy-upstream-service-time:
+      - '80'
       x-should-retry:
       - 'false'
     status:

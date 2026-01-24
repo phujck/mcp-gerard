@@ -37,7 +37,7 @@ class TestProcessLLMRequestPromptResolution:
 
         result = process_llm_request(
             prompt="",
-            output_file="-",
+            output_file="",
             agent_name="",
             model="gpt-4o-mini",
             provider="openai",
@@ -82,7 +82,7 @@ class TestProcessLLMRequestPromptResolution:
 
         result = process_llm_request(
             prompt="Test prompt",
-            output_file="-",
+            output_file="",
             agent_name="",
             model="gpt-4o-mini",
             provider="openai",
@@ -109,7 +109,7 @@ class TestProcessLLMRequestPromptResolution:
         ):
             process_llm_request(
                 prompt="Direct prompt",
-                output_file="-",
+                output_file="",
                 agent_name="",
                 model="gpt-4o-mini",
                 provider="openai",
@@ -132,7 +132,7 @@ class TestProcessLLMRequestPromptResolution:
         ):
             process_llm_request(
                 prompt="",
-                output_file="-",
+                output_file="",
                 agent_name="",
                 model="gpt-4o-mini",
                 provider="openai",
@@ -155,7 +155,7 @@ class TestProcessLLMRequestPromptResolution:
         ):
             process_llm_request(
                 prompt="Test prompt",
-                output_file="-",
+                output_file="",
                 agent_name="",
                 model="gpt-4o-mini",
                 provider="openai",
@@ -179,7 +179,7 @@ class TestProcessLLMRequestPromptResolution:
         with pytest.raises(KeyError):
             process_llm_request(
                 prompt="",
-                output_file="-",
+                output_file="",
                 agent_name="",
                 model="gpt-4o-mini",
                 provider="openai",
@@ -203,7 +203,7 @@ class TestProcessLLMRequestPromptResolution:
         with pytest.raises(KeyError):
             process_llm_request(
                 prompt="Test prompt",
-                output_file="-",
+                output_file="",
                 agent_name="",
                 model="gpt-4o-mini",
                 provider="openai",
@@ -249,7 +249,7 @@ class TestProcessLLMRequestPromptResolution:
 
         process_llm_request(
             prompt="Test prompt",
-            output_file="-",
+            output_file="",
             agent_name="test_agent",
             model="gpt-4o-mini",
             provider="openai",
@@ -268,45 +268,3 @@ class TestProcessLLMRequestPromptResolution:
         )
         # Verify system prompt was set on the agent
         assert mock_agent.system_prompt == "You are a helpful assistant."
-
-    @patch("mcp_handley_lab.llm.shared.memory_manager")
-    @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
-    def test_no_unintended_writes_with_stdout(
-        self, mock_calculate_cost, mock_memory_manager
-    ):
-        """Test that no files are written when output_file is '-'."""
-
-        # Mock generation function
-        def mock_generation_func(prompt, system_instruction, **kwargs):
-            return {
-                "text": "Response",
-                "input_tokens": 10,
-                "output_tokens": 5,
-                "model": "gpt-4o-mini",
-            }
-
-        # Mock MCP context
-        mock_mcp = Mock()
-        mock_context = Mock()
-        mock_context.client_id = "test_client"
-        mock_mcp.get_context.return_value = mock_context
-
-        with patch("pathlib.Path.write_text") as mock_write:
-            result = process_llm_request(
-                prompt="Test prompt",
-                output_file="-",
-                agent_name="",
-                model="gpt-4o-mini",
-                provider="openai",
-                generation_func=mock_generation_func,
-                mcp_instance=mock_mcp,
-                prompt_file="",
-                prompt_vars={},
-                system_prompt="",
-                system_prompt_file="",
-                system_prompt_vars={},
-            )
-
-            # Should not write any files when output_file is "-"
-            mock_write.assert_not_called()
-            assert "Response" in result.content

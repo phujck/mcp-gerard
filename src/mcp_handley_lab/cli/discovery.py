@@ -3,9 +3,7 @@
 import json
 from typing import Any
 
-import click
-
-from .rpc_client import get_tool_client
+from mcp_handley_lab.cli.rpc_client import get_tool_client
 
 
 def get_available_tools() -> dict[str, str]:
@@ -17,13 +15,17 @@ def get_available_tools() -> dict[str, str]:
         "code2prompt": "mcp-code2prompt",
         "arxiv": "mcp-arxiv",
         "google-calendar": "mcp-google-calendar",
-        "gemini": "mcp-gemini",
-        "openai": "mcp-openai",
-        "claude": "mcp-claude",
         "google-maps": "mcp-google-maps",
         "email": "mcp-email",
         "github": "mcp-github",
         "notes": "mcp-notes",
+        # LLM tools
+        "llm-chat": "mcp-llm-chat",
+        "llm-image": "mcp-llm-image",
+        "llm-embeddings": "mcp-llm-embeddings",
+        "llm-ocr": "mcp-llm-ocr",
+        "llm-audio": "mcp-llm-audio",
+        "llm-models": "mcp-llm-models",
     }
 
     return scripts
@@ -31,15 +33,12 @@ def get_available_tools() -> dict[str, str]:
 
 def get_tool_info_from_cache() -> dict[str, dict[str, Any]]:
     """Load tool information from pre-generated cache."""
-    try:
-        from importlib.resources import files
+    from importlib.resources import files
 
-        schema_file = files("mcp_handley_lab") / "tool_schemas.json"
-        if schema_file.is_file():
-            return json.loads(schema_file.read_text()).get("tools", {})
-        return {}
-    except Exception as e:
-        click.echo(f"Warning: Failed to load tool cache: {e}", err=True)
+    schema_file = files("mcp_handley_lab") / "tool_schemas.json"
+    try:
+        return json.loads(schema_file.read_text()).get("tools", {})
+    except FileNotFoundError:
         return {}
 
 
@@ -54,19 +53,14 @@ def get_tool_info(tool_name: str, command: str) -> dict[str, Any] | None:
         return tool_info
 
     # Fallback to RPC introspection
-    try:
-        client = get_tool_client(tool_name, command)
-        tools_list = client.list_tools()
+    client = get_tool_client(tool_name, command)
+    tools_list = client.list_tools()
 
-        if not tools_list:
-            return None
-
-        return {
-            "name": tool_name,
-            "command": command,
-            "functions": {tool["name"]: tool for tool in tools_list},
-        }
-
-    except Exception as e:
-        click.echo(f"Warning: Failed to get info for {tool_name}: {e}", err=True)
+    if not tools_list:
         return None
+
+    return {
+        "name": tool_name,
+        "command": command,
+        "functions": {tool["name"]: tool for tool in tools_list},
+    }

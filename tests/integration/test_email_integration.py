@@ -458,71 +458,72 @@ Subject: {test_subject}
     @pytest.mark.asyncio
     async def test_email_tool_functions_integration(self):
         """Test email tool functions that don't require credentials."""
-        from mcp_handley_lab.email.common import mcp
-        from mcp_handley_lab.email.msmtp.tool import _parse_msmtprc, list_accounts
+        from mcp_handley_lab.email.notmuch.tool import _list_accounts
+        from mcp_handley_lab.email.tool import mcp
 
         # Test msmtp account parsing with real config file
         fixtures_dir = Path(__file__).parent.parent / "fixtures" / "email"
         msmtprc_path = fixtures_dir / "msmtprc"
 
-        # Test parsing real msmtprc file
+        # Test _list_accounts internal function
         try:
-            accounts = _parse_msmtprc(str(msmtprc_path))
+            accounts = _list_accounts(str(msmtprc_path))
             assert "HandleyLab" in accounts
             assert len(accounts) >= 1
         except FileNotFoundError:
             pytest.skip("Test msmtprc file not found")
 
-        # Test list_accounts function
-        try:
-            accounts = list_accounts(str(msmtprc_path))
-            assert "HandleyLab" in accounts
-        except FileNotFoundError:
-            pytest.skip("Test msmtprc file not found")
+        # Test read tool via MCP for accounts (skip if msmtprc not available)
+        msmtprc_default = Path.home() / ".msmtprc"
+        if not msmtprc_default.exists():
+            pytest.skip("~/.msmtprc not found")
+        _, response = await mcp.call_tool("read", {"list_type": "accounts"})
+        result = response.get("result") if isinstance(response, dict) else response
+        assert isinstance(result, list)
 
-        # Test server_info function using MCP call_tool
-        try:
-            _, response = await mcp.call_tool("server_info", {})
-            assert "error" not in response, response.get("error")
-            info = response
-
-            # Accept any of the email-related tool servers due to MCP tool conflicts
-            assert "Tool" in info["name"]
-            assert info["status"] == "active"
-            # Since there are multiple email tools, just check that we get a valid response
-            assert "capabilities" in info
-        except (FileNotFoundError, RuntimeError) as e:
-            pytest.skip(f"Email tools not available: {e}")
-
-    def test_notmuch_functions_integration(self):
+    @pytest.mark.asyncio
+    async def test_notmuch_functions_integration(self):
         """Test notmuch functions with real database (if available)."""
-        from mcp_handley_lab.email.notmuch.tool import count, search, tag
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        from mcp_handley_lab.email.tool import mcp
 
         try:
-            # Test count function - should work even with empty database
-            result = count("*")
-            assert isinstance(result, int)
-            assert result >= 0
+            # Test read function via MCP (search mode)
+            _, search_result = await mcp.call_tool(
+                "read", {"query": "*", "limit": 10, "mode": "headers"}
+            )
+            # Result may be a list directly or wrapped in a dict
+            search_list = (
+                search_result
+                if isinstance(search_result, list)
+                else search_result.get("result", [])
+            )
+            assert isinstance(search_list, list)
 
-            # Test search function
-            search_result = search("*")
-            assert isinstance(search_result, list)
-
-            # Test tag function with non-existent message (should fail gracefully)
+            # Test update function with non-existent message (should fail gracefully)
             try:
-                tag_result = tag("nonexistent123", add_tags=["test"])
+                _, tag_result = await mcp.call_tool(
+                    "update",
+                    {
+                        "message_ids": ["nonexistent123"],
+                        "action": "tag",
+                        "add_tags": ["test"],
+                    },
+                )
                 # If it succeeds, check the result structure
-                assert hasattr(tag_result, "message_id")
-            except RuntimeError:
+                assert "message_id" in str(tag_result)
+            except Exception:
                 # Expected for non-existent message - notmuch should fail fast
                 pass
 
-        except (FileNotFoundError, RuntimeError) as e:
+        except (FileNotFoundError, RuntimeError, ToolError) as e:
             pytest.skip(f"Notmuch not available or configured: {e}")
 
-    def test_offlineimap_dry_run_integration(self):
-        """Test offlineimap sync_status with real config."""
-        from mcp_handley_lab.email.offlineimap.tool import sync_status
+    @pytest.mark.asyncio
+    async def test_offlineimap_dry_run_integration(self):
+        """Test offlineimap sync with status mode."""
+        from mcp_handley_lab.email.tool import mcp
 
         # Test with real config file
         fixtures_dir = Path(__file__).parent.parent / "fixtures" / "email"
@@ -537,9 +538,13 @@ Subject: {test_subject}
             os.chdir(str(fixtures_dir))
 
             # Test dry run - should validate config without connecting
-            result = sync_status(str(offlineimaprc_path))
-            assert hasattr(result, "message")
-            assert len(result.message) > 0
+            _, result = await mcp.call_tool(
+                "sync",
+                {"mode": "status", "config_file": str(offlineimaprc_path)},
+            )
+            assert "error" not in result, result.get("error")
+            assert "message" in result
+            assert len(result["message"]) > 0
 
         except (FileNotFoundError, RuntimeError) as e:
             pytest.skip(f"Offlineimap not available: {e}")

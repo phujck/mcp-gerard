@@ -1,13 +1,36 @@
+import asyncio
 import os
 import re
 import tempfile
 from pathlib import Path
 
+import nest_asyncio
 import pytest
+
+# Apply nest_asyncio to allow nested event loops.
+# Required for VCR 8.0.0's httpcore stubs compatibility with pytest-asyncio.
+nest_asyncio.apply()
+
+
+# Patch VCR 8.0.0's broken _run_async_function.
+# The original uses ensure_future() which returns a Future without awaiting it.
+# This patch uses asyncio.run() with nest_asyncio to properly execute the coroutine.
+def _fixed_run_async_function(sync_func, *args, **kwargs):
+    """Fixed version that properly runs async code from sync context."""
+    return asyncio.run(sync_func(*args, **kwargs))
+
+
+# Apply the patch to VCR's httpcore stubs
+try:
+    from vcr.stubs import httpcore_stubs
+
+    httpcore_stubs._run_async_function = _fixed_run_async_function
+except ImportError:
+    pass  # VCR not installed
 
 
 def scrub_oauth_tokens(response):
-    """Scrub OAuth tokens from response bodies."""
+    """Scrub OAuth tokens from response bodies, preserving binary data."""
     if not hasattr(response, "get") or "body" not in response:
         return response
 
@@ -15,14 +38,20 @@ def scrub_oauth_tokens(response):
     if isinstance(body, dict) and "string" in body:
         body_str = body["string"]
 
-        # Handle both string and bytes content
         if isinstance(body_str, bytes):
-            # Decode bytes to string, scrub, then encode back
-            body_str = body_str.decode("utf-8", errors="ignore")
+            try:
+                # Attempt strict decode. If this contains binary data (gzip/tar),
+                # this will raise UnicodeDecodeError.
+                decoded_str = body_str.decode("utf-8")
+            except UnicodeDecodeError:
+                # Binary data - do not scrub, do not modify
+                return response
+
+            # Safe text - proceed with scrubbing
             body_str = re.sub(
                 r'"access_token"\s*:\s*"ya29\.[^"]*"',
                 '"access_token": "REDACTED_OAUTH_TOKEN"',
-                body_str,
+                decoded_str,
             )
             body_str = re.sub(
                 r'"access_token"\s*:\s*"[A-Za-z0-9._-]{100,}"',
@@ -30,6 +59,7 @@ def scrub_oauth_tokens(response):
                 body_str,
             )
             body["string"] = body_str.encode("utf-8")
+
         elif isinstance(body_str, str):
             # Handle string content directly
             body_str = re.sub(
@@ -49,8 +79,12 @@ def scrub_oauth_tokens(response):
 
 @pytest.fixture(scope="session")
 def vcr_config():
+    # Use VCR_RECORD_MODE env var to control recording.
+    # Default to "none" for CI safety (fails if cassette missing).
+    # Set to "new_episodes" locally to record new cassettes.
+    record_mode = os.getenv("VCR_RECORD_MODE", "none")
     return {
-        "record_mode": "new_episodes",
+        "record_mode": record_mode,
         "match_on": ["uri", "method"],
         "filter_headers": [
             "authorization",
@@ -71,7 +105,8 @@ def vcr_config():
             "access_token",
         ],
         "before_record_response": scrub_oauth_tokens,
-        "decode_compressed_response": True,
+        # Disable automatic decompression so binary gzip data is preserved
+        "decode_compressed_response": False,
     }
 
 
@@ -104,6 +139,53 @@ def skip_if_no_api_key():
             pytest.skip(f"Skipping test - {env_var} not set")
 
     return _skip_if_no_key
+
+
+@pytest.fixture(autouse=True)
+def set_dummy_api_keys_for_vcr(monkeypatch):
+    """Set dummy API keys for VCR-backed tests.
+
+    VCR intercepts HTTP requests, but API key validation happens before the request.
+    Setting dummy keys allows the code to proceed to the HTTP call where VCR intercepts.
+    Only set if not already set (don't override real keys during recording).
+    """
+    dummy_keys = {
+        "GROQ_API_KEY": "gsk_test_vcr_dummy_key",
+        "OPENAI_API_KEY": "sk-test-vcr-dummy-key",
+        "GEMINI_API_KEY": "AIza-test-vcr-dummy-key",
+        "ANTHROPIC_API_KEY": "sk-ant-test-vcr-dummy-key",
+        "XAI_API_KEY": "xai-test-vcr-dummy-key",
+        "MISTRAL_API_KEY": "test-vcr-dummy-key",
+    }
+    for key, value in dummy_keys.items():
+        if not os.getenv(key):
+            monkeypatch.setenv(key, value)
+
+
+@pytest.fixture(autouse=True)
+def reset_llm_client_singletons():
+    """Reset LLM client singletons to ensure VCR can intercept HTTP requests.
+
+    Global cached clients can be created outside VCR's patching context.
+    Resetting them forces new clients to be created inside the patched context.
+    """
+    # Reset before the test
+    try:
+        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+
+        reset_client()
+    except ImportError:
+        pass  # Module not available
+
+    yield
+
+    # Reset after the test to clean up
+    try:
+        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+
+        reset_client()
+    except ImportError:
+        pass
 
 
 @pytest.fixture(scope="session")

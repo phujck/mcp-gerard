@@ -6,16 +6,43 @@ import re
 from email import policy
 from email.message import EmailMessage
 from email.parser import BytesParser
+from email.utils import parseaddr
 from pathlib import Path
 
-import ftfy
-from email_reply_parser import EmailReplyParser
-from inscriptis import get_text
 from pydantic import BaseModel, Field
-from selectolax.parser import HTMLParser
 
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.email.common import mcp
+from mcp_handley_lab.email.extraction import (
+    EmailBodySegment,
+    EmailPartInfo,
+    extract_email_content,
+)
+
+MAILDIR_LEAFS = {"cur", "new", "tmp"}
+
+
+def _new() -> str:
+    """Index newly received emails into notmuch database (internal helper)."""
+    stdout, _ = run_command(["notmuch", "new"], timeout=60)
+    return stdout.decode().strip()
+
+
+def _get_account_folders(maildir_root: Path, account_name: str) -> dict[str, Path]:
+    """Get folders for a specific account using shallow directory scan (fast; skips cur/new/tmp)."""
+    account_path = maildir_root / account_name
+    folders: dict[str, Path] = {}
+
+    try:
+        children = list(account_path.iterdir())
+    except (FileNotFoundError, NotADirectoryError):
+        return folders
+
+    for child in children:
+        if child.is_dir() and child.name not in MAILDIR_LEAFS:
+            folders[child.name] = child
+
+    return folders
 
 
 def _find_smart_destination(
@@ -37,40 +64,104 @@ def _find_smart_destination(
     rel_path = first_source.relative_to(maildir_root)
 
     # Determine account path - handles both root and account-specific folders
-    # Root level emails are in structure: maildir/cur/file.eml or maildir/new/file.eml
-    # Account emails are in structure: maildir/Account/INBOX/cur/file.eml
     if len(rel_path.parts) > 2:  # Account/folder/cur/file.eml
-        account_path = maildir_root / rel_path.parts[0]
+        account_name = rel_path.parts[0]
+        account_path = maildir_root / account_name
     else:  # cur/file.eml or new/file.eml (root level)
         account_path = maildir_root
-    account_name = account_path.name
+        account_name = account_path.name
 
     # Try exact match first
     exact_match = account_path / destination_folder
     if exact_match.is_dir():
         return exact_match
 
+    # Get folders from notmuch index (fast, no filesystem scan)
+    account_folders = _get_account_folders(maildir_root, account_name)
+
     # Try common name variations (case-insensitive)
     destination_lower = destination_folder.lower()
     if potential_names := folder_map.get(destination_lower):
-        for folder in account_path.iterdir():
-            if folder.is_dir() and any(
-                name in folder.name.lower() for name in potential_names
-            ):
-                return folder
+        for folder_name, folder_path in account_folders.items():
+            if any(name in folder_name.lower() for name in potential_names):
+                return folder_path
 
     # No match found - fail with helpful error
-    available_folders = [f.name for f in account_path.iterdir() if f.is_dir()]
     raise FileNotFoundError(
         f"No existing folder matching '{destination_folder}' found in account '{account_name}'. "
-        f"Available folders: {available_folders}"
+        f"Available folders: {list(account_folders.keys())}"
     )
 
 
-class EmailContent(BaseModel):
+def _quote_for_notmuch(s: str) -> str:
+    """Escape a string for use in notmuch quoted queries."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _resolve_message_id(abbreviated: str) -> str:
+    """Resolve an abbreviated message ID to a full ID using notmuch.
+
+    Supports abbreviated message ID prefixes. If the input is already a full
+    valid message ID, it is returned unchanged.
+
+    Args:
+        abbreviated: Full or abbreviated message ID
+
+    Returns:
+        The full message ID
+
+    Raises:
+        ValueError: If no match found or if the prefix is ambiguous
+    """
+    # 1. Try exact match first (handles full IDs efficiently)
+    quoted = _quote_for_notmuch(abbreviated)
+    stdout, _ = run_command(["notmuch", "count", f'id:"{quoted}"'])
+    if int(stdout.decode().strip()) == 1:
+        return abbreviated  # Already a valid full ID
+
+    # 2. Prefix match via regex (use --limit=2 to detect ambiguity without full scan)
+    escaped = re.escape(abbreviated)
+    stdout, _ = run_command(
+        ["notmuch", "search", "--output=messages", "--limit=2", f"mid:/^{escaped}/"]
+    )
+    matches = []
+    for line in stdout.decode(errors="replace").strip().split("\n"):
+        if line:
+            # Output format: id:MESSAGE_ID
+            matches.append(line[3:] if line.startswith("id:") else line)
+
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise ValueError(
+            f"Ambiguous: '{abbreviated}' matches {matches[0]} and {matches[1]}"
+        )
+    else:
+        raise ValueError(f"No message found matching '{abbreviated}'")
+
+
+def _resolve_id_in_query(query: str) -> str:
+    """Replace abbreviated id:/mid: in query with resolved full ID.
+
+    Handles both quoted and unquoted forms: id:XXX, id:"XXX", mid:XXX, mid:"XXX"
+    """
+    pattern = r'(?:id|mid):(?:"([^"]+)"|([^\s\)\]]+))'
+
+    def replace_id(match: re.Match) -> str:
+        abbreviated = match.group(1) or match.group(2)
+        full_id = _resolve_message_id(abbreviated)
+        return f'id:"{full_id}"'
+
+    return re.sub(pattern, replace_id, query)
+
+
+class EmailContent(BaseModel, extra="forbid"):
     """Structured representation of a single email's content."""
 
-    id: str = Field(..., description="The unique message ID of the email.")
+    id: str = Field(
+        ...,
+        description="Message ID. Abbreviated prefixes are supported for queries.",
+    )
     subject: str = Field(..., description="The subject line of the email.")
     from_address: str = Field(..., description="The sender's email address and name.")
     to_address: str = Field(
@@ -88,12 +179,58 @@ class EmailContent(BaseModel):
     )
     body_format: str = Field(
         ...,
-        description="The original format of the body ('html' or 'text'). Indicates if the markdown was converted or is original plain text.",
+        description="The original format of the body ('html', 'text', or 'empty').",
     )
     attachments: list[str] = Field(
         default_factory=list,
         description="A list of filenames for any attachments in the email.",
     )
+    saved_files: list[str] = Field(
+        default_factory=list,
+        description="Paths to saved files when save_attachments_to is used (body + attachments).",
+    )
+
+    # Selected part info (summary + full modes)
+    selected_part: EmailPartInfo | None = Field(
+        default=None, description="Which MIME part was chosen as body."
+    )
+
+    # Truncation metadata (summary mode only)
+    is_truncated: bool | None = Field(
+        default=None, description="True if body was truncated in summary mode."
+    )
+    original_length: int | None = Field(
+        default=None, description="Char count of body_markdown before truncation."
+    )
+
+    # Warnings (summary + full modes)
+    extraction_warnings: list[str] | None = Field(
+        default=None, description="Non-fatal issues during extraction."
+    )
+
+    # Preservation fields (full mode only - use None for omission from serialization)
+    body_raw: str | None = Field(
+        default=None, description="Decoded text before processing (full mode only)."
+    )
+    body_html_raw: str | None = Field(
+        default=None, description="Original HTML if source was HTML (full mode only)."
+    )
+    segments: list[EmailBodySegment] | None = Field(
+        default=None, description="Quote detection results (full mode only)."
+    )
+    parts_manifest: list[EmailPartInfo] | None = Field(
+        default=None, description="All MIME parts in the message (full mode only)."
+    )
+
+    def model_dump(self, **kwargs) -> dict:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs) -> str:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump_json(**kwargs)
 
 
 class TagResult(BaseModel):
@@ -105,20 +242,6 @@ class TagResult(BaseModel):
     )
     removed_tags: list[str] = Field(
         ..., description="A list of tags that were removed from the message."
-    )
-
-
-class AttachmentExtractionResult(BaseModel):
-    """Result of a successful attachment extraction operation."""
-
-    message_id: str = Field(
-        ..., description="The notmuch message ID from which attachments were extracted."
-    )
-    saved_files: list[str] = Field(
-        ..., description="A list of absolute paths to the saved attachment files."
-    )
-    message: str = Field(
-        ..., description="Status message describing the extraction result."
     )
 
 
@@ -137,25 +260,73 @@ class MoveResult(BaseModel):
     status: str = Field(..., description="A summary of the move operation.")
 
 
-@mcp.tool(
-    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
-)
-def search(
-    query: str = Field(
+class SearchResult(BaseModel):
+    """Structured search result for a single email."""
+
+    id: str = Field(
         ...,
-        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'.",
-    ),
-    limit: int = Field(
-        default=100,
-        description="The maximum number of message IDs to return.",
-        gt=0,
-    ),
-) -> list[str]:
-    """Search emails using notmuch query syntax."""
-    cmd = ["notmuch", "search", "--limit", str(limit), query]
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    return [line.strip() for line in output.split("\n") if line.strip()]
+        description="Message ID. Abbreviated prefixes are supported for queries.",
+    )
+    subject: str = Field(..., description="The subject line of the email.")
+    from_address: str = Field(..., description="The sender's email address and name.")
+    to_address: str = Field(
+        default="",
+        description="The primary recipient's email address (empty if not available).",
+    )
+    date: str = Field(
+        default="", description="The date the email was sent (empty if not available)."
+    )
+    tags: list[str] = Field(
+        default_factory=list, description="Tags associated with this email."
+    )
+
+
+def _search_emails(
+    query: str,
+    limit: int = 100,
+    offset: int = 0,
+    include_excluded: bool = False,
+) -> list[SearchResult]:
+    """Internal search implementation using notmuch show --body=false for efficiency."""
+    cmd = ["notmuch", "show", "--format=json", "--body=false"]
+    if include_excluded:
+        cmd.append("--exclude=false")
+    cmd.extend(["--limit", str(limit), "--offset", str(offset)])
+    cmd.append(query)
+    stdout, _ = run_command(cmd)
+
+    # notmuch show returns nested structure: [[thread1], [thread2], ...]
+    # Each thread contains messages: [msg1, [replies...], msg2, ...]
+    threads = json.loads(stdout.decode().strip())
+
+    results = []
+    for thread in threads:
+        for item in thread:
+            # item is either a message dict or a list of replies
+            _collect_messages_from_thread(item, results)
+
+    return results
+
+
+def _collect_messages_from_thread(item, results: list[SearchResult]) -> None:
+    """Recursively collect messages from notmuch thread structure."""
+    if isinstance(item, dict):
+        # This is a message
+        headers = item.get("headers", {})
+        results.append(
+            SearchResult(
+                id=item.get("id", ""),
+                subject=headers.get("Subject", "") or "[No Subject]",
+                from_address=headers.get("From", "") or "[Unknown Sender]",
+                to_address=headers.get("To", ""),
+                date=headers.get("Date", ""),
+                tags=item.get("tags", []),
+            )
+        )
+    elif isinstance(item, list):
+        # This is a list of replies or nested messages
+        for sub_item in item:
+            _collect_messages_from_thread(sub_item, results)
 
 
 def _get_message_from_raw_source(message_id: str) -> EmailMessage:
@@ -167,210 +338,85 @@ def _get_message_from_raw_source(message_id: str) -> EmailMessage:
     return parser.parsebytes(raw_email_bytes)
 
 
-# Initialize email reply parser
-reply_parser = EmailReplyParser()
+def _save_email_files(
+    msg, message_id: str, body_content: str, body_format: str, save_path: Path
+) -> list[str]:
+    """Save email body and attachments to files."""
+    saved_files = []
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    # Create safe base filename from message_id
+    safe_id = re.sub(r'[\\/*?:"<>|@]', "_", message_id)[:50]
+
+    # Save body as txt or html (explicit encoding for robustness)
+    body_ext = ".html" if body_format == "html" else ".txt"
+    body_file = save_path / f"{safe_id}_body{body_ext}"
+    body_file.write_text(body_content, encoding="utf-8", errors="replace")
+    saved_files.append(str(body_file))
+
+    # Save attachments
+    for part in msg.walk():
+        if part_filename := part.get_filename():
+            clean_filename = re.sub(r'[\\/*?:"<>|]', "_", Path(part_filename).name)
+            file_path = save_path / clean_filename
+
+            # Handle filename collisions
+            counter = 1
+            stem, suffix = file_path.stem, file_path.suffix
+            while file_path.exists():
+                file_path = save_path / f"{stem}_{counter}{suffix}"
+                counter += 1
+
+            if payload := part.get_payload(decode=True):
+                file_path.write_bytes(payload)
+                saved_files.append(str(file_path))
+
+    return saved_files
 
 
-def normalize_whitespace(text: str) -> str:
-    """Normalize whitespace for token efficiency while preserving readability."""
-    if not text:
-        return ""
+def _show_email(
+    query: str,
+    mode: str = "full",
+    limit: int | None = None,
+    include_excluded: bool = False,
+    save_to: str = "",
+    segment_quotes: bool = False,
+) -> list[EmailContent]:
+    """Internal implementation of email display.
 
-    # Collapse excessive newlines (preserve paragraph structure)
-    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
-
-    # Remove trailing whitespace from lines
-    text = "\n".join(line.rstrip() for line in text.split("\n"))
-
-    # Compress multiple spaces to single space
-    text = re.sub(r"[ \t]+", " ", text)
-
-    return text.strip()
-
-
-def optimize_email_content(msg: EmailMessage, mode: str = "full") -> dict:
-    """
-    Optimized email content extraction using expert-recommended libraries.
+    Uses new extraction pipeline that never silently loses content.
+    Mode controls response projection (what fields are returned), not extraction.
 
     Args:
-        msg: EmailMessage object
-        mode: "headers", "summary", or "full"
-
-    Returns:
-        dict with body, attachments, and body_format
+        query: notmuch query string
+        mode: 'headers' (metadata only), 'summary' (truncated body), 'full' (complete)
+        limit: max messages to return
+        include_excluded: include spam/deleted
+        save_to: directory to save attachments
+        segment_quotes: if True, include quote detection segments (full mode only)
     """
-    attachments = []
-
-    # Extract attachments
-    for part in msg.walk():
-        if part.get_filename():
-            attachment_info = f"{part.get_filename()} ({part.get_content_type()})"
-            attachments.append(attachment_info)
-
-    if mode == "headers":
-        return {
-            "body": "",
-            "attachments": sorted(set(attachments)),
-            "body_format": "headers_only",
-        }
-
-    # Get best content part
-    body_part = msg.get_body(preferencelist=("plain", "html"))
-
-    if not body_part:
-        # Fallback: try to extract from multipart
-        if not msg.is_multipart() and not msg.is_attachment():
-            content = msg.get_content()
-        else:
-            content = ""
-    else:
-        content = body_part.get_content()
-        content_type = body_part.get_content_type()
-
-        if content_type == "text/html":
-            # Use optimized HTML processing pipeline
-            content = process_html_content(content)
-            body_format = "html"
-        else:
-            body_format = "text"
-
-    if not content:
-        return {
-            "body": "",
-            "attachments": sorted(set(attachments)),
-            "body_format": "empty",
-        }
-
-    # Apply email-reply-parser for quote stripping and clean content extraction
-    clean_content = reply_parser.parse_reply(content)
-
-    # Final normalization
-    clean_content = ftfy.fix_text(clean_content)
-    clean_content = normalize_whitespace(clean_content)
-
-    # Apply length limits based on mode
-    if mode == "summary" and len(clean_content) > 2000:
-        clean_content = (
-            clean_content[:2000] + "\n\n[Content truncated for summary mode]"
-        )
-
-    return {
-        "body": clean_content,
-        "attachments": sorted(set(attachments)),
-        "body_format": body_format if "body_format" in locals() else "text",
-    }
-
-
-def process_html_content(html_content: str) -> str:
-    """
-    Process HTML content using selectolax + inscriptis for optimal token efficiency.
-    """
-    if not html_content:
-        return ""
-
-    try:
-        # Parse with selectolax (faster than BeautifulSoup)
-        tree = HTMLParser(html_content)
-
-        # Remove common email cruft
-        selectors_to_remove = [
-            "script",
-            "style",
-            "meta",
-            "link",
-            "head",
-            "noscript",
-            "iframe",
-            # Hidden content
-            '[style*="display:none"]',
-            '[style*="visibility:hidden"]',
-            '[style*="opacity:0"]',
-            '[style*="font-size:0"]',
-            "[hidden]",
-            '[aria-hidden="true"]',
-            # Tracking and marketing
-            'img[width="1"]',
-            'img[height="1"]',
-            'img[src*="tracking"]',
-            'img[src*="open"]',
-            'img[src*="fls.doubleclick.net"]',
-            'img[src*="googletagmanager"]',
-            # Email client quote blocks
-            ".gmail_quote",
-            ".OutlookMessageHeader",
-            ".yahoo_quoted",
-            'blockquote[type="cite"]',
-            'div[style*="border-left:1px #ccc solid"]',
-            # Unsubscribe and footer content
-            ".unsubscribe",
-            ".unsubscribe-link",
-            'a[href*="unsubscribe"]',
-            'a[href*="optout"]',
-            ".disclaimer",
-            ".legal",
-            "footer",
-            "nav",
-        ]
-
-        for selector in selectors_to_remove:
-            for node in tree.css(selector):
-                node.decompose()
-
-        # Get cleaned HTML
-        cleaned_html = tree.body.html if tree.body else tree.html
-
-        # Convert to clean text with inscriptis
-        text_content = get_text(cleaned_html)
-
-        return text_content
-
-    except Exception:
-        # Fallback to basic text extraction
-        return html_content
-
-
-@mcp.tool(
-    description="""Display email content with optimized token efficiency. Uses advanced libraries (email-reply-parser, selectolax, inscriptis) for clean text extraction with minimal token usage. Supports progressive rendering modes to control output verbosity."""
-)
-def show(
-    query: str = Field(
-        ...,
-        description="A notmuch query to select the email(s) to display. Typically an 'id:<message-id>' query for a single email.",
-    ),
-    mode: str = Field(
-        default="full",
-        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
-    ),
-    limit: int | None = Field(
-        default=None,
-        description="Maximum number of emails to return (helps prevent token overflow). If None, returns all emails.",
-    ),
-) -> list[EmailContent]:
-    """Show email content with optimized token-efficient processing."""
-    cmd = ["notmuch", "search", "--format=json", "--output=messages", query]
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    message_ids = json.loads(output)
+    cmd = ["notmuch", "search", "--format=json", "--output=messages"]
+    if include_excluded:
+        cmd.append("--exclude=false")
+    cmd.append(query)
+    stdout, _ = run_command(cmd)
+    message_ids = json.loads(stdout.decode().strip())
 
     # Apply limit to prevent token overflow if specified
     if limit is not None and len(message_ids) > limit:
         message_ids = message_ids[:limit]
 
+    save_path = Path(save_to).expanduser() if save_to else None
+
     results = []
     for message_id in message_ids:
-        reconstructed_msg = _get_message_from_raw_source(message_id)
-
-        # Use optimized content extraction
-        extracted_data = optimize_email_content(reconstructed_msg, mode=mode)
-        body_content = extracted_data["body"]
-        body_format = extracted_data["body_format"]
-        attachments = extracted_data["attachments"]
+        msg = _get_message_from_raw_source(message_id)
 
         # Extract headers
-        subject = reconstructed_msg.get("Subject", "")
-        from_address = reconstructed_msg.get("From", "")
-        to_address = reconstructed_msg.get("To", "")
-        date = reconstructed_msg.get("Date", "")
+        subject = msg.get("Subject", "") or "[No Subject]"
+        from_address = msg.get("From", "") or "[Unknown Sender]"
+        to_address = msg.get("To", "") or "[Unknown Recipient]"
+        date = msg.get("Date", "") or "[Unknown Date]"
 
         # Get tags
         tag_cmd = ["notmuch", "search", "--output=tags", f"id:{message_id}"]
@@ -381,96 +427,77 @@ def show(
             if tag.strip()
         ]
 
-        results.append(
-            EmailContent(
-                id=message_id,
-                subject=subject or "[No Subject]",
-                from_address=from_address or "[Unknown Sender]",
-                to_address=to_address or "[Unknown Recipient]",
-                date=date or "[Unknown Date]",
-                tags=tags,
-                body_markdown=body_content,
-                body_format=body_format,
-                attachments=attachments,
-            )
+        # Extract email content (summary and full modes)
+        # Note: headers mode is handled by read() calling _search_emails() directly
+        # Parse email address from From header for talon signature detection
+        _, sender_email = parseaddr(from_address)
+        extraction = extract_email_content(
+            msg,
+            segment_quotes=segment_quotes and mode == "full",
+            sender_email=sender_email,
         )
+
+        # Prepare body content
+        full_body_content = extraction.body_markdown
+        body_format = extraction.body_format
+
+        # Save files if requested - always save FULL content, never truncated
+        saved_files = []
+        if save_path:
+            saved_files = _save_email_files(
+                msg, message_id, full_body_content, body_format, save_path
+            )
+
+        # Determine body content for response
+        body_content = full_body_content
+        is_truncated = None
+        original_length = None
+
+        # Summary mode: truncate for response
+        if mode == "summary" and len(full_body_content) > 2000:
+            original_length = len(full_body_content)
+            body_content = full_body_content[:2000]
+            is_truncated = True
+
+        # Build result with progressive disclosure
+        email_content = EmailContent(
+            id=message_id,
+            subject=subject,
+            from_address=from_address,
+            to_address=to_address,
+            date=date,
+            tags=tags,
+            body_markdown=body_content,
+            body_format=body_format,
+            attachments=extraction.attachments,
+            saved_files=saved_files,
+            # Summary + full modes
+            selected_part=extraction.selected_part,
+            extraction_warnings=extraction.extraction_warnings or None,
+            # Summary mode only
+            is_truncated=is_truncated,
+            original_length=original_length,
+        )
+
+        # Full mode: add metadata
+        if mode == "full":
+            email_content.parts_manifest = extraction.parts_manifest or None
+            if segment_quotes and extraction.segments:
+                email_content.segments = extraction.segments
+
+        results.append(email_content)
+
     return results
 
 
-@mcp.tool(
-    description="""Index newly received emails into notmuch database. Required after email sync to make new messages searchable. Updates tags per initial rules."""
-)
-def new() -> str:
-    """Index newly received emails with notmuch new."""
-    stdout, stderr = run_command(["notmuch", "new"])
-    output = stdout.decode().strip()
-    return f"Notmuch database updated:\n{output}"
-
-
-@mcp.tool(
-    description="""List all tags in notmuch database. Shows system tags (inbox, unread, sent) and custom tags. Useful for understanding organization and planning searches."""
-)
-def list_tags() -> list[str]:
-    """List all tags in the notmuch database."""
-    stdout, stderr = run_command(["notmuch", "search", "--output=tags", "*"])
-    output = stdout.decode().strip()
-    return sorted([tag.strip() for tag in output.split("\n") if tag.strip()])
-
-
-@mcp.tool(
-    description="""Retrieve notmuch configuration settings. Shows all settings or specific key. Useful for troubleshooting database path, user info, and tagging rules."""
-)
-def config(
-    key: str = Field(
-        default="",
-        description="An optional specific configuration key to retrieve (e.g., 'database.path'). If omitted, all configurations are listed.",
-    ),
-) -> str:
-    """Get notmuch configuration values."""
-    cmd = ["notmuch", "config", "list"]
-
-    if key:
-        cmd = ["notmuch", "config", "get", key]
-
-    stdout, stderr = run_command(cmd)
-    output = stdout.decode().strip()
-    if key:
-        return f"{key} = {output}"
-    return f"Notmuch configuration:\n{output}"
-
-
-@mcp.tool(
-    description="""Count emails matching notmuch query without retrieving content. Fast way to validate queries and monitor email volumes."""
-)
-def count(
-    query: str = Field(
-        ...,
-        description="A valid notmuch search query to count matching emails. Example: 'tag:unread'.",
-    ),
-) -> int:
-    """Count emails matching a notmuch query."""
-    cmd = ["notmuch", "count", query]
-
-    stdout, stderr = run_command(cmd)
-    count_result = stdout.decode().strip()
-    return int(count_result)
-
-
-@mcp.tool(
-    description="""Add or remove tags from emails by message ID. Primary method for organizing emails in notmuch."""
-)
-def tag(
-    message_id: str = Field(
-        ..., description="The notmuch message ID of the email to modify."
-    ),
-    add_tags: list[str] = Field(
-        default_factory=list, description="A list of tags to add to the email."
-    ),
-    remove_tags: list[str] = Field(
-        default_factory=list, description="A list of tags to remove from the email."
-    ),
+def _tag_email(
+    message_id: str,
+    add_tags: list[str] | None = None,
+    remove_tags: list[str] | None = None,
 ) -> TagResult:
-    """Add or remove tags from a specific email using notmuch."""
+    """Internal tag implementation."""
+    add_tags = add_tags or []
+    remove_tags = remove_tags or []
     cmd = (
         ["notmuch", "tag"]
         + [f"+{tag}" for tag in add_tags]
@@ -485,90 +512,9 @@ def tag(
     )
 
 
-@mcp.tool(
-    description="Extracts and saves one or all attachments from a specific email. If 'filename' is provided, only that attachment is saved. Files are saved to 'output_dir', which defaults to the current directory. Returns a result object with a list of absolute paths to the saved files."
-)
-def extract_attachments(
-    message_id: str = Field(
-        ...,
-        description="The notmuch message ID of the email containing the attachments.",
-    ),
-    output_dir: str = Field(
-        default="",
-        description="The directory to save attachments to. Defaults to the current directory.",
-    ),
-    filename: str = Field(
-        default="",
-        description="The specific filename of the attachment to extract. If omitted, all attachments are extracted.",
-    ),
-) -> AttachmentExtractionResult:
-    """
-    Extracts attachments from an email, failing loudly if the email or attachment isn't found.
-    """
-    msg = _get_message_from_raw_source(message_id)
-
-    if filename and (match := re.match(r"(.+?)\s+\(.+\)", filename)):
-        filename = match.group(1)
-
-    save_path = Path(output_dir or ".").expanduser()
-    save_path.mkdir(parents=True, exist_ok=True)
-
-    saved_files = []
-    found_attachments = []
-
-    for part in msg.walk():
-        if (part_filename := part.get_filename()) and (
-            not filename or part_filename == filename
-        ):
-            found_attachments.append(part)
-
-    if filename and not found_attachments:
-        raise FileNotFoundError(
-            f"Attachment '{filename}' not found in email id:{message_id}."
-        )
-
-    if not found_attachments:
-        return AttachmentExtractionResult(
-            message_id=message_id,
-            saved_files=[],
-            message="No attachments found in the email.",
-        )
-
-    for part in found_attachments:
-        part_filename = part.get_filename()
-        clean_filename = re.sub(r'[\\/*?:"<>|]', "_", Path(part_filename).name)
-        file_path = save_path / clean_filename
-
-        counter = 1
-        stem, suffix = file_path.stem, file_path.suffix
-        while file_path.exists():
-            file_path = save_path / f"{stem}_{counter}{suffix}"
-            counter += 1
-
-        if payload := part.get_payload(decode=True):
-            file_path.write_bytes(payload)
-            saved_files.append(str(file_path))
-
-    return AttachmentExtractionResult(
-        message_id=message_id,
-        saved_files=saved_files,
-        message=f"Successfully saved {len(saved_files)} attachment(s) to {save_path}.",
-    )
-
-
-@mcp.tool(
-    description="Moves emails to an existing maildir folder (e.g., 'Trash', 'Archive'). Automatically finds the correct folder within the same email account (e.g., 'Hermes/Archive' for emails from 'Hermes/INBOX'). Will not create new folders - only moves to existing ones."
-)
-def move(
-    message_ids: list[str] = Field(
-        ...,
-        description="A list of notmuch message IDs for the emails to be moved.",
-        min_length=1,
-    ),
-    destination_folder: str = Field(
-        ...,
-        description="The destination maildir folder name (e.g., 'Trash', 'Archive'). Must be an existing folder. The tool will find the appropriate folder within the same email account.",
-    ),
+def _move_emails(
+    message_ids: list[str],
+    destination_folder: str,
 ) -> MoveResult:
     """
     Moves emails to a specified maildir folder.
@@ -604,23 +550,54 @@ def move(
     )
     destination_dir = smart_destination / "new"
 
+    # Create the destination 'new' directory if needed (this is safe)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+    moved_count = 0
     for file_path in source_files:
         source_path = Path(file_path)
         destination_path = destination_dir / source_path.name
 
-        # Use os.rename instead of os.renames to avoid creating directories
-        # Create the destination 'new' directory if needed (this is safe)
-        destination_dir.mkdir(parents=True, exist_ok=True)
+        # Handle filename collisions (similar to extract_attachments)
+        counter = 1
+        stem, suffix = destination_path.stem, destination_path.suffix
+        while destination_path.exists():
+            destination_path = destination_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
 
         try:
             os.rename(source_path, destination_path)
+            moved_count += 1
         except OSError as e:
             raise OSError(
                 f"Failed to move {source_path} to {destination_path}: {e}"
             ) from e
 
     # Update the notmuch index to discover the moved files
-    new()
+    _new()
+
+    # Apply destination-based tag policies using resolved folder name
+    tag_policies = {
+        "archive": {"add": [], "remove": ["inbox"]},  # Keep unread status
+        "trash": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "bin": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "deleted": {"add": ["deleted"], "remove": ["inbox", "unread"]},
+        "spam": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "junk": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "junk email": {"add": ["spam"], "remove": ["inbox", "unread"]},
+        "sent": {"add": [], "remove": ["inbox"]},
+        "drafts": {"add": ["draft"], "remove": ["inbox"]},
+    }
+
+    # Use resolved folder name for policy matching (handles Hermes/Archive -> archive)
+    dest_key = smart_destination.name.lower()
+    if policy := tag_policies.get(dest_key):
+        for mid in message_ids:
+            tag_changes = [f"+{t}" for t in policy["add"]] + [
+                f"-{t}" for t in policy["remove"]
+            ]
+            if tag_changes:
+                run_command(["notmuch", "tag"] + tag_changes + [f"id:{mid}"])
 
     # Construct and return a structured result
     moved_count = len(source_files)
@@ -634,3 +611,380 @@ def move(
         moved_files_count=moved_count,
         status=status_message,
     )
+
+
+def _is_sent_message(message_id: str) -> bool:
+    """Check if message is from Sent folder. Uses tags first, path fallback."""
+    # Check for 'sent' tag (most reliable)
+    stdout, _ = run_command(["notmuch", "search", "--output=tags", f"id:{message_id}"])
+    tags = stdout.decode().strip().lower().split("\n")
+    if "sent" in tags:
+        return True
+
+    # Fallback: check file paths (handles multiple files)
+    stdout, _ = run_command(["notmuch", "search", "--output=files", f"id:{message_id}"])
+    file_paths = stdout.decode().strip().lower().split("\n")
+    sent_patterns = ["/sent/", "/sent items/", "/outbox/", "/.sent/", "/sent messages/"]
+    return any(
+        any(pattern in path for pattern in sent_patterns) for path in file_paths if path
+    )
+
+
+def _get_thread_message_ids(message_id: str) -> list[str]:
+    """Get all message IDs in the same thread, oldest first."""
+    # Get thread ID for this message
+    stdout, _ = run_command(
+        ["notmuch", "search", "--output=threads", f"id:{message_id}"]
+    )
+    thread_id = stdout.decode().strip()
+
+    if not thread_id:
+        return []
+
+    # Normalize thread ID format (ensure it starts with "thread:")
+    if not thread_id.startswith("thread:"):
+        thread_id = f"thread:{thread_id}"
+
+    # Get all message IDs in thread, oldest first
+    stdout, _ = run_command(
+        ["notmuch", "search", "--output=messages", "--sort=oldest-first", thread_id]
+    )
+    return [m.strip() for m in stdout.decode().strip().split("\n") if m.strip()]
+
+
+def _get_thread_messages(
+    message_id: str,
+    max_messages: int = 5,
+) -> list[tuple[str, str, str, str]]:
+    """Get messages in thread for reply context.
+
+    Args:
+        message_id: The message being replied to (will be excluded)
+        max_messages: Max previous messages to include (0=none, -1=all, default 5)
+
+    Returns: List of (date, from_address, subject, body) tuples, oldest first
+    """
+    thread_message_ids = _get_thread_message_ids(message_id)
+
+    # Exclude the message being replied to
+    thread_message_ids = [m for m in thread_message_ids if m != message_id]
+
+    if not thread_message_ids:
+        return []
+
+    # Limit to most recent N messages (take from end since sorted oldest-first)
+    if max_messages == 0:
+        return []
+    if max_messages > 0 and len(thread_message_ids) > max_messages:
+        thread_message_ids = thread_message_ids[-max_messages:]
+
+    # Fetch each message using new extraction pipeline
+    messages = []
+    for mid in thread_message_ids:
+        try:
+            msg = _get_message_from_raw_source(mid)
+            # Use extraction module for full content (no quote stripping for thread context)
+            extraction = extract_email_content(msg, segment_quotes=False)
+
+            messages.append(
+                (
+                    msg.get("Date", "[Unknown Date]"),
+                    msg.get("From", "[Unknown Sender]"),
+                    msg.get("Subject", "[No Subject]"),
+                    extraction.body_markdown,
+                )
+            )
+        except Exception:
+            continue  # Skip messages that fail to parse
+
+    return messages
+
+
+# Contact finding helpers (moved from mutt_aliases for read tool)
+class Contact(BaseModel):
+    """Contact information."""
+
+    alias: str
+    email: str
+    name: str = ""
+
+
+def _parse_alias_line(line: str) -> Contact:
+    """Parse a mutt alias line into a Contact object."""
+    line = line.strip()
+    if not line.startswith("alias "):
+        raise ValueError(f"Invalid alias line: {line}")
+
+    match = re.match(r'alias\s+(\S+)\s+"([^"]+)"\s*<([^>]+)>', line)
+    if match:
+        alias, name, email = match.groups()
+        return Contact(alias=alias, email=email, name=name)
+
+    match = re.match(r"alias\s+(\S+)\s+(\S+)", line)
+    if match:
+        alias, email = match.groups()
+        name = line.split("#", 1)[1].strip() if "#" in line else ""
+        return Contact(alias=alias, email=email, name=name)
+
+    raise ValueError(f"Could not parse alias line: {line}")
+
+
+def _get_alias_file(config_file: str = "") -> Path:
+    """Get mutt alias file path from mutt configuration."""
+    cmd = ["mutt", "-Q", "alias_file"]
+    if config_file:
+        cmd.extend(["-F", config_file])
+
+    stdout, _ = run_command(cmd)
+    result = stdout.decode().strip()
+    path = result.split("=")[1].strip("\"'")
+    if path.startswith("~"):
+        path = str(Path.home()) + path[1:]
+    return Path(path)
+
+
+def _find_contacts(query: str, max_results: int = 10) -> list[Contact]:
+    """Find contacts using simple fuzzy matching."""
+    alias_file = _get_alias_file()
+
+    try:
+        content = alias_file.read_text()
+    except FileNotFoundError:
+        return []
+
+    contacts = []
+    for line in content.splitlines():
+        if line.strip().startswith("alias "):
+            try:
+                contacts.append(_parse_alias_line(line))
+            except ValueError:
+                continue
+
+    query_lower = query.lower()
+    matches = [
+        c
+        for c in contacts
+        if query_lower in c.alias.lower()
+        or query_lower in c.email.lower()
+        or query_lower in c.name.lower()
+    ]
+    return matches[:max_results]
+
+
+# List helpers (moved from main tool.py)
+def _list_tags() -> list[str]:
+    """List all tags in the notmuch database."""
+    stdout, _ = run_command(["notmuch", "search", "--output=tags", "*"])
+    output = stdout.decode().strip()
+    return sorted([tag.strip() for tag in output.split("\n") if tag.strip()])
+
+
+def _list_folders() -> list[str]:
+    """List maildir folders using shallow directory scan."""
+    db_path_stdout, _ = run_command(["notmuch", "config", "get", "database.path"])
+    maildir_root = Path(db_path_stdout.decode().strip())
+
+    folders: set[str] = set()
+    for account in maildir_root.iterdir():
+        try:
+            children = list(account.iterdir())
+        except NotADirectoryError:
+            continue
+        for child in children:
+            if child.name in MAILDIR_LEAFS:
+                continue
+            try:
+                list((child / "cur").iterdir())
+                folders.add(f"{account.name}/{child.name}")
+            except (NotADirectoryError, FileNotFoundError):
+                continue
+    return sorted(folders)
+
+
+def _list_accounts(config_file: str = "") -> list[str]:
+    """List available msmtp accounts by parsing msmtp config."""
+    msmtprc_path = Path(config_file) if config_file else Path.home() / ".msmtprc"
+
+    accounts = []
+    with open(msmtprc_path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("account ") and not line.startswith("account default"):
+                account_name = line.split()[1]
+                accounts.append(account_name)
+    return accounts
+
+
+# ============================================================================
+# Unified Tools
+# ============================================================================
+
+
+@mcp.tool(
+    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+)
+def read(
+    query: str = Field(
+        default="",
+        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'. Supports abbreviated message IDs (e.g., 'id:CAHgsCeb' resolves to full ID if unique).",
+    ),
+    limit: int = Field(
+        default=100,
+        description="The maximum number of message IDs to return.",
+        gt=0,
+    ),
+    offset: int = Field(
+        default=0,
+        description="Number of results to skip for pagination.",
+        ge=0,
+    ),
+    include_excluded: bool = Field(
+        default=False,
+        description="Include emails with excluded tags (spam, deleted) that are normally hidden.",
+    ),
+    mode: str = Field(
+        default="headers",
+        description="Rendering mode: 'headers' (metadata only), 'summary' (first 2000 chars), or 'full' (complete optimized content)",
+    ),
+    save_attachments_to: str = Field(
+        default="",
+        description="Directory to save email body and attachments to. Body saved as .txt/.html, attachments saved with original filenames. Paths returned in saved_files field.",
+    ),
+    list_type: str = Field(
+        default="",
+        description="For listing: 'tags', 'folders', or 'accounts'. When set, ignores query and returns list.",
+    ),
+    max_results: int = Field(
+        default=10,
+        description="For find_contacts: maximum results to return.",
+        gt=0,
+    ),
+    segment_quotes: bool = Field(
+        default=False,
+        description="For full mode: include quote/signature segmentation in response (requires talon).",
+    ),
+) -> list[SearchResult] | list[EmailContent] | list[str] | list[Contact]:
+    """Unified read tool for emails.
+
+    Operations based on parameters:
+    - list_type set: Returns list of tags/folders/accounts
+    - query starts with "contact:": Searches contacts (e.g., "contact:alice")
+    - query + mode="headers"/"summary": Search with lightweight results
+    - query + mode="full": Full email content display
+
+    Returns different types based on operation.
+    """
+    # Handle list operations
+    if list_type:
+        if list_type == "tags":
+            return _list_tags()
+        elif list_type == "folders":
+            return _list_folders()
+        elif list_type == "accounts":
+            return _list_accounts()
+        else:
+            raise ValueError(
+                f"Unknown list_type: {list_type}. Use 'tags', 'folders', or 'accounts'."
+            )
+
+    # Handle contact search
+    if query.startswith("contact:"):
+        contact_query = query[8:].strip()
+        if not contact_query:
+            raise ValueError("Contact query required after 'contact:'")
+        return _find_contacts(contact_query, max_results)
+
+    # Validate query for email operations
+    if not query:
+        raise ValueError(
+            "Query required for email search/show. Use list_type for listing, or 'contact:name' for contacts."
+        )
+
+    # Resolve abbreviated message IDs in query (supports id: and mid: terms)
+    if "id:" in query or "mid:" in query:
+        query = _resolve_id_in_query(query)
+
+    # For headers/summary mode, use lightweight search
+    if mode in ("headers", "summary"):
+        # Get search results first
+        results = _search_emails(query, limit, offset, include_excluded)
+        if mode == "headers":
+            return results
+        # For summary, get truncated content (save_to supported in all modes)
+        return _show_email(
+            query,
+            mode="summary",
+            limit=limit,
+            include_excluded=include_excluded,
+            save_to=save_attachments_to,
+        )
+
+    # Full content display
+    return _show_email(
+        query,
+        mode=mode,
+        limit=limit,
+        include_excluded=include_excluded,
+        save_to=save_attachments_to,
+        segment_quotes=segment_quotes,
+    )
+
+
+@mcp.tool(
+    description="""Update email metadata. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
+)
+def update(
+    message_ids: list[str] = Field(
+        default_factory=list,
+        description="A list of notmuch message IDs for the emails to update. Supports abbreviated IDs.",
+    ),
+    action: str = Field(
+        ...,
+        description="Action: 'tag' (add/remove tags) or 'move' (relocate to folder).",
+    ),
+    add_tags: list[str] = Field(
+        default_factory=list,
+        description="For action='tag': tags to add.",
+    ),
+    remove_tags: list[str] = Field(
+        default_factory=list,
+        description="For action='tag': tags to remove.",
+    ),
+    destination_folder: str = Field(
+        default="",
+        description="For action='move': destination folder (e.g., 'Trash', 'Archive').",
+    ),
+) -> TagResult | MoveResult:
+    """Unified update tool for email metadata.
+
+    Actions:
+    - tag: Add/remove tags from emails
+    - move: Move emails to a maildir folder
+    """
+    # Resolve abbreviated message IDs
+    message_ids = [_resolve_message_id(mid) for mid in message_ids]
+
+    if action == "tag":
+        if not message_ids:
+            raise ValueError("At least one message_id required for tag action")
+        if len(message_ids) == 1:
+            return _tag_email(message_ids[0], add_tags, remove_tags)
+        # Bulk tag operation
+        results = []
+        for mid in message_ids:
+            results.append(_tag_email(mid, add_tags, remove_tags))
+        # Return summary result
+        return TagResult(
+            message_id=f"{len(message_ids)} messages",
+            added_tags=add_tags,
+            removed_tags=remove_tags,
+        )
+
+    if action == "move":
+        if not message_ids:
+            raise ValueError("At least one message_id required for move action")
+        if not destination_folder:
+            raise ValueError("destination_folder required for move action")
+        return _move_emails(message_ids, destination_folder)
+
+    raise ValueError(f"Unknown action: {action}. Use 'tag' or 'move'.")

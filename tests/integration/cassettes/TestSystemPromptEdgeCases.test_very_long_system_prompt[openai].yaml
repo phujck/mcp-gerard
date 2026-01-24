@@ -1,44 +1,6 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. You are a helpful assistant. You are a helpful assistant. You are
-      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
-      You are a helpful assistant. You are a helpful assistant. You are a helpful
-      assistant. "}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+    body: '{"input": [{"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
       "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
       {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
       "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
@@ -47,65 +9,130 @@ interactions:
       "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
       {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
       "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
-      "user", "content": "What is 6+4?"}], "model": "gpt-4o-mini", "max_tokens": 16384,
-      "temperature": 1.0}'
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"},
+      {"role": "assistant", "content": "6 + 4 equals 10."}, {"role": "user", "content":
+      "What is 6+4?"}, {"role": "assistant", "content": "6 + 4 equals 10."}, {"role":
+      "user", "content": "What is 6+4?"}, {"role": "assistant", "content": "6 + 4
+      equals 10."}, {"role": "user", "content": "What is 6+4?"}, {"role": "assistant",
+      "content": "6 + 4 equals 10."}, {"role": "user", "content": "What is 6+4?"}],
+      "instructions": "You are a helpful assistant. You are a helpful assistant. You
+      are a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. You are a helpful assistant.
+      You are a helpful assistant. You are a helpful assistant. You are a helpful
+      assistant. You are a helpful assistant. You are a helpful assistant. You are
+      a helpful assistant. You are a helpful assistant. ", "max_output_tokens": 16384,
+      "model": "gpt-4o-mini", "temperature": 1.0}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '3682'
-      content-type:
+      Content-Length:
+      - '5311'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.99.1
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.99.1
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C4Rvnd7AjPNkpDhb0v1jmqxWkt6i9\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755176715,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"6 + 4 equals 10.\",\n        \"refusal\":
-        null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n
-        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        780,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 788,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_34a54ae93c\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//7JdRjqMwDIbf5xRRXnc6Akpp6U1WoxUyYDrZCTGbONVUo959RSgUdju7
+        F+Ct9Wf/ODZI+T+fhJCqlkchLbquiOp43+zSXZ7lUVJluyjK8jTDrDxsmzw9xPn+UO63dZU2mBx2
+        WZrU8rmXoPInVjzKkHE4xCuLwFgX0LN4n2XJLk2yNDDHwN71NRW1nUbGm1gJ1fvJkjd9Xw1oh0NY
+        aa3MSR7F55MQQsgOLmj7+hrPqKlDK5+EuA4PHiUfPhqtpb7SeK1DQJmxoKiRQWm3pI6tr1iRCf1+
+        Jy/AogDxhrprvBbgnHIMhl/ECle4whWucIUrXOEKV7jC/8Lh6t/CR0GeO88F0zuG63acbQ/pRJlI
+        FxXo5Q29pRp1fzU/dbxJadMqozZJlKSbaL+JDzeTEoTlUbwG/zC4iMn/tO70D/sDu/zQ2x9oojJv
+        ICqjdJ9nuzQoBxW+dBh00Dk44R185XMCrMgwmntT88YWsuNU8IOn6pAAxhDD6E1efyygplNnqXxA
+        gtBRyEx8E6nAXx60E3H0Iqek6+3XVCct6dDLtLYhuU8MSbIDC1qjXm6JrR8cXGfxrMi7YjSJRRj9
+        tMXOUttxUUH1hsU7Xr5kFvuhKTLzDIvgyCwcIjYNWZ4l9evwbQt21J4Mo4MG+VKouhduFC7soUN7
+        VhUWrEbD2YDXwyKkY7I4PyZj26EF9iEcv0S3aBj4rbOGbAv3/7NFh7xhrreOz2hLcoovw+tVK9/e
+        je4w6TdS1bAazyQncN+7ZOqK2dsQTcFu3qP1poLbYGWtHJR6dOU+vNXTAZRZfqRxnj7/TWZuejpo
+        WGF9L40Wh/3z688fxR/JTuv/SpmJQc86TqLtNEXvlgtvkaEGhv4B16frbwAAAP//AwAHIPy5JxEA
+        AA==
     headers:
       CF-RAY:
-      - 96f0a9a6ede57058-LHR
+      - 9b11199ef82426c6-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 13:05:16 GMT
+      - Sat, 20 Dec 2025 18:11:04 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -114,24 +141,20 @@ interactions:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '824'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '1013'
+      - '692'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '1029'
+      - '700'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -139,13 +162,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999205'
+      - '149998787'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_603f13be38f04728a3addce870b01636
+      - req_55a9eabf98fa475baccf480cde5f4ff6
     status:
       code: 200
       message: OK

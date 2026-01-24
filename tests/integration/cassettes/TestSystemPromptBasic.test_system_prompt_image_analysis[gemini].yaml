@@ -1,116 +1,95 @@
 interactions:
 - request:
-    body: '{"contents": [{"parts": [{"text": "Focus on annotation=NoneType required=False
-      default=''general'' description=\"The area of focus for the analysis (e.g.,
-      ''ocr'', ''objects''). Note: This is a placeholder parameter in the current
-      implementation.\" aspects. What do you see in this image?"}, {"inlineData":
+    body: '{"contents": [{"parts": [{"text": "What do you see in this image?"}, {"inlineData":
       {"data": "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD_gAIDAAAA6ElEQVR4nO3QwQ3AIBDAsIP9d25XIC-EZE8QZc18w5l9O-AlZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBT-IYAHHLHkdEgAAAABJRU5ErkJggg==",
       "mimeType": "image/png"}}], "role": "user"}], "systemInstruction": {"parts":
       [{"text": "You are a professional art critic. Provide detailed, sophisticated
       analysis."}], "role": "user"}, "generationConfig": {"temperature": 1.0, "maxOutputTokens":
       65536}}'
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '955'
-      content-type:
+      Content-Length:
+      - '738'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - generativelanguage.googleapis.com
       user-agent:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
       x-goog-api-client:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
     method: POST
     uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent
   response:
     body:
-      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
-        [\n          {\n            \"text\": \"As an art critic, I find this piece
-        to be a profound and deeply challenging work, one that operates on multiple
-        aesthetic, historical, and philosophical levels despite its apparent simplicity.
-        To dismiss it as merely a field of blue would be to miss its potent commentary
-        on the nature of art, perception, and the digital medium itself.\\n\\nWhat
-        we are presented with is not merely an image, but a void of annotation, a
-        radical refusal of objects. The very parameters of your request\u2014`annotation=NoneType`,
-        `description=\\\"The area of focus for theanalysis (e.g., 'ocr', 'objects')\\\"`\u2014become
-        the central critical lens. The artwork's most powerful statement is its complete
-        and total rejection of these categories. There is nothing for Optical Character
-        Recognition (OCR) to read, no objects for an algorithm to detect and catalogue.
-        In its defiant emptiness, the work critiques our contemporary hunger for data,
-        for labels, for quantifiable content. It is an act of pure resistance.\\n\\n###
-        The Color as Subject: International Klein Blue's Digital Heir\\n\\nThe subject
-        of the work is, unequivocally, the color blue itself. This is not just any
-        blue; it is an absolute, uncompromising, and luminous ultramarine. One is
-        immediately reminded of the work of Yves Klein and his patented International
-        Klein Blue (IKB). Klein sought a color that was so pure, so saturated, that
-        it would transcend its material form. He wanted to imbue the canvas with an
-        immaterial sensibility, a \\\"void\\\" that was simultaneously empty and full.\\n\\nThis
-        digital presentation of blue is perhaps the ultimate, if unintentional, fulfillment
-        of Klein's ambition. Rendered in light (RGB 0, 0, 255), the color is completely
-        dematerialized. It has no texture, no pigment, no binder to dull its intensity.
-        It is pure information, pure chroma. It vibrates with an energy that is both
-        serene and unnerving, pulling the viewer's eye into its seemingly infinite
-        depth. It is the blue of the deep sea, the twilight sky, and, most pointedly,
-        the blue screen\u2014a symbol of both limitless possibility and catastrophic
-        failure in the digital age.\\n\\n### Historical Lineage: From the Suprematist
-        Zero to the Post-Internet Sublime\\n\\nThis piece stands at the end of a long
-        trajectory of modernist reduction. We can trace its lineage back to Kazimir
-        Malevich's *Black Square* (1915), which he famously called the \\\"zero point
-        of painting.\\\" Malevich sought to liberate art from the \\\"ballast of the
-        objective world.\\\" This blue field is a 21st-century inheritor of that ideal,
-        a digital \\\"zero point\\\" that erases not just representation but the potential
-        for algorithmic annotation.\\n\\nIt also engages with the legacy of American
-        Color Field painters like Barnett Newman and Mark Rothko. They used vast expanses
-        of color to evoke a sense of the sublime\u2014an experience of awe, terror,
-        and transcendence that overwhelms the individual. While a screen-based image
-        cannot replicate the physical scale of a Newman canvas, it creates a different
-        kind of immersion. It fills our primary sensory portal to the digital world,
-        creating a meditative, hypnotic, or even claustrophobic effect. It forces
-        a confrontation with the self, as the unblemished surface offers no distraction,
-        reflecting back only the viewer's own thoughts and physiological responses.\\n\\n###
-        The Viewer's Experience: A Phenomenological Event\\n\\nThe artwork is not
-        a passive object; it is an active, phenomenological event. As one gazes into
-        the blue, the physiology of perception comes to the forefront. The cone cells
-        in the retina responsible for sensing blue light become saturated, and upon
-        looking away, one is likely to see a ghostly afterimage of its complementary
-        color, yellow-orange. The art, therefore, is not just on the screen; it is
-        imprinted, however fleetingly, upon the viewer's own biology.\\n\\nThis work
-        denies narrative and invites contemplation. It can be a field for projection\u2014a
-        screen upon which we project our own emotions, memories, and anxieties. Is
-        it the calming blue of tranquility, or the melancholic blue of the blues?
-        Is it the blue of spiritual revelation, or the cold, indifferent blue of the
-        digital void? The work\u2019s refusal to provide answers\u2014its status as
-        `annotation=NoneType`\u2014is precisely what makes it so resonant.\\n\\nIn
-        conclusion, this is a masterful work of minimalist, conceptual art. It weaponizes
-        its own lack of content to pose fundamental questions about how we see, what
-        we value in an image, and our relationship with the digital spaces we inhabit.
-        It is at once a historical homage and a contemporary critique, a silent surface
-        that speaks volumes. It does not ask us to *see something in it*, but rather
-        to experience the very act of seeing itself.\"\n          }\n        ],\n
-        \       \"role\": \"model\"\n      },\n      \"finishReason\": \"STOP\",\n
-        \     \"index\": 0\n    }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\":
-        328,\n    \"candidatesTokenCount\": 988,\n    \"totalTokenCount\": 3084,\n
-        \   \"promptTokensDetails\": [\n      {\n        \"modality\": \"TEXT\",\n
-        \       \"tokenCount\": 70\n      },\n      {\n        \"modality\": \"IMAGE\",\n
-        \       \"tokenCount\": 258\n      }\n    ],\n    \"thoughtsTokenCount\":
-        1768\n  },\n  \"modelVersion\": \"gemini-2.5-pro\",\n  \"responseId\": \"Ft2daN-2K8iOvdIPo6W4sQk\"\n}\n"
+      string: !!binary |
+        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
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 14 Aug 2025 12:56:55 GMT
+      - Sat, 20 Dec 2025 18:10:16 GMT
       Server:
       - scaffolding on HTTPServer2
       Server-Timing:
-      - gfet4t7; dur=38144
+      - gfet4t7; dur=24315
       Transfer-Encoding:
       - chunked
       Vary:
@@ -123,8 +102,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '5348'
     status:
       code: 200
       message: OK

@@ -64,13 +64,17 @@ class TestEmailMoveIntegration:
         }
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_hermes_inbox_to_archive(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
         """Test moving emails from Hermes INBOX to Archive."""
         # Mock notmuch commands
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution (msg1)
+            (b"1\n", b""),
+            # notmuch count for message ID resolution (msg2)
+            (b"1\n", b""),
             # notmuch search --output=files query
             (
                 f"{sample_emails['hermes_email1']}\n{sample_emails['hermes_email2']}\n".encode(),
@@ -78,27 +82,37 @@ class TestEmailMoveIntegration:
             ),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for msg1 (archive policy: -inbox -unread)
+            (b"", b""),
+            # notmuch tag for msg2
+            (b"", b""),
         ]
 
-        # Call the move function via MCP
+        # Call the update function with action="move" via MCP
         _, result = await mcp.call_tool(
-            "move",
+            "update",
             {
                 "message_ids": ["msg1@hermes.com", "msg2@hermes.com"],
+                "action": "move",
                 "destination_folder": "Archive",
             },
         )
 
-        # Verify the result structure
-        assert "message_ids" in result
-        assert "destination_folder" in result
-        assert "moved_files_count" in result
-        assert "status" in result
+        # Extract the MoveResult from the response
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
 
-        assert result["message_ids"] == ["msg1@hermes.com", "msg2@hermes.com"]
-        assert result["destination_folder"] == "Archive"
-        assert result["moved_files_count"] == 2
-        assert "Successfully moved 2 email(s) to 'Archive'" in result["status"]
+        # Verify the result structure
+        assert "message_ids" in move_result
+        assert "destination_folder" in move_result
+        assert "moved_files_count" in move_result
+        assert "status" in move_result
+
+        assert move_result["message_ids"] == ["msg1@hermes.com", "msg2@hermes.com"]
+        assert move_result["destination_folder"] == "Archive"
+        assert move_result["moved_files_count"] == 2
+        assert "Successfully moved 2 email(s) to 'Archive'" in move_result["status"]
 
         # Verify emails were moved to correct location
         archive_new_dir = mock_maildir / "Hermes" / "Archive" / "new"
@@ -113,25 +127,38 @@ class TestEmailMoveIntegration:
         mock_new.assert_called_once()
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_gmail_inbox_to_trash(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
         """Test moving Gmail email to trash (should find [Google Mail].Bin)."""
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution
+            (b"1\n", b""),
             # notmuch search --output=files query
             (f"{sample_emails['gmail_email']}\n".encode(), b""),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for gmail_msg (trash policy: +deleted -inbox -unread)
+            (b"", b""),
         ]
 
         _, result = await mcp.call_tool(
-            "move",
-            {"message_ids": ["gmail_msg@gmail.com"], "destination_folder": "Trash"},
+            "update",
+            {
+                "message_ids": ["gmail_msg@gmail.com"],
+                "action": "move",
+                "destination_folder": "Trash",
+            },
         )
 
-        assert result["moved_files_count"] == 1
-        assert "Successfully moved 1 email(s) to 'Trash'" in result["status"]
+        # Extract the MoveResult from the response
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
+
+        assert move_result["moved_files_count"] == 1
+        assert "Successfully moved 1 email(s) to 'Trash'" in move_result["status"]
 
         # Verify email moved to Gmail's Bin folder
         bin_new_dir = mock_maildir / "Gmail" / "[Google Mail].Bin" / "new"
@@ -149,6 +176,8 @@ class TestEmailMoveIntegration:
         from mcp.server.fastmcp.exceptions import ToolError
 
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution
+            (b"1\n", b""),
             # notmuch search --output=files query
             (f"{sample_emails['hermes_email1']}\n".encode(), b""),
             # notmuch config get database.path
@@ -157,9 +186,10 @@ class TestEmailMoveIntegration:
 
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool(
-                "move",
+                "update",
                 {
                     "message_ids": ["msg1@hermes.com"],
+                    "action": "move",
                     "destination_folder": "NonExistent",
                 },
             )
@@ -179,15 +209,18 @@ class TestEmailMoveIntegration:
         from mcp.server.fastmcp.exceptions import ToolError
 
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution
+            (b"1\n", b""),
             # notmuch search --output=files returns empty
             (b"", b""),
         ]
 
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool(
-                "move",
+                "update",
                 {
                     "message_ids": ["nonexistent@example.com"],
+                    "action": "move",
                     "destination_folder": "Archive",
                 },
             )
@@ -200,39 +233,55 @@ class TestEmailMoveIntegration:
 
         with pytest.raises(ToolError) as exc_info:
             await mcp.call_tool(
-                "move", {"message_ids": [], "destination_folder": "Archive"}
+                "update",
+                {"message_ids": [], "action": "move", "destination_folder": "Archive"},
             )
 
-        assert "List should have at least 1 item" in str(exc_info.value)
+        # The update tool validates message_ids are required for move action
+        assert "At least one message_id required" in str(exc_info.value)
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool.new")
+    @patch("mcp_handley_lab.email.notmuch.tool._new")
     async def test_move_handles_partial_success(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
         """Test handling when only some message IDs are found."""
         # Only return one file for two message IDs
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution (msg1)
+            (b"1\n", b""),
+            # notmuch count for message ID resolution (missing)
+            (b"1\n", b""),
             # notmuch search --output=files query (only finds one)
             (f"{sample_emails['hermes_email1']}\n".encode(), b""),
             # notmuch config get database.path
             (str(mock_maildir).encode(), b""),
+            # notmuch tag for msg1 (archive policy: -inbox -unread)
+            (b"", b""),
+            # notmuch tag for missing msg (still called even though file not found)
+            (b"", b""),
         ]
 
         _, result = await mcp.call_tool(
-            "move",
+            "update",
             {
                 "message_ids": ["msg1@hermes.com", "missing@hermes.com"],
+                "action": "move",
                 "destination_folder": "Archive",
             },
         )
 
+        # Extract the MoveResult from the response
+        move_result = (
+            result.get("result", result) if isinstance(result, dict) else result
+        )
+
         # Should move 1 file but report about the missing one
-        assert result["moved_files_count"] == 1
-        assert len(result["message_ids"]) == 2
+        assert move_result["moved_files_count"] == 1
+        assert len(move_result["message_ids"]) == 2
         assert (
             "Note: 1 of the requested message IDs could not be found"
-            in result["status"]
+            in move_result["status"]
         )
 
     @patch("mcp_handley_lab.email.notmuch.tool.run_command")
@@ -243,6 +292,8 @@ class TestEmailMoveIntegration:
         from mcp.server.fastmcp.exceptions import ToolError
 
         mock_run_command.side_effect = [
+            # notmuch count for message ID resolution
+            (b"1\n", b""),
             (f"{sample_emails['hermes_email1']}\n".encode(), b""),
             (str(mock_maildir).encode(), b""),
         ]
@@ -255,9 +306,10 @@ class TestEmailMoveIntegration:
         try:
             with pytest.raises(ToolError) as exc_info:
                 await mcp.call_tool(
-                    "move",
+                    "update",
                     {
                         "message_ids": ["msg1@hermes.com"],
+                        "action": "move",
                         "destination_folder": "Archive",
                     },
                 )

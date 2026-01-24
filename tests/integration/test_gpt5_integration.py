@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mcp_handley_lab.llm.openai.tool import mcp
+from mcp_handley_lab.llm.chat.tool import mcp
 
 
 def skip_if_no_openai_key():
@@ -31,10 +31,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5",
                 "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -58,10 +55,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-mini",
                 "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -84,10 +78,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -95,38 +86,6 @@ class TestGPT5Integration:
         assert "error" not in response
         content = response.get("content", "")
         assert "2" in content
-
-    @pytest.mark.asyncio
-    async def test_gpt5_default_model(self):
-        """Test that the default model is now gpt-5."""
-        skip_if_no_openai_key()
-
-        # Test without specifying model (should use default gpt-5)
-        # Default model doesn't support temperature parameter
-        _, response = await mcp.call_tool(
-            "ask",
-            {
-                "prompt": "What is 5+5? Answer with just the number.",
-                "output_file": "-",
-                "agent_name": "false",
-                "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
-                # Don't include temperature for GPT-5 models
-                # model parameter omitted to use default
-            },
-        )
-
-        assert "error" not in response
-        content = response.get("content", "")
-        assert "10" in content
-
-        # Check that gpt-5 was actually used
-        usage_info = response.get("usage", {})
-        model_used = usage_info.get("model_used", "")
-        assert "gpt-5" in model_used.lower()
 
     @pytest.mark.asyncio
     async def test_gpt5_context_window(self):
@@ -145,10 +104,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
+                "system_prompt": "",
                 # Don't include temperature for GPT-5 models
             },
         )
@@ -157,25 +113,6 @@ class TestGPT5Integration:
         content = response.get("content", "")
         # Should be able to handle this context without errors
         assert len(content) > 0
-
-    @pytest.mark.asyncio
-    async def test_gpt5_vision_capability(self):
-        """Test that GPT-5 models are marked as vision-capable."""
-        skip_if_no_openai_key()
-
-        # Test the list_models functionality to check vision tag
-        _, response = await mcp.call_tool("list_models", {})
-
-        assert "error" not in response
-        models = response.get("models", [])
-
-        # Find GPT-5 models and check they have vision tag
-        gpt5_models = [m for m in models if m.get("id", "").startswith("gpt-5")]
-        assert len(gpt5_models) >= 3  # gpt-5, gpt-5-mini, gpt-5-nano
-
-        for model in gpt5_models:
-            tags = model.get("tags", [])
-            assert "vision" in tags, f"Model {model.get('id')} should have vision tag"
 
     @pytest.mark.asyncio
     async def test_gpt5_temperature_not_supported(self):
@@ -194,10 +131,7 @@ class TestGPT5Integration:
                     "model": "gpt-5-nano",
                     "temperature": 0.1,  # Should fail
                     "files": [],
-                    "system_prompt": None,
-                    "max_output_tokens": 0,
-                    "enable_logprobs": False,
-                    "top_logprobs": 0,
+                    "system_prompt": "",
                 },
             )
             # If we get here, the test should fail
@@ -220,10 +154,7 @@ class TestGPT5Integration:
                 "agent_name": "false",
                 "model": "gpt-5-nano",
                 "files": [],
-                "system_prompt": None,
-                "max_output_tokens": 0,
-                "enable_logprobs": False,
-                "top_logprobs": 0,
+                "system_prompt": "",
                 # No temperature parameter - should use default
             },
         )

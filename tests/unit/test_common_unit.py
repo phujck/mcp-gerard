@@ -69,8 +69,8 @@ class TestPricingCalculator:
         pytest.param(
             "gpt-4o-mini", 2000, 1000, "openai", 0.0009, id="openai-gpt4o-mini"
         ),
-        pytest.param("o1-preview", 1000, 500, "openai", 0.045, id="openai-o1-preview"),
-        pytest.param("o1-mini", 1000, 500, "openai", 0.009, id="openai-o1-mini"),
+        pytest.param("o3", 1000, 500, "openai", 0.006, id="openai-o3"),
+        pytest.param("o1-mini", 1000, 500, "openai", 0.00330, id="openai-o1-mini"),
         pytest.param("gpt-4.1", 1000, 500, "openai", 0.006, id="openai-gpt41"),
         pytest.param(
             "gpt-4.1-mini", 1000, 500, "openai", 0.0012, id="openai-gpt41-mini"
@@ -80,7 +80,7 @@ class TestPricingCalculator:
     # Image model test parameters
     image_model_params = [
         pytest.param("dall-e-3", "openai", 2, 0.080, id="dalle3"),
-        pytest.param("imagen-3.0-generate-002", "gemini", 3, 0.090, id="imagen3"),
+        pytest.param("imagen-4.0-generate-001", "gemini", 1, 0.040, id="imagen4"),
     ]
 
     @pytest.mark.parametrize(
@@ -167,7 +167,7 @@ class TestPricingCalculator:
             images_generated=2,
         )
         expected_text_input = (1000 / 1_000_000) * 5.00  # Text input per 1M
-        expected_image_output = 2 * 0.04  # 2 images at medium quality
+        expected_image_output = 2 * 0.042  # 2 images at medium quality
         expected = expected_text_input + expected_image_output
         assert cost == expected
 
@@ -184,7 +184,7 @@ class TestPricingCalculator:
         )
         expected_image_input = (500 / 1_000_000) * 10.00  # Image input per 1M
         expected_cached_image = (100 / 1_000_000) * 2.50  # Cached image input
-        expected_image_output = 1 * 0.17  # 1 image at high quality
+        expected_image_output = 1 * 0.167  # 1 image at high quality
         expected = expected_image_input + expected_cached_image + expected_image_output
         assert cost == expected
 
@@ -192,8 +192,10 @@ class TestPricingCalculator:
         """Test Gemini video generation per-second pricing."""
         calc = PricingCalculator()
 
-        # Test veo-2 video model
-        cost = calc.calculate_cost("veo-2", 0, 0, "gemini", seconds_generated=10)
+        # Test veo-2.0-generate-001 video model
+        cost = calc.calculate_cost(
+            "veo-2.0-generate-001", 0, 0, "gemini", seconds_generated=10
+        )
         expected = 10 * 0.35  # 10 seconds at $0.35 per second
         assert cost == expected
 

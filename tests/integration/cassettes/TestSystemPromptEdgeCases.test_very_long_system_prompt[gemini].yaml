@@ -10,6 +10,30 @@ interactions:
       [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
       "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
       [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
+      "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts":
+      [{"text": "What is 6+4?"}], "role": "user"}, {"parts": [{"text": "6 + 4 = 10"}],
+      "role": "model"}, {"parts": [{"text": "What is 6+4?"}], "role": "user"}, {"parts":
+      [{"text": "6 + 4 = 10"}], "role": "model"}, {"parts": [{"text": "What is 6+4?"}],
       "role": "user"}], "systemInstruction": {"parts": [{"text": "You are a helpful
       assistant. You are a helpful assistant. You are a helpful assistant. You are
       a helpful assistant. You are a helpful assistant. You are a helpful assistant.
@@ -51,45 +75,46 @@ interactions:
       a helpful assistant. "}], "role": "user"}, "generationConfig": {"temperature":
       1.0, "maxOutputTokens": 65536}}'
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '3864'
-      content-type:
+      Content-Length:
+      - '5826'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - generativelanguage.googleapis.com
       user-agent:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
       x-goog-api-client:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
     method: POST
     uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
   response:
     body:
-      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
-        [\n          {\n            \"text\": \"6 + 4 = 10\"\n          }\n        ],\n
-        \       \"role\": \"model\"\n      },\n      \"finishReason\": \"STOP\",\n
-        \     \"index\": 0\n    }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\":
-        729,\n    \"candidatesTokenCount\": 8,\n    \"totalTokenCount\": 737,\n    \"promptTokensDetails\":
-        [\n      {\n        \"modality\": \"TEXT\",\n        \"tokenCount\": 729\n
-        \     }\n    ]\n  },\n  \"modelVersion\": \"gemini-2.5-flash\",\n  \"responseId\":
-        \"C9-daKvDEfz6vdIPraShiQk\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/2WQX0vDMBTF3/spwn11k851RQVfnCJ70IoW8Q9DwnrXBdOkNrcwGf3uJu3axZmH
+        JNx77knObxcwBiuuMpFxQgOX7MNWGNu1u+tpRajINvqSLZa8ooO2WzvvbiWEWzcEMTthEbtikxA8
+        QTPcl6ODbaUluplCZyh7edMLYC2UMJsn5EYrJ3tOk0cYukJluLXlMOgfaK2hNjzHeyRuA/IhBpSV
+        LkpK9Requa7bgJNwOuvsPCJ/FOf7Nmni8mg2mo7+OZsb+66QPiqPoo3JpaAflyW9fU3BQ0HHH+tp
+        tOcy2HPpUL1gZUTHJMfCUhqfnc7Ga8nNpvWECk2plcFF5jR18n7HV2+L8GF+EeafSRx/R9c5BE3w
+        Cxgpai4OAgAA
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 14 Aug 2025 13:05:15 GMT
+      - Sat, 20 Dec 2025 18:11:04 GMT
       Server:
       - scaffolding on HTTPServer2
       Server-Timing:
-      - gfet4t7; dur=271
+      - gfet4t7; dur=346
       Transfer-Encoding:
       - chunked
       Vary:
@@ -102,8 +127,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '524'
     status:
       code: 200
       message: OK

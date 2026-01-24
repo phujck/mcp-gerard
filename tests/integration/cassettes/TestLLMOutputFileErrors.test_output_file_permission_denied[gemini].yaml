@@ -1,0 +1,63 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "Simple test"}], "role": "user"}], "generationConfig":
+      {"temperature": 1.0, "maxOutputTokens": 65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '136'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+      x-goog-api-client:
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/1WRTW8aMRCG7/srJr5UQqQCGoSUSxUlbYPaCNrQNlLJYWDHrMOuZ2vPJkGI/x7v
+        kgXjg2XN+3o+ntkmAGqJNjUpCnl1Cf9CBGDb3LXGVshKENpQCJbo5Ojdn230Dhah1/qTmqxx04Xx
+        hwIcYbo5m9u5veUXwAVXApIZD5odIHhTlDlBaEIua1On8zdDgaBLRrDE0gjmwBq+OrRL+tzp1K6J
+        64LRsOEKMnwmQMvB7uJsYCwUxqZNnYK6oIly0I6CzIB+faai1neH92P3OLDjnOppCk4pb+271qC0
+        scZnvwg929p2P5tM1UENtek1hHtJW6BJrSqPK7ojwYAeD4BV6bgoZcZrstdcNeg/7XNFizqRL4bv
+        unBgdCL1+4NWjPL6m1DV5PEKo+2GITE3sqknmX15mKkIhJy01YJIIl5KMq5WmZy22O+NRsk7sj3F
+        P+S82eNaUdiPOR98HJ7rHH3WFFSOfMnW0zitPUs9/Ib66erH4juu09/T/6Ppjf/5opJd8gZGxQmH
+        xAIAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 20 Dec 2025 19:52:17 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=5573
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

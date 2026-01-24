@@ -1,116 +1,111 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": [{"type": "text", "text": "Focus
-      on annotation=NoneType required=False default=''general'' description=\"The
-      area of focus for the analysis (e.g., ''ocr'', ''objects''). This enhances the
-      prompt to guide the model.\" aspects. Focus on annotation=NoneType required=False
-      default=''general'' description=\"The area of focus for the analysis (e.g.,
-      ''ocr'', ''objects''). This enhances the prompt to guide the model.\" aspects.
-      What color is this image?"}, {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAA5klEQVR4nO3QQQkAIADAQLV/Z63gXiLcJRibe3BrvQ74iVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWcEBil4Bx/GEGnoAAAAASUVORK5CYII="}}]}],
-      "model": "gpt-4o", "max_tokens": 16384, "temperature": 1.0}'
+    body: '{"input": [{"role": "user", "content": [{"type": "input_text", "text":
+      "What color is this image?"}, {"type": "input_image", "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAA5klEQVR4nO3QQQkAIADAQLV/Z63gXiLcJRibe3BrvQ74iVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWYFZgVmBWcEBil4Bx/GEGnoAAAAASUVORK5CYII="}]}],
+      "max_output_tokens": 16384, "model": "gpt-4o", "temperature": 1.0}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '983'
-      content-type:
+      Content-Length:
+      - '601'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.99.1
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.99.1
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C4M8AIgoYJNN9pNQHG71FJX8TvmDl\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755154418,\n  \"model\": \"gpt-4o-2024-08-06\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"The color of the image is red.\",\n
-        \       \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\":
-        null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        350,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 358,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_ff25b2783a\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAA3RUwY6jMAy99yuinKcjaCkN/Y69jVYoBNNmJ8RR4lRTjfrvK0KhsDu9gZ/98uzn
+        5HvDGNctPzHuIbg6gyxryqLKymMOeQVZVlZF2YlGFGIvRF4VolRFoZqdyKrs0BwP/G2gwOYPKJpo
+        0AYY48qDJGhrOWD5sSx3ByGOu4QFkhTDUKOwdwYI2rGokerz7DHaQVcnTYAxrI3R9sxP7HvDGGPc
+        yRv4ob6FKxh04PmGsft48ET5z9FFQsF7HCptNCYFtJ0K6hZIahPWaCAfFWm0q3gvv2qM5CLVhJ+Q
+        wLzci2JGCdHUSpo1X48tmEH42dG2wO0u2xXbTGyz8jHNxMlP7CM1OrY7G9WH82ufKnXIi+STUMfD
+        TpVtVQmx34/MiYVuDhIPhCDP8AReGZJAhZbAPkUtha1op4HAF83VKUFaiySnIX78XoEGz85j8wOS
+        iE6M/7oAU2jQM+wYXYDpXp6B6cA8tO98Lrk/vmYW7tEkZTIEHUhaGpOHxJTEnfTSGDBru8jHcfGc
+        h6vGGOppt+tkxGyn89g7qpVUF6g/4fYS8zCMUKNdZniQAe1qsaHr0NMiaTAn9r30E/e850F2QLda
+        twNxp2G11QH8VSuoSU/3pJPRjLbwQOhh2SZB78BLiimcv2ePaBr/Q1mHvpfP/4XtKW+c60PxFXyD
+        QdNtXLZWx/55P8dJX1Cr0ZpIyGfguQWc0NWL3cjmoFtq9NEq+Rgsb3WQjZkek5h2fG5A29Vt3ZXi
+        7X9g8QbMfSYH22dltur131eg+in+E+3s/itmQpJmIfh4nGcYw9ruHki2kuTAf9/c/wIAAP//AwCN
+        ItqT3AUAAA==
     headers:
       CF-RAY:
-      - 96ee894d8bf9e4ed-LHR
+      - 9b118a1f3e97916c-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 06:53:39 GMT
+      - Sat, 20 Dec 2025 19:27:54 GMT
       Server:
       - cloudflare
+      Set-Cookie:
+      - __cf_bm=ZAI9AQAz8A3AZc9DTDBc4pFndP4gHZLi391gjJHIqkE-1766258874-1.0.1.1-xEBUBAGuvzkzwW6ree_bY7.eYXFBLVvt_CeUF_2kktU8GaTKe_wGb4bodoMO25zBoZSkyNb_cvvuHskLiavMc3.eNmpn66VxcAKWJPAS6Uw;
+        path=/; expires=Sat, 20-Dec-25 19:57:54 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=4ne9c_k6Y5wsprTnb9XuYQCaW5gl37rpZn5lKOV2qgo-1766258874278-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '833'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '417'
+      - '1940'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '443'
-      x-ratelimit-limit-input-images:
-      - '250000'
+      - '1943'
       x-ratelimit-limit-requests:
       - '10000'
       x-ratelimit-limit-tokens:
       - '30000000'
-      x-ratelimit-remaining-input-images:
-      - '249999'
       x-ratelimit-remaining-requests:
       - '9999'
       x-ratelimit-remaining-tokens:
-      - '29999131'
-      x-ratelimit-reset-input-images:
-      - 0s
+      - '29999235'
       x-ratelimit-reset-requests:
       - 6ms
       x-ratelimit-reset-tokens:
       - 1ms
       x-request-id:
-      - req_7ceadc784a254b6fa43d594c28ae80cf
+      - req_3e616f5d3a4c484389a3216596c21b2d
     status:
       code: 200
       message: OK

@@ -1,64 +1,68 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": "What is 2+2?"}], "model": "gpt-4o-mini",
-      "max_tokens": 16384, "temperature": 0.0}'
+    body: '{"input": "What is 2+2?", "max_output_tokens": 16384, "model": "gpt-4o-mini",
+      "temperature": 0.0}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '114'
-      content-type:
+      Content-Length:
+      - '90'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.91.0
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.91.0
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.7
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C7RJotljFWwmWGv7NmEzdley6K5bI\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755889344,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"2 + 2 equals 4.\",\n        \"refusal\":
-        null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n
-        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        14,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 22,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_560af6e559\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//dFTbjqMwDH3vV0R53ekoUKCXXxmtkJuYTnZCkkmcaqpR/31FKLTsTt/A
+        xz7Y59h8rxjjWvED4wGjbwU0tdo1SpR1vVNNLUSzrxpsCgXHo9wV+xpkuSs2opayFhuQDX8ZKNzx
+        D0qaaJyNOMZlQCBULQxYsW2asq4Ksc9YJKAUhxrpem+QUI1FR5Afp+CSHfrqwEQcw9oYbU/8wL5X
+        jDHGPVwwDPUKz2icx8BXjF3HD0+Uy08XIqMYghsqbTImB7SdClqFBNrEJRopJEna2UW8h6/WJfKJ
+        WnIfmMGi2eyqGSXnTCvBLPl6p9AMjZ88rSu37rXV61KU1Vps18XuJmkm5gf2lqcdZ57d6uPpuVlY
+        lFU1mLWvt1UFoiwa0W2bbZmZMwtdPGYejBFOeAeeuZJB6SyhvTf12NiCdlIFv2iuzglgrSOYlHz7
+        vQCNO/ngjj8gmejAeMl+sZLhZwITWfXK55zr7Wku48GZ3ArEqCOBpTF5SMxJ3EMAY9AsTaKQxnXz
+        Ac/apdhOG91m5WcTfXC9p1aCfMf2Ay9PsYCDZtrZx4yAEJ1drDN2nQv0kDS4kfoewsQ9b3eEDunS
+        ajUQdxoXuxwxnLXElvR0HR0kM/rAI7mAj2MS9h4DUMph8Spu0az3rbPOhR7u7w8+57xR11vHZwxH
+        FzVdxu1SOvX3qxyVfndajtYkcnwG7rZzcr59WAYxB/1wYVOPIVkJN2G50hGOZvqFpLzU8wDaLm+0
+        evk//nD485jZQHUvFItR/z39/U/xn2hn858xkyMwd7DczAqmuDS7RwIFBAP9dXX9CwAA//8DAPdC
+        WofQBQAA
     headers:
       CF-RAY:
-      - 97349fce491aef4a-LHR
+      - 9b1115d8d8bf7d93-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Fri, 22 Aug 2025 19:02:24 GMT
+      - Sat, 20 Dec 2025 18:08:30 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -67,24 +71,20 @@ interactions:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '821'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '392'
+      - '775'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '479'
+      - '778'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -92,13 +92,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999995'
+      - '149999967'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_09056ec1552d4e11ab320295ed54eb0e
+      - req_7217a7eb79834740abbcfd43b5e6ab1d
     status:
       code: 200
       message: OK

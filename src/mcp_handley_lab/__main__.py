@@ -30,7 +30,7 @@ def show_help():
 
     print("\nExamples:")
     print("  python -m mcp_handley_lab vim")
-    print("  python -m mcp_handley_lab llm.gemini")
+    print("  python -m mcp_handley_lab llm.chat")
     print("  python -m mcp_handley_lab google_calendar")
 
 

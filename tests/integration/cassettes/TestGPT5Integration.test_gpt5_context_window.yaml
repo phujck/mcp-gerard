@@ -1,0 +1,164 @@
+interactions:
+- request:
+    body: '{"input": "Count how many words are in this text: The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown
+      fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The
+      quick brown fox jumps over the lazy dog. The quick brown fox jumps over the
+      lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps
+      over the lazy dog. The quick brown fox jumps over the lazy dog. ", "max_output_tokens":
+      128000, "model": "gpt-5-nano"}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '4599'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3xU227bMAx971cIfm4K2YkTO8B+YthbWxi0RKdqZcmTqLTZkH8fJCeOjbZ7s3l4
+        OeQh9feOsUzJbM8yh35oeA2Sr3dlJSu5k1Bwvq03W6yFbLESVV5v2h3P87rdVigrATVk9zGFbV9R
+        0DWNNR5Hu3AIhLKBiOW77bYoS16uE+YJKPgYI2w/aCSUY1AL4u3gbDCRVwfa42hWWitzyPbs7x1j
+        jGUDnNDFeIlH1HZAl90xdh4LX1MuSufrTULRORsjTdA6GZS5BjQSCZT2S9STC4KUNQt7Dx+NDTQE
+        asi+YQLzouKcTzBZqxsBepmwtxJ1ZH4YaFWuDBi7KnhRrni14rvLSFPibM8eU7djzze1/H+06kqo
+        olYgujrfQL3m67bsZJESpyR0GnBUC7w1caoT5EPfgzvFws/Jdr7/ikDvD98xgBxBFCMD4DmsRcl3
+        NUAu688MevQeDjir/81aJFBYQ2huU5kTW6S9yoIfNEUnBzDGElylfHxegNoeBmfbL5CUaM+yzaYs
+        2bt10j+ZJ/MzjW/Pfr0gix7M4YBAntELsnoV/ZjHSFkgewoFz0V0/R2UeGOts++GdfaDvYZ+8Mwe
+        0aVADX9OTNrDQ4qQDD9AkD6xTV0yUj36h/T5FDiXO1azHyyyesgmvufL19RC5qxOYwHvlScwNDpH
+        x+SUDeBAa9TLhSUXxtsbHB6VDb65nneTtmBa6MHZfqBGgHjB5g1P32IOo37KmrnHbQun28aus47G
+        BZEq9BcRZ9sZo6dz99AhnRolY/JO4eK4PbqjEtiQuj4XHQQ97kXmyTqct0rYD+iAQjLnD/xiTfpf
+        2HXW9XD7n+1d8pufTXZE11qv6DRrZuI9TvvFKjHKE8hmE3Bbw4zs0MyWk0/GYc7RBSPgMtxMKg+t
+        vr6pIR3Z1IAyy0eL59v7z8jsLZwaTTLKWyhfNPvpNeS7uvoK+yr1tAaL+LJYVCBLoGcOeZVvpnEG
+        v1S+RwIJBLHK+e78DwAA//8DAJ3qCLDuBgAA
+    headers:
+      CF-RAY:
+      - 9b112ce55ee46582-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:25:35 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '81462'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '81465'
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '180000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '179989419'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 3ms
+      x-request-id:
+      - req_aa3295efefd94760a40dc3db641fd70a
+    status:
+      code: 200
+      message: OK
+version: 1

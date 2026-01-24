@@ -1,60 +1,57 @@
 interactions:
 - request:
     body: '{"contents": [{"parts": [{"text": "What is configured in this YAML file?
-      What is the application name?"}, {"text": "[File: tmpybt8x4po.yaml]\n# Configuration
+      What is the application name?"}, {"text": "[File: tmpjyd6ln20.yaml]\n# Configuration
       file\napp:\n  name: \"Test Application\"\n  version: \"1.0.0\"\n  features:\n    -
       authentication\n    - logging\n    - metrics\ndatabase:\n  host: \"localhost\"\n  port:
       5432\n  name: \"testdb\"\n"}], "role": "user"}], "generationConfig": {"temperature":
       1.0, "maxOutputTokens": 65536}}'
     headers:
-      accept:
+      Accept:
       - '*/*'
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
+      Content-Length:
       - '445'
-      content-type:
+      Content-Type:
       - application/json
-      host:
+      Host:
       - generativelanguage.googleapis.com
       user-agent:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
       x-goog-api-client:
-      - google-genai-sdk/1.28.0 gl-python/3.13.5
+      - google-genai-sdk/1.50.1 gl-python/3.13.7
     method: POST
     uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
   response:
     body:
-      string: "{\n  \"candidates\": [\n    {\n      \"content\": {\n        \"parts\":
-        [\n          {\n            \"text\": \"This YAML file configures settings
-        for an application and its database connection.\\n\\n1.  **What is configured
-        in this YAML file?**\\n    This YAML file configures:\\n    *   **Application
-        Details:**\\n        *   The application's name (\\\"Test Application\\\")\\n
-        \       *   Its version (\\\"1.0.0\\\")\\n        *   A list of features it
-        supports or has enabled: \\\"authentication\\\", \\\"logging\\\", and \\\"metrics\\\".\\n
-        \   *   **Database Connection:**\\n        *   The database host (\\\"localhost\\\")\\n
-        \       *   The database port (5432)\\n        *   The database name (\\\"testdb\\\")\\n\\n2.
-        \ **What is the application name?**\\n    The application name configured
-        in this YAML file is **\\\"Test Application\\\"**.\"\n          }\n        ],\n
-        \       \"role\": \"model\"\n      },\n      \"finishReason\": \"STOP\",\n
-        \     \"index\": 0\n    }\n  ],\n  \"usageMetadata\": {\n    \"promptTokenCount\":
-        98,\n    \"candidatesTokenCount\": 165,\n    \"totalTokenCount\": 861,\n    \"promptTokensDetails\":
-        [\n      {\n        \"modality\": \"TEXT\",\n        \"tokenCount\": 98\n
-        \     }\n    ],\n    \"thoughtsTokenCount\": 598\n  },\n  \"modelVersion\":
-        \"gemini-2.5-flash\",\n  \"responseId\": \"AeCdaPKyOsXrnsEPuKeYmQE\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAC/21TbW/TQAz+3l9h3Re2qBvrpG6lX1DpAFViUCC8iSLtmjjJieQuyjldWdX/ji9t
+        2kshUpKT/fix/Zy96QGISOpYxZLQijH8ZAvApvk6n9GEmtjRmthYyoqO2N2z8c4MIVy7IPFKWozB
+        aKAM4cfk/h0kKsc+ZFjhMwuPmST+cZZEpXWF8XihFzoIvrEdlO8A5TjYdCB5GQQOHPrExwAL9Gig
+        kBwmbYkR2YZ6cAkQBJOyzFUkSXFhd0hS5RbOHmRZPpyPHatrIeDXccsjlivVssDLI2BGFlZYWUek
+        62KJleecQK4sgUkgQUlNTaaCpNaRI5O5IsUmRWDrsjQs6XPUcpmz7UzWrJemfd4+5CZNlU77UCBV
+        KrLnnOa6aeVOklyyyDA1WmPDzK3Ee+t/+smMJdeFq2U2BxnHXJh1VboragPBYrXqdONiXZX7PiHh
+        +GifU6dAphN/ErhLeJJCaUtSRw7r3zl1RW9ivbs+dXHImHVYiBBZbO9mFyIIhDeV28P5V/84y5XJ
+        0Q1qYWLMW/i2BYhEaWWzTyit0Q72OfwwFwev0jGu2XzVaxM01KK2MsV7HizX62F3RFmZoqTQ/EY9
+        NXWzVS9GOzJvCTv+wbAFkCGZd3yj4W3/H2K7n2dvPb3N5S7d3P1xrYSvv4fCU4K6dbVS9DzFBGWm
+        TjPq1nhzNejtNdvJ+HW3ES5JigUreHF9ObxIcmmzJqHgiSuNtjiLHWZdD9+yUtM3yU29fj+aP90+
+        rczHL6K37f0F5FHnoqAEAAA=
     headers:
       Alt-Svc:
       - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json; charset=UTF-8
       Date:
-      - Thu, 14 Aug 2025 13:09:21 GMT
+      - Sat, 20 Dec 2025 18:45:26 GMT
       Server:
       - scaffolding on HTTPServer2
       Server-Timing:
-      - gfet4t7; dur=3905
+      - gfet4t7; dur=3529
       Transfer-Encoding:
       - chunked
       Vary:
@@ -67,8 +64,6 @@ interactions:
       - SAMEORIGIN
       X-XSS-Protection:
       - '0'
-      content-length:
-      - '1236'
     status:
       code: 200
       message: OK

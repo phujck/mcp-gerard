@@ -4,203 +4,182 @@ import inspect
 
 import pytest
 
-from mcp_handley_lab.llm.claude.tool import ask as claude_ask
-from mcp_handley_lab.llm.gemini.tool import ask as gemini_ask
-from mcp_handley_lab.llm.grok.tool import ask as grok_ask
-from mcp_handley_lab.llm.openai.tool import ask as openai_ask
+from mcp_handley_lab.llm.chat.tool import analyze_image, ask
+from mcp_handley_lab.llm.common import load_prompt_text
+from mcp_handley_lab.llm.registry import PROVIDERS, get_default_model, resolve_model
 
 
-class TestProviderXORValidation:
-    """Test XOR validation at the provider level."""
+class TestXORValidation:
+    """Test XOR validation functions directly via load_prompt_text."""
 
-    def test_openai_ask_xor_validation_prompt_raises(self, tmp_path):
-        """Test that OpenAI ask() raises ValueError for conflicting prompt parameters."""
+    def test_prompt_xor_validation_both_raises(self, tmp_path):
+        """Test that providing both prompt and prompt_file raises ValueError."""
         prompt_file = tmp_path / "prompt.txt"
         prompt_file.write_text("Test prompt")
 
         with pytest.raises(
             ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
         ):
-            openai_ask(
+            load_prompt_text(
                 prompt="Direct prompt",
                 prompt_file=str(prompt_file),
                 prompt_vars={},
-                system_prompt="",
-                system_prompt_file="",
-                system_prompt_vars={},
-                output_file="-",
-                agent_name="",
-                model="gpt-4o-mini",
-                files=[],
-                temperature=1.0,
-                max_output_tokens=0,
-                enable_logprobs=False,
-                top_logprobs=0,
             )
 
-    def test_claude_ask_xor_validation_prompt_raises(self, tmp_path):
-        """Test that Claude ask() raises ValueError for conflicting prompt parameters."""
+    def test_prompt_xor_validation_neither_raises(self):
+        """Test that providing neither prompt nor prompt_file raises ValueError."""
+        with pytest.raises(
+            ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
+        ):
+            load_prompt_text(
+                prompt="",
+                prompt_file="",
+                prompt_vars={},
+            )
+
+    def test_prompt_xor_validation_prompt_only_succeeds(self):
+        """Test that providing only prompt succeeds."""
+        result = load_prompt_text(
+            prompt="Direct prompt",
+            prompt_file="",
+            prompt_vars={},
+        )
+        assert result == "Direct prompt"
+
+    def test_prompt_xor_validation_file_only_succeeds(self, tmp_path):
+        """Test that providing only prompt_file succeeds."""
         prompt_file = tmp_path / "prompt.txt"
-        prompt_file.write_text("Test prompt")
+        prompt_file.write_text("File prompt content")
 
+        result = load_prompt_text(
+            prompt="",
+            prompt_file=str(prompt_file),
+            prompt_vars={},
+        )
+        assert result == "File prompt content"
+
+    def test_system_prompt_xor_validation_both_raises(self, tmp_path):
+        """Test that providing both system_prompt and system_prompt_file raises ValueError."""
+        system_file = tmp_path / "system.txt"
+        system_file.write_text("Test system")
+
+        # Uses the same load_prompt_text function for system prompt
         with pytest.raises(
             ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
         ):
-            claude_ask(
-                prompt="Direct prompt",
-                prompt_file=str(prompt_file),
+            load_prompt_text(
+                prompt="Direct system",
+                prompt_file=str(system_file),
                 prompt_vars={},
-                system_prompt="",
-                system_prompt_file="",
-                system_prompt_vars={},
-                output_file="-",
-                agent_name="",
-                model="claude-3-5-haiku-20241022",
-                files=[],
-                temperature=1.0,
-                max_output_tokens=0,
-            )
-
-    def test_gemini_ask_xor_validation_prompt_raises(self):
-        """Test that Gemini ask() raises ValueError for conflicting prompt parameters."""
-        with pytest.raises(
-            ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
-        ):
-            gemini_ask(
-                prompt="",
-                prompt_file="",
-                prompt_vars={},
-                system_prompt="",
-                system_prompt_file="",
-                system_prompt_vars={},
-                output_file="-",
-                agent_name="",
-                model="gemini-2.5-flash",
-                files=[],
-                temperature=1.0,
-                max_output_tokens=0,
-                grounding=False,
-            )
-
-    def test_grok_ask_xor_validation_prompt_raises(self):
-        """Test that Grok ask() raises ValueError for conflicting prompt parameters."""
-        with pytest.raises(
-            ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
-        ):
-            grok_ask(
-                prompt="",
-                prompt_file="",
-                prompt_vars={},
-                system_prompt="",
-                system_prompt_file="",
-                system_prompt_vars={},
-                output_file="-",
-                agent_name="",
-                model="grok-3-mini",
-                files=[],
-                temperature=1.0,
-                max_output_tokens=0,
             )
 
 
-class TestProviderParameterConsistency:
-    """Test that all providers have consistent parameter signatures."""
+class TestProviderAliasResolution:
+    """Test that provider aliases resolve to correct default models."""
 
-    def test_all_providers_have_prompt_file_parameters(self):
-        """Test that all ask() functions have the required new parameters."""
-        providers = [openai_ask, claude_ask, gemini_ask, grok_ask]
+    def test_gemini_alias_resolves_to_default(self):
+        """Test that 'gemini' resolves to the default Gemini model."""
+        provider, model, config = resolve_model("gemini")
+        assert provider == "gemini"
+        assert model == get_default_model("gemini")
+        assert config  # Should have configuration
+
+    def test_openai_alias_resolves_to_default(self):
+        """Test that 'openai' resolves to the default OpenAI model."""
+        provider, model, config = resolve_model("openai")
+        assert provider == "openai"
+        assert model == get_default_model("openai")
+        assert config
+
+    def test_claude_alias_resolves_to_default(self):
+        """Test that 'claude' resolves to the default Claude model."""
+        provider, model, config = resolve_model("claude")
+        assert provider == "claude"
+        assert model == get_default_model("claude")
+        assert config
+
+    def test_all_providers_have_defaults(self):
+        """Test that all providers have default models defined."""
+        for provider in PROVIDERS:
+            default = get_default_model(provider)
+            assert default, f"Provider {provider} has no default model"
+
+    def test_claude_shorthand_aliases(self):
+        """Test Claude shorthand aliases (sonnet, opus, haiku)."""
+        for alias in ["sonnet", "opus", "haiku"]:
+            provider, model, config = resolve_model(alias)
+            assert provider == "claude"
+            assert model.startswith("claude-")
+            assert config
+
+
+class TestUnifiedChatParameterConsistency:
+    """Test that the unified chat tool has consistent parameters."""
+
+    def test_ask_has_required_parameters(self):
+        """Test that ask() has all required parameters."""
+        sig = inspect.signature(ask)
         required_params = {
+            "prompt",
             "prompt_file",
             "prompt_vars",
+            "output_file",
+            "agent_name",
+            "model",
+            "temperature",
+            "files",
+            "system_prompt",
             "system_prompt_file",
             "system_prompt_vars",
+            "options",
         }
 
-        for provider_ask in providers:
-            sig = inspect.signature(provider_ask)
-            provider_params = set(sig.parameters.keys())
+        actual_params = set(sig.parameters.keys())
+        for param in required_params:
+            assert param in actual_params, f"Missing parameter: {param}"
 
-            for param in required_params:
-                assert param in provider_params, (
-                    f"Provider {provider_ask.__module__} missing parameter: {param}"
-                )
-
-    def test_parameter_types_are_consistent(self):
-        """Test that all providers have consistent parameter types for new parameters."""
-        providers = [openai_ask, claude_ask, gemini_ask, grok_ask]
-        expected_types = {
-            "prompt_file": str,
-            "prompt_vars": dict,
-            "system_prompt_file": str,
-            "system_prompt_vars": dict,
+    def test_analyze_image_has_required_parameters(self):
+        """Test that analyze_image() has required parameters."""
+        sig = inspect.signature(analyze_image)
+        required_params = {
+            "prompt",
+            "images",
+            "output_file",
+            "model",
+            "focus",
+            "agent_name",
         }
 
-        for provider_ask in providers:
-            sig = inspect.signature(provider_ask)
-
-            for param_name, expected_type in expected_types.items():
-                param = sig.parameters[param_name]
-                # For Field() parameters, the annotation might be wrapped
-                actual_type = param.annotation
-
-                # Handle dict[str, str] type annotations first
-                if (
-                    hasattr(actual_type, "__origin__")
-                    and actual_type.__origin__ is dict
-                ):
-                    actual_type = dict
-                # Handle Union types (e.g., str | None)
-                elif hasattr(actual_type, "__origin__"):
-                    args = getattr(actual_type, "__args__", ())
-                    # Get the first non-None type
-                    actual_type = next(
-                        (arg for arg in args if arg is not type(None)), actual_type
-                    )
-
-                assert actual_type == expected_type, (
-                    f"Provider {provider_ask.__module__} parameter {param_name} "
-                    f"has type {actual_type}, expected {expected_type}"
-                )
+        actual_params = set(sig.parameters.keys())
+        for param in required_params:
+            assert param in actual_params, f"Missing parameter: {param}"
 
 
-class TestPromptFileValidationBehavior:
-    """Test the actual behavior of prompt file validation across providers."""
+class TestModelResolution:
+    """Test model name resolution and prefix matching (fail-fast behavior)."""
 
-    def test_providers_validate_prompt_xor_consistently(self):
-        """Test that all providers validate prompt XOR consistently."""
-        providers = [openai_ask, claude_ask, gemini_ask, grok_ask]
+    def test_prefix_matching_gemini_raises(self):
+        """Test that unknown Gemini models fail-fast with helpful error."""
+        with pytest.raises(
+            ValueError, match="Unknown model.*gemini.*not in the registry"
+        ):
+            resolve_model("gemini-unknown-model")
 
-        for provider_ask in providers:
-            # Test both prompt and prompt_file provided
-            with pytest.raises(
-                ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
-            ):
-                provider_ask(
-                    prompt="test",
-                    prompt_file="/some/file",
-                    prompt_vars={},
-                    system_prompt="",
-                    system_prompt_file="",
-                    system_prompt_vars={},
-                    output_file="-",
-                    agent_name="",
-                    model="test-model",  # Will fail later but validation comes first
-                    files=[],
-                )
+    def test_prefix_matching_openai_raises(self):
+        """Test that unknown OpenAI models fail-fast with helpful error."""
+        with pytest.raises(
+            ValueError, match="Unknown model.*openai.*not in the registry"
+        ):
+            resolve_model("gpt-future-model")
 
-            # Test neither prompt nor prompt_file provided
-            with pytest.raises(
-                ValueError, match="Provide exactly one of 'prompt' or 'prompt_file'"
-            ):
-                provider_ask(
-                    prompt="",
-                    prompt_file="",
-                    prompt_vars={},
-                    system_prompt="",
-                    system_prompt_file="",
-                    system_prompt_vars={},
-                    output_file="-",
-                    agent_name="",
-                    model="test-model",  # Will fail later but validation comes first
-                    files=[],
-                )
+    def test_prefix_matching_claude_raises(self):
+        """Test that unknown Claude models fail-fast with helpful error."""
+        with pytest.raises(
+            ValueError, match="Unknown model.*claude.*not in the registry"
+        ):
+            resolve_model("claude-future-version")
+
+    def test_unknown_model_raises(self):
+        """Test that completely unknown models raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown model"):
+            resolve_model("completely-unknown-provider-model")

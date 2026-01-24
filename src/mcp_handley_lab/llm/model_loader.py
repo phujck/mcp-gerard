@@ -20,7 +20,7 @@ def load_model_config(provider: str) -> dict[str, Any]:
         yaml.YAMLError: If YAML file is invalid
         ValueError: If required sections are missing
     """
-    yaml_path = Path(__file__).parent / provider / "models.yaml"
+    yaml_path = Path(__file__).parent / "providers" / provider / "models.yaml"
 
     with open(yaml_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)
@@ -105,6 +105,9 @@ def build_model_configs_dict(provider: str) -> dict[str, dict[str, Any]]:
                     "supports_temperature": model_info.get(
                         "supports_temperature", True
                     ),
+                    "supports_reasoning": model_info.get("supports_reasoning", False),
+                    "supports_verbosity": model_info.get("supports_verbosity", False),
+                    "requires_web_search": model_info.get("requires_web_search", False),
                 }
         elif provider == "claude":
             # Claude format - require explicit values in YAML
@@ -116,8 +119,14 @@ def build_model_configs_dict(provider: str) -> dict[str, dict[str, Any]]:
                 "output_tokens": model_info["output_tokens"],
             }
         elif provider == "gemini":
-            # Gemini format - skip image/video generation models or require explicit values
-            if model_info.get("pricing_type") in ["per_image", "per_second"]:
+            # Gemini format - handle agents, image/video generation, and text models
+            if model_info.get("is_agent"):
+                # Agent models (e.g., deep research)
+                model_configs[model_id] = {
+                    "output_tokens": model_info.get("output_tokens"),
+                    "is_agent": True,
+                }
+            elif model_info.get("pricing_type") in ["per_image", "per_second"]:
                 # Image/video generation models don't need output_tokens
                 model_configs[model_id] = {
                     "output_tokens": None  # N/A for image/video generation
@@ -129,6 +138,17 @@ def build_model_configs_dict(provider: str) -> dict[str, dict[str, Any]]:
                         f"Missing 'output_tokens' for Gemini model {model_id}"
                     )
                 model_configs[model_id] = {"output_tokens": model_info["output_tokens"]}
+        elif provider == "groq":
+            # Groq format - similar to OpenAI (OpenAI-compatible API)
+            if "output_tokens" not in model_info:
+                raise ValueError(f"Missing 'output_tokens' for Groq model {model_id}")
+            if "param" not in model_info:
+                raise ValueError(f"Missing 'param' for Groq model {model_id}")
+            model_configs[model_id] = {
+                "output_tokens": model_info["output_tokens"],
+                "param": model_info["param"],
+                "supports_temperature": model_info.get("supports_temperature", True),
+            }
         elif provider == "grok":
             # Grok format - similar to Gemini but different pricing types
             if model_info.get("pricing_type") == "per_image":
@@ -143,6 +163,26 @@ def build_model_configs_dict(provider: str) -> dict[str, dict[str, Any]]:
                         f"Missing 'output_tokens' for Grok model {model_id}"
                     )
                 model_configs[model_id] = {"output_tokens": model_info["output_tokens"]}
+        elif provider == "mistral":
+            # Mistral format - include capability flags
+            if "output_tokens" not in model_info:
+                raise ValueError(
+                    f"Missing 'output_tokens' for Mistral model {model_id}"
+                )
+            config_entry = {"output_tokens": model_info["output_tokens"]}
+            # Copy capability flags if present
+            for flag in [
+                "supports_vision",
+                "supports_reasoning",
+                "supports_audio",
+                "supports_fim",
+                "supports_transcription",
+                "supports_grounding",
+                "embedding_dimensions",
+            ]:
+                if flag in model_info:
+                    config_entry[flag] = model_info[flag]
+            model_configs[model_id] = config_entry
         # Other providers can be added here as needed
 
     return model_configs

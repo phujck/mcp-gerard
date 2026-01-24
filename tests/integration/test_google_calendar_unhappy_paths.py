@@ -26,7 +26,7 @@ class TestGoogleCalendarAuthenticationErrors:
             ToolError, match="Event not found|not found|invalid|Not Found"
         ):
             await mcp.call_tool(
-                "get_event", {"event_id": invalid_event_id, "calendar_id": "primary"}
+                "read", {"event_id": invalid_event_id, "calendar_id": "primary"}
             )
 
     @pytest.mark.vcr
@@ -35,24 +35,18 @@ class TestGoogleCalendarAuthenticationErrors:
         """Test handling of non-existent calendar IDs."""
         invalid_calendar_id = "nonexistent_calendar_12345@group.calendar.google.com"
 
+        # Try to create event in non-existent calendar
+        tomorrow = datetime.now() + timedelta(days=1)
         with pytest.raises(
             ToolError, match="Calendar not found|not found|invalid|Not Found"
         ):
-            await mcp.call_tool("list_calendars", {})
-            # Try to create event in non-existent calendar
-            tomorrow = datetime.now() + timedelta(days=1)
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "Test Event",
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T11:00:00",
                     "calendar_id": invalid_calendar_id,
-                    "description": "",
-                    "location": "",
-                    "attendees": [],
-                    "start_timezone": "",
-                    "end_timezone": "",
                 },
             )
 
@@ -69,23 +63,17 @@ class TestGoogleCalendarInvalidInputs:
         tomorrow = datetime.now() + timedelta(days=1)
         with pytest.raises(ToolError, match="summary|required|empty|missing"):
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "",
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T11:00:00",
                     "calendar_id": "primary",
-                    "description": "",
-                    "location": "",
-                    "attendees": [],
-                    "start_timezone": "",
-                    "end_timezone": "",
                 },
             )
 
-        # Test empty event_id for get_event
-        with pytest.raises(ToolError, match="id|event_id|required|empty|missing"):
-            await mcp.call_tool("get_event", {"event_id": "", "calendar_id": "primary"})
+        # Note: empty event_id is treated as "no event_id" (search mode), not an error
+        # This is intentional design - the read() tool falls back to search when event_id is falsy
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
@@ -105,17 +93,12 @@ class TestGoogleCalendarInvalidInputs:
         for bad_datetime in malformed_datetimes:
             with pytest.raises(ToolError, match="datetime|parse|invalid|format|empty"):
                 await mcp.call_tool(
-                    "create_event",
+                    "create",
                     {
                         "summary": "Test Event",
                         "start_datetime": bad_datetime,
                         "end_datetime": "tomorrow at 11am",
                         "calendar_id": "primary",
-                        "description": "",
-                        "location": "",
-                        "attendees": [],
-                        "start_timezone": "",
-                        "end_timezone": "",
                     },
                 )
 
@@ -140,7 +123,7 @@ class TestGoogleCalendarInvalidInputs:
                 match=r"timezone|invalid|unknown|TIMEZONE|parse.*datetime|Could not parse|UTC\+|GMT\+",
             ):
                 await mcp.call_tool(
-                    "create_event",
+                    "create",
                     {
                         "summary": "Timezone Test",
                         "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -148,9 +131,6 @@ class TestGoogleCalendarInvalidInputs:
                         "start_timezone": bad_timezone,
                         "end_timezone": "UTC",
                         "calendar_id": "primary",
-                        "description": "",
-                        "location": "",
-                        "attendees": [],
                     },
                 )
 
@@ -167,17 +147,13 @@ class TestGoogleCalendarInvalidInputs:
             ToolError, match="email|invalid|attendee|format|Invalid attendee email"
         ):
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "Email Test",
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T11:00:00",
                     "attendees": [bad_email],
                     "calendar_id": "primary",
-                    "description": "",
-                    "location": "",
-                    "start_timezone": "",
-                    "end_timezone": "",
                 },
             )
 
@@ -192,17 +168,12 @@ class TestGoogleCalendarInvalidInputs:
             match="end.*before.*start|start.*after.*end|duration|time.*order|time range.*empty|empty.*time",
         ):
             await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": "Invalid Duration Event",
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T15:00:00",  # 3 PM
                     "end_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",  # 10 AM (before start)
                     "calendar_id": "primary",
-                    "description": "",
-                    "location": "",
-                    "attendees": [],
-                    "start_timezone": "",
-                    "end_timezone": "",
                 },
             )
 
@@ -221,7 +192,7 @@ class TestGoogleCalendarInvalidInputs:
         # These should either be handled gracefully or rejected with clear error
         try:
             _, response = await mcp.call_tool(
-                "create_event",
+                "create",
                 {
                     "summary": very_long_summary,
                     "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -229,9 +200,6 @@ class TestGoogleCalendarInvalidInputs:
                     "description": very_long_description,
                     "location": very_long_location,
                     "calendar_id": "primary",
-                    "attendees": [],
-                    "start_timezone": "",
-                    "end_timezone": "",
                 },
             )
 
@@ -241,7 +209,7 @@ class TestGoogleCalendarInvalidInputs:
                 if event_id:
                     # Clean up
                     await mcp.call_tool(
-                        "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                        "delete", {"event_id": event_id, "calendar_id": "primary"}
                     )
 
         except ToolError as e:
@@ -258,8 +226,8 @@ class TestGoogleCalendarZeroResultsScenarios:
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    async def test_search_events_no_matches(self, google_calendar_test_config):
-        """Test search with query that matches no events."""
+    async def test_read_no_matches(self, google_calendar_test_config):
+        """Test read with query that matches no events."""
         if google_calendar_test_config is None:
             pytest.skip("Google Calendar test credentials not available")
 
@@ -267,7 +235,7 @@ class TestGoogleCalendarZeroResultsScenarios:
         unique_query = f"unique_search_term_{datetime.now().timestamp()}"
 
         _, response = await mcp.call_tool(
-            "search_events",
+            "read",
             {
                 "search_text": unique_query,
                 "start_date": "2024-01-01",
@@ -279,63 +247,30 @@ class TestGoogleCalendarZeroResultsScenarios:
         assert "error" not in response, response.get("error")
 
         # Should return empty list, not error
-        events = response.get("events", [])
+        events = response.get("result", [])
         assert isinstance(events, list)
         assert len(events) == 0
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
-    async def test_find_time_no_availability(self, google_calendar_test_config):
-        """Test find_time when no slots are available."""
-        # Try to find time in the past (should have no availability or error)
-        past_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-
-        try:
-            _, response = await mcp.call_tool(
-                "find_time",
-                {
-                    "start_date": past_date,
-                    "end_date": past_date,
-                    "duration_minutes": 60,
-                    "work_hours_only": True,
-                    "calendar_id": "primary",
-                },
-            )
-
-            # Should return empty list
-            free_times = response.get("free_times", [])
-            assert isinstance(free_times, list)
-
-        except Exception as e:
-            # Past dates may cause "time range empty" error - this is acceptable
-            assert any(
-                keyword in str(e).lower()
-                for keyword in ["time range", "empty", "past", "invalid"]
-            )
-
-    @pytest.mark.vcr
-    @pytest.mark.asyncio
-    async def test_search_events_empty_date_range(self, google_calendar_test_config):
-        """Test search with date range that contains no events."""
-        # Use future dates far in the future
-        far_future_start = (datetime.now() + timedelta(days=3650)).strftime(
-            "%Y-%m-%d"
-        )  # ~10 years
-        far_future_end = (datetime.now() + timedelta(days=3651)).strftime("%Y-%m-%d")
+    async def test_read_empty_date_range(self, google_calendar_test_config):
+        """Test read with date range that contains no events."""
+        # Use fixed future dates to match VCR cassette
+        far_future_start = "2035-08-11"
+        far_future_end = "2035-08-12"
 
         _, response = await mcp.call_tool(
-            "search_events",
+            "read",
             {
                 "start_date": far_future_start,
                 "end_date": far_future_end,
                 "calendar_id": "primary",
-                "search_text": "",
             },
         )
 
         assert "error" not in response, response.get("error")
 
-        events = response.get("events", [])
+        events = response.get("result", [])
         assert isinstance(events, list)
         assert len(events) == 0
 
@@ -352,17 +287,13 @@ class TestGoogleCalendarBoundaryConditions:
         current_year = datetime.now().year
 
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "New Year Boundary Event",
                 "start_datetime": f"{current_year}-12-31T23:30:00",
                 "end_datetime": f"{current_year + 1}-01-01T00:30:00",
                 "calendar_id": "primary",
                 "description": "Event spanning year boundary",
-                "location": "",
-                "attendees": [],
-                "start_timezone": "",
-                "end_timezone": "",
             },
         )
 
@@ -371,7 +302,7 @@ class TestGoogleCalendarBoundaryConditions:
             event_id = response.get("event_id")
             if event_id:
                 await mcp.call_tool(
-                    "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                    "delete", {"event_id": event_id, "calendar_id": "primary"}
                 )
         else:
             # Some boundary dates might be invalid, that's acceptable
@@ -385,17 +316,13 @@ class TestGoogleCalendarBoundaryConditions:
 
         # Test multi-week event
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Long Duration Event",
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T09:00:00",
                 "end_datetime": f"{(tomorrow + timedelta(days=365)).strftime('%Y-%m-%d')}T09:00:00",  # 1 year duration
                 "calendar_id": "primary",
                 "description": "Testing maximum duration handling",
-                "location": "",
-                "attendees": [],
-                "start_timezone": "",
-                "end_timezone": "",
             },
         )
 
@@ -404,7 +331,7 @@ class TestGoogleCalendarBoundaryConditions:
             event_id = response.get("event_id")
             if event_id:
                 await mcp.call_tool(
-                    "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                    "delete", {"event_id": event_id, "calendar_id": "primary"}
                 )
         # Very long events might be rejected by Google Calendar API - that's acceptable
 
@@ -419,17 +346,13 @@ class TestGoogleCalendarBoundaryConditions:
         end_time = f"{tomorrow.strftime('%Y-%m-%d')}T10:01:00"  # 1 minute duration
 
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": "Minimal Duration Event",
                 "start_datetime": start_time,
                 "end_datetime": end_time,
                 "calendar_id": "primary",
                 "description": "Testing minimal duration handling",
-                "location": "",
-                "attendees": [],
-                "start_timezone": "",
-                "end_timezone": "",
             },
         )
 
@@ -438,7 +361,7 @@ class TestGoogleCalendarBoundaryConditions:
             event_id = response.get("event_id")
             if event_id:
                 await mcp.call_tool(
-                    "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                    "delete", {"event_id": event_id, "calendar_id": "primary"}
                 )
 
     @pytest.mark.vcr
@@ -453,7 +376,7 @@ class TestGoogleCalendarBoundaryConditions:
         unicode_location = "Café München, Zürich 🇨🇭"
 
         _, response = await mcp.call_tool(
-            "create_event",
+            "create",
             {
                 "summary": unicode_summary,
                 "start_datetime": f"{tomorrow.strftime('%Y-%m-%d')}T10:00:00",
@@ -461,9 +384,6 @@ class TestGoogleCalendarBoundaryConditions:
                 "description": unicode_description,
                 "location": unicode_location,
                 "calendar_id": "primary",
-                "attendees": [],
-                "start_timezone": "",
-                "end_timezone": "",
             },
         )
 
@@ -476,11 +396,13 @@ class TestGoogleCalendarBoundaryConditions:
         try:
             # Get the event back and verify unicode preservation
             _, get_response = await mcp.call_tool(
-                "get_event", {"event_id": event_id, "calendar_id": "primary"}
+                "read", {"event_id": event_id, "calendar_id": "primary"}
             )
 
             assert "error" not in get_response
-            event = get_response
+            events = get_response["result"]
+            assert len(events) == 1
+            event = events[0]
 
             # Check that unicode characters are preserved
             assert unicode_summary in event["summary"]
@@ -490,5 +412,87 @@ class TestGoogleCalendarBoundaryConditions:
         finally:
             # Clean up
             await mcp.call_tool(
-                "delete_event", {"event_id": event_id, "calendar_id": "primary"}
+                "delete", {"event_id": event_id, "calendar_id": "primary"}
             )
+
+
+@pytest.mark.integration
+class TestGoogleCalendarUpdateMutualExclusivity:
+    """Test mutual exclusivity validation in update."""
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_move_with_update_fields(
+        self, google_calendar_test_config
+    ):
+        """Test that update rejects combining move with update fields."""
+        with pytest.raises(ToolError, match="Cannot combine move"):
+            await mcp.call_tool(
+                "update",
+                {
+                    "event_id": "test_event_id",
+                    "calendar_id": "primary",
+                    "destination_calendar_id": "other_calendar",
+                    "summary": "New Title",  # Should fail - can't combine with move
+                },
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_move_with_normalize_timezone(
+        self, google_calendar_test_config
+    ):
+        """Test that update rejects combining move with normalize_timezone."""
+        with pytest.raises(ToolError, match="Cannot combine move"):
+            await mcp.call_tool(
+                "update",
+                {
+                    "event_id": "test_event_id",
+                    "calendar_id": "primary",
+                    "destination_calendar_id": "other_calendar",
+                    "normalize_timezone": True,  # Should fail - can't combine with move
+                },
+            )
+
+    @pytest.mark.asyncio
+    async def test_read_rejects_event_id_with_all_calendars(
+        self, google_calendar_test_config
+    ):
+        """Test that read rejects event_id with calendar_id='all'."""
+        with pytest.raises(ToolError, match="Cannot use calendar_id='all'"):
+            await mcp.call_tool(
+                "read",
+                {
+                    "event_id": "test_event_id",
+                    "calendar_id": "all",  # Should fail - can't use 'all' with event_id
+                },
+            )
+
+
+@pytest.mark.integration
+class TestGoogleCalendarAllDayEventProtection:
+    """Test all-day event protection in update()."""
+
+    @pytest.mark.vcr
+    @pytest.mark.asyncio
+    async def test_update_rejects_timed_datetime_on_all_day_event(
+        self, google_calendar_test_config
+    ):
+        """Test that update() rejects converting all-day event to timed event."""
+        # This test requires VCR cassette with an all-day event
+        # The validation happens after fetching the current event
+        # For now, we test the helper functions directly since the integration
+        # test would require a real all-day event
+
+        # Import the helper functions for unit testing
+        from mcp_handley_lab.google_calendar.tool import (
+            _is_all_day_event,
+            _would_be_timed_event,
+        )
+
+        # Test all-day event detection
+        all_day_event = {"start": {"date": "2024-07-21"}}
+        assert _is_all_day_event(all_day_event) is True
+
+        # Test that timed datetime is detected correctly
+        assert _would_be_timed_event("2024-07-21T10:00:00") is True
+        assert _would_be_timed_event("tomorrow at 3pm") is True
+        assert _would_be_timed_event("2024-07-21") is False  # Date-only should be OK

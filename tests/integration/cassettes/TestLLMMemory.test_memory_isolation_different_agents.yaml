@@ -1,66 +1,69 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": "My favorite number is 123. Remember
-      this."}], "model": "gpt-4o-mini", "max_tokens": 16384, "temperature": 0.1}'
+    body: '{"input": "My favorite number is 123. Remember this.", "max_output_tokens":
+      16384, "model": "gpt-4o-mini", "temperature": 0.1}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '143'
-      content-type:
+      Content-Length:
+      - '119'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.99.1
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.99.1
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C4M8MqZAO03YZaFPunpTcEqKqe08H\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755154430,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"I can't remember personal information
-        or preferences, but I can help you with anything related to the number 123
-        or any other topic! Just let me know what you need.\",\n        \"refusal\":
-        null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n
-        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        17,\n    \"completion_tokens\": 34,\n    \"total_tokens\": 51,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_62a23a81ef\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAA3RUy7KjOAzd36/QsOlN0gXkQXI3s54vmEXXFCWMSDwxFmXLSae67r9P2QQSeu7d
+        gY50rMeRfr0BZLrN3iFz5Ic6VxvMi6psN1W+ORR5nu+P2z3tiy3mxfZQHHfNPq+arkLV4mF3LLts
+        FSm4+ZeUTDRsPY125QiF2hojVlT7fbnbFnmeMC8owccYxf1gSKgdgxpUl5PjYGNeHRpPo1kbo+0p
+        e4dfbwAA2YB3cjG+pSsZHshlbwAf48MT5W9Plwkl5zhG2mBMMmg7BdQtCWrjl6gXF5Rotgt7jz9r
+        DjIEqYUvlMBivzlsZ1SYTa3QLPl6bsnExE+DrLe87rXV6zIvt+u8WheHR0sTcfYOP1K1Y83ztHp/
+        +npYu1x1eRwWHo/VsWqbA21L1ZXHxJxY5D5Q4iHv8URP4KupJFCxFbLPpF4TW9BOXaGfMkcnB7SW
+        BadO/vhnARo+DY6bT5BE9A7ZX6DQfhNw1FPfkANtO3Z9IoSG5EZkgYMDdUbxK2iCQIqBM5kB7hzg
+        puUMaO9y1vYEjkwUKAhH0EGHV3ZaCGyI/Csoys0KbmdtCG70zREImou2pz/g7zMK3DiYNvEafaFI
+        c7F8A3bQaq+C939mcx0fj6+5tMyxSe1C77UXtDI6R8fklA3o0BgySyGJC+NKDI6umoOvp62rkzpm
+        oQ2O+0FqhepM9YXuX2KO4lw121cPR+jZLlaOuo6dvDhFxYS+RzdxzxvosSO517qNxJ2mxb55clet
+        qBY9bXCHwYxaybywo9cyhfqBHEpI5vx78bAmTTwyG2Uw/79oMfmNfX1kfCXXsNdyHzeg1aF/Xo6x
+        02fWahxNEM5m4CnNTHioXwSbz8YhXoHvj38XrMJHY7NWe2zMdOZCWry5AG2Xd6Ra/d/+cpzmMtMA
+        22dgvij19/O0OXwGfMY7T/8ramFB8wR3u7mFwS+n3ZNgi4KR/uPt4z8AAAD//wMAeWO3xXUGAAA=
     headers:
       CF-RAY:
-      - 96ee89953868e4ed-LHR
+      - 9b1115a04a1c63a3-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 06:53:51 GMT
+      - Sat, 20 Dec 2025 18:08:22 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -69,24 +72,20 @@ interactions:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '971'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '935'
+      - '2281'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '952'
+      - '2284'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -94,78 +93,80 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999987'
+      - '149999965'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_6030896da83040dd80fb1abd7d62a64a
+      - req_4debab6f4e334c87aa989ba3436eb7c8
     status:
       code: 200
       message: OK
 - request:
-    body: '{"messages": [{"role": "user", "content": "What is my favorite number?"}],
-      "model": "gpt-4o-mini", "max_tokens": 16384, "temperature": 0.1}'
+    body: '{"input": "What is my favorite number?", "max_output_tokens": 16384, "model":
+      "gpt-4o-mini", "temperature": 0.1}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '129'
-      content-type:
+      Content-Length:
+      - '105'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.99.1
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.99.1
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C4M8Nmff0R5TUMgJEzSYH8caQDWWI\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755154431,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"I don't have access to personal information
-        about you, so I can't know your favorite number. However, if you'd like to
-        share it or give me some hints, I'd be happy to discuss it!\",\n        \"refusal\":
-        null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n
-        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        13,\n    \"completion_tokens\": 39,\n    \"total_tokens\": 52,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_34a54ae93c\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//fFRNb9swDL3nV2i67NIUduJ8OJed9wt2KAaDlulUiywKEpU1KPLfB8ux
+        E6PtbhIf+UTykXpfCCF1Iw9CegyuyjK13u/betNiXdRlnmXbstjiNt+tNoXa5+W23GTrXbOus6Jo
+        2nKzk089BdV/UPFIQzbgYFcegbGpoMfy3Xa72hR5tk5YYOAY+hhFnTPI2AxBNajT0VO0fV4tmICD
+        WRuj7VEexPtCCCGkgwv6Pr7BMxpy6OVCiOvw8Ej56dPoPfWRNhqTDNqOAVWDDNqEORrYR8Wa7Mze
+        wVtFkV3kiumECcy3630xoUxkKgVmztdRg6ZP/Oh4WdCy01YvV9mqWGa7Zb6/tTQRy4N4SdUONU9q
+        deH4H7F2pdonsYomb7K2aFW5Knf1IFZi4YvDxIMhwBHvwFeqJFCRZbT3pB4Tm9GOXcE3nqKTA1hL
+        DGMnX37PQENH56n+BElEByF/CgX2O4uTpb/iQtGLFs7kNaOwsavRi2gNhtBjgtEY0eE38esVWOgg
+        NP+QE+v1dpoekp5MSh5C0IHB8uDcOyYn6cCDMWjmsrKPw4A6j2dNMVTjDlRJq0l256lzXClQr1id
+        8PIl5rHvsib76OERAtnZAmDbkucHp16/2HXgR+5pHwK0yJdKNz1xq3E2/QH9WSusWI/71EI0g3Iy
+        MHl8LJOxc+iBYzJnz/nNmhS6ZdaS7+B+f5iM5Df09ZbxGX1NQfNlmMdGx+6+x0OnX0mrQZrIJCfg
+        PiiSyVUP45NNRtfv5PPt7qNVcGusbHSA2oyfTkxrMBWg7Xyr108f7Q9fxVRmErC5B2azUj9+Fp8B
+        n/FO6n9FzcRg7uCqnFoYw1ztDhkaYOjpr4vrPwAAAP//AwB8WdRkAwYAAA==
     headers:
       CF-RAY:
-      - 96ee899c4e77e4ed-LHR
+      - 9b1115b01d94940f-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 06:53:52 GMT
+      - Sat, 20 Dec 2025 18:08:23 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -174,24 +175,20 @@ interactions:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '985'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '960'
+      - '744'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '990'
+      - '747'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -199,13 +196,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999990'
+      - '149999967'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_bdaee07fa2114e3a86b4ba4e23f3ebc0
+      - req_c1ed53c171c645cebf5c7e0e56e7358c
     status:
       code: 200
       message: OK

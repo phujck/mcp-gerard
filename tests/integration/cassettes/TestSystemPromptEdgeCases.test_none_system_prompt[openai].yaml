@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"messages": [{"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+    body: '{"input": [{"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
       "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
       {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
       "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
@@ -9,65 +9,91 @@ interactions:
       "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
       {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
       "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
-      "user", "content": "What is 1+9?"}], "model": "gpt-4o-mini", "max_tokens": 16384,
-      "temperature": 1.0}'
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"},
+      {"role": "assistant", "content": "1 + 9 equals 10."}, {"role": "user", "content":
+      "What is 1+9?"}, {"role": "assistant", "content": "1 + 9 equals 10."}, {"role":
+      "user", "content": "What is 1+9?"}, {"role": "assistant", "content": "1 + 9
+      equals 10."}, {"role": "user", "content": "What is 1+9?"}, {"role": "assistant",
+      "content": "1 + 9 equals 10."}, {"role": "user", "content": "What is 1+9?"}],
+      "max_output_tokens": 16384, "model": "gpt-4o-mini", "temperature": 1.0}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '751'
-      content-type:
+      Content-Length:
+      - '2393'
+      Content-Type:
       - application/json
-      host:
+      Host:
       - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.99.1
-      x-stainless-arch:
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
       - x64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - Linux
-      x-stainless-package-version:
-      - 1.99.1
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
       x-stainless-read-timeout:
       - '600'
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.13.5
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://api.openai.com/v1/responses
   response:
     body:
-      string: "{\n  \"id\": \"chatcmpl-C4Rvl6N4tlYoN7stV3jFMwEDSdG5B\",\n  \"object\":
-        \"chat.completion\",\n  \"created\": 1755176713,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n
-        \ \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\":
-        \"assistant\",\n        \"content\": \"1 + 9 equals 10.\",\n        \"refusal\":
-        null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n
-        \     \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\":
-        175,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 183,\n    \"prompt_tokens_details\":
-        {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\":
-        {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\":
-        0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\":
-        \"default\",\n  \"system_fingerprint\": \"fp_34a54ae93c\"\n}\n"
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//dFTbjqMwDH3vV0R53ekKWnqhvzJaIUNMJzshziZONdWo/74iFAq77Rv4
+        2Af7HJvvlRBSK3kS0mNwVdYWm12x2bdFrQ5Yqyzbl8Ue93XR1tvsmJc7aA65UuWmKbbtrt1u5VtP
+        QfVvbHikIRtwiDcegVFV0GP5Yb9P7HnCAgPH0Nc01DmDjGooqqH5PHuKtu+rBRNwCGtjtD3Lk/he
+        CSGEdHBF39crvKAhh16uhLgNHx4pn34avae+0kZjUkDbsaBSyKBNWKKBfWxYk13EO/iqKLKLXDF9
+        YgLz/fZYTCgTmaoBs+TrSKHpGz87Xhe07rTV6022KdbZYZ0f75ImYnkS72naYebJrS6cX5u1O5RZ
+        0Zt1zFRWNjUCqEO72xwSc2Lhq8PEgyHAGR/AK1cS2JBltI+m5o0taEdV8Iun6pQA1hLDqOT7rwVo
+        6Ow81U+QRHQSMhc/RCnwTwQTRJ79lFPS7f401UlPJvUCIejAYHlI7hNTknTgwRg0S5fYx2HfnMeL
+        phiqcaWrJP3kovPUOa4aaD6w+sTrS8xjL5omO8/wCIHsYp+xbcnzLKm3I3Yd+JF7Wu8ALfK10qon
+        bjUuljmgv+gGK9bjebQQzWCEDEwe52Mydg49cEzh/Gd2jybB75215Dt4vM+MTnmDrveOL+hrCpqv
+        w3opHbvHWQ5Kf5BuBmsik5yAh++SyVWzbcimoJv36KNt4C6sVDpAbcZ/SExbPQ2g7eJId8fy7X9g
+        dvrTnMlB9ajMFrP+e/zls/gz2sn9V8xMDGbWcHmcNIxhaXeHDAoYev7b6vYXAAD//wMAPMdpMtMF
+        AAA=
     headers:
       CF-RAY:
-      - 96f0a99cfa7f7058-LHR
+      - 9b11198a79f563fd-LHR
       Connection:
       - keep-alive
+      Content-Encoding:
+      - gzip
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Aug 2025 13:05:14 GMT
+      - Sat, 20 Dec 2025 18:11:01 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -76,24 +102,20 @@ interactions:
       - chunked
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
       alt-svc:
       - h3=":443"; ma=86400
       cf-cache-status:
       - DYNAMIC
-      content-length:
-      - '824'
       openai-organization:
       - handley-8bq6ws
       openai-processing-ms:
-      - '396'
+      - '955'
       openai-project:
       - proj_kbC53WfwHWl267JuvHfOY149
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '410'
+      - '962'
       x-ratelimit-limit-requests:
       - '30000'
       x-ratelimit-limit-tokens:
@@ -101,13 +123,13 @@ interactions:
       x-ratelimit-remaining-requests:
       - '29999'
       x-ratelimit-remaining-tokens:
-      - '149999930'
+      - '149999390'
       x-ratelimit-reset-requests:
       - 2ms
       x-ratelimit-reset-tokens:
       - 0s
       x-request-id:
-      - req_abcab1faa41a4ce099df7979c5b04e16
+      - req_9601efed402646f5992fcc25b9d35710
     status:
       code: 200
       message: OK

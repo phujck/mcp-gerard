@@ -1,0 +1,201 @@
+interactions:
+- request:
+    body: '{"input": [{"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}, {"role": "assistant", "content":
+      "2 + 2 = 4"}, {"role": "user", "content": "5+5"}, {"role": "assistant", "content":
+      "5 + 5 = 10"}, {"role": "user", "content": "3+3"}, {"role": "assistant", "content":
+      "3 + 3 = 6"}, {"role": "user", "content": "2+2"}], "max_output_tokens": 16384,
+      "model": "gpt-4o-mini", "temperature": 1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '7417'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.7.2
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.7.2
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.13.7
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3RU227bMAx971cIel0zKL7lAuxLisFgJDrTKkuCRAUNivz7YDl27K55i3nII/Ic
+        Mp8vjHGt+JHxgNG3QpZlURxKVWKtRN0J0RyqBhuB+32x328PDYjysKvgpOrqUBZY8teBwp3+oqSJ
+        xtmIY1wGBELVwoBtd01T1JU4VBmLBJTiUCNd7w0SqrHoBPL9HFyyQ18dmIhjWBuj7Zkf2ecLY4xx
+        D1cMQ73CCxrnMfAXxm7jwxPll6ebjGIIbqi0yZgc0HYqaBUSaBPXaKSQJGlnV/EePlqXyCdqyb1j
+        BrdNua9mlJwzrQSz5uudQjM0fva0qdym11ZvClFUG7HbbPd3STMxP7K3PO048+xWH89PzdqKYlfJ
+        wawDApRlvZO1wloUIjNnFrp6zDwYI5zxATxzJYPSWUL7aGrZ2Ip2UgU/aK7OCWCtI5iUfPu9Ao07
+        ++BO3yCZ6Mh4wX6wgv1iFZ/R2/3XXMCDM7kJiFFHAktj8pCYk7iHAMagWdtDIY2L5gNetEuxnXa5
+        zZrP9vngek+tBPkH23e8PsUCDmppZ5cZASE6u1pk7DoXaJE0+JD6HsLEPe91hA7p2mo1EHcaV1sc
+        MVy0xJb0dBcdJDM6wCO5gMsxCXuPASjl8PanuEez0vfOOhd6eHwvHM55o673ji8YTi5quo57pXTq
+        H/c4Kv3HaTlak8jxGXgYzsn5drEGYg76ZY8hWQl3YbnSEU5m+vNIeZ3nAbRdX+eubl7/RxZHPw+a
+        LVSPUrEa9uvZ77+Lf0c72/+MmRyBWXbcVLOKKa4N75FAAcHwwO3l9g8AAP//AwCyKIWEzgUAAA==
+    headers:
+      CF-RAY:
+      - 9b11157a3caca0b2-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 20 Dec 2025 18:08:17 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '2545'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '2552'
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '150000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '149998225'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_09ee5f71c4d24f89819f1146ebe06321
+    status:
+      code: 200
+      message: OK
+version: 1

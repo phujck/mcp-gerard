@@ -79,7 +79,8 @@ class LLMResult(BaseModel):
         description="Reason why generation stopped (e.g., 'stop', 'length').",
     )
     avg_logprobs: float = Field(
-        default=0.0, description="Average log probability of the generated tokens."
+        default=0.0,
+        description="Average log probability of the generated tokens (0.0 if not provided).",
     )
     model_version: str = Field(
         default="", description="Specific version identifier of the model used."
@@ -113,6 +114,48 @@ class LLMResult(BaseModel):
     )
     cache_read_input_tokens: int = Field(
         default=0, description="Tokens read from cache in Claude."
+    )
+    # Enhanced metadata fields (from GPT-5 review)
+    total_tokens: int = Field(
+        default=0,
+        description="Total tokens (input + output) for billing reconciliation.",
+    )
+    reasoning_text: str = Field(
+        default="",
+        description="Reasoning/thinking content from models like Grok (separate from main response).",
+    )
+    created_at: float = Field(
+        default=0.0,
+        description="Request creation timestamp (Unix epoch, 0.0 if not provided).",
+    )
+    completed_at: float = Field(
+        default=0.0,
+        description="Request completion timestamp (Unix epoch, 0.0 if not provided).",
+    )
+    # Provider-specific metadata buckets
+    timing: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Latency breakdown from Groq (queue_time, prompt_time, completion_time, total_time).",
+    )
+    token_modalities: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Token modality breakdown from Gemini (TEXT, IMAGE, etc.).",
+    )
+    cache_creation_details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Cache tier details from Claude (ephemeral_1h, ephemeral_5m tokens).",
+    )
+    groq_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Groq-specific metadata (request_id, seed).",
+    )
+    citations: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Citations from Claude responses.",
+    )
+    refusal: str = Field(
+        default="",
+        description="Refusal reason if model refused to respond (empty if none).",
     )
 
 
@@ -206,7 +249,7 @@ class FileResult(BaseModel):
 class OperationResult(BaseModel):
     """Generic operation result."""
 
-    status: Literal["success", "error", "warning"] = Field(
+    status: Literal["success", "error", "warning", "cancelled"] = Field(
         ..., description="The outcome status of the operation."
     )
     message: str = Field(
