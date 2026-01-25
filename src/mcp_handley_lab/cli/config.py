@@ -11,8 +11,8 @@ import tomllib
 def get_config_dir() -> Path:
     """Get the configuration directory for MCP CLI."""
     if config_home := os.getenv("XDG_CONFIG_HOME"):
-        return Path(config_home) / "mcp"
-    return Path.home() / ".config" / "mcp"
+        return Path(config_home) / "mcp-handley-lab"
+    return Path.home() / ".config" / "mcp-handley-lab"
 
 
 def get_config_file() -> Path:
@@ -23,6 +23,15 @@ def get_config_file() -> Path:
 def load_config() -> dict[str, Any]:
     """Load configuration from file."""
     config_file = get_config_file()
+    with open(config_file, "rb") as f:
+        return tomllib.load(f)
+
+
+def load_config_safe() -> dict[str, Any]:
+    """Load config, returning {} if file doesn't exist."""
+    config_file = get_config_file()
+    if not config_file.exists():
+        return {}
     with open(config_file, "rb") as f:
         return tomllib.load(f)
 
