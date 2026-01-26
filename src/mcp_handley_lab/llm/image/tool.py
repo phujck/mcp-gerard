@@ -19,6 +19,7 @@ mcp = FastMCP("Image Tool")
 @mcp.tool(
     description="Generate an image from a text prompt. "
     "Supports Gemini (imagen-*, gemini-*-image), OpenAI (dall-e-*), and Grok (grok-*-image) models. "
+    "Use list_models to discover available image models. "
     "Nano Banana models (gemini-*-image) support input_images for editing/reference. "
     "Returns: {file_path, file_size_bytes, model, provider, cost, enhanced_prompt?, original_prompt}."
 )

@@ -821,7 +821,7 @@ def _list_accounts(config_file: str = "") -> list[str]:
 
 
 @mcp.tool(
-    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+    description="""Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
 )
 def read(
     query: str = Field(
@@ -881,7 +881,7 @@ def read(
 
 
 @mcp.tool(
-    description="""Update email metadata. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
+    description="""Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
 )
 def update(
     message_ids: list[str] = Field(

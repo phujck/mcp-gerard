@@ -91,7 +91,7 @@ class TestEmailIntegration:
         assert (maildir_path / ".Sent" / "cur").exists()
         assert (maildir_path / ".Drafts" / "cur").exists()
 
-    @pytest.mark.integration
+    @pytest.mark.live
     def test_real_offlineimap_sync(self):
         """Test offlineimap sync with real handleylab@gmail.com test account."""
         import subprocess
@@ -150,7 +150,7 @@ class TestEmailIntegration:
                 f"Offlineimap sync failed with exit code {e.returncode}: {e.stderr}"
             )
 
-    @pytest.mark.integration
+    @pytest.mark.live
     def test_msmtp_send_and_receive_cycle(self):
         """Test complete email cycle: send with msmtp -> sync with offlineimap -> verify receipt."""
         import subprocess
@@ -307,7 +307,7 @@ Subject: {test_subject}
         except Exception as e:
             pytest.fail(f"Email cycle test failed: {e}")
 
-    @pytest.mark.integration
+    @pytest.mark.live
     def test_email_tool_functions_with_custom_configs(self):
         """Test direct subprocess calls to email tools with custom config files.
 
@@ -520,6 +520,7 @@ Subject: {test_subject}
         except (FileNotFoundError, RuntimeError, ToolError) as e:
             pytest.skip(f"Notmuch not available or configured: {e}")
 
+    @pytest.mark.live
     @pytest.mark.asyncio
     async def test_offlineimap_dry_run_integration(self):
         """Test offlineimap sync with status mode."""

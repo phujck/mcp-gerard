@@ -57,7 +57,8 @@ def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 @mcp.tool(
     description="Generate embedding vectors for text. "
     "Supports OpenAI (text-embedding-*), Gemini (gemini-embedding-*), "
-    "Mistral (mistral-embed, codestral-embed). "
+    "Mistral (mistral-embed, codestral-embed). Use list_models to discover models. "
+    "Related: index_documents, search_documents, calculate_similarity. "
     "Returns: {embeddings: [[float]], model, provider, dimensions, count}."
 )
 def get_embeddings(
@@ -98,7 +99,8 @@ def get_embeddings(
 
 
 @mcp.tool(
-    description="Calculate semantic similarity between two texts. "
+    description="Calculate semantic similarity between two texts using embeddings. "
+    "Related: get_embeddings, index_documents, search_documents. "
     "Returns: {similarity: float (-1.0 to 1.0), model, provider}."
 )
 def calculate_similarity(
@@ -130,6 +132,7 @@ def calculate_similarity(
 @mcp.tool(
     description="Create a searchable semantic index from document files. "
     "Reads files, generates embeddings, and saves as JSON index. "
+    "Use search_documents to query the index. "
     "Returns: {message, index_path, model, document_count}."
 )
 def index_documents(
@@ -180,7 +183,7 @@ def index_documents(
 
 
 @mcp.tool(
-    description="Search a document index for relevant documents. "
+    description="Search a document index created by index_documents. "
     "Returns: {query, model, results: [{path, similarity}]}. "
     "Model defaults to index model if not specified."
 )

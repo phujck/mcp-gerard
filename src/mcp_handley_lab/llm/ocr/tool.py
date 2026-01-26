@@ -16,7 +16,7 @@ mcp = FastMCP("OCR Tool")
 
 @mcp.tool(
     description="Extract text from documents using Mistral OCR. "
-    "Supports PDFs, images (PNG, JPG), PPTX, and DOCX. "
+    "Supports PDFs, images (PNG, JPG), PPTX, and DOCX. Use list_models to discover OCR models. "
     "Returns: {status, pages, output_file?, message}. Full OCR JSON saved to output_file if provided."
 )
 def process(

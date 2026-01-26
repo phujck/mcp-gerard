@@ -33,7 +33,7 @@ def _resolve_session_branch(branch: str, model: str = "gemini") -> str:
 @mcp.tool(
     description="Send a message to an LLM. Provider is auto-detected from model name. "
     "Supports Gemini, OpenAI, Claude, Mistral, Grok, and Groq. "
-    "Use provider names for latest defaults (e.g., model='gemini'). "
+    "Use conversation tool to manage branches and retrieve past responses. "
     "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch}."
 )
 def chat(
@@ -121,6 +121,7 @@ def chat(
 @mcp.tool(
     description="Analyze images with vision-capable LLMs. Provider auto-detected from model. "
     "Supports Gemini, OpenAI, Claude, Mistral, and Grok vision models. "
+    "Use conversation tool to manage branches and retrieve past responses. "
     "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch}."
 )
 def analyze_image(
@@ -182,7 +183,7 @@ def analyze_image(
 
 
 @mcp.tool(
-    description="Manage conversation branches. Actions: "
+    description="Manage conversation branches created by chat and analyze_image. Actions: "
     "'list' (all branches), 'log' (history with hashes), 'show' (content at ref), "
     "'response' (get assistant message by index), "
     "'edit' (start editing session with worktree), 'done' (end editing session)."
