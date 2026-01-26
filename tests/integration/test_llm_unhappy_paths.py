@@ -770,9 +770,22 @@ class TestLLMOutputFileErrors:
             # If successful, file should exist
             assert Path(output_file).exists()
 
-        except (ValueError, RuntimeError, FileNotFoundError, ToolError) as e:
-            # Directory creation errors are acceptable
+        except (
+            ValueError,
+            RuntimeError,
+            FileNotFoundError,
+            PermissionError,
+            ToolError,
+        ) as e:
+            # Directory creation or permission errors are acceptable
             assert any(
                 keyword in str(e).lower()
-                for keyword in ["directory", "not found", "no such", "path", "create"]
+                for keyword in [
+                    "directory",
+                    "not found",
+                    "no such",
+                    "path",
+                    "create",
+                    "permission",
+                ]
             )

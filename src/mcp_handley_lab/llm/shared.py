@@ -330,6 +330,7 @@ def process_llm_request(
     # Handle output - write to file if path provided
     if output_file:
         output_path = Path(output_file).expanduser()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(metadata["response_text"])
 
     usage_stats = UsageStats(
