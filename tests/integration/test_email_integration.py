@@ -520,6 +520,7 @@ Subject: {test_subject}
         except (FileNotFoundError, RuntimeError, ToolError) as e:
             pytest.skip(f"Notmuch not available or configured: {e}")
 
+    @pytest.mark.live
     @pytest.mark.asyncio
     async def test_offlineimap_dry_run_integration(self):
         """Test offlineimap sync with status mode."""
