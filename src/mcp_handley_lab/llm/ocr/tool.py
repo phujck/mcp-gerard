@@ -47,7 +47,9 @@ def process(
     }
 
     if output_file:
-        Path(output_file).write_text(json.dumps(result, indent=2))
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, indent=2))
         response["output_file"] = output_file
         response["message"] += f" Full results saved to {output_file}"
 
