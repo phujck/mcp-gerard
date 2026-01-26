@@ -658,7 +658,7 @@ def read(
 
 
 @mcp.tool(
-    description="Create a new calendar event. Supports natural language datetimes (e.g., 'tomorrow at 2pm') and mixed timezones."
+    description="Create a new calendar event. Use read to check for conflicts first. Supports natural language datetimes (e.g., 'tomorrow at 2pm') and mixed timezones."
 )
 def create(
     summary: str = Field(..., description="The title or summary for the new event."),
@@ -710,7 +710,7 @@ def create(
 
 
 @mcp.tool(
-    description="Update or move a calendar event. If destination_calendar_id provided, moves event (may change event ID). Otherwise updates event properties."
+    description="Update or move a calendar event. Requires event_id from read. If destination_calendar_id provided, moves event (may change event ID). Otherwise updates event properties."
 )
 def update(
     event_id: str = Field(
@@ -772,7 +772,9 @@ def update(
     )
 
 
-@mcp.tool(description="Delete a calendar event permanently. WARNING: Irreversible.")
+@mcp.tool(
+    description="Delete a calendar event permanently. Requires event_id from read. WARNING: Irreversible."
+)
 def delete(
     event_id: str = Field(
         ..., description="The unique identifier of the event to delete."

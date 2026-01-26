@@ -396,6 +396,9 @@ def evaluate(
 
     Evaluations can be interrupted by pressing ESC in Claude Code or sending
     SIGINT to the process.
+
+    Related tools: apply_to_last (chain operations on result), convert_latex
+    (parse LaTeX), session_info, clear_session, restart_kernel, save_notebook.
     """
     global _evaluation_count
 
@@ -440,6 +443,8 @@ def session_info() -> SessionInfo:
     Returns details about the active session including version, memory usage,
     evaluation count, and session health. Useful for monitoring session state
     and debugging mathematical workflows.
+
+    Related tools: evaluate (run expressions), clear_session, restart_kernel.
     """
     global _evaluation_count
 
@@ -484,6 +489,7 @@ def clear_session(
 ) -> OperationResult:
     """
     Clear user-defined variables and symbols from the session.
+    Consider save_notebook first to preserve work.
 
     This resets the mathematical workspace while keeping the kernel running
     and preserving built-in Wolfram functions. Useful for starting fresh
@@ -538,6 +544,7 @@ def clear_session(
 def restart_kernel() -> OperationResult:
     """
     Completely restart the Mathematica kernel.
+    Consider save_notebook first to preserve work.
 
     This terminates the current kernel process and starts a fresh one.
     All variables, functions, and session state will be lost. Use this
@@ -594,6 +601,7 @@ def apply_to_last(
     ),
 ) -> MathematicaResult:
     """
+    Requires a prior evaluate call to populate result history.
     Apply a Wolfram Language operation to the last evaluation result.
 
     This tool provides a reliable way to chain operations. Use '#' as a placeholder
@@ -694,6 +702,8 @@ def convert_latex(
 
     Note: Works best for standard mathematical notation. LaTeX parsing has limitations
     and may struggle with complex layouts or custom macros. Complex expressions may need manual conversion.
+
+    Related tools: evaluate (for direct Wolfram expressions), apply_to_last.
     """
     global _evaluation_count
 
@@ -764,6 +774,7 @@ def save_notebook(
 ) -> OperationResult:
     """
     Save the current session with complete input/output history in human-readable format.
+    Call after evaluate to preserve session history before clear_session or restart_kernel.
 
     Preserves all evaluations, results, and session state for restoration after Claude restarts.
     The saved notebook contains both the input expressions and their corresponding outputs.

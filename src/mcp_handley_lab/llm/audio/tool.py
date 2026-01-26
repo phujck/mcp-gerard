@@ -16,7 +16,7 @@ mcp = FastMCP("Audio Tool")
 
 @mcp.tool(
     description="Transcribe audio to text using Mistral Voxtral. "
-    "Supports MP3, WAV, FLAC, OGG, M4A. "
+    "Supports MP3, WAV, FLAC, OGG, M4A. Use list_models to discover audio models. "
     "Returns: {text, segments?: [{start, end, text}]}. Segments included if include_timestamps=true."
 )
 def transcribe(

@@ -16,10 +16,10 @@ def session(
     args: str = "",
 ) -> dict:
     """
-    Manage REPL sessions.
+    Manage REPL sessions. Create a session before using the eval tool.
 
     Actions:
-    - create: Create new session. Returns session_id. Params: backend, name (optional), args (optional)
+    - create: Create new session. Returns session_id for use with eval. Params: backend, name (optional), args (optional)
     - list: List active sessions. Returns list of sessions.
     - destroy: Destroy session (sends Ctrl-C first). Params: session_id
     - read: Read cells from session. Params: session_id, cell (optional)
@@ -47,7 +47,7 @@ def session(
 @mcp.tool()
 def eval(session_id: str, code: str, timeout: int = 30) -> dict:
     """
-    Execute code in a REPL session.
+    Execute code in a REPL session. Requires a session_id from session(action='create').
 
     Returns output, cell_index, and timed_out flag.
     """

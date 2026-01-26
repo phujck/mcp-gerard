@@ -183,7 +183,7 @@ def read(
         description="Maximum cells to return",
     ),
 ) -> dict[str, Any]:
-    """Read data from an Excel workbook.
+    """Read data from an Excel workbook. Use edit to modify. Returns block IDs for targeting edits.
 
     Uses progressive disclosure with scopes:
     - meta: Quick workbook overview
@@ -762,7 +762,7 @@ def edit(
         description="Aggregation function: sum, count, average, min, max (for create_pivot)",
     ),
 ) -> dict[str, Any]:
-    """Edit an Excel workbook.
+    """Edit an Excel workbook. Use read first to discover sheets, cells, and tables.
 
     Operations:
     - create: Create new empty workbook

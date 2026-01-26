@@ -704,7 +704,7 @@ def _compose_email(
 
 
 @mcp.tool(
-    description="""Send an email via Mutt. Supports compose (new), reply, and forward modes. For replying, prefer using 'reply' mode with a message_id to maintain thread context - the full conversation thread will be included in quotes. All emails open in Mutt for user sign-off before sending."""
+    description="""Send an email via Mutt. For reply/forward modes, use message_id from the read tool. Supports compose (new), reply, and forward modes. All emails open in Mutt for user sign-off before sending."""
 )
 def send(
     to: str = Field(

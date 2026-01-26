@@ -892,7 +892,7 @@ def read(
 
 
 @mcp.tool(
-    description="Render Word document for visual inspection or sharing. output='png' (default) returns labeled images for Claude to see. output='pdf' returns PDF bytes for sharing. Requires libreoffice (and pdftoppm for PNG)."
+    description="Render Word document for visual inspection or sharing. Use read to get document structure, render to see it visually. output='png' (default) returns labeled images for Claude to see. output='pdf' returns PDF bytes for sharing. Requires libreoffice (and pdftoppm for PNG)."
 )
 def render(
     file_path: str = Field(..., description="Path to .docx file"),
@@ -932,7 +932,7 @@ def edit(
 
 
 @mcp.tool(
-    description="Create a new Word document. This operation is excluded from batch mode and must be called separately."
+    description="Create a new Word document. Then use read to inspect and edit to modify. This operation is excluded from batch mode and must be called separately."
 )
 def create(
     file_path: str = Field(..., description="Path for the new .docx file"),
