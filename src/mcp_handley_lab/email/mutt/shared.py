@@ -3,14 +3,52 @@
 Identical interface to MCP tools, usable without MCP server.
 """
 
+from email.parser import HeaderParser
+from pathlib import Path
+
 from mcp_handley_lab.email.mutt.tool import _compose_email
 from mcp_handley_lab.shared.models import OperationResult
+
+
+def _load_body_file(path: str) -> tuple[str, dict[str, str]]:
+    """Load email content from a file, parsing RFC822 headers if present.
+
+    If the file starts with RFC822 headers (e.g. To:, Subject:) followed by
+    a blank line, headers are extracted and returned separately. Otherwise
+    the entire file content is returned as body text.
+
+    Returns:
+        (body_text, headers_dict) where headers_dict may contain:
+        to, subject, cc, bcc keys.
+    """
+    content = Path(path).read_text(encoding="utf-8")
+
+    # Check if file starts with RFC822 headers (Key: Value pattern)
+    lines = content.split("\n")
+    if lines and ":" in lines[0]:
+        # Try to parse as headers + body
+        msg = HeaderParser().parsestr(content)
+        headers = {}
+        for key, param in [
+            ("to", "To"),
+            ("subject", "Subject"),
+            ("cc", "Cc"),
+            ("bcc", "Bcc"),
+        ]:
+            value = msg.get(param)
+            if value:
+                headers[key] = value
+        body = msg.get_payload() or ""
+        return body, headers
+
+    return content, {}
 
 
 def send(
     to: str = "",
     subject: str = "",
     body: str = "",
+    body_file: str = "",
     cc: str | None = None,
     bcc: str | None = None,
     attachments: list[str] | None = None,
@@ -31,6 +69,9 @@ def send(
             Required for compose/forward, auto-populated for reply.
         subject: The subject line of the email.
         body: Email body text. For reply/forward, added above quoted/forwarded content.
+        body_file: Path to a file containing the email body. Supports RFC822 format
+            (headers + blank line + body). Headers from the file are used as defaults
+            unless overridden by explicit parameters. Mutually exclusive with body.
         cc: Carbon copy address. Prefer 'Firstname Lastname <email>' format.
         bcc: Blind carbon copy address. Prefer 'Firstname Lastname <email>' format.
         attachments: A list of local file paths to attach to the email.
@@ -44,6 +85,22 @@ def send(
     Returns:
         OperationResult with send status and details.
     """
+    if body and body_file:
+        raise ValueError("'body' and 'body_file' are mutually exclusive")
+
+    if body_file:
+        file_body, file_headers = _load_body_file(body_file)
+        body = file_body
+        # File headers are defaults — explicit params override
+        if not to and "to" in file_headers:
+            to = file_headers["to"]
+        if not subject and "subject" in file_headers:
+            subject = file_headers["subject"]
+        if cc is None and "cc" in file_headers:
+            cc = file_headers["cc"]
+        if bcc is None and "bcc" in file_headers:
+            bcc = file_headers["bcc"]
+
     if mode == "compose":
         if not to:
             raise ValueError("'to' is required for compose mode")

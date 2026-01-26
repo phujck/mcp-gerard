@@ -716,6 +716,11 @@ def send(
         default="",
         description="Email body text. For reply/forward, added above quoted/forwarded content.",
     ),
+    body_file: str = Field(
+        default="",
+        description="Path to file containing email body. Supports RFC822 format (headers + blank line + body). "
+        "File headers (To, Subject, Cc, Bcc) used as defaults unless overridden. Mutually exclusive with body.",
+    ),
     cc: str = Field(
         default=None,
         description="Carbon copy address. Prefer 'Firstname Lastname <email>' format.",
@@ -751,6 +756,7 @@ def send(
         to=to,
         subject=subject,
         body=body,
+        body_file=body_file,
         cc=cc,
         bcc=bcc,
         attachments=attachments,
