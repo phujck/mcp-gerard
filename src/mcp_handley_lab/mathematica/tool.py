@@ -6,9 +6,12 @@ Enables LLM-driven mathematical workflows with true REPL behavior and variable p
 """
 
 import functools
+import glob
 import logging
 import os
+import platform
 import re
+import shutil
 import signal
 import threading
 from contextlib import contextmanager
@@ -102,11 +105,49 @@ def handle_cancellation(func):
     return wrapper
 
 
+def _find_wolfram_kernel() -> str:
+    """Find WolframKernel on the system via PATH or platform-specific locations."""
+    path = shutil.which("WolframKernel")
+    if path:
+        return path
+
+    search_paths = {
+        "Darwin": [
+            "/Applications/Wolfram.app/Contents/MacOS/WolframKernel",
+            "/Applications/Mathematica.app/Contents/MacOS/WolframKernel",
+            "/Applications/Wolfram Mathematica*/Contents/MacOS/WolframKernel",
+        ],
+        "Linux": [
+            "/usr/bin/WolframKernel",
+            "/usr/local/bin/WolframKernel",
+            "/opt/Wolfram/WolframEngine/*/Executables/WolframKernel",
+            "/opt/Wolfram/Mathematica/*/Executables/WolframKernel",
+        ],
+        "Windows": [
+            r"C:\Program Files\Wolfram Research\Mathematica\*\WolframKernel.exe",
+            r"C:\Program Files\Wolfram Research\Wolfram Engine\*\WolframKernel.exe",
+        ],
+    }.get(platform.system(), [])
+
+    for pattern in search_paths:
+        if "*" in pattern:
+            for match in glob.glob(pattern):
+                if Path(match).is_file():
+                    return match
+        elif Path(pattern).is_file():
+            return pattern
+
+    raise RuntimeError(
+        f"WolframKernel not found on {platform.system()}. "
+        "Install Mathematica or Wolfram Engine."
+    )
+
+
 # Global session management with thread safety
 _session: WolframLanguageSession | None = None
 _evaluation_count = 0
 _session_lock = threading.RLock()
-_kernel_path = "/usr/bin/WolframKernel"
+_kernel_path: str | None = None
 _result_history: list[Any] = []  # Store all results for %, %%, %n references
 _input_history: list[str] = []  # Store input expressions for notebook reconstruction
 
@@ -153,12 +194,14 @@ class SessionInfo(BaseModel):
 
 def _get_session() -> WolframLanguageSession:
     """Get or create the global Wolfram session with thread safety."""
-    global _session, _evaluation_count
+    global _session, _evaluation_count, _kernel_path
 
     with _session_lock:
         if _session is None:
             try:
-                logger.info("Starting Wolfram kernel session...")
+                if _kernel_path is None:
+                    _kernel_path = _find_wolfram_kernel()
+                logger.info(f"Starting Wolfram kernel session at {_kernel_path}...")
                 _session = WolframLanguageSession(_kernel_path)
                 _evaluation_count = 0
 
