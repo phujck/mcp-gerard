@@ -218,7 +218,9 @@ def create(
         event_body["attendees"] = [{"email": email} for email in attendees]
 
     created_event = (
-        service.events().insert(calendarId=resolved_id, body=event_body).execute()
+        service.events()
+        .insert(calendarId=resolved_id, body=event_body, sendUpdates="all")
+        .execute()
     )
 
     start = created_event.get("start", {})
@@ -374,7 +376,12 @@ def update(
 
     updated_event = (
         service.events()
-        .patch(calendarId=resolved_id, eventId=event_id, body=update_body)
+        .patch(
+            calendarId=resolved_id,
+            eventId=event_id,
+            body=update_body,
+            sendUpdates="all",
+        )
         .execute()
     )
 

@@ -77,6 +77,14 @@ class WordPackage(OpcPackage):
     @classmethod
     def open(cls, file: str | Path | BinaryIO) -> WordPackage:
         """Open a .docx file."""
+        if isinstance(file, str | Path):
+            path = Path(file)
+            if path.suffix.lower() == ".doc":
+                raise ValueError(
+                    f"Legacy .doc format not supported: {path.name}. "
+                    "Convert to .docx first: "
+                    "libreoffice --headless --convert-to docx file.doc"
+                )
         pkg = cls()
         if isinstance(file, str | Path):
             with open(file, "rb") as f:

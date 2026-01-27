@@ -52,5 +52,10 @@ def process(
         output_path.write_text(json.dumps(result, indent=2))
         response["output_file"] = output_file
         response["message"] += f" Full results saved to {output_file}"
+    else:
+        # Return extracted text directly when no output_file specified
+        response["text"] = "\n\n".join(
+            page.get("markdown", page.get("text", "")) for page in pages
+        )
 
     return response
