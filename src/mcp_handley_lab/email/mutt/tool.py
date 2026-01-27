@@ -34,13 +34,8 @@ CAPTURE_RETRY_INTERVAL = 0.2  # Check every 200ms
 # Warnings shown only when capture fails (keyed by status or reason)
 CAPTURE_WARNINGS = {
     "not_configured": """WARNING: Capture not configured. The body shown is the DRAFT, not what was actually sent.
-To capture actual sent content, create ~/.local/bin/mcp-msmtp-capture:
-  #!/bin/sh
-  umask 077
-  CAPDIR="${XDG_STATE_HOME:-$HOME/.local/state}/mcp-email/captured"
-  mkdir -p "$CAPDIR"
-  tee "$CAPDIR/$(date +%Y%m%dT%H%M%S).$$.eml" | exec msmtp "$@"
-Then update mutt: set sendmail = "mcp-msmtp-capture -a <account>" """,
+To capture actual sent content, configure mutt: set sendmail = "mcp-msmtp-capture -a <account>"
+The mcp-msmtp-capture command is installed with this package.""",
     "ambiguous": "WARNING: Multiple captured messages match; cannot determine which was sent. Body shown is DRAFT.",
     "parse_error": "WARNING: Captured message found but failed to parse. Body shown is DRAFT.",
     "timeout": "WARNING: No matching captured message found. Body shown is DRAFT.",
