@@ -14,7 +14,7 @@ A toolkit that bridges AI assistants with command-line tools and services. Built
 ### System Dependencies (Optional)
 Some tools require additional system packages:
 - **code2prompt tool**: `cargo install code2prompt`
-- **email tools**: `msmtp`, `mutt`, `notmuch` for email management
+- **email tools**: `mutt`, `notmuch`, `offlineimap` for email management
 - **repl tool**: `tmux` for session management
 - **screenshot tool**: `maim`, `wmctrl` for X11 window capture
 
@@ -113,9 +113,11 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
 # claude mcp add word --scope user mcp-word                        # Word document editing
+# claude mcp add excel --scope user mcp-excel                      # Excel spreadsheet editing
 # claude mcp add mathematica --scope user mcp-mathematica
 # claude mcp add repl --scope user mcp-repl
 # claude mcp add screenshot --scope user mcp-screenshot
+# claude mcp add search --scope user mcp-search                    # Transcript search
 ```
 
 Verify tools are working with the `/mcp` command in Claude.
@@ -167,9 +169,12 @@ Get directions and routing information
   - Alternative routes and waypoint support
   - _Claude example_: `> what time train do I need to get from Cambridge North to get to Euston in time for 10:30 on Sunday?`
   - **Requires**: Google Maps API key (`GOOGLE_MAPS_API_KEY`)
-
-
-
+### 📊 **Excel Spreadsheets** (`excel`)
+Comprehensive Excel spreadsheet manipulation via openpyxl
+  - **Reading**: Sheet list, cell data (grid/markdown/json), named ranges, tables
+  - **Editing**: Set cells, formulas, formatting, add/delete rows/columns/sheets
+  - **Tables**: Create structured tables, sort, filter
+  - _Claude example_: `> read the sales figures from Sheet1 and add a total row`
 
 ### 🧮 **Mathematica** (`mathematica`)
 Execute Mathematica code and computations
@@ -188,12 +193,12 @@ Open vim for user input when needed
 
 ### 📧 **Email Management** (`email`)
 Comprehensive email workflow integration
-  - Send emails with msmtp
-  - Compose, reply, and forward with Mutt
+  - Compose, reply, and forward with Mutt (interactive sign-off before sending)
   - Search and manage emails with Notmuch
+  - Sync mailboxes with offlineimap
   - Contact management
   - _Claude example_: `> compose an email to the team about the project update`
-  - **Requires**: `msmtp`, `mutt`, `notmuch`, and `offlineimap` installed and configured
+  - **Requires**: `mutt`, `notmuch`, and `offlineimap` installed and configured
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
 ### 📄 **Word Documents** (`word`)
@@ -227,6 +232,14 @@ Capture screenshots of windows or the full screen
   - Save to file or return image directly
   - _Claude example_: `> show me the matplotlib Figure 1 window`
   - **Requires**: `maim` and `wmctrl` (X11)
+
+### 🔎 **Transcript Search** (`search`)
+Search and slice across past AI conversation transcripts
+  - Full-text search (FTS5) across Claude Code, Codex, Gemini, and MCP memory conversations
+  - Slice conversation segments by position for context retrieval
+  - List and browse available sessions
+  - Sync and index conversation files into a searchable database
+  - _Claude example_: `> search my past conversations for discussions about authentication`
 
 ## Recommended External MCPs
 
