@@ -8,33 +8,78 @@ A toolkit that bridges AI assistants with command-line tools and services. Built
 
 - **Python**: 3.10 or higher
 - **MCP CLI**: `pip install mcp[cli]` (for Claude Desktop integration)
-- **Package Manager**: Either standard `pip`/`venv` or [uv](https://github.com/astral-sh/uv) (optional, faster alternative)
+- **Package Manager**: Either standard `pip`/`venv` or [`pipx`](https://github.com/pypa/pipx)
+    - Alternatively, [`uv`](https://github.com/astral-sh/uv)/[`uv tool`](https://docs.astral.sh/uv/concepts/tools/) (optional, faster alternative)
 
 ### System Dependencies (Optional)
 Some tools require additional system packages:
 - **code2prompt tool**: `cargo install code2prompt`
-- **email tools**: `msmtp`, `mutt`, `notmuch` for email management
+- **email tools**: `mutt`, `notmuch`, `offlineimap` for email management
+- **repl tool**: `tmux` for session management
+- **screenshot tool**: `maim`, `wmctrl` for X11 window capture
 
 ## Quick Start
 
-Get up and running in 5 minutes:
+### Installation with uv tool (Recommended)
 
-### Standard Installation (venv)
+[uv tool](https://docs.astral.sh/uv/concepts/tools/) installs Python CLI applications in isolated environments while making them globally available. (Note: `uvx` is an alias for `uv tool run` if you've seen that elsewhere.)
 
 ```bash
-# 1. Clone and enter the project
+git clone git@github.com:handley-lab/mcp-handley-lab.git
+cd mcp-handley-lab
+uv tool install .
+```
+
+Then continue to [Configuration](#configuration) to set up API keys and register tools with Claude.
+
+### Alternative: pipx
+
+[pipx](https://github.com/pypa/pipx) provides similar functionality if you don't have uv:
+
+```bash
+git clone git@github.com:handley-lab/mcp-handley-lab.git
+cd mcp-handley-lab
+pipx install .
+```
+
+### Arch Linux
+
+A PKGBUILD is included in the repository for native package manager integration:
+
+```bash
+git clone git@github.com:handley-lab/mcp-handley-lab.git
+cd mcp-handley-lab
+makepkg -si
+```
+
+This installs to `/usr/bin/` and is managed by pacman. Note that `uv` and `pipx` are also available in the official Arch repos (`pacman -S uv` or `pacman -S python-pipx`).
+
+### Development Installation
+
+For contributors who want to modify the code:
+
+```bash
+# Clone and enter the project
 git clone git@github.com:handley-lab/mcp-handley-lab.git
 cd mcp-handley-lab
 
-# 2. Set up Python environment (requires Python 3.10+)
-python3 -m venv venv
-source venv/bin/activate
+# Install editable and globally available
+uv tool install -e .
+```
 
-# 3. Install the toolkit (includes mcp[cli] automatically)
-pip install -e .
+Alternatively:
+- `uv sync` for a local venv (run tools with `uv run mcp-llm-chat` or `source .venv/bin/activate`)
+- Traditional pip: `python3 -m venv venv && source venv/bin/activate && pip install -e .`
 
-# 4. Set up API keys and authentication
-# Export in your .bashrc/.zshrc, a .env file, or the current session
+## Configuration
+
+After installing, set up API keys and register tools with Claude.
+
+### API Keys
+
+Export in your `.bashrc`/`.zshrc`, a `.env` file, or the current session:
+
+```bash
 export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="AIza..."
 export ANTHROPIC_API_KEY="sk-ant-..."
@@ -42,67 +87,13 @@ export GROQ_API_KEY="gsk_..."
 export GROK_API_KEY="grok-..."
 export GOOGLE_MAPS_API_KEY="AIza..."
 # Note: Google Calendar requires OAuth setup (see tool description below)
-
-# 5. Register essential tools with Claude (add others as needed)
-# Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
-# Only register the tools you actively need to maintain optimal performance
-
-# Unified LLM tools (one tool handles all providers via model inference)
-claude mcp add llm-chat --scope user mcp-llm-chat      # Chat with any LLM (Gemini, OpenAI, Claude, etc.)
-claude mcp add llm-image --scope user mcp-llm-image    # Image generation (DALL-E, Imagen)
-claude mcp add llm-models --scope user mcp-llm-models  # List available models
-
-# Other essential tools
-claude mcp add arxiv --scope user mcp-arxiv
-claude mcp add google-maps --scope user mcp-google-maps
-
-# Add additional tools as needed:
-# claude mcp add llm-embeddings --scope user mcp-llm-embeddings  # Semantic embeddings
-# claude mcp add llm-ocr --scope user mcp-llm-ocr                # Document OCR
-# claude mcp add llm-audio --scope user mcp-llm-audio            # Audio transcription
-# claude mcp add py2nb --scope user mcp-py2nb
-# claude mcp add code2prompt --scope user mcp-code2prompt
-# claude mcp add google-calendar --scope user mcp-google-calendar
-# claude mcp add vim --scope user mcp-vim
-# claude mcp add email --scope user mcp-email
-# claude mcp add word --scope user mcp-word                        # Word document editing
-# claude mcp add mathematica --scope user mcp-mathematica
-
-# 6. Verify tools are working
-# Use /mcp command in Claude to check tool status
 ```
 
-### Alternative Installation (uv)
+### Register Tools with Claude
 
-[uv](https://github.com/astral-sh/uv) is a fast Python package installer and environment manager. If you add the `.venv/bin` directory to your system PATH, the MCP tools can be called from anywhere without having to activate the virtual environment:
+Register only the tools you need to avoid context bloat:
 
 ```bash
-# 1. Clone and enter the project
-git clone git@github.com:handley-lab/mcp-handley-lab.git
-cd mcp-handley-lab
-
-# 2. Set up Python environment and install (requires uv)
-uv sync
-
-# 3. Set up API keys and authentication
-# Export in your .bashrc/.zshrc, a .env file, or the current session
-export OPENAI_API_KEY="sk-..."
-export GEMINI_API_KEY="AIza..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export GROK_API_KEY="grok-..."
-export GOOGLE_MAPS_API_KEY="AIza..."
-# Note: Google Calendar requires OAuth setup (see tool description below)
-
-# 4. (Optional) Add venv bin directory to PATH for global access
-# This allows MCP tools to be called from anywhere without activating venv
-readlink -f .venv/bin
-export PATH="/absolute/path/to/mcp-handley-lab/.venv/bin:$PATH"
-# Add the above export line to your .bashrc or .zshrc for persistence
-
-# 5. Register essential tools with Claude (add others as needed)
-# Note: Registering too many MCP tools can cause context bloat and reduce tool calling accuracy
-# Only register the tools you actively need to maintain optimal performance
-
 # Unified LLM tools (one tool handles all providers via model inference)
 claude mcp add llm-chat --scope user mcp-llm-chat      # Chat with any LLM
 claude mcp add llm-image --scope user mcp-llm-image    # Image generation
@@ -122,11 +113,14 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add vim --scope user mcp-vim
 # claude mcp add email --scope user mcp-email
 # claude mcp add word --scope user mcp-word                        # Word document editing
+# claude mcp add excel --scope user mcp-excel                      # Excel spreadsheet editing
 # claude mcp add mathematica --scope user mcp-mathematica
-
-# 6. Verify tools are working
-# Use /mcp command in Claude to check tool status
+# claude mcp add repl --scope user mcp-repl
+# claude mcp add screenshot --scope user mcp-screenshot
+# claude mcp add search --scope user mcp-search                    # Transcript search
 ```
+
+Verify tools are working with the `/mcp` command in Claude.
 
 ## Available Tools
 
@@ -175,9 +169,12 @@ Get directions and routing information
   - Alternative routes and waypoint support
   - _Claude example_: `> what time train do I need to get from Cambridge North to get to Euston in time for 10:30 on Sunday?`
   - **Requires**: Google Maps API key (`GOOGLE_MAPS_API_KEY`)
-
-
-
+### 📊 **Excel Spreadsheets** (`excel`)
+Comprehensive Excel spreadsheet manipulation via openpyxl
+  - **Reading**: Sheet list, cell data (grid/markdown/json), named ranges, tables
+  - **Editing**: Set cells, formulas, formatting, add/delete rows/columns/sheets
+  - **Tables**: Create structured tables, sort, filter
+  - _Claude example_: `> read the sales figures from Sheet1 and add a total row`
 
 ### 🧮 **Mathematica** (`mathematica`)
 Execute Mathematica code and computations
@@ -196,12 +193,12 @@ Open vim for user input when needed
 
 ### 📧 **Email Management** (`email`)
 Comprehensive email workflow integration
-  - Send emails with msmtp
-  - Compose, reply, and forward with Mutt
+  - Compose, reply, and forward with Mutt (interactive sign-off before sending)
   - Search and manage emails with Notmuch
+  - Sync mailboxes with offlineimap
   - Contact management
   - _Claude example_: `> compose an email to the team about the project update`
-  - **Requires**: `msmtp`, `mutt`, `notmuch`, and `offlineimap` installed and configured
+  - **Requires**: `mutt`, `notmuch`, and `offlineimap` installed and configured
   - **Microsoft 365 accounts**: [OAuth2 setup guide](docs/email-oauth2-setup.md)
 
 ### 📄 **Word Documents** (`word`)
@@ -218,6 +215,31 @@ Comprehensive Word document manipulation via pure OOXML
   - **Lists**: Numbered/bulleted lists, promote/demote, restart numbering
   - **Other**: Content controls, equations, hyperlinks, custom properties
   - _Claude example_: `> read the outline of my thesis, then add a citation to Smith2020 in the introduction`
+
+### 🖥️ **REPL Sessions** (`repl`)
+Manage interactive REPL sessions for various interpreters
+  - Create persistent sessions (bash, python, ipython, aichat, ollama, mathematica)
+  - Execute code and retrieve output with cell indexing (In[N]/Out[N])
+  - Pass extra arguments to interpreters (e.g., `--matplotlib` for ipython)
+  - _Claude example_: `> start an ipython session with matplotlib, create a plot, and show me the figure`
+  - **Requires**: `tmux` and the desired interpreter installed
+
+### 📸 **Screenshot Capture** (`screenshot`)
+Capture screenshots of windows or the full screen
+  - List all windows with ID, class, desktop, and name
+  - Capture specific window by name or hex ID
+  - Capture full screen
+  - Save to file or return image directly
+  - _Claude example_: `> show me the matplotlib Figure 1 window`
+  - **Requires**: `maim` and `wmctrl` (X11)
+
+### 🔎 **Transcript Search** (`search`)
+Search and slice across past AI conversation transcripts
+  - Full-text search (FTS5) across Claude Code, Codex, Gemini, and MCP memory conversations
+  - Slice conversation segments by position for context retrieval
+  - List and browse available sessions
+  - Sync and index conversation files into a searchable database
+  - _Claude example_: `> search my past conversations for discussions about authentication`
 
 ## Recommended External MCPs
 
@@ -245,6 +267,64 @@ This pattern works because:
 - `code2prompt` creates a structured markdown file with your code
 - The unified `llm-chat` tool can read files as context
 - The provider is automatically inferred from the model name
+
+## Direct LLM Access in Python
+
+For advanced workflows, you can use the `llm` module directly from Python without going through MCP:
+
+```python
+from mcp_handley_lab import llm
+
+# Stateless query (branch="" disables memory)
+result = llm.chat("What is 2+2?", branch="")
+print(result.content)  # "The answer is 4."
+
+# With conversation memory (default branch="session")
+result = llm.chat("What is 2+2?")
+result = llm.chat("Double that")  # Knows context, returns 8
+
+# With different provider
+result = llm.chat("Hello", model="openai", branch="")
+
+# With provider-specific options
+result = llm.chat("Search for Python tutorials", model="gemini", branch="", options={"grounding": True})
+
+# Access token usage
+print(f"Input: {result.usage.input_tokens}, Output: {result.usage.output_tokens}")
+```
+
+### Recursive LLM Pattern for Large Documents
+
+For documents too large to fit in context (>100K tokens), use the Recursive LLM pattern inspired by the [RLM paper](https://arxiv.org/abs/2512.24601). This approach processes documents in chunks using sub-LLM calls from within a REPL session:
+
+```python
+# In a Python REPL session (mcp__repl__session)
+from mcp_handley_lab import llm
+from pathlib import Path
+
+# Process a large file in chunks
+context_path = Path("/path/to/large/document.txt")
+results = []
+chunk_size = 100_000  # ~25K tokens
+
+with open(context_path, 'rb') as f:
+    offset = 0
+    while chunk := f.read(chunk_size):
+        text = chunk.decode('utf-8', errors='replace')
+        result = llm.chat(f'''Extract key facts from this chunk.
+<document_chunk offset="{offset}">
+{text}
+</document_chunk>''', branch="")  # Stateless sub-calls
+        results.append({"offset": offset, "summary": result.content})
+        offset += len(chunk)
+
+# Aggregate results
+summaries = "\n".join(f"[{r['offset']}]: {r['summary']}" for r in results)
+final = llm.chat(f"Synthesize these summaries:\n{summaries}", branch="")
+print(final.content)
+```
+
+The `/recursive-llm` skill (in `.claude/skills/recursive-llm/SKILL.md`) provides detailed guidance on when and how to use this pattern.
 
 
 ## Testing

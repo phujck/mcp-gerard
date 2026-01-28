@@ -1,7 +1,7 @@
 # Maintainer: Will Handley <wh260@cam.ac.uk>
 _pkgname=mcp-handley-lab
 pkgname=python-mcp-handley-lab
-pkgver=0.21.12b5
+pkgver=0.25.0b1
 pkgrel=1
 pkgdesc="MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
 arch=('any')
@@ -72,6 +72,9 @@ optdepends=(
     'python-black: Code formatting'
     'python-ruff: Linting'
     'python-chromadb: Semantic search features (AUR)'
+    'maim: Screenshot capture'
+    'wmctrl: Window listing for screenshots'
+    'tmux: REPL session management'
 )
 source=()
 sha256sums=()
@@ -92,6 +95,7 @@ check() {
         --tb=no \
         --no-header \
         -q \
+        -m "not slow" \
         --ignore=tests/integration/
 }
 

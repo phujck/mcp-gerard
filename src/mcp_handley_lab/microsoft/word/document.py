@@ -100,8 +100,10 @@ from mcp_handley_lab.microsoft.word.ops.footnotes import (  # noqa: F401
     _ensure_note_styles,
     _get_safe_note_id,
     add_footnote,
+    add_footnote_ooxml,
     build_footnotes,
     delete_footnote,
+    delete_footnote_ooxml,
 )
 from mcp_handley_lab.microsoft.word.ops.headers import (  # noqa: F401
     append_to_header_footer,
@@ -155,6 +157,10 @@ from mcp_handley_lab.microsoft.word.ops.properties import (  # noqa: F401
     get_document_meta,
     set_custom_property,
     set_document_meta,
+)
+from mcp_handley_lab.microsoft.word.ops.render import (  # noqa: F401
+    render_to_images,
+    render_to_pdf,
 )
 from mcp_handley_lab.microsoft.word.ops.revisions import (  # noqa: F401
     _ALL_REVISION_TAGS,

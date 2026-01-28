@@ -1,0 +1,168 @@
+interactions:
+- request:
+    body: '{"model": "mistral-small-latest", "messages": [{"content": "Remember this
+      number: 777. Just confirm you remember it.", "role": "user"}], "temperature":
+      1.0, "max_tokens": 8192, "stream": false}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '181'
+      Host:
+      - api.mistral.ai
+      content-type:
+      - application/json
+      user-agent:
+      - mistral-client-python/1.10.0
+    method: POST
+    uri: https://api.mistral.ai/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA0SPYUrDQBCFrzLOHyFsS9KmTbsXEMEbiJTpZtKs3d0J2QlaSi/gCfznFT2CVLD+
+        e3zweN87o2/RYr1fLplcud+UVd10K+qopm7brNZus6o7hwbdyKTcoq2a9XbRrKp6YTBKywEtRp91
+        pDDLkUKYBVLOiganTAdGe8ZhlDjoTuXIKaOtNgZVlMKN1BuDTuIQWL2kG16WBtMUd45cz+0NlxeD
+        sn9lp2jR9aTz/+5VtRfvOKN9PqNPLb+jLQ12Pvnc70amLAktZpUBDUbOf5ajBEaLlLPPSun6QEXC
+        zlEIGW2aQrhaJuV0HX4QBa938AgjR457HkF7hjT9xqJomqYo5vDECpHhmOQNfAcnme5bCP7IoAJT
+        ZvAKnYxA6aS9TwfIAzvfeTeH76/PD7xcXi4/AAAA//8DAIT+NPmnAQAA
+    headers:
+      CF-RAY:
+      - 9c3131868b3650f1-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 24 Jan 2026 17:19:02 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      mistral-correlation-id:
+      - 019bf104-3041-79ff-a319-35645a1b5159
+      x-envoy-upstream-service-time:
+      - '527'
+      x-kong-proxy-latency:
+      - '8'
+      x-kong-request-id:
+      - 019bf104-3041-79ff-a319-35645a1b5159
+      x-kong-upstream-latency:
+      - '528'
+      x-ratelimit-limit-req-minute:
+      - '60'
+      x-ratelimit-limit-tokens-minute:
+      - '500000'
+      x-ratelimit-limit-tokens-month:
+      - '1000000000'
+      x-ratelimit-remaining-req-minute:
+      - '57'
+      x-ratelimit-remaining-tokens-minute:
+      - '499862'
+      x-ratelimit-remaining-tokens-month:
+      - '999993556'
+      x-ratelimit-tokens-query-cost:
+      - '48'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model": "mistral-small-latest", "messages": [{"content": "Remember this
+      number: 777. Just confirm you remember it.", "role": "user"}, {"content": "Got
+      it! I remember the number **777**. Let me know if you''d like to use it for
+      anything specific. \ud83d\ude0a", "prefix": false, "role": "assistant"}, {"content":
+      "What number did I ask you to remember?", "role": "user"}], "temperature": 1.0,
+      "max_tokens": 8192, "stream": false}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '407'
+      Host:
+      - api.mistral.ai
+      content-type:
+      - application/json
+      user-agent:
+      - mistral-client-python/1.10.0
+    method: POST
+    uri: https://api.mistral.ai/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA0SP0WqDQBREf0XmUTYhGhPj/kkpRW7Wa91md6+4VygE/71YaPo2HBjmzBN+gMV9
+        rJvq5prm1tYN1VV3vdLY8eV86s6n2o0wcAuT8gBbtdeubi9VUxtEGTjAIvqsC4VDjhTCIZByVhis
+        mT4Z9ol5kThrr/LglGEvnYGKUniRtjZwEufA6iW9cHU2SGvsHbmJhxc+bQZy/2KnsHAT6fG/u6tO
+        4h1n2PcnfBr4G/ZkMPrk89QvTFkSLLLKDIPI+c9ykcCwoJx9Vkr7AxUJvaMQMmxaQ9gtk3Lah99k
+        LSg/eCgiFyrFwpHjnZdCJy7S+hvLsm3bsjxi2z62HwAAAP//AwD/gJDfbQEAAA==
+    headers:
+      CF-RAY:
+      - 9c31318abda8bed0-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 24 Jan 2026 17:19:03 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=15552000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-allow-origin:
+      - '*'
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      mistral-correlation-id:
+      - 019bf104-32da-7e4e-abfe-cf935728f4b0
+      x-envoy-upstream-service-time:
+      - '158'
+      x-kong-proxy-latency:
+      - '7'
+      x-kong-request-id:
+      - 019bf104-32da-7e4e-abfe-cf935728f4b0
+      x-kong-upstream-latency:
+      - '159'
+      x-ratelimit-limit-req-minute:
+      - '60'
+      x-ratelimit-limit-tokens-minute:
+      - '500000'
+      x-ratelimit-limit-tokens-month:
+      - '1000000000'
+      x-ratelimit-remaining-req-minute:
+      - '56'
+      x-ratelimit-remaining-tokens-minute:
+      - '499790'
+      x-ratelimit-remaining-tokens-month:
+      - '999993484'
+      x-ratelimit-tokens-query-cost:
+      - '72'
+    status:
+      code: 200
+      message: OK
+version: 1

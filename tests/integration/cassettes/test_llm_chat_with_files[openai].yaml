@@ -1,0 +1,108 @@
+interactions:
+- request:
+    body: '{"input": "What is in this file?\n\n[File: test.txt]\nHello World\nThis
+      is a test file.", "max_output_tokens": 16384, "model": "gpt-4o-mini", "temperature":
+      1.0}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '154'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.15.0
+      X-Stainless-Arch:
+      - x64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - Linux
+      X-Stainless-Package-Version:
+      - 2.15.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.14.2
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//dFTJkts4DL33V3B4jrtkSfH2BZN7qnKIp9QQBdmcpgiGBD3tSvW/T4la
+        LKW6bxIe8Ag8LL+fhJC6kSchPQZXZVi2mDdlkRcNNrs8y3bHfdlie8Ayyw7bYwZY7ACyui7U10Ll
+        mfzSU1D9LyqeaMgGHOzKIzA2FfTYdr875vuv2/yQsMDAMfQxijpnkLEZgmpQrxdP0fZ5tWACDmZt
+        jLYXeRK/n4QQQjq4o+/jG7yhIYdePgnxPjw8Ua6fLrKEovfUR9poTDK0Hn9FtOpeObRg+C5PInse
+        nLWdyKoGGbQJy0htA/uoWJNd2Tt4qyiyi1wxvWICt7viUM4oE5lKgVnzddSg6Yu6ON6UtOm01Zs8
+        y8tNtt9sD6PciViexM+kxKDH3MkuXD5v5BGOu7JvZF0fdwco6qZssxrzIjEnFr47TDwYAlzwAXzW
+        sQQqsoz2kdQysRXtpAq+8RydHMBaYpiU/PnPCjR0cZ7qD5BEdBLy+xVFqw2Ks2QM/MxvfJaiTwu0
+        DYJ7mIyh/7S9iD7odLZn+/LycrZ/ozEkfpA3zdl+v+ogdBAgeppE+Tz6ne23VtwpiivcUIC9i+BQ
+        6VYr8StiSKkLqClyem6URJAXFrERbfR8RS8gBB0YrMIvokU0ovWIgklAeP1LzrW9j19zudKTSRJO
+        BDw4947JSTrwYAya9XCxj8MKOY8BrcIPptx5vGmKoZoWuErDNM+l89Q5rhSoK1aveP8U89jXrMku
+        PTxCILvaXmxb8rxw6gcsdh34iXte5gAt8r3STU/calytbkB/0wor1tMxaCGaYbRkYPK4VICxc+iB
+        YzJvx+LHERoza8l38PhfjG7yGyQfM76hrynoJKXssNGxexyhoQlX0mroWmSSM/CYZMnkqsV8Z7PR
+        LXP00SoYhZWNDlCb6WLGtKdzAdquzs5wb/+wL27ZXGZqYPMIzFal/nnNyvIj4CPeufufUTMxmAe4
+        z2cJY1h3u0OGBhh6+ven9/8BAAD//wMA05D/YMAGAAA=
+    headers:
+      CF-RAY:
+      - 9c313130fd2ae58f-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Sat, 24 Jan 2026 17:18:50 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - handley-8bq6ws
+      openai-processing-ms:
+      - '2032'
+      openai-project:
+      - proj_kbC53WfwHWl267JuvHfOY149
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '2036'
+      x-ratelimit-limit-requests:
+      - '30000'
+      x-ratelimit-limit-tokens:
+      - '150000000'
+      x-ratelimit-remaining-requests:
+      - '29999'
+      x-ratelimit-remaining-tokens:
+      - '149999955'
+      x-ratelimit-reset-requests:
+      - 2ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_fe38c1e0ad6649eab37293ba54bfc43a
+    status:
+      code: 200
+      message: OK
+version: 1

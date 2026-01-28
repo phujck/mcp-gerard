@@ -107,6 +107,42 @@ git commit --no-verify -m "bypass hooks"
 - **Beta software mindset**: APIs may change to improve design, though we aim for stability
 - **Always use absolute imports**: NEVER use relative imports (`from .module import`) - always use absolute imports (`from mcp_handley_lab.module import`)
 
+### MCP Tool Design - MINIMAL TOOLS, MAXIMUM CAPABILITY
+
+**Prefer fewer tools with more operations over many specialized tools.**
+
+- **Tool count matters**: Each MCP tool consumes context and increases cognitive load for Claude Code. Aim for the minimum number of tools that cover the use cases.
+- **Operations over tools**: Prefer a single tool with an `operation` or `action` parameter over multiple tools (e.g., `memory(action="fork")` not `memory_fork()`, `memory_edit()`, `memory_list()`).
+- **Claude Code recognizes patterns**: Design tool signatures that Claude naturally understands - simple parameters, clear names, predictable behavior.
+- **Avoid tool sprawl**: Before adding a new tool, ask: can this be an operation on an existing tool? Can this be a parameter variation?
+- **Context is precious**: Every tool description injected into Claude's context reduces available space for actual work. Keep descriptions concise.
+
+Example of what NOT to do:
+```python
+# BAD: 5 tools for one concept
+@mcp.tool
+def memory_list(): ...
+@mcp.tool
+def memory_fork(): ...
+@mcp.tool
+def memory_edit(): ...
+@mcp.tool
+def memory_delete(): ...
+@mcp.tool
+def memory_history(): ...
+```
+
+Example of preferred approach:
+```python
+# GOOD: 1 tool with operations
+@mcp.tool
+def memory(
+    action: str,  # "list", "fork", "edit", "delete", "history"
+    conversation: str = "main",
+    **kwargs
+): ...
+```
+
 ### ⚠️ CRITICAL ERROR HANDLING RULE
 
 **NEVER SILENCE ERRORS BY DISABLING FUNCTIONALITY**
@@ -166,36 +202,16 @@ The project follows a modern Python SDK approach using `FastMCP` from the MCP SD
 ### Unified LLM Tools ✓
 Provider-agnostic LLM tools supporting Gemini, OpenAI, Claude, Grok, Mistral, and Groq.
 
-#### mcp-llm-chat
-- **Location**: `src/mcp_handley_lab/llm/chat/`
-- **Functions**: `ask`, `analyze_image`, `get_response`
-- **Features**: Text generation, vision analysis, persistent memory via `agent_name`, file input support
+#### mcp-llm
+- **Location**: `src/mcp_handley_lab/llm/tool.py`
+- **Functions**: `chat`, `conversation`, `generate_image`, `transcribe`, `ocr`, `list_models`
+- **Features**: Text generation, vision analysis (via `images` param on `chat`), image generation, audio transcription, OCR, model discovery, persistent memory via branches
 - **Model Selection**: Use `model` parameter with provider name (gemini, openai, claude, grok, mistral, groq) or specific model ID
-
-#### mcp-llm-image
-- **Location**: `src/mcp_handley_lab/llm/image/`
-- **Functions**: `generate`
-- **Features**: Image generation via DALL-E, Imagen, etc.
-
-#### mcp-llm-audio
-- **Location**: `src/mcp_handley_lab/llm/audio/`
-- **Functions**: `transcribe`
-- **Features**: Audio transcription
-
-#### mcp-llm-ocr
-- **Location**: `src/mcp_handley_lab/llm/ocr/`
-- **Functions**: `process`
-- **Features**: OCR text extraction from images
 
 #### mcp-llm-embeddings
 - **Location**: `src/mcp_handley_lab/llm/embeddings/`
 - **Functions**: `get_embeddings`, `calculate_similarity`, `index_documents`, `search_documents`
 - **Features**: Text embeddings, semantic search, document indexing
-
-#### mcp-llm-models
-- **Location**: `src/mcp_handley_lab/llm/models/`
-- **Functions**: `list_models`
-- **Features**: List all available models across providers with pricing and capabilities
 
 ### Vim Tool ✓
 - **Location**: `src/mcp_handley_lab/vim/`
@@ -220,12 +236,8 @@ The project provides a unified entry point for all tools:
 pip install -e .[dev]
 
 # LLM Tools (unified, provider-agnostic)
-mcp-llm-chat                                    # Chat/text generation
-mcp-llm-image                                   # Image generation
-mcp-llm-audio                                   # Audio transcription
-mcp-llm-ocr                                     # OCR text extraction
+mcp-llm                                         # Chat, vision, image gen, transcribe, OCR, models
 mcp-llm-embeddings                              # Text embeddings & search
-mcp-llm-models                                  # List available models
 
 # Other Tools
 mcp-vim                                         # Vim editing
@@ -247,7 +259,7 @@ Each tool runs as a JSON-RPC server following the Model Context Protocol (MCP) s
 
 ```bash
 # Start any tool server (example with LLM chat)
-mcp-llm-chat
+mcp-llm
 ```
 
 #### 2. JSON-RPC Message Flow
@@ -285,7 +297,7 @@ Send these JSON-RPC messages in sequence:
   "id": 3,
   "method": "tools/call",
   "params": {
-    "name": "ask",
+    "name": "chat",
     "arguments": {
       "prompt": "What is 2+2?",
       "model": "gemini"
@@ -302,8 +314,8 @@ Send these JSON-RPC messages in sequence:
 echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
 echo '{"jsonrpc": "2.0", "method": "notifications/initialized"}'
 echo '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}'
-echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "ask", "arguments": {"prompt": "What is 5+5?", "model": "gemini"}}}'
-) | mcp-llm-chat
+echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "chat", "arguments": {"prompt": "What is 5+5?", "model": "gemini"}}}'
+) | mcp-llm
 ```
 
 #### 4. Expected Responses
@@ -316,7 +328,7 @@ echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "as
   "result": {
     "protocolVersion": "2024-11-05",
     "capabilities": {...},
-    "serverInfo": {"name": "Chat Tool", "version": "..."}
+    "serverInfo": {"name": "LLM Tool", "version": "..."}
   }
 }
 ```
@@ -329,7 +341,7 @@ echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "as
   "result": {
     "tools": [
       {
-        "name": "ask",
+        "name": "chat",
         "description": "Send a message to an LLM. Provider is auto-detected from model name...",
         "inputSchema": {...}
       },
@@ -371,7 +383,7 @@ For integration with MCP clients like Claude Desktop:
 
 ```bash
 # Test with official MCP client tools
-mcp-cli connect stdio mcp-llm-chat
+mcp-cli connect stdio mcp-llm
 ```
 
 #### 6. Testing and Debugging JSON-RPC
@@ -381,7 +393,7 @@ mcp-cli connect stdio mcp-llm-chat
 **Common Testing Mistake:**
 ```bash
 # ❌ This only tests server startup, NOT tool function execution
-mcp-llm-chat  # Server starts successfully but tool calls may still fail
+mcp-llm  # Server starts successfully but tool calls may still fail
 ```
 
 **Proper Testing Approach:**
@@ -390,8 +402,8 @@ mcp-llm-chat  # Server starts successfully but tool calls may still fail
 (
 echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
 echo '{"jsonrpc": "2.0", "method": "notifications/initialized"}'
-echo '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "ask", "arguments": {"prompt": "What is 2+2?", "model": "gemini"}}}'
-) | mcp-llm-chat
+echo '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "chat", "arguments": {"prompt": "What is 2+2?", "model": "gemini"}}}'
+) | mcp-llm
 ```
 
 **Automated Test Script:**
@@ -402,7 +414,7 @@ import json
 
 def test_mcp_jsonrpc():
     process = subprocess.Popen(
-        ['mcp-llm-chat'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        ['mcp-llm'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, text=True, bufsize=0)
 
     try:
@@ -424,7 +436,7 @@ def test_mcp_jsonrpc():
         # Test tool call
         ask_request = {
             "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": "ask", "arguments": {"prompt": "What is 2+2?", "model": "gemini"}}
+            "params": {"name": "chat", "arguments": {"prompt": "What is 2+2?", "model": "gemini"}}
         }
         process.stdin.write(json.dumps(ask_request) + '\n')
         process.stdin.flush()
@@ -543,7 +555,7 @@ Leverage persistent agents as intelligent helpers for code review and brainstorm
 
 1. **Generate code summary**: Use `mcp__code2prompt__generate_prompt` to create a structured representation of the code
 2. **Initialize or select agent**: Create a new agent with the dedicated `agent` management system
-3. **Review and ideate**: Use `mcp__llm-chat__ask` with the agent for persistent memory
+3. **Review and ideate**: Use `mcp__llm__chat` with the agent for persistent memory
 
 Example workflow:
 ```bash
@@ -552,7 +564,7 @@ mcp__code2prompt__generate_prompt path="/path/to/code" output_file="/tmp/code_re
 
 # Get review and suggestions with persistent memory
 # The agent will be created automatically on first use
-mcp__llm-chat__ask prompt="Review this code for improvements" agent_name="code_reviewer" model="gemini" files=["/tmp/code_review.md"]
+mcp__llm__chat prompt="Review this code for improvements" agent_name="code_reviewer" model="gemini" files=["/tmp/code_review.md"]
 ```
 
 

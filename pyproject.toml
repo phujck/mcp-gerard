@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-handley-lab"
-version = "0.21.12b5"
+version = "0.25.0b1"
 description = "MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -68,23 +68,20 @@ semantic = [
 
 [project.scripts]
 # Unified LLM tools
-mcp-llm-chat = "mcp_handley_lab.llm.chat.tool:mcp.run"
-mcp-llm-image = "mcp_handley_lab.llm.image.tool:mcp.run"
+mcp-llm = "mcp_handley_lab.llm.tool:mcp.run"
 mcp-llm-embeddings = "mcp_handley_lab.llm.embeddings.tool:mcp.run"
-mcp-llm-ocr = "mcp_handley_lab.llm.ocr.tool:mcp.run"
-mcp-llm-audio = "mcp_handley_lab.llm.audio.tool:mcp.run"
-mcp-llm-models = "mcp_handley_lab.llm.models.tool:mcp.run"
 # Other tools
-mcp-jq = "mcp_handley_lab.jq.tool:mcp.run"
 mcp-vim = "mcp_handley_lab.vim.tool:mcp.run"
 mcp-code2prompt = "mcp_handley_lab.code2prompt.tool:mcp.run"
 mcp-arxiv = "mcp_handley_lab.arxiv.tool:mcp.run"
 mcp-google-calendar = "mcp_handley_lab.google_calendar.tool:mcp.run"
 mcp-google-maps = "mcp_handley_lab.google_maps.tool:mcp.run"
 mcp-email = "mcp_handley_lab.email.tool:mcp.run"
-mcp-github = "mcp_handley_lab.github.tool:mcp.run"
-mcp-knowledge = "mcp_handley_lab.knowledge.generic_tools:mcp.run"
+mcp-msmtp-capture = "mcp_handley_lab.email.mutt.capture:main"
+mcp-search = "mcp_handley_lab.search.tool:mcp.run"
 mcp-py2nb = "mcp_handley_lab.py2nb.tool:mcp.run"
+mcp-repl = "mcp_handley_lab.repl.tool:mcp.run"
+mcp-screenshot = "mcp_handley_lab.screenshot.tool:mcp.run"
 mcp-word = "mcp_handley_lab.microsoft.word.tool:mcp.run"
 mcp-excel = "mcp_handley_lab.microsoft.excel.tool:mcp.run"
 mcp-powerpoint = "mcp_handley_lab.microsoft.powerpoint.tool:mcp.run"

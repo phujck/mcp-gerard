@@ -82,8 +82,10 @@ from mcp_handley_lab.microsoft.word.ops.footnotes import (
     _ensure_note_styles,
     _get_safe_note_id,
     add_footnote,
+    add_footnote_ooxml,
     build_footnotes,
     delete_footnote,
+    delete_footnote_ooxml,
 )
 from mcp_handley_lab.microsoft.word.ops.headers import (
     append_to_header_footer,
@@ -138,6 +140,7 @@ from mcp_handley_lab.microsoft.word.ops.properties import (
     set_custom_property,
     set_document_meta,
 )
+from mcp_handley_lab.microsoft.word.ops.render import render_to_images, render_to_pdf
 from mcp_handley_lab.microsoft.word.ops.revisions import (
     _ALL_REVISION_TAGS,
     _CONTENT_REVISIONS,
@@ -445,7 +448,9 @@ __all__ = [
     "_create_minimal_notes_xml",
     "_ensure_note_styles",
     "add_footnote",
+    "add_footnote_ooxml",
     "delete_footnote",
+    "delete_footnote_ooxml",
     # Bookmarks
     "_RESERVED_BOOKMARK_PREFIXES",
     "_get_next_bookmark_id",
@@ -480,4 +485,7 @@ __all__ = [
     "_get_equation_complexity",
     "_extract_equations_from_paragraph",
     "build_equations",
+    # Render
+    "render_to_images",
+    "render_to_pdf",
 ]

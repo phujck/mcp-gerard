@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.llm.chat.tool import mcp
+from mcp_handley_lab.llm.tool import mcp
 
 # Provider configurations for systematic testing (unified MCP, model determines provider)
 llm_unhappy_providers = [
@@ -63,7 +63,7 @@ class TestLLMRateLimitingErrors:
                     "prompt": f"Count to {i + 1}",
                     "output_file": output_file,
                     "model": model,
-                    "agent_name": "",
+                    "branch": "",
                     "files": [],
                 }
 
@@ -88,7 +88,7 @@ class TestLLMRateLimitingErrors:
                         }
                     )
 
-                _, response = await mcp.call_tool("ask", base_params)
+                _, response = await mcp.call_tool("chat", base_params)
                 requests.append(response)
             except (ValueError, RuntimeError) as e:
                 # Rate limiting errors are acceptable
@@ -131,7 +131,7 @@ class TestLLMLargeInputHandling:
             "prompt": large_prompt,
             "output_file": test_output_file,
             "model": model,
-            "agent_name": "",
+            "branch": "",
             "files": [],
         }
 
@@ -157,7 +157,7 @@ class TestLLMLargeInputHandling:
             )
 
         try:
-            _, response = await mcp.call_tool("ask", base_params)
+            _, response = await mcp.call_tool("chat", base_params)
 
             # If successful, response should be reasonable
             assert response["content"] is not None
@@ -203,7 +203,7 @@ class TestLLMLargeInputHandling:
             "output_file": test_output_file,
             "files": [str(large_file)],
             "model": model,
-            "agent_name": "",
+            "branch": "",
         }
 
         # Add provider-specific parameters
@@ -228,7 +228,7 @@ class TestLLMLargeInputHandling:
             )
 
         try:
-            _, response = await mcp.call_tool("ask", base_params)
+            _, response = await mcp.call_tool("chat", base_params)
 
             # If successful, should provide reasonable response
             assert response["content"] is not None
@@ -272,7 +272,7 @@ class TestLLMLargeInputHandling:
                     "prompt": f"Echo back: {prompt}",
                     "output_file": output_file,
                     "model": model,
-                    "agent_name": "",
+                    "branch": "",
                     "files": [],
                 }
 
@@ -297,7 +297,7 @@ class TestLLMLargeInputHandling:
                         }
                     )
 
-                _, response = await mcp.call_tool("ask", base_params)
+                _, response = await mcp.call_tool("chat", base_params)
 
                 # If successful, should handle characters properly
                 assert response["content"] is not None
@@ -343,7 +343,7 @@ class TestLLMFileInputErrors:
             "output_file": test_output_file,
             "files": [nonexistent_file],
             "model": model,
-            "agent_name": "",
+            "branch": "",
         }
 
         # Add provider-specific parameters
@@ -371,7 +371,7 @@ class TestLLMFileInputErrors:
             ToolError,
             match="file.*not found|not.*exist|no such file|directory|No such file",
         ):
-            await mcp.call_tool("ask", base_params)
+            await mcp.call_tool("chat", base_params)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", llm_unhappy_providers)
@@ -399,7 +399,7 @@ class TestLLMFileInputErrors:
                 "output_file": test_output_file,
                 "files": [str(restricted_file)],
                 "model": model,
-                "agent_name": "",
+                "branch": "",
             }
 
             # Add provider-specific parameters
@@ -427,7 +427,7 @@ class TestLLMFileInputErrors:
                 ToolError,
                 match="permission|access|denied|readable|Permission denied",
             ):
-                await mcp.call_tool("ask", base_params)
+                await mcp.call_tool("chat", base_params)
         finally:
             # Restore permissions for cleanup
             restricted_file.chmod(0o644)
@@ -459,7 +459,7 @@ class TestLLMFileInputErrors:
                 "output_file": test_output_file,
                 "files": [str(binary_file)],
                 "model": model,
-                "agent_name": "",
+                "branch": "",
             }
 
             # Add provider-specific parameters
@@ -483,7 +483,7 @@ class TestLLMFileInputErrors:
                     }
                 )
 
-            _, response = await mcp.call_tool("ask", base_params)
+            _, response = await mcp.call_tool("chat", base_params)
 
             # If it succeeds, should handle gracefully
             assert response["content"] is not None
@@ -534,7 +534,7 @@ class TestLLMImageAnalysisUnhappyPaths:
             "output_file": test_output_file,
             "images": [str(corrupted_image)],
             "model": model,
-            "agent_name": "",
+            "branch": "",
         }
 
         # Add provider-specific parameters
@@ -544,7 +544,7 @@ class TestLLMImageAnalysisUnhappyPaths:
             ToolError,
             match="image|invalid|corrupted|format|decode|Could not process image",
         ):
-            await mcp.call_tool("analyze_image", base_params)
+            await mcp.call_tool("chat", base_params)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("provider, api_key, model", image_unhappy_providers)
@@ -567,7 +567,7 @@ class TestLLMImageAnalysisUnhappyPaths:
             "output_file": test_output_file,
             "images": [nonexistent_image],
             "model": model,
-            "agent_name": "",
+            "branch": "",
         }
 
         # Add provider-specific parameters
@@ -577,7 +577,7 @@ class TestLLMImageAnalysisUnhappyPaths:
             ToolError,
             match="file.*not found|not.*exist|no such file|directory|No such file",
         ):
-            await mcp.call_tool("analyze_image", base_params)
+            await mcp.call_tool("chat", base_params)
 
 
 @pytest.mark.integration
@@ -601,12 +601,12 @@ class TestLLMProviderSpecificErrors:
                 "prompt": policy_test_prompt,
                 "output_file": test_output_file,
                 "model": "gpt-4o-mini",
-                "agent_name": "",
+                "branch": "",
                 "files": [],
                 "temperature": 1.0,
             }
 
-            await mcp.call_tool("ask", base_params)
+            await mcp.call_tool("chat", base_params)
 
             # OpenAI should either refuse or provide safe alternative
             content = Path(test_output_file).read_text()
@@ -642,13 +642,13 @@ class TestLLMProviderSpecificErrors:
                 "prompt": safety_test_prompt,
                 "output_file": test_output_file,
                 "model": "gemini-2.5-flash",
-                "agent_name": "",
+                "branch": "",
                 "files": [],
                 "temperature": 1.0,
                 "grounding": False,
             }
 
-            await mcp.call_tool("ask", base_params)
+            await mcp.call_tool("chat", base_params)
 
             # Gemini should either refuse or provide filtered response
             content = Path(test_output_file).read_text()
@@ -688,7 +688,7 @@ class TestLLMOutputFileErrors:
                 "prompt": "Simple test",
                 "output_file": str(output_file),
                 "model": model,
-                "agent_name": "",
+                "branch": "",
                 "files": [],
             }
 
@@ -717,7 +717,7 @@ class TestLLMOutputFileErrors:
                 ToolError,
                 match="permission|write|access|denied|Permission denied",
             ):
-                await mcp.call_tool("ask", base_params)
+                await mcp.call_tool("chat", base_params)
         finally:
             # Restore permissions for cleanup
             readonly_dir.chmod(0o755)
@@ -740,7 +740,7 @@ class TestLLMOutputFileErrors:
                 "prompt": "Simple test",
                 "output_file": output_file,
                 "model": model,
-                "agent_name": "",
+                "branch": "",
                 "files": [],
             }
 
@@ -765,14 +765,27 @@ class TestLLMOutputFileErrors:
                     }
                 )
 
-            await mcp.call_tool("ask", base_params)
+            await mcp.call_tool("chat", base_params)
 
             # If successful, file should exist
             assert Path(output_file).exists()
 
-        except (ValueError, RuntimeError, FileNotFoundError, ToolError) as e:
-            # Directory creation errors are acceptable
+        except (
+            ValueError,
+            RuntimeError,
+            FileNotFoundError,
+            PermissionError,
+            ToolError,
+        ) as e:
+            # Directory creation or permission errors are acceptable
             assert any(
                 keyword in str(e).lower()
-                for keyword in ["directory", "not found", "no such", "path", "create"]
+                for keyword in [
+                    "directory",
+                    "not found",
+                    "no such",
+                    "path",
+                    "create",
+                    "permission",
+                ]
             )

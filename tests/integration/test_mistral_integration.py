@@ -5,8 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm.chat.tool import mcp
-from mcp_handley_lab.llm.ocr.tool import mcp as ocr_mcp
+from mcp_handley_lab.llm.tool import mcp
 
 
 @pytest.fixture
@@ -28,14 +27,14 @@ def test_output_file():
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_simple(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_simple(skip_if_no_api_key, test_output_file):
     """Test basic text generation with Mistral."""
     _, response = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What is 2+2? Answer with just the number.",
             "output_file": test_output_file,
-            "agent_name": "",
+            "branch": "",
             "model": "mistral-small-latest",
         },
     )
@@ -51,7 +50,7 @@ async def test_mistral_ask_simple(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_with_files(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_with_files(skip_if_no_api_key, test_output_file):
     """Test text generation with file input."""
     # Create a temporary test file
     with tempfile.NamedTemporaryFile(
@@ -62,11 +61,11 @@ async def test_mistral_ask_with_files(skip_if_no_api_key, test_output_file):
 
     try:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "What number is mentioned in the file?",
                 "output_file": test_output_file,
-                "agent_name": "",
+                "branch": "",
                 "model": "mistral-small-latest",
                 "files": [test_file_path],
             },
@@ -98,13 +97,13 @@ async def test_mistral_analyze_image(skip_if_no_api_key, test_output_file):
 
     try:
         _, response = await mcp.call_tool(
-            "analyze_image",
+            "chat",
             {
                 "prompt": "What color is this image?",
                 "output_file": test_output_file,
                 "images": [image_path],
                 "model": "pixtral-12b-2409",
-                "agent_name": "",
+                "branch": "",
             },
         )
 
@@ -136,8 +135,8 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
         image_path = image_file.name
 
     try:
-        _, response = await ocr_mcp.call_tool(
-            "process",
+        _, response = await mcp.call_tool(
+            "ocr",
             {
                 "document_path": image_path,
                 "output_file": test_output_file,
@@ -155,15 +154,15 @@ async def test_mistral_process_ocr_image(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_with_memory(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_with_memory(skip_if_no_api_key, test_output_file):
     """Test conversation memory with agent_name."""
     # First message
     _, response1 = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "Remember this number: 777. Just confirm you remember it.",
             "output_file": test_output_file,
-            "agent_name": "test_memory_agent",
+            "branch": "test_memory_agent",
             "model": "mistral-small-latest",
         },
     )
@@ -172,11 +171,11 @@ async def test_mistral_ask_with_memory(skip_if_no_api_key, test_output_file):
 
     # Second message - should remember
     _, response2 = await mcp.call_tool(
-        "ask",
+        "chat",
         {
             "prompt": "What number did I ask you to remember?",
             "output_file": test_output_file,
-            "agent_name": "test_memory_agent",
+            "branch": "test_memory_agent",
             "model": "mistral-small-latest",
         },
     )
@@ -188,7 +187,7 @@ async def test_mistral_ask_with_memory(skip_if_no_api_key, test_output_file):
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_mistral_ask_different_models(skip_if_no_api_key, test_output_file):
+async def test_mistral_chat_different_models(skip_if_no_api_key, test_output_file):
     """Test with different Mistral models."""
     models_to_test = [
         "mistral-small-latest",
@@ -198,11 +197,11 @@ async def test_mistral_ask_different_models(skip_if_no_api_key, test_output_file
 
     for model in models_to_test:
         _, response = await mcp.call_tool(
-            "ask",
+            "chat",
             {
                 "prompt": "Say 'hello' in one word.",
                 "output_file": test_output_file,
-                "agent_name": "",
+                "branch": "",
                 "model": model,
             },
         )

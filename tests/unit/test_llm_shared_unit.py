@@ -1,5 +1,6 @@
 """Unit tests for LLM shared processing functionality."""
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -10,10 +11,10 @@ from mcp_handley_lab.llm.shared import process_llm_request
 class TestProcessLLMRequestPromptResolution:
     """Test prompt resolution logic in process_llm_request."""
 
-    @patch("mcp_handley_lab.llm.shared.memory_manager")
+    @patch("mcp_handley_lab.llm.shared.memory")
     @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
     def test_resolves_prompt_file_and_vars(
-        self, mock_calculate_cost, mock_memory_manager, tmp_path
+        self, mock_calculate_cost, mock_memory, tmp_path
     ):
         """Test that prompt_file and prompt_vars are resolved correctly."""
         # Create test prompt file
@@ -38,7 +39,7 @@ class TestProcessLLMRequestPromptResolution:
         result = process_llm_request(
             prompt="",
             output_file="",
-            agent_name="",
+            branch="",
             model="gpt-4o-mini",
             provider="openai",
             generation_func=mock_generation_func,
@@ -54,10 +55,10 @@ class TestProcessLLMRequestPromptResolution:
         assert result.usage.input_tokens == 10
         assert result.usage.output_tokens == 5
 
-    @patch("mcp_handley_lab.llm.shared.memory_manager")
+    @patch("mcp_handley_lab.llm.shared.memory")
     @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
     def test_resolves_system_prompt_file_and_vars(
-        self, mock_calculate_cost, mock_memory_manager, tmp_path
+        self, mock_calculate_cost, mock_memory, tmp_path
     ):
         """Test that system_prompt_file and system_prompt_vars are resolved correctly."""
         # Create test system prompt file
@@ -83,7 +84,7 @@ class TestProcessLLMRequestPromptResolution:
         result = process_llm_request(
             prompt="Test prompt",
             output_file="",
-            agent_name="",
+            branch="",
             model="gpt-4o-mini",
             provider="openai",
             generation_func=mock_generation_func,
@@ -110,7 +111,7 @@ class TestProcessLLMRequestPromptResolution:
             process_llm_request(
                 prompt="Direct prompt",
                 output_file="",
-                agent_name="",
+                branch="",
                 model="gpt-4o-mini",
                 provider="openai",
                 generation_func=mock_generation_func,
@@ -133,7 +134,7 @@ class TestProcessLLMRequestPromptResolution:
             process_llm_request(
                 prompt="",
                 output_file="",
-                agent_name="",
+                branch="",
                 model="gpt-4o-mini",
                 provider="openai",
                 generation_func=mock_generation_func,
@@ -156,7 +157,7 @@ class TestProcessLLMRequestPromptResolution:
             process_llm_request(
                 prompt="Test prompt",
                 output_file="",
-                agent_name="",
+                branch="",
                 model="gpt-4o-mini",
                 provider="openai",
                 generation_func=mock_generation_func,
@@ -180,7 +181,7 @@ class TestProcessLLMRequestPromptResolution:
             process_llm_request(
                 prompt="",
                 output_file="",
-                agent_name="",
+                branch="",
                 model="gpt-4o-mini",
                 provider="openai",
                 generation_func=mock_generation_func,
@@ -204,7 +205,7 @@ class TestProcessLLMRequestPromptResolution:
             process_llm_request(
                 prompt="Test prompt",
                 output_file="",
-                agent_name="",
+                branch="",
                 model="gpt-4o-mini",
                 provider="openai",
                 generation_func=mock_generation_func,
@@ -216,24 +217,33 @@ class TestProcessLLMRequestPromptResolution:
                 system_prompt_vars={"wrong_key": "value"},
             )
 
-    @patch("mcp_handley_lab.llm.shared.memory_manager")
+    @patch("mcp_handley_lab.llm.shared.memory")
     @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
-    def test_system_prompt_persists_in_memory(
-        self, mock_calculate_cost, mock_memory_manager, tmp_path
+    def test_system_prompt_passed_to_llm_for_new_branch(
+        self, mock_calculate_cost, mock_memory, tmp_path
     ):
-        """Test that system prompt from file is stored in agent memory."""
+        """Test that system prompt is passed to LLM for new branches."""
         # Create test system prompt file
         system_prompt_file = tmp_path / "system.txt"
         system_prompt_file.write_text("You are a helpful assistant.")
 
-        # Mock agent
-        mock_agent = Mock()
-        mock_agent.system_prompt = "You are a helpful assistant."
-        mock_memory_manager.get_agent.return_value = None
-        mock_memory_manager.create_agent.return_value = mock_agent
+        # Mock memory for new branch (not locked, branch doesn't exist)
+        mock_memory.normalize_branch_input.return_value = "test_branch"
+        mock_memory.get_project_dir.return_value = Path(tmp_path)
+        mock_memory.is_locked.return_value = None
+        mock_memory.branch_exists.return_value = False
+        mock_memory.read_branch.return_value = ""
+        mock_memory.write_conversation.return_value = {
+            "commit_sha": "abc123",
+            "branch": "test_branch",
+        }
 
-        # Mock generation function
+        received_system_instruction = None
+
+        # Mock generation function that captures system_instruction
         def mock_generation_func(prompt, system_instruction, **kwargs):
+            nonlocal received_system_instruction
+            received_system_instruction = system_instruction
             return {
                 "text": "Response",
                 "input_tokens": 10,
@@ -250,7 +260,7 @@ class TestProcessLLMRequestPromptResolution:
         process_llm_request(
             prompt="Test prompt",
             output_file="",
-            agent_name="test_agent",
+            branch="test_branch",
             model="gpt-4o-mini",
             provider="openai",
             generation_func=mock_generation_func,
@@ -262,9 +272,5 @@ class TestProcessLLMRequestPromptResolution:
             system_prompt_vars={},
         )
 
-        # Verify agent was created with system prompt
-        mock_memory_manager.create_agent.assert_called_once_with(
-            "test_agent", "You are a helpful assistant."
-        )
-        # Verify system prompt was set on the agent
-        assert mock_agent.system_prompt == "You are a helpful assistant."
+        # Verify system instruction was passed to the LLM
+        assert received_system_instruction == "You are a helpful assistant."

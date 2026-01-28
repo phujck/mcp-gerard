@@ -1,0 +1,62 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is 3+3? Answer with just the number."}],
+      "role": "user"}], "generationConfig": {"temperature": 0.0, "maxOutputTokens":
+      65536}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '166'
+      Content-Type:
+      - application/json
+      Host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.55.0 gl-python/3.14.2
+      x-goog-api-client:
+      - google-genai-sdk/1.55.0 gl-python/3.14.2
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/2WQzU7DMBCE73mKaM8takuDgCtw6KGiQIRQUYUWvE2sOnYUb1BR1HfHTkjqCB8s
+        a2a8P18TxTF8oRZSIJOF2/jdKXHctLf3jGbS7IxecmKJFZ+z3WmCt4swHf0nuIJAPw3v3eRcrTKK
+        fLQwglQfP/UB2Estbf5MaI32sZf0cQODK7Wgo5NnUd+gLQ21xYzWxOj2wmF6KCtTlJyaA+k7U7d7
+        zZddsQDD2P+z2TCqkZPcTP5Vtfeup1QhnQCcWxGV5B+/R/rwlkKAgcdD9RyiABdwbuos5/GAS59t
+        eXUIX6mysmOVUeHoTRcXyXSv0OZtP6jIlkZbWgmfuf5IZrily/WnnH+L1eawXVj5lEF0in4B87EV
+        Vh4CAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Sat, 24 Jan 2026 17:18:43 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=573
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

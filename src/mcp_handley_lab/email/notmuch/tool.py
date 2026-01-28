@@ -93,10 +93,75 @@ def _find_smart_destination(
     )
 
 
-class EmailContent(BaseModel):
+def _quote_for_notmuch(s: str) -> str:
+    """Escape a string for use in notmuch quoted queries."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _resolve_message_id(abbreviated: str) -> str:
+    """Resolve an abbreviated message ID to a full ID using notmuch.
+
+    Supports abbreviated message ID prefixes. If the input is already a full
+    valid message ID, it is returned unchanged.
+
+    Args:
+        abbreviated: Full or abbreviated message ID
+
+    Returns:
+        The full message ID
+
+    Raises:
+        ValueError: If no match found or if the prefix is ambiguous
+    """
+    # 1. Try exact match first (handles full IDs efficiently)
+    quoted = _quote_for_notmuch(abbreviated)
+    stdout, _ = run_command(["notmuch", "count", f'id:"{quoted}"'])
+    if int(stdout.decode().strip()) == 1:
+        return abbreviated  # Already a valid full ID
+
+    # 2. Prefix match via regex (use --limit=2 to detect ambiguity without full scan)
+    escaped = re.escape(abbreviated)
+    stdout, _ = run_command(
+        ["notmuch", "search", "--output=messages", "--limit=2", f"mid:/^{escaped}/"]
+    )
+    matches = []
+    for line in stdout.decode(errors="replace").strip().split("\n"):
+        if line:
+            # Output format: id:MESSAGE_ID
+            matches.append(line[3:] if line.startswith("id:") else line)
+
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise ValueError(
+            f"Ambiguous: '{abbreviated}' matches {matches[0]} and {matches[1]}"
+        )
+    else:
+        raise ValueError(f"No message found matching '{abbreviated}'")
+
+
+def _resolve_id_in_query(query: str) -> str:
+    """Replace abbreviated id:/mid: in query with resolved full ID.
+
+    Handles both quoted and unquoted forms: id:XXX, id:"XXX", mid:XXX, mid:"XXX"
+    """
+    pattern = r'(?:id|mid):(?:"([^"]+)"|([^\s\)\]]+))'
+
+    def replace_id(match: re.Match) -> str:
+        abbreviated = match.group(1) or match.group(2)
+        full_id = _resolve_message_id(abbreviated)
+        return f'id:"{full_id}"'
+
+    return re.sub(pattern, replace_id, query)
+
+
+class EmailContent(BaseModel, extra="forbid"):
     """Structured representation of a single email's content."""
 
-    id: str = Field(..., description="The unique message ID of the email.")
+    id: str = Field(
+        ...,
+        description="Message ID. Abbreviated prefixes are supported for queries.",
+    )
     subject: str = Field(..., description="The subject line of the email.")
     from_address: str = Field(..., description="The sender's email address and name.")
     to_address: str = Field(
@@ -157,6 +222,16 @@ class EmailContent(BaseModel):
         default=None, description="All MIME parts in the message (full mode only)."
     )
 
+    def model_dump(self, **kwargs) -> dict:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
+
+    def model_dump_json(self, **kwargs) -> str:
+        """Override to exclude None values by default (reduces response size)."""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump_json(**kwargs)
+
 
 class TagResult(BaseModel):
     """Result of tag operation."""
@@ -188,7 +263,10 @@ class MoveResult(BaseModel):
 class SearchResult(BaseModel):
     """Structured search result for a single email."""
 
-    id: str = Field(..., description="The unique message ID of the email.")
+    id: str = Field(
+        ...,
+        description="Message ID. Abbreviated prefixes are supported for queries.",
+    )
     subject: str = Field(..., description="The subject line of the email.")
     from_address: str = Field(..., description="The sender's email address and name.")
     to_address: str = Field(
@@ -209,44 +287,46 @@ def _search_emails(
     offset: int = 0,
     include_excluded: bool = False,
 ) -> list[SearchResult]:
-    """Internal search implementation."""
-    cmd = [
-        "notmuch",
-        "search",
-        "--format=json",
-        "--output=messages",
-        "--limit",
-        str(limit),
-        "--offset",
-        str(offset),
-    ]
+    """Internal search implementation using notmuch show --body=false for efficiency."""
+    cmd = ["notmuch", "show", "--format=json", "--body=false"]
     if include_excluded:
         cmd.append("--exclude=false")
+    cmd.extend(["--limit", str(limit), "--offset", str(offset)])
     cmd.append(query)
     stdout, _ = run_command(cmd)
-    message_ids = json.loads(stdout.decode().strip())
+
+    # notmuch show returns nested structure: [[thread1], [thread2], ...]
+    # Each thread contains messages: [msg1, [replies...], msg2, ...]
+    threads = json.loads(stdout.decode().strip())
 
     results = []
-    for message_id in message_ids:
-        msg = _get_message_from_raw_source(message_id)
-
-        # Get tags
-        tag_cmd = ["notmuch", "search", "--output=tags", f"id:{message_id}"]
-        tag_stdout, _ = run_command(tag_cmd)
-        tags = [t.strip() for t in tag_stdout.decode().strip().split("\n") if t.strip()]
-
-        results.append(
-            SearchResult(
-                id=message_id,
-                subject=msg.get("Subject", "") or "[No Subject]",
-                from_address=msg.get("From", "") or "[Unknown Sender]",
-                to_address=msg.get("To", ""),
-                date=msg.get("Date", ""),
-                tags=tags,
-            )
-        )
+    for thread in threads:
+        for item in thread:
+            # item is either a message dict or a list of replies
+            _collect_messages_from_thread(item, results)
 
     return results
+
+
+def _collect_messages_from_thread(item, results: list[SearchResult]) -> None:
+    """Recursively collect messages from notmuch thread structure."""
+    if isinstance(item, dict):
+        # This is a message
+        headers = item.get("headers", {})
+        results.append(
+            SearchResult(
+                id=item.get("id", ""),
+                subject=headers.get("Subject", "") or "[No Subject]",
+                from_address=headers.get("From", "") or "[Unknown Sender]",
+                to_address=headers.get("To", ""),
+                date=headers.get("Date", ""),
+                tags=item.get("tags", []),
+            )
+        )
+    elif isinstance(item, list):
+        # This is a list of replies or nested messages
+        for sub_item in item:
+            _collect_messages_from_thread(sub_item, results)
 
 
 def _get_message_from_raw_source(message_id: str) -> EmailMessage:
@@ -368,10 +448,12 @@ def _show_email(
                 msg, message_id, full_body_content, body_format, save_path
             )
 
-        # Summary mode: truncate for response (after saving full)
+        # Determine body content for response
         body_content = full_body_content
         is_truncated = None
         original_length = None
+
+        # Summary mode: truncate for response
         if mode == "summary" and len(full_body_content) > 2000:
             original_length = len(full_body_content)
             body_content = full_body_content[:2000]
@@ -397,10 +479,8 @@ def _show_email(
             original_length=original_length,
         )
 
-        # Full mode: add preservation fields
+        # Full mode: add metadata
         if mode == "full":
-            email_content.body_raw = extraction.body_raw or None
-            email_content.body_html_raw = extraction.body_html_raw or None
             email_content.parts_manifest = extraction.parts_manifest or None
             if segment_quotes and extraction.segments:
                 email_content.segments = extraction.segments
@@ -741,12 +821,12 @@ def _list_accounts(config_file: str = "") -> list[str]:
 
 
 @mcp.tool(
-    description="""Search emails using notmuch query language. Supports sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+    description="""Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
 )
 def read(
     query: str = Field(
         default="",
-        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'.",
+        description="A valid notmuch search query. Examples: 'from:boss', 'tag:inbox and date:2024-01-01..', 'subject:\"Project X\"'. Supports abbreviated message IDs (e.g., 'id:CAHgsCeb' resolves to full ID if unique).",
     ),
     limit: int = Field(
         default=100,
@@ -784,75 +864,29 @@ def read(
         description="For full mode: include quote/signature segmentation in response (requires talon).",
     ),
 ) -> list[SearchResult] | list[EmailContent] | list[str] | list[Contact]:
-    """Unified read tool for emails.
+    """Unified read tool for emails."""
+    from mcp_handley_lab.email.notmuch.shared import read as _read
 
-    Operations based on parameters:
-    - list_type set: Returns list of tags/folders/accounts
-    - query starts with "contact:": Searches contacts (e.g., "contact:alice")
-    - query + mode="headers"/"summary": Search with lightweight results
-    - query + mode="full": Full email content display
-
-    Returns different types based on operation.
-    """
-    # Handle list operations
-    if list_type:
-        if list_type == "tags":
-            return _list_tags()
-        elif list_type == "folders":
-            return _list_folders()
-        elif list_type == "accounts":
-            return _list_accounts()
-        else:
-            raise ValueError(
-                f"Unknown list_type: {list_type}. Use 'tags', 'folders', or 'accounts'."
-            )
-
-    # Handle contact search
-    if query.startswith("contact:"):
-        contact_query = query[8:].strip()
-        if not contact_query:
-            raise ValueError("Contact query required after 'contact:'")
-        return _find_contacts(contact_query, max_results)
-
-    # Validate query for email operations
-    if not query:
-        raise ValueError(
-            "Query required for email search/show. Use list_type for listing, or 'contact:name' for contacts."
-        )
-
-    # For headers/summary mode, use lightweight search
-    if mode in ("headers", "summary"):
-        # Get search results first
-        results = _search_emails(query, limit, offset, include_excluded)
-        if mode == "headers":
-            return results
-        # For summary, get truncated content (save_to supported in all modes)
-        return _show_email(
-            query,
-            mode="summary",
-            limit=limit,
-            include_excluded=include_excluded,
-            save_to=save_attachments_to,
-        )
-
-    # Full content display
-    return _show_email(
-        query,
-        mode=mode,
+    return _read(
+        query=query,
         limit=limit,
+        offset=offset,
         include_excluded=include_excluded,
-        save_to=save_attachments_to,
+        mode=mode,
+        save_attachments_to=save_attachments_to,
+        list_type=list_type,
+        max_results=max_results,
         segment_quotes=segment_quotes,
     )
 
 
 @mcp.tool(
-    description="""Update email metadata. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
+    description="""Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder)."""
 )
 def update(
     message_ids: list[str] = Field(
         default_factory=list,
-        description="A list of notmuch message IDs for the emails to update.",
+        description="A list of notmuch message IDs for the emails to update. Supports abbreviated IDs.",
     ),
     action: str = Field(
         ...,
@@ -871,33 +905,13 @@ def update(
         description="For action='move': destination folder (e.g., 'Trash', 'Archive').",
     ),
 ) -> TagResult | MoveResult:
-    """Unified update tool for email metadata.
+    """Unified update tool for email metadata."""
+    from mcp_handley_lab.email.notmuch.shared import update as _update
 
-    Actions:
-    - tag: Add/remove tags from emails
-    - move: Move emails to a maildir folder
-    """
-    if action == "tag":
-        if not message_ids:
-            raise ValueError("At least one message_id required for tag action")
-        if len(message_ids) == 1:
-            return _tag_email(message_ids[0], add_tags, remove_tags)
-        # Bulk tag operation
-        results = []
-        for mid in message_ids:
-            results.append(_tag_email(mid, add_tags, remove_tags))
-        # Return summary result
-        return TagResult(
-            message_id=f"{len(message_ids)} messages",
-            added_tags=add_tags,
-            removed_tags=remove_tags,
-        )
-
-    if action == "move":
-        if not message_ids:
-            raise ValueError("At least one message_id required for move action")
-        if not destination_folder:
-            raise ValueError("destination_folder required for move action")
-        return _move_emails(message_ids, destination_folder)
-
-    raise ValueError(f"Unknown action: {action}. Use 'tag' or 'move'.")
+    return _update(
+        message_ids=message_ids or None,
+        action=action,
+        add_tags=add_tags or None,
+        remove_tags=remove_tags or None,
+        destination_folder=destination_folder,
+    )

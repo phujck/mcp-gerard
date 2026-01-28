@@ -2,7 +2,7 @@
 
 import base64
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -10,12 +10,10 @@ from mcp_handley_lab.llm.common import (
     determine_mime_type,
     get_gemini_safe_mime_type,
     get_session_id,
-    handle_agent_memory,
     is_gemini_supported_mime_type,
     is_text_file,
     load_prompt_text,
     read_file_smart,
-    resolve_file_content,
     resolve_image_data,
 )
 
@@ -23,36 +21,17 @@ from mcp_handley_lab.llm.common import (
 class TestGetSessionId:
     """Test session ID generation."""
 
-    def test_get_session_id_with_valid_context(self):
-        """Test session ID with valid MCP context."""
-        mock_mcp = Mock()
-        mock_context = Mock()
-        mock_context.client_id = "test_client_123"
-        mock_mcp.get_context.return_value = mock_context
-
-        result = get_session_id(mock_mcp, "openai")
-        assert result == "_session_openai_test_client_123"
-
-    def test_get_session_id_no_client_id(self):
-        """Test session ID when context has no client_id."""
-        mock_mcp = Mock()
-        mock_context = Mock()
-        mock_context.client_id = None
-        mock_mcp.get_context.return_value = mock_context
-
+    def test_get_session_id_with_provider(self):
+        """Test session ID with specified provider."""
         with patch("os.getpid", return_value=12345):
-            result = get_session_id(mock_mcp, "gemini")
-            assert result == "_session_gemini_12345"
+            result = get_session_id("openai")
+            assert result == "_session_openai_12345"
 
     def test_get_session_id_default_provider(self):
         """Test session ID with default provider."""
-        mock_mcp = Mock()
-        mock_context = Mock()
-        mock_context.client_id = "test_client_456"
-        mock_mcp.get_context.return_value = mock_context
-
-        result = get_session_id(mock_mcp)
-        assert result == "_session_default_test_client_456"
+        with patch("os.getpid", return_value=67890):
+            result = get_session_id()
+            assert result == "_session_default_67890"
 
 
 class TestDetermineMimeType:
@@ -259,41 +238,6 @@ class TestGeminiMimeTypeSupport:
         assert result == expected_mime
 
 
-class TestResolveFileContent:
-    """Test file content resolution."""
-
-    def test_resolve_file_content_direct_string(self):
-        """Test resolving direct string content."""
-        content, path = resolve_file_content("Direct string content")
-        assert content == "Direct string content"
-        assert path is None
-
-    def test_resolve_file_content_dict_with_content(self):
-        """Test resolving dict with content key."""
-        content, path = resolve_file_content({"content": "Dict content"})
-        assert content == "Dict content"
-        assert path is None
-
-    def test_resolve_file_content_dict_with_path(self):
-        """Test resolving dict with file path.
-
-        Returns path without checking existence - errors happen at read time.
-        """
-        content, path = resolve_file_content({"path": "/tmp/test.txt"})
-        assert content is None
-        assert path == Path("/tmp/test.txt")
-
-    def test_resolve_file_content_invalid_input(self):
-        """Test resolving invalid input types."""
-        content, path = resolve_file_content({"invalid": "key"})
-        assert content is None
-        assert path is None
-
-        content, path = resolve_file_content(123)  # Invalid type
-        assert content is None
-        assert path is None
-
-
 class TestReadFileSmart:
     """Test smart file reading."""
 
@@ -404,64 +348,6 @@ class TestResolveImageData:
 
         with pytest.raises(ValueError, match="Invalid image format"):
             resolve_image_data(123)
-
-
-class TestHandleAgentMemory:
-    """Test agent memory handling."""
-
-    @patch("mcp_handley_lab.llm.common.memory_manager")
-    def test_handle_agent_memory_stores_messages(self, mock_memory_manager):
-        """Test that handle_agent_memory stores user and assistant messages."""
-        metadata = {"input_tokens": 100, "output_tokens": 50, "cost": 0.001}
-        handle_agent_memory(
-            agent_name="test_agent",
-            user_prompt="Test prompt",
-            response_text="Test response",
-            provider="gemini",
-            model="gemini-2.5-pro",
-            metadata=metadata,
-        )
-
-        # User message: no metadata
-        mock_memory_manager.add_message.assert_any_call(
-            "test_agent",
-            "user",
-            "Test prompt",
-            provider="gemini",
-            model="gemini-2.5-pro",
-        )
-        # Assistant message: full metadata
-        mock_memory_manager.add_message.assert_any_call(
-            "test_agent",
-            "assistant",
-            "Test response",
-            provider="gemini",
-            model="gemini-2.5-pro",
-            metadata=metadata,
-        )
-
-    @patch("mcp_handley_lab.llm.common.memory_manager")
-    def test_handle_agent_memory_with_provider_attribution(self, mock_memory_manager):
-        """Test that provider and model are stored with messages."""
-        metadata = {"input_tokens": 100, "output_tokens": 50, "cost": 0.001}
-        handle_agent_memory(
-            agent_name="test_agent",
-            user_prompt="Test prompt",
-            response_text="Test response",
-            provider="openai",
-            model="gpt-4o",
-            metadata=metadata,
-        )
-
-        # Check assistant message has provider/model and metadata
-        mock_memory_manager.add_message.assert_any_call(
-            "test_agent",
-            "assistant",
-            "Test response",
-            provider="openai",
-            model="gpt-4o",
-            metadata=metadata,
-        )
 
 
 class TestLoadPromptText:

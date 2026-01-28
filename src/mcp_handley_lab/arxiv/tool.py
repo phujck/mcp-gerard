@@ -267,7 +267,7 @@ def _build_download_result(
 
 
 @mcp.tool(
-    description="Downloads an ArXiv paper by ID in various formats ('src', 'pdf', 'tex') or lists its source files."
+    description="Downloads an ArXiv paper by ID in various formats ('src', 'pdf', 'tex') or lists its source files. Use search to find arxiv IDs by author or topic."
 )
 def download(
     arxiv_id: str = Field(
@@ -396,7 +396,7 @@ def _apply_field_filtering(
 
 
 @mcp.tool(
-    description="Searches ArXiv for papers. Supports advanced syntax (e.g., 'au:Hinton', 'ti:attention'). Use include_fields to limit output for context window management."
+    description="Searches ArXiv for papers. Returns arxiv IDs for use with download. Supports advanced syntax (e.g., 'au:Hinton', 'ti:attention'). Use include_fields to limit output for context window management."
 )
 def search(
     query: str = Field(

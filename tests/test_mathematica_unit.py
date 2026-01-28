@@ -15,9 +15,13 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from mcp_handley_lab.mathematica.tool import (
+    EvaluationCancelledError,
+    _get_kernel_pid,
     _get_session,
     _preprocess_percent_references,
     _result_history,
+    handle_cancellation,
+    kernel_interrupt_handler,
 )
 
 
@@ -211,15 +215,19 @@ class TestSessionManagement:
     """Test session management singleton behavior."""
 
     @patch("mcp_handley_lab.mathematica.tool.WolframLanguageSession")
+    @patch("mcp_handley_lab.mathematica.tool._find_wolfram_kernel")
     @patch("mcp_handley_lab.mathematica.tool._session", None)  # Start with None
-    def test_get_session_singleton(self, mock_session_class):
+    def test_get_session_singleton(self, mock_find_kernel, mock_session_class):
         """Test that _get_session returns the same instance on multiple calls."""
         import mcp_handley_lab.mathematica.tool as tool_module
 
         original_session = tool_module._session
+        original_kernel_path = tool_module._kernel_path
         tool_module._session = None  # Force reset
+        tool_module._kernel_path = None  # Force reset
 
         try:
+            mock_find_kernel.return_value = "/fake/path/to/WolframKernel"
             mock_instance = Mock()
             # Mock the evaluate method to avoid errors during session initialization
             mock_instance.evaluate.return_value = None
@@ -235,10 +243,214 @@ class TestSessionManagement:
             assert session1 is mock_instance
             # Constructor should only be called once
             mock_session_class.assert_called_once()
+            mock_find_kernel.assert_called_once()
 
         finally:
             # Restore original state
             tool_module._session = original_session
+            tool_module._kernel_path = original_kernel_path
+
+
+class TestKernelPidDiscovery:
+    """Test the kernel PID discovery functionality."""
+
+    def test_get_kernel_pid_no_session(self):
+        """Test PID discovery with None session."""
+        assert _get_kernel_pid(None) is None
+
+    def test_get_kernel_pid_session_kernel_pid(self):
+        """Test PID discovery via session.kernel.pid."""
+        mock_session = Mock()
+        mock_session.kernel.pid = 12345
+        assert _get_kernel_pid(mock_session) == 12345
+
+    def test_get_kernel_pid_session_kernel_proc_pid(self):
+        """Test PID discovery via session.kernel.kernel_proc.pid."""
+        mock_session = Mock()
+        mock_session.kernel.pid = None
+        mock_session.kernel.kernel_proc.pid = 67890
+        assert _get_kernel_pid(mock_session) == 67890
+
+    def test_get_kernel_pid_session_controller_pid(self):
+        """Test PID discovery via session.controller.pid."""
+        mock_session = Mock()
+        del mock_session.kernel  # No kernel attribute
+        mock_session.controller.pid = 11111
+        assert _get_kernel_pid(mock_session) == 11111
+
+    def test_get_kernel_pid_session_controller_kernel_proc_pid(self):
+        """Test PID discovery via session.controller.kernel_proc.pid."""
+        mock_session = Mock()
+        del mock_session.kernel  # No kernel attribute
+        mock_session.controller.pid = None
+        mock_session.controller.kernel_proc.pid = 22222
+        assert _get_kernel_pid(mock_session) == 22222
+
+    def test_get_kernel_pid_no_valid_path(self):
+        """Test PID discovery when no valid path exists."""
+        mock_session = Mock()
+        # Remove all possible PID attributes
+        del mock_session.kernel
+        del mock_session.controller
+        assert _get_kernel_pid(mock_session) is None
+
+
+class TestHandleCancellationDecorator:
+    """Test the @handle_cancellation decorator."""
+
+    def test_handle_cancellation_normal_execution(self):
+        """Test decorator allows normal execution."""
+
+        @handle_cancellation
+        def test_function(expression="test", output_format="Raw"):
+            return {"success": True, "expression": expression}
+
+        result = test_function("x + 1")
+        assert result["success"] is True
+        assert result["expression"] == "x + 1"
+
+    def test_handle_cancellation_catches_cancellation_error(self):
+        """Test decorator catches EvaluationCancelledError."""
+
+        @handle_cancellation
+        def test_function(expression="test", output_format="Raw"):
+            raise EvaluationCancelledError("Test cancellation")
+
+        result = test_function("x + 1", output_format="InputForm")
+        assert result.success is False
+        assert result.error == "Test cancellation"
+        assert result.note == "Evaluation was cancelled by user interrupt (ESC)"
+        assert result.expression == "x + 1"
+        assert result.format_used == "InputForm"
+
+    def test_handle_cancellation_extracts_latex_expression(self):
+        """Test decorator extracts latex_expression parameter."""
+
+        @handle_cancellation
+        def test_function(latex_expression="test", output_format="Raw"):
+            raise EvaluationCancelledError("Test cancellation")
+
+        result = test_function(latex_expression="\\frac{1}{2}")
+        assert result.expression == "\\frac{1}{2}"
+
+    def test_handle_cancellation_extracts_operation(self):
+        """Test decorator extracts operation parameter."""
+
+        @handle_cancellation
+        def test_function(operation="test", output_format="Raw"):
+            raise EvaluationCancelledError("Test cancellation")
+
+        result = test_function(operation="Factor")
+        assert result.expression == "Factor"
+
+    def test_handle_cancellation_fallback_to_args(self):
+        """Test decorator falls back to positional args."""
+
+        @handle_cancellation
+        def test_function(expr):
+            raise EvaluationCancelledError("Test cancellation")
+
+        result = test_function("sin(x)")
+        assert result.expression == "sin(x)"
+
+
+class TestKernelInterruptHandler:
+    """Test the kernel interrupt handler context manager."""
+
+    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("signal.getsignal")
+    @patch("signal.signal")
+    def test_kernel_interrupt_handler_no_pid(
+        self, mock_signal_set, mock_signal_get, mock_get_pid
+    ):
+        """Test context manager when no PID is found."""
+        mock_get_pid.return_value = None
+        mock_session = Mock()
+
+        with kernel_interrupt_handler(mock_session):
+            pass
+
+        # Should not install signal handler
+        mock_signal_set.assert_not_called()
+
+    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("signal.getsignal")
+    @patch("signal.signal")
+    def test_kernel_interrupt_handler_with_pid(
+        self, mock_signal_set, mock_signal_get, mock_get_pid
+    ):
+        """Test context manager installs and restores signal handler."""
+        mock_get_pid.return_value = 12345
+        mock_original_handler = Mock()
+        mock_signal_get.return_value = mock_original_handler
+        mock_session = Mock()
+
+        with kernel_interrupt_handler(mock_session):
+            pass
+
+        # Should install and restore signal handler
+        assert mock_signal_set.call_count == 2
+        # First call installs new handler, second restores original
+        mock_signal_set.assert_any_call(2, mock_original_handler)  # SIGINT = 2
+
+    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("signal.getsignal")
+    @patch("signal.signal")
+    @patch("os.kill")
+    def test_kernel_interrupt_handler_signal_execution(
+        self, mock_kill, mock_signal_set, mock_signal_get, mock_get_pid
+    ):
+        """Test that signal handler sends SIGINT to kernel."""
+        mock_get_pid.return_value = 12345
+        mock_signal_get.return_value = Mock()
+        mock_session = Mock()
+
+        captured_handler = None
+
+        def capture_handler(signum, handler):
+            nonlocal captured_handler
+            if signum == 2:  # SIGINT
+                captured_handler = handler
+
+        mock_signal_set.side_effect = capture_handler
+
+        with kernel_interrupt_handler(mock_session):
+            # Simulate SIGINT being sent
+            if captured_handler:
+                captured_handler(2, None)  # signum=2 (SIGINT), frame=None
+
+        # Should have sent SIGINT to kernel PID
+        mock_kill.assert_called_once_with(12345, 2)  # PID, SIGINT
+
+    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("signal.getsignal")
+    @patch("signal.signal")
+    @patch("os.kill")
+    def test_kernel_interrupt_handler_process_not_found(
+        self, mock_kill, mock_signal_set, mock_signal_get, mock_get_pid
+    ):
+        """Test signal handler handles ProcessLookupError gracefully."""
+        mock_get_pid.return_value = 99999
+        mock_signal_get.return_value = Mock()
+        mock_session = Mock()
+        mock_kill.side_effect = ProcessLookupError("Process not found")
+
+        captured_handler = None
+
+        def capture_handler(signum, handler):
+            nonlocal captured_handler
+            if signum == 2:
+                captured_handler = handler
+
+        mock_signal_set.side_effect = capture_handler
+
+        with kernel_interrupt_handler(mock_session):
+            # Simulate SIGINT being sent
+            if captured_handler:
+                captured_handler(2, None)
+
+        # Should have attempted to kill process but handled error gracefully
+        mock_kill.assert_called_once_with(99999, 2)
 
 
 if __name__ == "__main__":

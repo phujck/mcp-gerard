@@ -13,6 +13,11 @@ from mcp_handley_lab.microsoft.word.package import WordPackage
 from mcp_handley_lab.microsoft.word.tool import mcp
 
 
+def _ops(operations: list[dict]) -> str:
+    """Helper to convert operation list to ops JSON string."""
+    return json.dumps(operations)
+
+
 @pytest.fixture
 async def sample_docx():
     """Create a sample Word document for testing using MCP tool."""
@@ -21,42 +26,15 @@ async def sample_docx():
 
     # Create document with first heading (replaces default empty paragraph)
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Test Document",
             "heading_level": 1,
         },
     )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(path),
-            "operation": "append",
-            "content_data": "This is the first paragraph.",
-        },
-    )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(path),
-            "operation": "append",
-            "content_type": "heading",
-            "content_data": "Section Two",
-            "heading_level": 2,
-        },
-    )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(path),
-            "operation": "append",
-            "content_data": "This is the second paragraph.",
-        },
-    )
-    # Add a 2x2 table with data
+    # Add remaining content in a batch
     table_data = json.dumps(
         [
             ["Header 1", "Header 2"],
@@ -67,9 +45,23 @@ async def sample_docx():
         "edit",
         {
             "file_path": str(path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": table_data,
+            "ops": _ops(
+                [
+                    {"op": "append", "content_data": "This is the first paragraph."},
+                    {
+                        "op": "append",
+                        "content_type": "heading",
+                        "content_data": "Section Two",
+                        "heading_level": 2,
+                    },
+                    {"op": "append", "content_data": "This is the second paragraph."},
+                    {
+                        "op": "append",
+                        "content_type": "table",
+                        "content_data": table_data,
+                    },
+                ]
+            ),
         },
     )
 
@@ -79,7 +71,7 @@ async def sample_docx():
 
 async def create_empty_docx(path: Path) -> None:
     """Helper to create an empty document using MCP tool."""
-    await mcp.call_tool("edit", {"file_path": str(path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(path)})
 
 
 def create_pkg_with_paragraph(text: str = "Test paragraph") -> WordPackage:
@@ -202,9 +194,17 @@ async def test_edit_append_paragraph(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "append",
-            "content_type": "paragraph",
-            "content_data": "New paragraph at the end",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "paragraph",
+                            "content_data": "New paragraph at the end",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -229,8 +229,16 @@ async def test_edit_delete(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete",
-            "target_id": target_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete",
+                            "target_id": target_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -253,10 +261,18 @@ async def test_edit_insert_before(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_before",
-            "target_id": target_id,
-            "content_type": "paragraph",
-            "content_data": "Inserted before",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_before",
+                            "target_id": target_id,
+                            "content_type": "paragraph",
+                            "content_data": "Inserted before",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -275,9 +291,17 @@ async def test_edit_replace(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "replace",
-            "target_id": para_block["id"],
-            "content_data": "Replaced content",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "replace",
+                            "target_id": para_block["id"],
+                            "content_data": "Replaced content",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -291,9 +315,17 @@ async def test_edit_append_table(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": table_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": table_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -309,11 +341,8 @@ async def test_edit_create_empty():
 
     try:
         _, edit_result = await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(new_path),
-                "operation": "create",
-            },
+            "create",
+            {"file_path": str(new_path)},
         )
         assert edit_result["success"]
         assert new_path.exists()
@@ -337,10 +366,9 @@ async def test_edit_create_with_content():
 
     try:
         _, edit_result = await mcp.call_tool(
-            "edit",
+            "create",
             {
                 "file_path": str(new_path),
-                "operation": "create",
                 "content_type": "heading",
                 "content_data": "My New Document",
                 "heading_level": 1,
@@ -365,12 +393,8 @@ async def test_edit_create_with_content():
 async def test_edit_create_overwrites_existing(sample_docx):
     """Test that create overwrites an existing file (no defensive check)."""
     _, edit_result = await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(sample_docx),
-            "operation": "create",
-            "content_data": "New content",
-        },
+        "create",
+        {"file_path": str(sample_docx), "content_data": "New content"},
     )
     assert edit_result["success"]
     # Verify new content
@@ -440,11 +464,19 @@ async def test_edit_cell(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_cell",
-            "target_id": table_id,
-            "row": 1,
-            "col": 1,
-            "content_data": "Updated Header",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_cell",
+                            "target_id": table_id,
+                            "row": 1,
+                            "col": 1,
+                            "content_data": "Updated Header",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -479,18 +511,27 @@ async def test_edit_cell_out_of_range(sample_docx):
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    with pytest.raises(ToolError, match="out of range"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "edit_cell",
-                "target_id": table_block["id"],
-                "row": 99,
-                "col": 1,
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_cell",
+                            "target_id": table_block["id"],
+                            "row": 99,
+                            "col": 1,
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "out of range" in edit_result["results"][0]["error"]
 
 
 @pytest.mark.asyncio
@@ -501,18 +542,26 @@ async def test_edit_cell_on_non_table(sample_docx):
     )
     para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
 
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "edit_cell",
-                "target_id": para_block["id"],
-                "row": 1,
-                "col": 1,
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_cell",
+                            "target_id": para_block["id"],
+                            "row": 1,
+                            "col": 1,
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 @pytest.fixture
@@ -596,10 +645,18 @@ async def test_edit_run_text(formatted_docx):
         "edit",
         {
             "file_path": str(formatted_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 1,
-            "content_data": "strongly emphasized, ",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 1,
+                            "content_data": "strongly emphasized, ",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -639,10 +696,18 @@ async def test_edit_run_formatting(formatted_docx):
         "edit",
         {
             "file_path": str(formatted_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": '{"bold": true, "underline": true}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": '{"bold": true, "underline": true}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -669,17 +734,26 @@ async def test_edit_run_out_of_range(formatted_docx):
     )
     para_block = next(b for b in blocks_result["blocks"] if b["type"] == "paragraph")
 
-    with pytest.raises(ToolError, match="out of range"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(formatted_docx),
-                "operation": "edit_run",
-                "target_id": para_block["id"],
-                "run_index": 99,
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(formatted_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 99,
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "out of range" in edit_result["results"][0]["error"]
 
 
 @pytest.mark.asyncio
@@ -709,17 +783,25 @@ async def test_edit_run_on_table_fails(sample_docx):
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "edit_run",
-                "target_id": table_block["id"],
-                "run_index": 0,
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": table_block["id"],
+                            "run_index": 0,
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 @pytest.mark.asyncio
@@ -807,9 +889,17 @@ async def test_add_comment_to_paragraph(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": para_block["id"],
-            "content_data": "This is a test comment",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": para_block["id"],
+                            "content_data": "This is a test comment",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -837,11 +927,19 @@ async def test_add_comment_with_author(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": para_block["id"],
-            "content_data": "Review needed",
-            "author": "Test Author",
-            "initials": "TA",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": para_block["id"],
+                            "content_data": "Review needed",
+                            "author": "Test Author",
+                            "initials": "TA",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -862,16 +960,24 @@ async def test_add_comment_to_table_fails(sample_docx):
     )
     table_block = next(b for b in blocks_result["blocks"] if b["type"] == "table")
 
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "add_comment",
-                "target_id": table_block["id"],
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": table_block["id"],
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 # --- Headers/Footers tests ---
@@ -897,9 +1003,17 @@ async def test_set_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_header",
-            "section_index": 0,
-            "content_data": "My Custom Header",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header",
+                            "section_index": 0,
+                            "content_data": "My Custom Header",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -919,9 +1033,17 @@ async def test_set_footer(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_footer",
-            "section_index": 0,
-            "content_data": "Page Footer Text",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_footer",
+                            "section_index": 0,
+                            "content_data": "Page Footer Text",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -937,16 +1059,25 @@ async def test_set_footer(sample_docx):
 @pytest.mark.asyncio
 async def test_set_header_invalid_section(sample_docx):
     """Test that setting header on invalid section fails."""
-    with pytest.raises(ToolError, match="out of range"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "set_header",
-                "section_index": 99,
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header",
+                            "section_index": 99,
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "out of range" in edit_result["results"][0]["error"]
 
 
 # --- Page Setup tests ---
@@ -974,13 +1105,21 @@ async def test_read_page_setup_multi_section():
     """Test reading page setup with multiple sections including section breaks."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         doc_path = Path(f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "Section 0 content",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Section 0 content",
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add a section break (creates section 1)
@@ -988,16 +1127,32 @@ async def test_read_page_setup_multi_section():
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "add_section",
-            "content_data": "new_page",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_section",
+                            "content_data": "new_page",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "Section 1 content",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Section 1 content",
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add another section break (creates section 2)
@@ -1005,16 +1160,32 @@ async def test_read_page_setup_multi_section():
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "add_section",
-            "content_data": "continuous",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_section",
+                            "content_data": "continuous",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "Section 2 content",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Section 2 content",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1046,9 +1217,17 @@ async def test_set_margins(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_margins",
-            "section_index": 0,
-            "formatting": '{"top": 0.5, "bottom": 0.5, "left": 0.75, "right": 0.75}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_margins",
+                            "section_index": 0,
+                            "formatting": '{"top": 0.5, "bottom": 0.5, "left": 0.75, "right": 0.75}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1078,9 +1257,17 @@ async def test_set_orientation_landscape(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_orientation",
-            "section_index": 0,
-            "content_data": "landscape",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_orientation",
+                            "section_index": 0,
+                            "content_data": "landscape",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1100,15 +1287,23 @@ async def test_set_orientation_landscape(sample_docx):
 @pytest.mark.asyncio
 async def test_set_margins_missing_formatting(sample_docx):
     """Test that set_margins without formatting fails."""
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "set_margins",
-                "section_index": 0,
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_margins",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 # --- File error handling tests ---
@@ -1130,15 +1325,23 @@ async def test_read_missing_file():
 @pytest.mark.asyncio
 async def test_edit_missing_file():
     """Test that editing a missing file raises error."""
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": "/nonexistent/path/to/file.docx",
-                "operation": "append",
-                "content_data": "Should fail",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": "/nonexistent/path/to/file.docx",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 @pytest.mark.asyncio
@@ -1169,12 +1372,8 @@ async def test_create_in_new_directory():
         # Now fails because we don't create parent directories
         with pytest.raises(ToolError):
             await mcp.call_tool(
-                "edit",
-                {
-                    "file_path": str(new_file),
-                    "operation": "create",
-                    "content_data": "Test content",
-                },
+                "create",
+                {"file_path": str(new_file), "content_data": "Test content"},
             )
 
 
@@ -1200,15 +1399,23 @@ async def docx_with_image(sample_image):
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
     # Create document with heading
-    await mcp.call_tool("edit", {"file_path": str(path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(path)})
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(path),
-            "operation": "append",
-            "content_type": "heading",
-            "content_data": "Document with Image",
-            "heading_level": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Document with Image",
+                            "heading_level": 1,
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add a paragraph that will contain the image
@@ -1216,8 +1423,16 @@ async def docx_with_image(sample_image):
         "edit",
         {
             "file_path": str(path),
-            "operation": "append",
-            "content_data": "",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "",
+                        }
+                    ]
+                )
+            ),
         },
     )
     para_id = append_result["element_id"]
@@ -1226,10 +1441,18 @@ async def docx_with_image(sample_image):
         "edit",
         {
             "file_path": str(path),
-            "operation": "insert_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0, "height": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0, "height": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add text after image
@@ -1237,8 +1460,16 @@ async def docx_with_image(sample_image):
         "edit",
         {
             "file_path": str(path),
-            "operation": "append",
-            "content_data": "Text after image.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Text after image.",
+                        }
+                    ]
+                )
+            ),
         },
     )
     yield path
@@ -1289,10 +1520,18 @@ async def test_insert_image(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_image",
-            "target_id": para_block["id"],
-            "content_data": str(sample_image),
-            "formatting": '{"width": 2.0, "height": 1.5}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para_block["id"],
+                            "content_data": str(sample_image),
+                            "formatting": '{"width": 2.0, "height": 1.5}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1323,8 +1562,16 @@ async def test_delete_image(docx_with_image):
         "edit",
         {
             "file_path": str(docx_with_image),
-            "operation": "delete_image",
-            "target_id": image_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_image",
+                            "target_id": image_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1344,7 +1591,7 @@ async def test_image_id_format(sample_image):
 
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     # Get paragraph ID to insert image
     _, blocks = await mcp.call_tool(
         "read", {"file_path": str(doc_path), "scope": "blocks"}
@@ -1354,10 +1601,18 @@ async def test_image_id_format(sample_image):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "insert_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1378,7 +1633,7 @@ async def test_multiple_same_images(sample_image):
     """Test that same image appearing twice has different occurrence numbers."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     # Get first paragraph and add image
     _, blocks = await mcp.call_tool(
         "read", {"file_path": str(doc_path), "scope": "blocks"}
@@ -1388,26 +1643,45 @@ async def test_multiple_same_images(sample_image):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "insert_image",
-            "target_id": para1_id,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para1_id,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add second paragraph with same image
     _, append_result = await mcp.call_tool(
         "edit",
-        {"file_path": str(doc_path), "operation": "append", "content_data": ""},
+        {
+            "file_path": str(doc_path),
+            "ops": (_ops([{"op": "append", "content_data": ""}])),
+        },
     )
     para2_id = append_result["element_id"]
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "insert_image",
-            "target_id": para2_id,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para2_id,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1430,15 +1704,23 @@ async def test_multiple_same_images(sample_image):
 @pytest.mark.asyncio
 async def test_delete_image_invalid_id(sample_docx):
     """Test that deleting with invalid image ID fails."""
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "delete_image",
-                "target_id": "image_nonexist_0",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_image",
+                            "target_id": "image_nonexist_0",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 @pytest.mark.asyncio
@@ -1446,13 +1728,21 @@ async def test_read_images_in_table(sample_image):
     """Test reading images from table cells with hierarchical block_id."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "Document with table containing image",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Document with table containing image",
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Add a 2x2 table
@@ -1461,9 +1751,17 @@ async def test_read_images_in_table(sample_image):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": table_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": table_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     table_id = table_result["element_id"]
@@ -1473,10 +1771,18 @@ async def test_read_images_in_table(sample_image):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "insert_image",
-            "target_id": cell_path,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": cell_path,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1500,16 +1806,24 @@ async def test_delete_image_in_table(sample_image):
     """Test deleting an image from a table cell."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     # Add a 1x1 table
     table_data = json.dumps([[""]])
     _, table_result = await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": table_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": table_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     table_id = table_result["element_id"]
@@ -1519,10 +1833,18 @@ async def test_delete_image_in_table(sample_image):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "insert_image",
-            "target_id": cell_path,
-            "content_data": str(sample_image),
-            "formatting": json.dumps({"width": 1.0}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": cell_path,
+                            "content_data": str(sample_image),
+                            "formatting": json.dumps({"width": 1.0}),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1539,8 +1861,16 @@ async def test_delete_image_in_table(sample_image):
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "delete_image",
-                "target_id": image_id,
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "delete_image",
+                                "target_id": image_id,
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"]
@@ -1559,16 +1889,24 @@ async def test_insert_image_into_table_cell(sample_image):
     """Test inserting an image into a specific table cell using hierarchical target_id."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("edit", {"file_path": str(doc_path), "operation": "create"})
+    await mcp.call_tool("create", {"file_path": str(doc_path)})
     # Add a 2x2 table
     table_data = json.dumps([["Image", "Description"], ["", "A test image"]])
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": table_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": table_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -1586,10 +1924,18 @@ async def test_insert_image_into_table_cell(sample_image):
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "insert_image",
-                "target_id": f"{table_id}#r1c0",
-                "content_data": str(sample_image),
-                "formatting": '{"width": 1}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "insert_image",
+                                "target_id": f"{table_id}#r1c0",
+                                "content_data": str(sample_image),
+                                "formatting": '{"width": 1}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"]
@@ -1764,9 +2110,17 @@ async def test_paragraph_indentation(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "style",
-            "target_id": para_block["id"],
-            "formatting": '{"left_indent": 0.5, "right_indent": 0.25, "first_line_indent": 0.5}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "style",
+                            "target_id": para_block["id"],
+                            "formatting": '{"left_indent": 0.5, "right_indent": 0.25, "first_line_indent": 0.5}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1787,9 +2141,17 @@ async def test_paragraph_spacing(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "style",
-            "target_id": para_block["id"],
-            "formatting": '{"space_before": 12, "space_after": 6, "line_spacing": 1.5}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "style",
+                            "target_id": para_block["id"],
+                            "formatting": '{"space_before": 12, "space_after": 6, "line_spacing": 1.5}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1809,9 +2171,17 @@ async def test_paragraph_flow_control(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "style",
-            "target_id": para_block["id"],
-            "formatting": '{"keep_with_next": true, "page_break_before": true}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "style",
+                            "target_id": para_block["id"],
+                            "formatting": '{"keep_with_next": true, "page_break_before": true}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1841,10 +2211,18 @@ async def test_run_highlight(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": '{"highlight_color": "yellow"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": '{"highlight_color": "yellow"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1874,10 +2252,18 @@ async def test_run_strikethrough(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": '{"strike": true, "double_strike": false}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": '{"strike": true, "double_strike": false}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1902,10 +2288,18 @@ async def test_run_subscript_superscript(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": '{"subscript": true}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": '{"subscript": true}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -1915,10 +2309,18 @@ async def test_run_subscript_superscript(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": edit_result["element_id"],
-            "run_index": 0,
-            "formatting": '{"subscript": false, "superscript": true}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": edit_result["element_id"],
+                            "run_index": 0,
+                            "formatting": '{"subscript": false, "superscript": true}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result2["success"]
@@ -1948,12 +2350,20 @@ async def test_add_table_row_empty(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_row",
-            "target_id": table_block["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_row",
+                            "target_id": table_block["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Added row" in edit_result["message"]
+    assert "Added row" in edit_result["results"][0]["message"]
 
     # Verify row count increased
     _, cells_result = await mcp.call_tool(
@@ -1980,9 +2390,17 @@ async def test_add_table_row_with_data(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_row",
-            "target_id": table_block["id"],
-            "content_data": '["New Cell 1", "New Cell 2"]',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_row",
+                            "target_id": table_block["id"],
+                            "content_data": '["New Cell 1", "New Cell 2"]',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -2017,14 +2435,22 @@ async def test_add_table_column(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_column",
-            "target_id": table_block["id"],
-            "content_data": '["Header 3", "Row 1 Col 3"]',
-            "formatting": '{"width": 1.5}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_column",
+                            "target_id": table_block["id"],
+                            "content_data": '["Header 3", "Row 1 Col 3"]',
+                            "formatting": '{"width": 1.5}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Added column" in edit_result["message"]
+    assert "Added column" in edit_result["results"][0]["message"]
 
     # Verify column count and content via MCP read
     _, cells_result = await mcp.call_tool(
@@ -2057,13 +2483,21 @@ async def test_delete_table_row(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete_row",
-            "target_id": table_block["id"],
-            "row": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_row",
+                            "target_id": table_block["id"],
+                            "row": 1,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Deleted row 1" in edit_result["message"]
+    assert "Deleted row 1" in edit_result["results"][0]["message"]
 
     # Verify row count decreased
     _, cells_result = await mcp.call_tool(
@@ -2091,13 +2525,21 @@ async def test_delete_table_column(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete_column",
-            "target_id": table_block["id"],
-            "col": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_column",
+                            "target_id": table_block["id"],
+                            "col": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Deleted column 0" in edit_result["message"]
+    assert "Deleted column 0" in edit_result["results"][0]["message"]
 
     # Verify column count decreased
     _, cells_result = await mcp.call_tool(
@@ -2132,11 +2574,19 @@ async def test_add_page_break(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_page_break",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_page_break",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Added page break" in edit_result["message"]
+    assert "Added page break" in edit_result["results"][0]["message"]
     assert edit_result["element_id"].startswith("paragraph_")
 
     # Verify block count increased
@@ -2165,13 +2615,21 @@ async def test_add_break_after_paragraph(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_break",
-            "target_id": para_block["id"],
-            "content_data": "page",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_break",
+                            "target_id": para_block["id"],
+                            "content_data": "page",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Added page break" in edit_result["message"]
+    assert "Added page break" in edit_result["results"][0]["message"]
 
 
 @pytest.mark.asyncio
@@ -2187,13 +2645,21 @@ async def test_add_column_break(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_break",
-            "target_id": para_block["id"],
-            "content_data": "column",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_break",
+                            "target_id": para_block["id"],
+                            "content_data": "column",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Added column break" in edit_result["message"]
+    assert "Added column break" in edit_result["results"][0]["message"]
 
 
 # --- Metadata writing tests ---
@@ -2206,12 +2672,20 @@ async def test_set_document_title(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_meta",
-            "content_data": '{"title": "New Document Title"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_meta",
+                            "content_data": '{"title": "New Document Title"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Updated document metadata" in edit_result["message"]
+    assert "Updated document metadata" in edit_result["results"][0]["message"]
 
     # Verify via read
     _, meta_result = await mcp.call_tool(
@@ -2227,8 +2701,16 @@ async def test_set_document_author(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_meta",
-            "content_data": '{"author": "Test Author"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_meta",
+                            "content_data": '{"author": "Test Author"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -2247,8 +2729,16 @@ async def test_set_multiple_metadata(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_meta",
-            "content_data": '{"title": "Multi Test", "author": "Multi Author"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_meta",
+                            "content_data": '{"title": "Multi Test", "author": "Multi Author"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -2271,13 +2761,21 @@ async def test_set_first_page_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_first_page_header",
-            "section_index": 0,
-            "content_data": "First Page Header",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_first_page_header",
+                            "section_index": 0,
+                            "content_data": "First Page Header",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Set first page header" in edit_result["message"]
+    assert "Set first page header" in edit_result["results"][0]["message"]
 
     # Verify via read
     _, result = await mcp.call_tool(
@@ -2294,13 +2792,21 @@ async def test_set_even_page_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_even_page_header",
-            "section_index": 0,
-            "content_data": "Even Page Header",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_even_page_header",
+                            "section_index": 0,
+                            "content_data": "Even Page Header",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Set even page header" in edit_result["message"]
+    assert "Set even page header" in edit_result["results"][0]["message"]
 
     # Verify via read
     _, result = await mcp.call_tool(
@@ -2324,12 +2830,20 @@ async def test_add_section_new_page(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_section",
-            "content_data": "new_page",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_section",
+                            "content_data": "new_page",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "new_page" in edit_result["message"]
+    assert "new_page" in edit_result["results"][0]["message"]
 
     # Verify section count increased
     _, result = await mcp.call_tool(
@@ -2345,12 +2859,20 @@ async def test_add_section_continuous(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_section",
-            "content_data": "continuous",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_section",
+                            "content_data": "continuous",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "continuous" in edit_result["message"]
+    assert "continuous" in edit_result["results"][0]["message"]
 
     # Verify section was added
     _, result = await mcp.call_tool(
@@ -2369,10 +2891,9 @@ async def docx_with_hyperlinks():
         path = Path(f.name)
     # Create document with heading
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Document with Links",
             "heading_level": 1,
@@ -2381,7 +2902,10 @@ async def docx_with_hyperlinks():
     # Add a paragraph with text
     _, para_result = await mcp.call_tool(
         "edit",
-        {"file_path": str(path), "operation": "append", "content_data": "Visit "},
+        {
+            "file_path": str(path),
+            "ops": (_ops([{"op": "append", "content_data": "Visit "}])),
+        },
     )
     para_id = para_result["element_id"]
     # Add hyperlink to the paragraph
@@ -2389,13 +2913,21 @@ async def docx_with_hyperlinks():
         "edit",
         {
             "file_path": str(path),
-            "operation": "add_hyperlink",
-            "target_id": para_id,
-            "content_data": json.dumps(
-                {
-                    "text": "Example Website",
-                    "address": "https://example.com",
-                }
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para_id,
+                            "content_data": json.dumps(
+                                {
+                                    "text": "Example Website",
+                                    "address": "https://example.com",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -2475,10 +3007,9 @@ async def test_hyperlink_in_table_cell():
     try:
         # Create document with table using MCP
         await mcp.call_tool(
-            "edit",
+            "create",
             {
                 "file_path": str(doc_path),
-                "operation": "create",
                 "content_type": "table",
                 "content_data": json.dumps(
                     [
@@ -2508,10 +3039,21 @@ async def test_hyperlink_in_table_cell():
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "add_hyperlink",
-                "target_id": cell_1_1["hierarchical_id"],
-                "content_data": json.dumps(
-                    {"text": "Visit Site", "address": "https://example.org"}
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_hyperlink",
+                                "target_id": cell_1_1["hierarchical_id"],
+                                "content_data": json.dumps(
+                                    {
+                                        "text": "Visit Site",
+                                        "address": "https://example.org",
+                                    }
+                                ),
+                            }
+                        ]
+                    )
                 ),
             },
         )
@@ -2559,10 +3101,18 @@ async def test_edit_hyperlink_run(docx_with_hyperlinks):
         "edit",
         {
             "file_path": str(docx_with_hyperlinks),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": hyperlink_index,
-            "content_data": "Modified Link Text",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": hyperlink_index,
+                            "content_data": "Modified Link Text",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -2598,16 +3148,27 @@ async def test_add_hyperlink_external_url(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_hyperlink",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"text": "Visit Google", "address": "https://google.com"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "text": "Visit Google",
+                                    "address": "https://google.com",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
     assert result["success"]
-    assert "Added hyperlink 'Visit Google'" in result["message"]
-    assert "https://google.com" in result["message"]
+    assert "Added hyperlink 'Visit Google'" in result["results"][0]["message"]
+    assert "https://google.com" in result["results"][0]["message"]
 
     # Verify hyperlink was created
     _, hl_result = await mcp.call_tool(
@@ -2634,9 +3195,17 @@ async def test_add_hyperlink_internal_bookmark(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_bookmark",
-            "target_id": para2["id"],
-            "content_data": "TargetSection",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": para2["id"],
+                            "content_data": "TargetSection",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -2645,15 +3214,23 @@ async def test_add_hyperlink_internal_bookmark(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_hyperlink",
-            "target_id": para1["id"],
-            "content_data": json.dumps(
-                {"text": "Jump to section", "fragment": "TargetSection"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para1["id"],
+                            "content_data": json.dumps(
+                                {"text": "Jump to section", "fragment": "TargetSection"}
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
     assert result["success"]
-    assert "#TargetSection" in result["message"]
+    assert "#TargetSection" in result["results"][0]["message"]
 
 
 @pytest.mark.asyncio
@@ -2668,14 +3245,22 @@ async def test_add_hyperlink_external_with_fragment(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_hyperlink",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {
-                    "text": "Python docs",
-                    "address": "https://docs.python.org",
-                    "fragment": "installation",
-                }
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "text": "Python docs",
+                                    "address": "https://docs.python.org",
+                                    "fragment": "installation",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -2698,10 +3283,9 @@ async def test_add_hyperlink_to_table_cell():
     try:
         # Create document with table using MCP
         await mcp.call_tool(
-            "edit",
+            "create",
             {
                 "file_path": str(doc_path),
-                "operation": "create",
                 "content_type": "table",
                 "content_data": json.dumps(
                     [
@@ -2733,10 +3317,21 @@ async def test_add_hyperlink_to_table_cell():
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "add_hyperlink",
-                "target_id": cell_id,
-                "content_data": json.dumps(
-                    {"text": "Link in cell", "address": "https://example.com"}
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_hyperlink",
+                                "target_id": cell_id,
+                                "content_data": json.dumps(
+                                    {
+                                        "text": "Link in cell",
+                                        "address": "https://example.com",
+                                    }
+                                ),
+                            }
+                        ]
+                    )
                 ),
             },
         )
@@ -2764,10 +3359,21 @@ async def test_add_hyperlink_mailto(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_hyperlink",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"text": "Email us", "address": "mailto:test@example.com"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "text": "Email us",
+                                    "address": "mailto:test@example.com",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -2787,18 +3393,27 @@ async def test_add_hyperlink_empty_text_error(sample_docx):
     )
     para = blocks_result["blocks"][0]
 
-    with pytest.raises(ToolError, match="empty"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "add_hyperlink",
-                "target_id": para["id"],
-                "content_data": json.dumps(
-                    {"text": "", "address": "https://example.com"}
-                ),
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {"text": "", "address": "https://example.com"}
+                            ),
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "empty" in edit_result["results"][0]["error"]
 
 
 @pytest.mark.asyncio
@@ -2809,16 +3424,25 @@ async def test_add_hyperlink_no_address_or_fragment_error(sample_docx):
     )
     para = blocks_result["blocks"][0]
 
-    with pytest.raises(ToolError, match="address or fragment"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "add_hyperlink",
-                "target_id": para["id"],
-                "content_data": json.dumps({"text": "Orphan link"}),
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para["id"],
+                            "content_data": json.dumps({"text": "Orphan link"}),
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "address or fragment" in edit_result["results"][0]["error"]
 
 
 @pytest.mark.asyncio
@@ -2835,9 +3459,17 @@ async def test_add_hyperlink_fragment_normalization(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_bookmark",
-            "target_id": para2["id"],
-            "content_data": "TestBookmark",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": para2["id"],
+                            "content_data": "TestBookmark",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -2846,15 +3478,23 @@ async def test_add_hyperlink_fragment_normalization(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_hyperlink",
-            "target_id": para1["id"],
-            "content_data": json.dumps(
-                {"text": "Go to bookmark", "fragment": "#TestBookmark"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_hyperlink",
+                            "target_id": para1["id"],
+                            "content_data": json.dumps(
+                                {"text": "Go to bookmark", "fragment": "#TestBookmark"}
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
     assert result["success"]
-    assert "#TestBookmark" in result["message"]
+    assert "#TestBookmark" in result["results"][0]["message"]
 
 
 # --- Style tests ---
@@ -2891,12 +3531,8 @@ async def test_read_styles_includes_custom():
     try:
         # Create document with MCP
         await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(doc_path),
-                "operation": "create",
-                "content_data": "Test paragraph",
-            },
+            "create",
+            {"file_path": str(doc_path), "content_data": "Test paragraph"},
         )
 
         # Create custom style using MCP
@@ -2904,14 +3540,22 @@ async def test_read_styles_includes_custom():
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "create_style",
-                "content_data": json.dumps(
-                    {
-                        "style_id": "MyCustomStyle",
-                        "name": "MyCustomStyle",
-                        "style_type": "paragraph",
-                        "based_on": "Normal",
-                    }
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "create_style",
+                                "content_data": json.dumps(
+                                    {
+                                        "style_id": "MyCustomStyle",
+                                        "name": "MyCustomStyle",
+                                        "style_type": "paragraph",
+                                        "based_on": "Normal",
+                                    }
+                                ),
+                            }
+                        ]
+                    )
                 ),
             },
         )
@@ -2961,22 +3605,26 @@ async def test_read_styles_includes_character_styles():
     try:
         # Create a document with a character style
         await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(doc_path),
-                "operation": "create",
-                "content_data": "Test paragraph",
-            },
+            "create",
+            {"file_path": str(doc_path), "content_data": "Test paragraph"},
         )
         await mcp.call_tool(
             "edit",
             {
                 "file_path": str(doc_path),
-                "operation": "create_style",
-                "content_data": json.dumps(
-                    {"name": "CustomChar", "style_type": "character"}
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "create_style",
+                                "content_data": json.dumps(
+                                    {"name": "CustomChar", "style_type": "character"}
+                                ),
+                                "formatting": json.dumps({"bold": True}),
+                            }
+                        ]
+                    )
                 ),
-                "formatting": json.dumps({"bold": True}),
             },
         )
 
@@ -3004,12 +3652,8 @@ async def docx_with_formatting():
 
     # Create document with paragraph using MCP
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(doc_path),
-            "operation": "create",
-            "content_data": "Formatted paragraph",
-        },
+        "create",
+        {"file_path": str(doc_path), "content_data": "Formatted paragraph"},
     )
 
     # Get paragraph ID
@@ -3023,18 +3667,26 @@ async def docx_with_formatting():
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "style",
-            "target_id": para_id,
-            "formatting": json.dumps(
-                {
-                    "alignment": "center",
-                    "left_indent": 0.5,
-                    "right_indent": 0.25,
-                    "first_line_indent": 0.3,
-                    "space_before": 12.0,
-                    "space_after": 6.0,
-                    "line_spacing": 1.5,
-                }
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "style",
+                            "target_id": para_id,
+                            "formatting": json.dumps(
+                                {
+                                    "alignment": "center",
+                                    "left_indent": 0.5,
+                                    "right_indent": 0.25,
+                                    "first_line_indent": 0.3,
+                                    "space_before": 12.0,
+                                    "space_after": 6.0,
+                                    "line_spacing": 1.5,
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -3117,10 +3769,18 @@ async def test_apply_character_style(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": '{"style": "Strong"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": '{"style": "Strong"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3170,9 +3830,17 @@ async def test_append_paragraph_to_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_header",
-            "content_data": "Initial Header",
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header",
+                            "content_data": "Initial Header",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -3181,10 +3849,18 @@ async def test_append_paragraph_to_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "append_header",
-            "content_type": "paragraph",
-            "content_data": "Second Header Line",
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append_header",
+                            "content_type": "paragraph",
+                            "content_data": "Second Header Line",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3207,9 +3883,17 @@ async def test_append_table_to_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_header",
-            "content_data": "Header Text",
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header",
+                            "content_data": "Header Text",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -3218,10 +3902,18 @@ async def test_append_table_to_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "append_header",
-            "content_type": "table",
-            "content_data": '[["Col1", "Col2"], ["A", "B"]]',
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append_header",
+                            "content_type": "table",
+                            "content_data": '[["Col1", "Col2"], ["A", "B"]]',
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3236,9 +3928,17 @@ async def test_clear_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_header",
-            "content_data": "Header To Clear",
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header",
+                            "content_data": "Header To Clear",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -3247,8 +3947,16 @@ async def test_clear_header(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "clear_header",
-            "section_index": 0,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "clear_header",
+                            "section_index": 0,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3273,10 +3981,9 @@ async def docx_with_table():
 
     # Create document with heading using MCP
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(doc_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Table for Merge Testing",
             "heading_level": 1,
@@ -3289,9 +3996,17 @@ async def docx_with_table():
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": json.dumps(table_data),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": json.dumps(table_data),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -3341,11 +4056,19 @@ async def test_merge_cells_horizontal(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "merge_cells",
-            "target_id": table_block["id"],
-            "row": 0,
-            "col": 0,
-            "content_data": '{"end_row": 0, "end_col": 1}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "merge_cells",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "col": 0,
+                            "content_data": '{"end_row": 0, "end_col": 1}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3390,11 +4113,19 @@ async def test_merge_cells_vertical(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "merge_cells",
-            "target_id": table_block["id"],
-            "row": 0,
-            "col": 0,
-            "content_data": '{"end_row": 1, "end_col": 0}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "merge_cells",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "col": 0,
+                            "content_data": '{"end_row": 1, "end_col": 0}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3439,11 +4170,19 @@ async def test_merge_cells_rectangular(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "merge_cells",
-            "target_id": table_block["id"],
-            "row": 0,
-            "col": 0,
-            "content_data": '{"end_row": 1, "end_col": 1}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "merge_cells",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "col": 0,
+                            "content_data": '{"end_row": 1, "end_col": 1}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3640,10 +4379,18 @@ async def test_edit_font_small_caps(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 4,
-            "formatting": json.dumps({"small_caps": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 4,
+                            "formatting": json.dumps({"small_caps": True}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3673,10 +4420,18 @@ async def test_edit_font_emboss(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 4,
-            "formatting": json.dumps({"emboss": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 4,
+                            "formatting": json.dumps({"emboss": True}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3706,10 +4461,18 @@ async def test_edit_font_imprint(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 4,
-            "formatting": json.dumps({"imprint": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 4,
+                            "formatting": json.dumps({"imprint": True}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3739,10 +4502,18 @@ async def test_edit_font_outline_shadow(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 4,
-            "formatting": json.dumps({"outline": True, "shadow": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 4,
+                            "formatting": json.dumps({"outline": True, "shadow": True}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3774,10 +4545,20 @@ async def test_clear_font_properties(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": json.dumps({"small_caps": True, "emboss": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": json.dumps(
+                                {"small_caps": True, "emboss": True}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3799,10 +4580,20 @@ async def test_clear_font_properties(docx_with_font_effects):
         "edit",
         {
             "file_path": str(docx_with_font_effects),
-            "operation": "edit_run",
-            "target_id": para_block["id"],
-            "run_index": 0,
-            "formatting": json.dumps({"small_caps": None, "emboss": None}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_run",
+                            "target_id": para_block["id"],
+                            "run_index": 0,
+                            "formatting": json.dumps(
+                                {"small_caps": None, "emboss": None}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3830,12 +4621,8 @@ async def docx_with_custom_style(tmp_path):
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(path),
-            "operation": "create",
-            "content_data": "Test paragraph with custom style",
-        },
+        "create",
+        {"file_path": str(path), "content_data": "Test paragraph with custom style"},
     )
 
     # Create a custom style based on Normal
@@ -3843,21 +4630,29 @@ async def docx_with_custom_style(tmp_path):
         "edit",
         {
             "file_path": str(path),
-            "operation": "create_style",
-            "content_data": json.dumps(
-                {
-                    "style_id": "TestStyle",
-                    "name": "TestStyle",
-                    "style_type": "paragraph",
-                    "based_on": "Normal",
-                }
-            ),
-            "formatting": json.dumps(
-                {
-                    "font_name": "Arial",
-                    "font_size": 12,
-                    "bold": False,
-                }
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "create_style",
+                            "content_data": json.dumps(
+                                {
+                                    "style_id": "TestStyle",
+                                    "name": "TestStyle",
+                                    "style_type": "paragraph",
+                                    "based_on": "Normal",
+                                }
+                            ),
+                            "formatting": json.dumps(
+                                {
+                                    "font_name": "Arial",
+                                    "font_size": 12,
+                                    "bold": False,
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -3872,9 +4667,17 @@ async def docx_with_custom_style(tmp_path):
         "edit",
         {
             "file_path": str(path),
-            "operation": "style",
-            "target_id": para_id,
-            "style_name": "TestStyle",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "style",
+                            "target_id": para_id,
+                            "style_name": "TestStyle",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -3911,9 +4714,19 @@ async def test_edit_style_font(docx_with_custom_style):
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps({"bold": True, "font_size": 16, "italic": True}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps(
+                                {"bold": True, "font_size": 16, "italic": True}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -3941,14 +4754,22 @@ async def test_edit_style_paragraph(docx_with_custom_style):
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps(
-                {
-                    "alignment": "center",
-                    "space_before": 12,
-                    "space_after": 6,
-                }
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps(
+                                {
+                                    "alignment": "center",
+                                    "space_before": 12,
+                                    "space_after": 6,
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -3977,9 +4798,17 @@ async def test_edit_style_line_spacing_multiplier_roundtrip(docx_with_custom_sty
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps({"line_spacing": 1.5}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps({"line_spacing": 1.5}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4004,9 +4833,17 @@ async def test_edit_style_line_spacing_points_roundtrip(docx_with_custom_style):
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps({"line_spacing": 18}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps({"line_spacing": 18}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4031,9 +4868,17 @@ async def test_edit_style_alignment_justify_roundtrip(docx_with_custom_style):
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps({"alignment": "justify"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps({"alignment": "justify"}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4060,9 +4905,17 @@ async def test_edit_style_invalid_alignment_written_directly(docx_with_custom_st
         "edit",
         {
             "file_path": str(docx_with_custom_style),
-            "operation": "edit_style",
-            "target_id": "TestStyle",
-            "formatting": json.dumps({"alignment": "invalid"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_style",
+                            "target_id": "TestStyle",
+                            "formatting": json.dumps({"alignment": "invalid"}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     # Pure OOXML writes the value directly without validation
@@ -4129,9 +4982,17 @@ async def test_set_table_alignment(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_table_alignment",
-            "target_id": table_block["id"],
-            "content_data": "center",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_table_alignment",
+                            "target_id": table_block["id"],
+                            "content_data": "center",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4162,9 +5023,17 @@ async def test_set_table_fixed_layout(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_table_fixed_layout",
-            "target_id": table_block["id"],
-            "content_data": json.dumps([1.5, 2.0, 1.5]),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_table_fixed_layout",
+                            "target_id": table_block["id"],
+                            "content_data": json.dumps([1.5, 2.0, 1.5]),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4195,10 +5064,20 @@ async def test_set_row_height(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_row_height",
-            "target_id": table_block["id"],
-            "row": 0,
-            "content_data": json.dumps({"height": 0.5, "rule": "at_least"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_row_height",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "content_data": json.dumps(
+                                {"height": 0.5, "rule": "at_least"}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4231,11 +5110,19 @@ async def test_set_cell_width(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_cell_width",
-            "target_id": table_block["id"],
-            "row": 0,
-            "col": 0,
-            "content_data": "2.0",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_cell_width",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "col": 0,
+                            "content_data": "2.0",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4267,11 +5154,19 @@ async def test_set_cell_vertical_alignment(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_cell_vertical_alignment",
-            "target_id": table_block["id"],
-            "row": 1,
-            "col": 1,
-            "content_data": "center",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_cell_vertical_alignment",
+                            "target_id": table_block["id"],
+                            "row": 1,
+                            "col": 1,
+                            "content_data": "center",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4303,11 +5198,19 @@ async def test_set_cell_borders(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_cell_borders",
-            "target_id": table_block["id"],
-            "row": 0,
-            "col": 0,
-            "content_data": '{"top": "single:24:FF0000", "bottom": "double:12:0000FF"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_cell_borders",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "col": 0,
+                            "content_data": '{"top": "single:24:FF0000", "bottom": "double:12:0000FF"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4340,11 +5243,19 @@ async def test_set_cell_shading(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_cell_shading",
-            "target_id": table_block["id"],
-            "row": 1,
-            "col": 0,
-            "content_data": "FFFF00",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_cell_shading",
+                            "target_id": table_block["id"],
+                            "row": 1,
+                            "col": 0,
+                            "content_data": "FFFF00",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4376,10 +5287,18 @@ async def test_set_header_row(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_header_row",
-            "target_id": table_block["id"],
-            "row": 0,
-            "content_data": "true",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header_row",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "content_data": "true",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4401,10 +5320,18 @@ async def test_set_header_row(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_header_row",
-            "target_id": table_block["id"],
-            "row": 0,
-            "content_data": "false",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_header_row",
+                            "target_id": table_block["id"],
+                            "row": 0,
+                            "content_data": "false",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4436,9 +5363,17 @@ async def test_set_section_columns(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_columns",
-            "section_index": 0,
-            "content_data": col_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_columns",
+                            "section_index": 0,
+                            "content_data": col_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4470,9 +5405,17 @@ async def test_set_section_columns(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_columns",
-            "section_index": 0,
-            "content_data": col_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_columns",
+                            "section_index": 0,
+                            "content_data": col_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4505,9 +5448,17 @@ async def test_set_line_numbering(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_line_numbering",
-            "section_index": 0,
-            "content_data": ln_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_line_numbering",
+                            "section_index": 0,
+                            "content_data": ln_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4543,9 +5494,17 @@ async def test_set_line_numbering(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_line_numbering",
-            "section_index": 0,
-            "content_data": ln_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_line_numbering",
+                            "section_index": 0,
+                            "content_data": ln_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4586,8 +5545,16 @@ async def test_set_and_get_custom_property(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_custom_property",
-            "content_data": prop_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_custom_property",
+                            "content_data": prop_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4611,8 +5578,16 @@ async def test_set_and_get_custom_property(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_custom_property",
-            "content_data": prop_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_custom_property",
+                            "content_data": prop_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4625,8 +5600,16 @@ async def test_set_and_get_custom_property(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_custom_property",
-            "content_data": prop_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_custom_property",
+                            "content_data": prop_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4652,8 +5635,16 @@ async def test_delete_custom_property(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_custom_property",
-            "content_data": prop_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_custom_property",
+                            "content_data": prop_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -4670,8 +5661,16 @@ async def test_delete_custom_property(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete_custom_property",
-            "content_data": "ToDelete",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_custom_property",
+                            "content_data": "ToDelete",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4699,8 +5698,16 @@ async def test_custom_property_opc_structure(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "set_custom_property",
-            "content_data": prop_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_custom_property",
+                            "content_data": prop_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -4749,9 +5756,17 @@ async def test_create_style(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "create_style",
-            "content_data": style_data,
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "create_style",
+                            "content_data": style_data,
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4788,8 +5803,16 @@ async def test_delete_style(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "create_style",
-            "content_data": style_data,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "create_style",
+                            "content_data": style_data,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -4805,12 +5828,20 @@ async def test_delete_style(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete_style",
-            "target_id": "StyleToDelete",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_style",
+                            "target_id": "StyleToDelete",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Deleted" in edit_result["message"]
+    assert "Deleted" in edit_result["results"][0]["message"]
 
     # Verify it's gone
     _, result = await mcp.call_tool(
@@ -4827,12 +5858,23 @@ async def test_cannot_delete_builtin_style(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "delete_style",
-            "target_id": "Normal",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "delete_style",
+                            "target_id": "Normal",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]  # Operation succeeds but reports not found/builtin
-    assert "builtin" in edit_result["message"] or "not found" in edit_result["message"]
+    assert (
+        "builtin" in edit_result["results"][0]["message"]
+        or "not found" in edit_result["results"][0]["message"]
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -4867,10 +5909,18 @@ async def test_insert_floating_image(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -4913,10 +5963,18 @@ async def test_floating_image_position_values(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -4962,10 +6020,18 @@ async def test_floating_image_xml_structure(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5021,10 +6087,18 @@ async def test_floating_image_none_wrap(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -5061,10 +6135,18 @@ async def test_floating_image_top_and_bottom_wrap(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -5103,10 +6185,18 @@ async def test_floating_image_invalid_wrap_type_defaults_to_square(
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -5136,10 +6226,18 @@ async def test_build_images_includes_anchored(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": '{"width": 1}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": '{"width": 1}',
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5155,10 +6253,18 @@ async def test_build_images_includes_anchored(sample_docx, sample_image):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "insert_floating_image",
-            "target_id": para_id,
-            "content_data": str(sample_image),
-            "formatting": formatting,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_floating_image",
+                            "target_id": para_id,
+                            "content_data": str(sample_image),
+                            "formatting": formatting,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5188,19 +6294,37 @@ async def test_table_layout_xml_structure(docx_with_table):
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_table_alignment",
-            "target_id": table_block["id"],
-            "content_data": "right",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_table_alignment",
+                            "target_id": table_block["id"],
+                            "content_data": "right",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(docx_with_table),
-            "operation": "set_row_height",
-            "target_id": table_block["id"],
-            "row": 1,
-            "content_data": json.dumps({"height": 0.75, "rule": "exactly"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_row_height",
+                            "target_id": table_block["id"],
+                            "row": 1,
+                            "content_data": json.dumps(
+                                {"height": 0.75, "rule": "exactly"}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5239,12 +6363,8 @@ async def docx_for_tabs():
         doc_path = Path(f.name)
 
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(doc_path),
-            "operation": "create",
-            "content_data": "Test paragraph for tab stops",
-        },
+        "create",
+        {"file_path": str(doc_path), "content_data": "Test paragraph for tab stops"},
     )
     yield doc_path
     doc_path.unlink(missing_ok=True)
@@ -5264,10 +6384,22 @@ async def test_add_tab_stop(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "add_tab_stop",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"position": 4.0, "alignment": "right", "leader": "dots"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_tab_stop",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "position": 4.0,
+                                    "alignment": "right",
+                                    "leader": "dots",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -5304,9 +6436,19 @@ async def test_clear_tab_stops(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "add_tab_stop",
-            "target_id": para["id"],
-            "content_data": json.dumps({"position": 2.0, "alignment": "left"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_tab_stop",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {"position": 2.0, "alignment": "left"}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5315,8 +6457,16 @@ async def test_clear_tab_stops(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "clear_tab_stops",
-            "target_id": para["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "clear_tab_stops",
+                            "target_id": para["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -5347,10 +6497,22 @@ async def test_read_tab_stops(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "add_tab_stop",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"position": 1.0, "alignment": "left", "leader": "spaces"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_tab_stop",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "position": 1.0,
+                                    "alignment": "left",
+                                    "leader": "spaces",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -5358,10 +6520,22 @@ async def test_read_tab_stops(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "add_tab_stop",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"position": 3.0, "alignment": "center", "leader": "heavy"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_tab_stop",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "position": 3.0,
+                                    "alignment": "center",
+                                    "leader": "heavy",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -5369,10 +6543,22 @@ async def test_read_tab_stops(docx_for_tabs):
         "edit",
         {
             "file_path": str(docx_for_tabs),
-            "operation": "add_tab_stop",
-            "target_id": para["id"],
-            "content_data": json.dumps(
-                {"position": 5.0, "alignment": "decimal", "leader": "middle_dot"}
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_tab_stop",
+                            "target_id": para["id"],
+                            "content_data": json.dumps(
+                                {
+                                    "position": 5.0,
+                                    "alignment": "decimal",
+                                    "leader": "middle_dot",
+                                }
+                            ),
+                        }
+                    ]
+                )
             ),
         },
     )
@@ -5402,12 +6588,8 @@ async def docx_for_fields(tmp_path):
     """Create a document for field tests."""
     doc_path = tmp_path / "fields_test.docx"
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(doc_path),
-            "operation": "create",
-            "content_data": "First section content",
-        },
+        "create",
+        {"file_path": str(doc_path), "content_data": "First section content"},
     )
     return doc_path
 
@@ -5426,13 +6608,21 @@ async def test_insert_field_page(docx_for_fields):
         "edit",
         {
             "file_path": str(docx_for_fields),
-            "operation": "insert_field",
-            "target_id": para["id"],
-            "content_data": "PAGE",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_field",
+                            "target_id": para["id"],
+                            "content_data": "PAGE",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"] is True
-    assert "PAGE" in result["message"]
+    assert "PAGE" in result["results"][0]["message"]
 
     # Verify XML structure - field parts are in separate runs
     pkg = WordPackage.open(docx_for_fields)
@@ -5457,13 +6647,21 @@ async def test_insert_field_numpages(docx_for_fields):
         "edit",
         {
             "file_path": str(docx_for_fields),
-            "operation": "insert_field",
-            "target_id": para["id"],
-            "content_data": "NUMPAGES",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_field",
+                            "target_id": para["id"],
+                            "content_data": "NUMPAGES",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"] is True
-    assert "NUMPAGES" in result["message"]
+    assert "NUMPAGES" in result["results"][0]["message"]
 
 
 @pytest.mark.asyncio
@@ -5473,13 +6671,21 @@ async def test_insert_page_x_of_y_footer(docx_for_fields):
         "edit",
         {
             "file_path": str(docx_for_fields),
-            "operation": "insert_page_x_of_y",
-            "section_index": 0,
-            "content_data": "footer",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_page_x_of_y",
+                            "section_index": 0,
+                            "content_data": "footer",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"] is True
-    assert "footer" in result["message"]
+    assert "footer" in result["results"][0]["message"]
 
     # Verify footer content via MCP headers_footers scope
     _, hf_result = await mcp.call_tool(
@@ -5497,13 +6703,21 @@ async def test_insert_page_x_of_y_header(docx_for_fields):
         "edit",
         {
             "file_path": str(docx_for_fields),
-            "operation": "insert_page_x_of_y",
-            "section_index": 0,
-            "content_data": "header",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_page_x_of_y",
+                            "section_index": 0,
+                            "content_data": "header",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"] is True
-    assert "header" in result["message"]
+    assert "header" in result["results"][0]["message"]
 
     # Verify header content via MCP headers_footers scope
     _, hf_result = await mcp.call_tool(
@@ -5527,9 +6741,17 @@ async def test_insert_field_arbitrary_code(docx_for_fields):
         "edit",
         {
             "file_path": str(docx_for_fields),
-            "operation": "insert_field",
-            "target_id": para["id"],
-            "content_data": "AUTHOR",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_field",
+                            "target_id": para["id"],
+                            "content_data": "AUTHOR",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
@@ -5646,12 +6868,20 @@ async def test_accept_change_by_id(tracked_changes_copy):
         "edit",
         {
             "file_path": str(tracked_changes_copy),
-            "operation": "accept_change",
-            "target_id": supported_rev["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": supported_rev["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"] is True
-    assert "Accepted" in edit_result["message"]
+    assert "Accepted" in edit_result["results"][0]["message"]
 
 
 @pytest.mark.asyncio
@@ -5674,12 +6904,20 @@ async def test_reject_change_by_id(tracked_changes_copy):
         "edit",
         {
             "file_path": str(tracked_changes_copy),
-            "operation": "reject_change",
-            "target_id": supported_rev["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reject_change",
+                            "target_id": supported_rev["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"] is True
-    assert "Rejected" in edit_result["message"]
+    assert "Rejected" in edit_result["results"][0]["message"]
 
 
 # --- Bulk operations ---
@@ -5697,10 +6935,13 @@ async def test_accept_all_changes(tracked_changes_copy):
     # Accept all
     _, edit_result = await mcp.call_tool(
         "edit",
-        {"file_path": str(tracked_changes_copy), "operation": "accept_all_changes"},
+        {
+            "file_path": str(tracked_changes_copy),
+            "ops": (_ops([{"op": "accept_all_changes"}])),
+        },
     )
     assert edit_result["success"] is True
-    assert "Accepted" in edit_result["message"]
+    assert "Accepted" in edit_result["results"][0]["message"]
 
     # Verify no changes remain
     _, after_result = await mcp.call_tool(
@@ -5722,10 +6963,13 @@ async def test_reject_all_changes(tracked_changes_copy):
     # Reject all
     _, edit_result = await mcp.call_tool(
         "edit",
-        {"file_path": str(tracked_changes_copy), "operation": "reject_all_changes"},
+        {
+            "file_path": str(tracked_changes_copy),
+            "ops": (_ops([{"op": "reject_all_changes"}])),
+        },
     )
     assert edit_result["success"] is True
-    assert "Rejected" in edit_result["message"]
+    assert "Rejected" in edit_result["results"][0]["message"]
 
     # Verify no changes remain
     _, after_result = await mcp.call_tool(
@@ -5744,7 +6988,10 @@ async def test_accept_all_round_trip(tracked_changes_copy):
     # Accept all changes
     _, _ = await mcp.call_tool(
         "edit",
-        {"file_path": str(tracked_changes_copy), "operation": "accept_all_changes"},
+        {
+            "file_path": str(tracked_changes_copy),
+            "ops": (_ops([{"op": "accept_all_changes"}])),
+        },
     )
 
     # Reload and verify document is parseable via MCP
@@ -5766,16 +7013,24 @@ async def test_accept_all_round_trip(tracked_changes_copy):
 @pytest.mark.asyncio
 async def test_invalid_change_id_raises_error(tracked_changes_copy):
     """Test that accepting/rejecting invalid change ID raises error."""
-    with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(tracked_changes_copy),
-                "operation": "accept_change",
-                "target_id": "nonexistent_id_99999",
-            },
-        )
-    assert "not found" in str(exc_info.value).lower()
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(tracked_changes_copy),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": "nonexistent_id_99999",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "not found" in edit_result["results"][0]["error"].lower()
 
 
 # --- Additional tests per review ---
@@ -5824,8 +7079,16 @@ async def test_accept_insertion_removes_markup(tracked_changes_copy):
         "edit",
         {
             "file_path": str(tracked_changes_copy),
-            "operation": "accept_change",
-            "target_id": insertion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": insertion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5911,8 +7174,16 @@ async def test_reject_insertion_removes_text_dedicated_fixture(insertion_fixture
         "edit",
         {
             "file_path": str(insertion_fixture_copy),
-            "operation": "reject_change",
-            "target_id": insertion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reject_change",
+                            "target_id": insertion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5948,8 +7219,16 @@ async def test_accept_insertion_keeps_text_dedicated_fixture(insertion_fixture_c
         "edit",
         {
             "file_path": str(insertion_fixture_copy),
-            "operation": "accept_change",
-            "target_id": insertion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": insertion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -5987,8 +7266,16 @@ async def test_accept_deletion_removes_text_dedicated_fixture(deletion_fixture_c
         "edit",
         {
             "file_path": str(deletion_fixture_copy),
-            "operation": "accept_change",
-            "target_id": deletion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": deletion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6016,8 +7303,16 @@ async def test_reject_deletion_restores_text_dedicated_fixture(deletion_fixture_
         "edit",
         {
             "file_path": str(deletion_fixture_copy),
-            "operation": "reject_change",
-            "target_id": deletion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reject_change",
+                            "target_id": deletion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6054,8 +7349,16 @@ async def test_accept_deletion_removes_deleted_text(tracked_changes_copy):
         "edit",
         {
             "file_path": str(tracked_changes_copy),
-            "operation": "accept_change",
-            "target_id": deletion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": deletion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6095,8 +7398,16 @@ async def test_reject_deletion_restores_text(tracked_changes_copy):
         "edit",
         {
             "file_path": str(tracked_changes_copy),
-            "operation": "reject_change",
-            "target_id": deletion_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reject_change",
+                            "target_id": deletion_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6191,8 +7502,16 @@ async def test_accept_move_keeps_destination(move_fixture_copy):
         "edit",
         {
             "file_path": str(move_fixture_copy),
-            "operation": "accept_change",
-            "target_id": move_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": move_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"] is True
@@ -6244,8 +7563,16 @@ async def test_reject_move_keeps_source(move_fixture_copy):
         "edit",
         {
             "file_path": str(move_fixture_copy),
-            "operation": "reject_change",
-            "target_id": move_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reject_change",
+                            "target_id": move_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"] is True
@@ -6286,7 +7613,10 @@ async def test_accept_all_includes_moves(move_fixture_copy):
     # Accept all
     _, edit_result = await mcp.call_tool(
         "edit",
-        {"file_path": str(move_fixture_copy), "operation": "accept_all_changes"},
+        {
+            "file_path": str(move_fixture_copy),
+            "ops": (_ops([{"op": "accept_all_changes"}])),
+        },
     )
     assert edit_result["success"] is True
 
@@ -6328,8 +7658,16 @@ async def test_accept_move_removes_all_markers(move_fixture_copy):
         "edit",
         {
             "file_path": str(move_fixture_copy),
-            "operation": "accept_change",
-            "target_id": move_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "accept_change",
+                            "target_id": move_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6456,9 +7794,17 @@ async def test_set_list_level(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "set_list_level",
-            "target_id": list_para["id"],
-            "content_data": "2",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": list_para["id"],
+                            "content_data": "2",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6509,8 +7855,16 @@ async def test_promote_list_item(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "promote_list",
-            "target_id": nested_para["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "promote_list",
+                            "target_id": nested_para["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6561,8 +7915,16 @@ async def test_demote_list_item(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "demote_list",
-            "target_id": list_para["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "demote_list",
+                            "target_id": list_para["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6613,8 +7975,16 @@ async def test_remove_list_formatting(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "remove_list",
-            "target_id": list_para["id"],
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "remove_list",
+                            "target_id": list_para["id"],
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -6650,16 +8020,24 @@ async def test_set_list_level_fails_on_non_list(list_fixture_copy):
         pytest.skip("Regular paragraph not found")
 
     # Should fail because it's not a list
-    with pytest.raises(ToolError):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(list_fixture_copy),
-                "operation": "set_list_level",
-                "target_id": regular_para["id"],
-                "content_data": "1",
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": regular_para["id"],
+                            "content_data": "1",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
 
 
 @pytest.mark.asyncio
@@ -6684,13 +8062,21 @@ async def test_restart_numbering(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "restart_numbering",
-            "target_id": list_para["id"],
-            "content_data": "5",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "restart_numbering",
+                            "target_id": list_para["id"],
+                            "content_data": "5",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
-    assert "Restarted" in edit_result["message"]
+    assert "Restarted" in edit_result["results"][0]["message"]
 
     # Verify list info shows the paragraph is still a list
     _, after_result = await mcp.call_tool(
@@ -6722,39 +8108,63 @@ async def test_list_level_bounds(list_fixture_copy):
         pytest.skip("List paragraph not found")
 
     # Level -1 should fail
-    with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(list_fixture_copy),
-                "operation": "set_list_level",
-                "target_id": list_para["id"],
-                "content_data": "-1",
-            },
-        )
-    assert "0-8" in str(exc_info.value)
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": list_para["id"],
+                            "content_data": "-1",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "0-8" in edit_result["results"][0]["error"]
 
     # Level 9 should fail
-    with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(list_fixture_copy),
-                "operation": "set_list_level",
-                "target_id": list_para["id"],
-                "content_data": "9",
-            },
-        )
-    assert "0-8" in str(exc_info.value)
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": list_para["id"],
+                            "content_data": "9",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "0-8" in edit_result["results"][0]["error"]
 
     # Level 0 should succeed
     _, result = await mcp.call_tool(
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "set_list_level",
-            "target_id": list_para["id"],
-            "content_data": "0",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": list_para["id"],
+                            "content_data": "0",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
@@ -6764,9 +8174,17 @@ async def test_list_level_bounds(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "set_list_level",
-            "target_id": list_para["id"],
-            "content_data": "8",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "set_list_level",
+                            "target_id": list_para["id"],
+                            "content_data": "8",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
@@ -6991,10 +8409,18 @@ async def test_edit_text_box_operation(textbox_fixture_docx, tmp_path):
         "edit",
         {
             "file_path": str(dest),
-            "operation": "edit_text_box",
-            "target_id": textbox_id,
-            "row": 0,  # paragraph index
-            "content_data": "Edited text box content!",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "edit_text_box",
+                            "target_id": textbox_id,
+                            "row": 0,  # paragraph index
+                            "content_data": "Edited text box content!",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7016,10 +8442,9 @@ async def docx_for_bookmarks(tmp_path):
     doc_path = tmp_path / "bookmarks_test.docx"
 
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(doc_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Chapter 1: Introduction",
             "heading_level": 1,
@@ -7029,26 +8454,50 @@ async def docx_for_bookmarks(tmp_path):
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "This is the introduction paragraph.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "This is the introduction paragraph.",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "heading",
-            "content_data": "Chapter 2: Methods",
-            "heading_level": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Chapter 2: Methods",
+                            "heading_level": 1,
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "This is the methods paragraph.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "This is the methods paragraph.",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7082,13 +8531,21 @@ async def test_add_bookmark_creates_bookmark(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "add_bookmark",
-            "target_id": para["id"],
-            "content_data": "IntroSection",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": para["id"],
+                            "content_data": "IntroSection",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
-    assert "IntroSection" in result["message"]
+    assert "IntroSection" in result["results"][0]["message"]
 
     # Verify bookmark was created
     _, bm_result = await mcp.call_tool(
@@ -7111,18 +8568,34 @@ async def test_read_bookmarks_scope_returns_list(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "add_bookmark",
-            "target_id": blocks_result["blocks"][0]["id"],
-            "content_data": "ChapterOne",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": blocks_result["blocks"][0]["id"],
+                            "content_data": "ChapterOne",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "add_bookmark",
-            "target_id": blocks_result["blocks"][2]["id"],
-            "content_data": "ChapterTwo",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": blocks_result["blocks"][2]["id"],
+                            "content_data": "ChapterTwo",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7151,9 +8624,17 @@ async def test_insert_cross_reference(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "add_bookmark",
-            "target_id": blocks_result["blocks"][0]["id"],
-            "content_data": "IntroHeading",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": blocks_result["blocks"][0]["id"],
+                            "content_data": "IntroHeading",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7162,14 +8643,22 @@ async def test_insert_cross_reference(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "insert_cross_ref",
-            "target_id": blocks_result["blocks"][1]["id"],
-            "content_data": "IntroHeading",
-            "style_name": "text",  # ref_type
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_cross_ref",
+                            "target_id": blocks_result["blocks"][1]["id"],
+                            "content_data": "IntroHeading",
+                            "style_name": "text",
+                        }
+                    ]
+                )
+            ),  # ref_type
         },
     )
     assert result["success"]
-    assert "IntroHeading" in result["message"]
+    assert "IntroHeading" in result["results"][0]["message"]
 
     # Verify the field structure exists in the document via WordPackage
     pkg = WordPackage.open(docx_for_bookmarks)
@@ -7193,9 +8682,17 @@ async def test_cross_reference_formats(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "add_bookmark",
-            "target_id": first_heading["id"],
-            "content_data": "RefTestBookmark",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_bookmark",
+                            "target_id": first_heading["id"],
+                            "content_data": "RefTestBookmark",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7209,10 +8706,18 @@ async def test_cross_reference_formats(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "insert_cross_ref",
-            "target_id": blocks["blocks"][1]["id"],
-            "content_data": "RefTestBookmark",
-            "style_name": "text",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_cross_ref",
+                            "target_id": blocks["blocks"][1]["id"],
+                            "content_data": "RefTestBookmark",
+                            "style_name": "text",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert text_result["success"]
@@ -7227,10 +8732,18 @@ async def test_cross_reference_formats(docx_for_bookmarks):
         "edit",
         {
             "file_path": str(docx_for_bookmarks),
-            "operation": "insert_cross_ref",
-            "target_id": blocks["blocks"][1]["id"],
-            "content_data": "RefTestBookmark",
-            "style_name": "page",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_cross_ref",
+                            "target_id": blocks["blocks"][1]["id"],
+                            "content_data": "RefTestBookmark",
+                            "style_name": "page",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert page_result["success"]
@@ -7249,28 +8762,40 @@ async def docx_for_captions(tmp_path):
     doc_path = tmp_path / "captions_test.docx"
 
     await mcp.call_tool(
+        "create",
+        {"file_path": str(doc_path), "content_data": "Text before table"},
+    )
+    await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "create",
-            "content_data": "Text before table",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": json.dumps([["A", "B"], ["C", "D"]]),
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(doc_path),
-            "operation": "append",
-            "content_type": "table",
-            "content_data": json.dumps([["A", "B"], ["C", "D"]]),
-        },
-    )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(doc_path),
-            "operation": "append",
-            "content_data": "Text after table",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Text after table",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7297,13 +8822,21 @@ async def test_insert_caption_below_table(docx_for_captions):
         "edit",
         {
             "file_path": str(docx_for_captions),
-            "operation": "insert_caption",
-            "target_id": table_block["id"],
-            "content_data": '{"label": "Table", "text": "Sample data table", "position": "below"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_caption",
+                            "target_id": table_block["id"],
+                            "content_data": '{"label": "Table", "text": "Sample data table", "position": "below"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
-    assert "Table" in result["message"]
+    assert "Table" in result["results"][0]["message"]
 
     # Verify caption was created
     _, captions_result = await mcp.call_tool(
@@ -7335,9 +8868,17 @@ async def test_insert_caption_above_element(docx_for_captions):
         "edit",
         {
             "file_path": str(docx_for_captions),
-            "operation": "insert_caption",
-            "target_id": table_block["id"],
-            "content_data": '{"label": "Figure", "text": "Data visualization", "position": "above"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_caption",
+                            "target_id": table_block["id"],
+                            "content_data": '{"label": "Figure", "text": "Data visualization", "position": "above"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert result["success"]
@@ -7379,9 +8920,17 @@ async def test_caption_contains_seq_field(docx_for_captions):
         "edit",
         {
             "file_path": str(docx_for_captions),
-            "operation": "insert_caption",
-            "target_id": table_block["id"],
-            "content_data": '{"label": "Table", "text": "Test table"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_caption",
+                            "target_id": table_block["id"],
+                            "content_data": '{"label": "Table", "text": "Test table"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7414,9 +8963,17 @@ async def test_comments_scope_includes_threading_fields(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": first_para["id"],
-            "content_data": "Test comment",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": first_para["id"],
+                            "content_data": "Test comment",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert add_result["success"]
@@ -7457,16 +9014,24 @@ async def test_reply_to_comment_creates_reply(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": first_para["id"],
-            "content_data": "Original comment",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": first_para["id"],
+                            "content_data": "Original comment",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert add_result["success"]
     # Extract comment ID from message
     import re
 
-    match = re.search(r"comment (\d+)", add_result["message"])
+    match = re.search(r"comment (\d+)", add_result["results"][0]["message"])
     parent_id = match.group(1)
 
     # Reply to the comment
@@ -7474,13 +9039,21 @@ async def test_reply_to_comment_creates_reply(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "reply_comment",
-            "target_id": parent_id,
-            "content_data": "This is a reply",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reply_comment",
+                            "target_id": parent_id,
+                            "content_data": "This is a reply",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert reply_result["success"]
-    assert "reply" in reply_result["message"].lower()
+    assert "reply" in reply_result["results"][0]["message"].lower()
 
     # Verify there are now 2 comments
     _, comments_result = await mcp.call_tool(
@@ -7492,17 +9065,25 @@ async def test_reply_to_comment_creates_reply(sample_docx):
 @pytest.mark.asyncio
 async def test_reply_to_nonexistent_comment_raises_error(sample_docx):
     """Test that replying to non-existent comment raises error."""
-    with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "reply_comment",
-                "target_id": "9999",  # Non-existent comment ID
-                "content_data": "This should fail",
-            },
-        )
-    assert "not found" in str(exc_info.value).lower()
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "reply_comment",
+                            "target_id": "9999",  # Non-existent comment ID
+                            "content_data": "This should fail",
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    assert "not found" in edit_result["results"][0]["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -7522,15 +9103,23 @@ async def test_resolve_comment_validates_comment_exists(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": first_para["id"],
-            "content_data": "Comment to resolve",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": first_para["id"],
+                            "content_data": "Comment to resolve",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert add_result["success"]
     import re
 
-    match = re.search(r"comment (\d+)", add_result["message"])
+    match = re.search(r"comment (\d+)", add_result["results"][0]["message"])
     comment_id = match.group(1)
 
     # Resolve the comment (validates it exists)
@@ -7538,27 +9127,43 @@ async def test_resolve_comment_validates_comment_exists(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "resolve_comment",
-            "target_id": comment_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "resolve_comment",
+                            "target_id": comment_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert resolve_result["success"]
-    assert "Resolved" in resolve_result["message"]
+    assert "Resolved" in resolve_result["results"][0]["message"]
 
 
 @pytest.mark.asyncio
 async def test_resolve_nonexistent_comment_raises_error(sample_docx):
     """Test that resolving non-existent comment raises error."""
-    with pytest.raises(ToolError) as exc_info:
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(sample_docx),
-                "operation": "resolve_comment",
-                "target_id": "9999",  # Non-existent comment ID
-            },
-        )
-    assert "not found" in str(exc_info.value).lower()
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(sample_docx),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "resolve_comment",
+                            "target_id": "9999",
+                        }
+                    ]
+                )
+            ),  # Non-existent comment ID
+        },
+    )
+    assert not edit_result["success"]
+    assert "not found" in edit_result["results"][0]["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -7578,15 +9183,23 @@ async def test_unresolve_comment_validates_comment_exists(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "add_comment",
-            "target_id": first_para["id"],
-            "content_data": "Comment to unresolve",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_comment",
+                            "target_id": first_para["id"],
+                            "content_data": "Comment to unresolve",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert add_result["success"]
     import re
 
-    match = re.search(r"comment (\d+)", add_result["message"])
+    match = re.search(r"comment (\d+)", add_result["results"][0]["message"])
     comment_id = match.group(1)
 
     # Unresolve the comment (validates it exists)
@@ -7594,12 +9207,20 @@ async def test_unresolve_comment_validates_comment_exists(sample_docx):
         "edit",
         {
             "file_path": str(sample_docx),
-            "operation": "unresolve_comment",
-            "target_id": comment_id,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "unresolve_comment",
+                            "target_id": comment_id,
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert unresolve_result["success"]
-    assert "Unresolved" in unresolve_result["message"]
+    assert "Unresolved" in unresolve_result["results"][0]["message"]
 
 
 # --- TOC (Table of Contents) Tests ---
@@ -7621,10 +9242,9 @@ async def test_insert_toc_creates_toc(tmp_path):
     # Create a document with headings using MCP
     file_path = tmp_path / "toc_test.docx"
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Chapter 1",
             "heading_level": 1,
@@ -7634,26 +9254,50 @@ async def test_insert_toc_creates_toc(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "append",
-            "content_data": "Content for chapter 1",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Content for chapter 1",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "append",
-            "content_type": "heading",
-            "content_data": "Chapter 2",
-            "heading_level": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Chapter 2",
+                            "heading_level": 1,
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "append",
-            "content_data": "Content for chapter 2",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Content for chapter 2",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7668,13 +9312,21 @@ async def test_insert_toc_creates_toc(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "insert_toc",
-            "target_id": first_block["id"],
-            "content_data": '{"position": "before", "heading_levels": "1-3"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_toc",
+                            "target_id": first_block["id"],
+                            "content_data": '{"position": "before", "heading_levels": "1-3"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert insert_result["success"]
-    assert "TOC" in insert_result["message"]
+    assert "TOC" in insert_result["results"][0]["message"]
 
     # Verify TOC now exists
     _, toc_result = await mcp.call_tool(
@@ -7689,10 +9341,9 @@ async def test_insert_toc_heading_levels_configurable(tmp_path):
     # Create a document using MCP
     file_path = tmp_path / "toc_levels.docx"
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Heading 1",
             "heading_level": 1,
@@ -7700,7 +9351,10 @@ async def test_insert_toc_heading_levels_configurable(tmp_path):
     )
     await mcp.call_tool(
         "edit",
-        {"file_path": str(file_path), "operation": "append", "content_data": "Content"},
+        {
+            "file_path": str(file_path),
+            "ops": (_ops([{"op": "append", "content_data": "Content"}])),
+        },
     )
 
     # Get first block
@@ -7714,9 +9368,17 @@ async def test_insert_toc_heading_levels_configurable(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "insert_toc",
-            "target_id": first_block["id"],
-            "content_data": '{"position": "before", "heading_levels": "1-4"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_toc",
+                            "target_id": first_block["id"],
+                            "content_data": '{"position": "before", "heading_levels": "1-4"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert insert_result["success"]
@@ -7735,10 +9397,9 @@ async def test_update_toc_sets_dirty_flag(tmp_path):
     # Create a document with headings using MCP
     file_path = tmp_path / "toc_update.docx"
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Chapter 1",
             "heading_level": 1,
@@ -7746,7 +9407,10 @@ async def test_update_toc_sets_dirty_flag(tmp_path):
     )
     await mcp.call_tool(
         "edit",
-        {"file_path": str(file_path), "operation": "append", "content_data": "Content"},
+        {
+            "file_path": str(file_path),
+            "ops": (_ops([{"op": "append", "content_data": "Content"}])),
+        },
     )
 
     # Get first block and insert TOC
@@ -7759,9 +9423,17 @@ async def test_update_toc_sets_dirty_flag(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "insert_toc",
-            "target_id": first_block["id"],
-            "content_data": '{"position": "before"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_toc",
+                            "target_id": first_block["id"],
+                            "content_data": '{"position": "before"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7770,11 +9442,19 @@ async def test_update_toc_sets_dirty_flag(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "update_toc",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "update_toc",
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert update_result["success"]
-    assert "dirty" in update_result["message"].lower()
+    assert "dirty" in update_result["results"][0]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -7783,10 +9463,9 @@ async def test_has_toc_detects_existing_toc(tmp_path):
     # Create document using MCP
     file_path = tmp_path / "toc_detect.docx"
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_type": "heading",
             "content_data": "Test",
             "heading_level": 1,
@@ -7807,9 +9486,17 @@ async def test_has_toc_detects_existing_toc(tmp_path):
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "insert_toc",
-            "target_id": blocks_result["blocks"][0]["id"],
-            "content_data": '{"position": "before"}',
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "insert_toc",
+                            "target_id": blocks_result["blocks"][0]["id"],
+                            "content_data": '{"position": "before"}',
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7843,10 +9530,9 @@ async def test_add_footnote():
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_data": "This paragraph needs a footnote.",
         },
     )
@@ -7854,8 +9540,16 @@ async def test_add_footnote():
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "append",
-            "content_data": "Another paragraph.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Another paragraph.",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -7872,13 +9566,21 @@ async def test_add_footnote():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "add_footnote",
-                "target_id": para_id,
-                "content_data": '{"text": "This is footnote content."}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_footnote",
+                                "target_id": para_id,
+                                "content_data": '{"text": "This is footnote content."}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
-        assert edit_result["message"].startswith("Added footnote")
+        assert edit_result["results"][0]["message"].startswith("Added footnote")
 
         # Read footnotes
         _, footnotes_result = await mcp.call_tool(
@@ -7902,10 +9604,9 @@ async def test_add_endnote():
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_data": "This paragraph needs an endnote.",
         },
     )
@@ -7922,13 +9623,21 @@ async def test_add_endnote():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "add_footnote",
-                "target_id": para_id,
-                "content_data": '{"text": "This is endnote content.", "note_type": "endnote"}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_footnote",
+                                "target_id": para_id,
+                                "content_data": '{"text": "This is endnote content.", "note_type": "endnote"}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
-        assert edit_result["message"].startswith("Added endnote")
+        assert edit_result["results"][0]["message"].startswith("Added endnote")
 
         # Read footnotes (includes endnotes)
         _, footnotes_result = await mcp.call_tool(
@@ -7951,12 +9660,8 @@ async def test_delete_footnote():
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "This paragraph has a footnote.",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "This paragraph has a footnote."},
     )
 
     try:
@@ -7970,9 +9675,17 @@ async def test_delete_footnote():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "add_footnote",
-                "target_id": para_id,
-                "content_data": '{"text": "To be deleted."}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_footnote",
+                                "target_id": para_id,
+                                "content_data": '{"text": "To be deleted."}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
 
@@ -7988,12 +9701,20 @@ async def test_delete_footnote():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "delete_footnote",
-                "target_id": str(fn_id),
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "delete_footnote",
+                                "target_id": str(fn_id),
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert delete_result["success"] is True
-        assert delete_result["message"].startswith("Deleted footnote")
+        assert delete_result["results"][0]["message"].startswith("Deleted footnote")
 
         # Verify footnote gone
         _, after_result = await mcp.call_tool(
@@ -8012,27 +9733,39 @@ async def test_multiple_footnotes():
 
     # Create document with MCP
     await mcp.call_tool(
+        "create",
+        {"file_path": str(file_path), "content_data": "First paragraph."},
+    )
+    await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "First paragraph.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Second paragraph.",
+                        }
+                    ]
+                )
+            ),
         },
     )
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "operation": "append",
-            "content_data": "Second paragraph.",
-        },
-    )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "append",
-            "content_data": "Third paragraph.",
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_data": "Third paragraph.",
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -8049,9 +9782,17 @@ async def test_multiple_footnotes():
                 "edit",
                 {
                     "file_path": str(file_path),
-                    "operation": "add_footnote",
-                    "target_id": para_id,
-                    "content_data": f'{{"text": "Footnote {i + 1}."}}',
+                    "ops": (
+                        _ops(
+                            [
+                                {
+                                    "op": "add_footnote",
+                                    "target_id": para_id,
+                                    "content_data": f'{{"text": "Footnote {i + 1}."}}',
+                                }
+                            ]
+                        )
+                    ),
                 },
             )
 
@@ -8078,12 +9819,8 @@ async def test_footnote_opc_package_integrity():
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Paragraph with footnote.",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Paragraph with footnote."},
     )
 
     try:
@@ -8097,9 +9834,17 @@ async def test_footnote_opc_package_integrity():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "add_footnote",
-                "target_id": para_id,
-                "content_data": '{"text": "OPC integrity test footnote."}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_footnote",
+                                "target_id": para_id,
+                                "content_data": '{"text": "OPC integrity test footnote."}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"]
@@ -8145,10 +9890,9 @@ async def test_footnote_delete_removes_reference():
 
     # Create document with MCP
     await mcp.call_tool(
-        "edit",
+        "create",
         {
             "file_path": str(file_path),
-            "operation": "create",
             "content_data": "Paragraph with footnote to delete.",
         },
     )
@@ -8164,9 +9908,17 @@ async def test_footnote_delete_removes_reference():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "add_footnote",
-                "target_id": para_id,
-                "content_data": '{"text": "Footnote to delete."}',
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "add_footnote",
+                                "target_id": para_id,
+                                "content_data": '{"text": "Footnote to delete."}',
+                            }
+                        ]
+                    )
+                ),
             },
         )
 
@@ -8182,8 +9934,16 @@ async def test_footnote_delete_removes_reference():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "delete_footnote",
-                "target_id": str(footnote_id),
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "delete_footnote",
+                                "target_id": str(footnote_id),
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert del_result["success"]
@@ -8263,12 +10023,8 @@ async def test_read_content_controls_empty_document():
 
     # Create document with MCP (no content controls)
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "No content controls here.",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "No content controls here."},
     )
 
     try:
@@ -8289,12 +10045,8 @@ async def test_read_content_controls_finds_text_sdt():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Before content control.",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Before content control."},
     )
 
     # Add SDT using WordPackage
@@ -8328,12 +10080,8 @@ async def test_read_content_controls_finds_dropdown_sdt():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Select an option:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Select an option:"},
     )
 
     # Add SDT using WordPackage
@@ -8369,8 +10117,8 @@ async def test_set_content_control_text():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {"file_path": str(file_path), "operation": "create", "content_data": "Form:"},
+        "create",
+        {"file_path": str(file_path), "content_data": "Form:"},
     )
 
     # Add SDT using WordPackage
@@ -8386,9 +10134,17 @@ async def test_set_content_control_text():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "set_content_control",
-                "target_id": "555555",
-                "content_data": "New York",
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "555555",
+                                "content_data": "New York",
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
@@ -8411,8 +10167,8 @@ async def test_set_content_control_dropdown():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {"file_path": str(file_path), "operation": "create", "content_data": "Status:"},
+        "create",
+        {"file_path": str(file_path), "content_data": "Status:"},
     )
 
     # Add SDT using WordPackage
@@ -8430,9 +10186,17 @@ async def test_set_content_control_dropdown():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "set_content_control",
-                "target_id": "666666",
-                "content_data": "Final",
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "666666",
+                                "content_data": "Final",
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
@@ -8455,25 +10219,29 @@ async def test_set_content_control_invalid_id():
 
     # Create document with MCP (no content controls)
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "No content controls.",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "No content controls."},
     )
 
     try:
-        with pytest.raises(ToolError):
-            await mcp.call_tool(
-                "edit",
-                {
-                    "file_path": str(file_path),
-                    "operation": "set_content_control",
-                    "target_id": "999999",
-                    "content_data": "Some value",
-                },
-            )
+        (_, edit_result) = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "999999",
+                                "content_data": "Some value",
+                            }
+                        ]
+                    )
+                ),
+            },
+        )
+        assert not edit_result["success"]
     finally:
         file_path.unlink(missing_ok=True)
 
@@ -8486,12 +10254,8 @@ async def test_set_content_control_dropdown_invalid_value():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Priority:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Priority:"},
     )
 
     # Add SDT using WordPackage
@@ -8505,16 +10269,24 @@ async def test_set_content_control_dropdown_invalid_value():
 
     try:
         # Try to set an invalid value not in options
-        with pytest.raises(ToolError):
-            await mcp.call_tool(
-                "edit",
-                {
-                    "file_path": str(file_path),
-                    "operation": "set_content_control",
-                    "target_id": "888888",
-                    "content_data": "Invalid Option",  # Not in ["Low", "Medium", "High"]
-                },
-            )
+        (_, edit_result) = await mcp.call_tool(
+            "edit",
+            {
+                "file_path": str(file_path),
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "888888",
+                                "content_data": "Invalid Option",
+                            }
+                        ]
+                    )
+                ),  # Not in ["Low", "Medium", "High"]
+            },
+        )
+        assert not edit_result["success"]
 
         # Verify original value is unchanged
         _, result = await mcp.call_tool(
@@ -8564,12 +10336,8 @@ async def test_read_content_controls_finds_checkbox_sdt():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Checkbox form:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Checkbox form:"},
     )
 
     # Add SDT using WordPackage
@@ -8602,12 +10370,8 @@ async def test_set_content_control_checkbox():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Agreement:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Agreement:"},
     )
 
     # Add SDT using WordPackage
@@ -8629,9 +10393,17 @@ async def test_set_content_control_checkbox():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "set_content_control",
-                "target_id": "888888",
-                "content_data": "true",
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "888888",
+                                "content_data": "true",
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
@@ -8682,12 +10454,8 @@ async def test_read_content_controls_finds_date_sdt():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Due date:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Due date:"},
     )
 
     # Add SDT using WordPackage
@@ -8721,12 +10489,8 @@ async def test_set_content_control_date():
 
     # Create document with paragraph, then add SDT via WordPackage
     await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "operation": "create",
-            "content_data": "Event date:",
-        },
+        "create",
+        {"file_path": str(file_path), "content_data": "Event date:"},
     )
 
     # Add SDT using WordPackage
@@ -8742,9 +10506,17 @@ async def test_set_content_control_date():
             "edit",
             {
                 "file_path": str(file_path),
-                "operation": "set_content_control",
-                "target_id": "111111",
-                "content_data": "2025-06-15",
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_content_control",
+                                "target_id": "111111",
+                                "content_data": "2025-06-15",
+                            }
+                        ]
+                    )
+                ),
             },
         )
         assert edit_result["success"] is True
@@ -8847,12 +10619,8 @@ async def test_read_equations_empty_document():
     try:
         # Create document without equations using MCP
         await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(file_path),
-                "operation": "create",
-                "content_data": "No equations here",
-            },
+            "create",
+            {"file_path": str(file_path), "content_data": "No equations here"},
         )
 
         _, result = await mcp.call_tool(
@@ -8976,7 +10744,7 @@ async def test_new_document_has_section():
 
     try:
         # Create new document
-        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool("create", {"file_path": str(new_path)})
 
         # Read metadata
         _, result = await mcp.call_tool(
@@ -8995,7 +10763,7 @@ async def test_new_document_has_page_dimensions():
     new_path.unlink()
 
     try:
-        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool("create", {"file_path": str(new_path)})
 
         _, result = await mcp.call_tool(
             "read", {"file_path": str(new_path), "scope": "page_setup"}
@@ -9021,14 +10789,22 @@ async def test_set_meta_on_new_document():
 
     try:
         # Create and set meta
-        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool("create", {"file_path": str(new_path)})
         await mcp.call_tool(
             "edit",
             {
                 "file_path": str(new_path),
-                "operation": "set_meta",
-                "content_data": json.dumps(
-                    {"title": "Test Title", "author": "Test Author"}
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_meta",
+                                "content_data": json.dumps(
+                                    {"title": "Test Title", "author": "Test Author"}
+                                ),
+                            }
+                        ]
+                    )
                 ),
             },
         )
@@ -9052,13 +10828,21 @@ async def test_set_meta_creates_core_xml_on_minimal_doc():
 
     try:
         # Create doc, set meta, save
-        await mcp.call_tool("edit", {"file_path": str(new_path), "operation": "create"})
+        await mcp.call_tool("create", {"file_path": str(new_path)})
         await mcp.call_tool(
             "edit",
             {
                 "file_path": str(new_path),
-                "operation": "set_meta",
-                "content_data": json.dumps({"title": "Roundtrip Test"}),
+                "ops": (
+                    _ops(
+                        [
+                            {
+                                "op": "set_meta",
+                                "content_data": json.dumps({"title": "Roundtrip Test"}),
+                            }
+                        ]
+                    )
+                ),
             },
         )
 
@@ -9093,9 +10877,19 @@ async def test_add_to_list(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "add_to_list",
-            "target_id": list_para["id"],
-            "content_data": json.dumps({"text": "New list item", "position": "after"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_to_list",
+                            "target_id": list_para["id"],
+                            "content_data": json.dumps(
+                                {"text": "New list item", "position": "after"}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     assert edit_result["success"]
@@ -9141,9 +10935,19 @@ async def test_add_to_list_inherits_level(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "add_to_list",
-            "target_id": list_para["id"],
-            "content_data": json.dumps({"text": "Inherited level item"}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_to_list",
+                            "target_id": list_para["id"],
+                            "content_data": json.dumps(
+                                {"text": "Inherited level item"}
+                            ),
+                        }
+                    ]
+                )
+            ),
         },
     )
     new_id = edit_result["element_id"]
@@ -9176,16 +10980,30 @@ async def test_add_to_list_fails_on_non_list(list_fixture_copy):
     if regular_para is None:
         pytest.skip("Regular paragraph not found")
 
-    with pytest.raises(ToolError, match="w:numPr|not in a list|not supported"):
-        await mcp.call_tool(
-            "edit",
-            {
-                "file_path": str(list_fixture_copy),
-                "operation": "add_to_list",
-                "target_id": regular_para["id"],
-                "content_data": json.dumps({"text": "Should fail"}),
-            },
-        )
+    (_, edit_result) = await mcp.call_tool(
+        "edit",
+        {
+            "file_path": str(list_fixture_copy),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_to_list",
+                            "target_id": regular_para["id"],
+                            "content_data": json.dumps({"text": "Should fail"}),
+                        }
+                    ]
+                )
+            ),
+        },
+    )
+    assert not edit_result["success"]
+    error_msg = edit_result["results"][0]["error"]
+    assert (
+        "w:numPr" in error_msg
+        or "not in a list" in error_msg
+        or "not supported" in error_msg
+    )
 
 
 @pytest.mark.asyncio
@@ -9209,9 +11027,17 @@ async def test_add_to_list_whitespace_preserved(list_fixture_copy):
         "edit",
         {
             "file_path": str(list_fixture_copy),
-            "operation": "add_to_list",
-            "target_id": list_para["id"],
-            "content_data": json.dumps({"text": "  spaced text  "}),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "add_to_list",
+                            "target_id": list_para["id"],
+                            "content_data": json.dumps({"text": "  spaced text  "}),
+                        }
+                    ]
+                )
+            ),
         },
     )
     new_id = edit_result["element_id"]
