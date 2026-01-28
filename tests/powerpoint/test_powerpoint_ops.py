@@ -633,8 +633,106 @@ class TestPhase14Hyperlinks:
         etree.SubElement(txBody, qn("a:p"))  # Empty paragraph, no runs
         pkg.mark_xml_dirty(pkg.get_slide_partname(1))
 
-        result = add_hyperlink(pkg, "1:102", "https://example.com")
+        result = add_hyperlink(pkg, "1:102", url="https://example.com")
         assert result is False
+
+    def test_internal_slide_hyperlink(self):
+        """Adding an internal hyperlink links to another slide."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.constants import RT
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)  # Slide 1
+
+        # Add slide 2 manually (helper doesn't support multiple slides)
+        slide2_xml = etree.fromstring(
+            b'<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
+            b' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+            b' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            b"<p:cSld><p:spTree>"
+            b'<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            b"<p:grpSpPr/>"
+            b"</p:spTree></p:cSld></p:sld>"
+        )
+        pkg._xml["/ppt/slides/slide2.xml"] = slide2_xml
+        pkg._bytes["/ppt/slides/slide2.xml"] = etree.tostring(slide2_xml)
+        pres_rels = pkg.get_rels(pkg.presentation_path)
+        rId2 = pres_rels.get_or_add(RT.SLIDE, "slides/slide2.xml")
+        pres = pkg.presentation_xml
+        sldIdLst = pres.find(qn("p:sldIdLst"), NSMAP)
+        sldId2 = etree.SubElement(sldIdLst, qn("p:sldId"))
+        sldId2.set("id", "257")
+        sldId2.set(qn("r:id"), rId2)
+        pkg._slide_paths = None
+
+        # Add a shape with text on slide 1
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "103")
+        cNvPr.set("name", "Link Shape")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        txBody = etree.SubElement(sp, qn("p:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        r = etree.SubElement(p, qn("a:r"))
+        rPr = etree.SubElement(r, qn("a:rPr"), lang="en-US")
+        t = etree.SubElement(r, qn("a:t"))
+        t.text = "Go to slide 2"
+        slide_partname = pkg.get_slide_partname(1)
+        pkg.mark_xml_dirty(slide_partname)
+
+        result = add_hyperlink(pkg, "1:103", target_slide=2, tooltip="Jump to slide 2")
+        assert result is True
+
+        # Verify a:hlinkClick was added with action attribute
+        hlink = rPr.find(qn("a:hlinkClick"), NSMAP)
+        assert hlink is not None
+        assert hlink.get("action") == "ppaction://hlinksldjump"
+        assert hlink.get("tooltip") == "Jump to slide 2"
+
+        # Verify relationship points to slide 2
+        slide_rels = pkg.get_rels(slide_partname)
+        rId = hlink.get(qn("r:id"))
+        assert rId is not None
+        assert rId in slide_rels
+        rel = slide_rels[rId]
+        # Internal hyperlink uses HYPERLINK relationship type with is_external=True
+        # (TargetMode="External" is required for hyperlink rels, even internal ones)
+        # The action="ppaction://hlinksldjump" controls the jump behavior
+        assert rel.is_external is True
+        assert rel.reltype == RT.HYPERLINK
+        # Should point to slide 2 (relative path)
+        assert "slide2" in rel.target
+
+    def test_hyperlink_requires_url_or_target_slide(self):
+        """Hyperlink requires either url or target_slide."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        with pytest.raises(ValueError, match="Either url or target_slide"):
+            add_hyperlink(pkg, "1:100")
+
+    def test_hyperlink_cannot_have_both_url_and_target_slide(self):
+        """Cannot specify both url and target_slide."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            add_hyperlink(pkg, "1:100", url="https://example.com", target_slide=2)
 
 
 class TestNextPartname:
@@ -674,3 +772,1133 @@ class TestRender:
         # Too many slides should raise
         with pytest.raises(ValueError, match="max 5 slides"):
             render_to_images("/tmp/test.pptx", [1, 2, 3, 4, 5, 6])
+
+
+class TestPhase18aSlideDimensions:
+    """Tests for Phase 18a: Slide dimensions (aspect ratio)."""
+
+    def test_set_dimensions_preset_16x9(self):
+        """Test setting 16:9 preset dimensions."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        # Default is 4:3 (9144000 x 6858000)
+        w, h = pkg.get_slide_dimensions()
+        assert w == 9144000
+        assert h == 6858000
+
+        # Set to 16:9
+        set_slide_dimensions(pkg, preset="16:9")
+
+        w, h = pkg.get_slide_dimensions()
+        assert w == 12192000
+        assert h == 6858000
+
+        # Verify type attribute
+        pres = pkg.presentation_xml
+        sld_sz = pres.find(qn("p:sldSz"), NSMAP)
+        assert sld_sz.get("type") == "screen16x9"
+
+    def test_set_dimensions_preset_4x3(self):
+        """Test setting 4:3 preset dimensions."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        # First change to 16:9
+        set_slide_dimensions(pkg, preset="16:9")
+
+        # Then back to 4:3
+        set_slide_dimensions(pkg, preset="4:3")
+
+        w, h = pkg.get_slide_dimensions()
+        assert w == 9144000
+        assert h == 6858000
+
+        pres = pkg.presentation_xml
+        sld_sz = pres.find(qn("p:sldSz"), NSMAP)
+        assert sld_sz.get("type") == "screen4x3"
+
+    def test_set_dimensions_preset_aliases(self):
+        """Test preset aliases (wide, standard, 16x9, 4x3)."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        # "wide" should work like "16:9"
+        set_slide_dimensions(pkg, preset="wide")
+        w, h = pkg.get_slide_dimensions()
+        assert w == 12192000
+
+        # "standard" should work like "4:3"
+        set_slide_dimensions(pkg, preset="standard")
+        w, h = pkg.get_slide_dimensions()
+        assert w == 9144000
+
+        # "16x9" variant
+        set_slide_dimensions(pkg, preset="16x9")
+        w, h = pkg.get_slide_dimensions()
+        assert w == 12192000
+
+    def test_set_dimensions_custom(self):
+        """Test setting custom dimensions in inches."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        # Set to 8x6 inches
+        set_slide_dimensions(pkg, width=8.0, height=6.0)
+
+        w, h = pkg.get_slide_dimensions()
+        # 8 inches = 7315200 EMU, 6 inches = 5486400 EMU
+        assert w == 7315200
+        assert h == 5486400
+
+        # Type attribute should be omitted for custom sizes
+        pres = pkg.presentation_xml
+        sld_sz = pres.find(qn("p:sldSz"), NSMAP)
+        assert "type" not in sld_sz.attrib
+
+    def test_set_dimensions_invalid_preset_raises(self):
+        """Test that invalid preset raises ValueError."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        with pytest.raises(ValueError, match="Invalid preset"):
+            set_slide_dimensions(pkg, preset="invalid")
+
+    def test_set_dimensions_missing_params_raises(self):
+        """Test that missing parameters raises ValueError."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        # Neither preset nor width/height
+        with pytest.raises(ValueError, match="Must provide either preset"):
+            set_slide_dimensions(pkg)
+
+        # Only width without height
+        with pytest.raises(ValueError, match="Must provide either preset"):
+            set_slide_dimensions(pkg, width=10.0)
+
+        # Only height without width
+        with pytest.raises(ValueError, match="Must provide either preset"):
+            set_slide_dimensions(pkg, height=7.5)
+
+    def test_set_dimensions_invalid_size_raises(self):
+        """Test that zero or negative dimensions raise ValueError."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+
+        pkg = PowerPointPackage.new()
+
+        with pytest.raises(ValueError, match="Width must be > 0.1"):
+            set_slide_dimensions(pkg, width=0.05, height=6.0)
+
+        with pytest.raises(ValueError, match="Height must be > 0.1"):
+            set_slide_dimensions(pkg, width=8.0, height=0.0)
+
+
+class TestPhase18bShapeTransform:
+    """Tests for Phase 18b: Shape transform (move/resize)."""
+
+    def test_transform_move_shape(self):
+        """Test moving a shape by changing position."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+            add_shape,
+            set_shape_transform,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a shape at (1, 1)
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        # Move to (2, 3)
+        result = set_shape_transform(pkg, shape_key, x=2.0, y=3.0)
+        assert result is True
+
+        # Verify position changed
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        xfrm = shape.find(qn("p:spPr") + "/" + qn("a:xfrm"), NSMAP)
+        off = xfrm.find(qn("a:off"), NSMAP)
+        assert off.get("x") == str(int(2.0 * EMU_PER_INCH))
+        assert off.get("y") == str(int(3.0 * EMU_PER_INCH))
+
+        # Size should be unchanged
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        assert ext.get("cx") == str(int(2.0 * EMU_PER_INCH))
+        assert ext.get("cy") == str(int(1.0 * EMU_PER_INCH))
+
+    def test_transform_resize_shape(self):
+        """Test resizing a shape by changing dimensions."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+            add_shape,
+            set_shape_transform,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        # Resize to 4x3 inches
+        result = set_shape_transform(pkg, shape_key, width=4.0, height=3.0)
+        assert result is True
+
+        # Verify size changed
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        xfrm = shape.find(qn("p:spPr") + "/" + qn("a:xfrm"), NSMAP)
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        assert ext.get("cx") == str(int(4.0 * EMU_PER_INCH))
+        assert ext.get("cy") == str(int(3.0 * EMU_PER_INCH))
+
+        # Position should be unchanged
+        off = xfrm.find(qn("a:off"), NSMAP)
+        assert off.get("x") == str(int(1.0 * EMU_PER_INCH))
+        assert off.get("y") == str(int(1.0 * EMU_PER_INCH))
+
+    def test_transform_move_and_resize(self):
+        """Test moving and resizing in one operation."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+            add_shape,
+            set_shape_transform,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        # Move and resize
+        result = set_shape_transform(
+            pkg, shape_key, x=0.5, y=0.5, width=5.0, height=2.5
+        )
+        assert result is True
+
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        xfrm = shape.find(qn("p:spPr") + "/" + qn("a:xfrm"), NSMAP)
+
+        off = xfrm.find(qn("a:off"), NSMAP)
+        assert off.get("x") == str(int(0.5 * EMU_PER_INCH))
+        assert off.get("y") == str(int(0.5 * EMU_PER_INCH))
+
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        assert ext.get("cx") == str(int(5.0 * EMU_PER_INCH))
+        assert ext.get("cy") == str(int(2.5 * EMU_PER_INCH))
+
+    def test_transform_invalid_dimensions_raises(self):
+        """Test that invalid dimensions raise ValueError."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+            add_shape,
+            set_shape_transform,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        with pytest.raises(ValueError, match="Width must be > 0"):
+            set_shape_transform(pkg, shape_key, width=0)
+
+        with pytest.raises(ValueError, match="Height must be > 0"):
+            set_shape_transform(pkg, shape_key, height=-1)
+
+    def test_transform_nonexistent_shape_returns_false(self):
+        """Test that transforming a nonexistent shape returns False."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import set_shape_transform
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Shape 999 doesn't exist
+        result = set_shape_transform(pkg, "1:999", x=1.0, y=1.0)
+        assert result is False
+
+    def test_transform_preserves_rotation(self):
+        """Test that transforming a shape preserves rotation attributes."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import set_shape_transform
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Manually create a shape with rotation
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "50")
+        cNvPr.set("name", "Rotated Shape")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        spPr = etree.SubElement(sp, qn("p:spPr"))
+        xfrm = etree.SubElement(spPr, qn("a:xfrm"))
+        xfrm.set("rot", "5400000")  # 90 degrees
+        xfrm.set("flipH", "1")
+        etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:ext"), cx="914400", cy="914400")
+        pkg.mark_xml_dirty(pkg.get_slide_partname(1))
+
+        # Transform the shape
+        result = set_shape_transform(pkg, "1:50", x=2.0, y=2.0, width=3.0, height=3.0)
+        assert result is True
+
+        # Verify rotation is preserved
+        xfrm = sp.find(qn("p:spPr") + "/" + qn("a:xfrm"), NSMAP)
+        assert xfrm.get("rot") == "5400000"
+        assert xfrm.get("flipH") == "1"
+
+
+class TestPhase18cDuplicateSlide:
+    """Tests for Phase 18c: Duplicate slide."""
+
+    def test_duplicate_slide_basic(self):
+        """Test basic slide duplication."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add content to source slide
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        from lxml import etree
+
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "10")
+        cNvPr.set("name", "Test Shape")
+        pkg.mark_xml_dirty(pkg.get_slide_partname(1))
+
+        # Duplicate
+        new_num = duplicate_slide(pkg, 1)
+        assert new_num == 2
+
+        # Verify we now have 2 slides
+        assert len(pkg.get_slide_paths()) == 2
+
+        # Verify the new slide has the shape
+        new_slide_xml = pkg.get_slide_xml(2)
+        new_sp_tree = new_slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shapes = new_sp_tree.findall(qn("p:sp"), NSMAP)
+        # At least one shape should exist
+        assert len(shapes) >= 1
+
+    def test_duplicate_slide_at_position(self):
+        """Test duplicating a slide at a specific position."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+        _add_test_slide(pkg)
+
+        # Should now have 2 slides
+        assert len(pkg.get_slide_paths()) == 2
+
+        # Duplicate slide 2 at position 1 (beginning)
+        new_num = duplicate_slide(pkg, 2, position=1)
+        assert new_num == 1
+
+        # Should now have 3 slides
+        assert len(pkg.get_slide_paths()) == 3
+
+    def test_duplicate_slide_preserves_layout_relationship(self):
+        """Test that duplicated slide keeps layout relationship."""
+        from mcp_handley_lab.microsoft.powerpoint.constants import RT
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Get source slide's layout relationship
+        source_rels = pkg.get_rels(pkg.get_slide_partname(1))
+        source_layout_rid = source_rels.rId_for_reltype(RT.SLIDE_LAYOUT)
+        source_layout_target = source_rels.target_for_rId(source_layout_rid)
+
+        # Duplicate
+        new_num = duplicate_slide(pkg, 1)
+
+        # Get new slide's layout relationship
+        new_rels = pkg.get_rels(pkg.get_slide_partname(new_num))
+        new_layout_rid = new_rels.rId_for_reltype(RT.SLIDE_LAYOUT)
+        new_layout_target = new_rels.target_for_rId(new_layout_rid)
+
+        # Should point to same layout (reused, not duplicated)
+        assert new_layout_target == source_layout_target
+
+    def test_duplicate_slide_unique_sld_id(self):
+        """Test that duplicated slide gets unique sldId."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+        _add_test_slide(pkg)
+
+        # Get existing sldIds
+        pres = pkg.presentation_xml
+        sld_id_lst = pres.find(qn("p:sldIdLst"), NSMAP)
+        existing_ids = {el.get("id") for el in sld_id_lst}
+
+        # Duplicate
+        duplicate_slide(pkg, 1)
+
+        # Get new sldIds
+        new_ids = {el.get("id") for el in sld_id_lst}
+
+        # Should have one new unique ID
+        assert len(new_ids) == len(existing_ids) + 1
+        # New ID should be different from all existing
+        new_id = new_ids - existing_ids
+        assert len(new_id) == 1
+
+    def test_duplicate_slide_excludes_notes(self):
+        """Test that notes slide is NOT duplicated."""
+        from mcp_handley_lab.microsoft.powerpoint.constants import RT
+        from mcp_handley_lab.microsoft.powerpoint.ops.notes import set_notes
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add notes to source slide
+        set_notes(pkg, 1, "Test notes content")
+
+        # Verify source has notes
+        source_rels = pkg.get_rels(pkg.get_slide_partname(1))
+        assert source_rels.rId_for_reltype(RT.NOTES_SLIDE) is not None
+
+        # Duplicate
+        new_num = duplicate_slide(pkg, 1)
+
+        # New slide should NOT have notes
+        new_rels = pkg.get_rels(pkg.get_slide_partname(new_num))
+        assert new_rels.rId_for_reltype(RT.NOTES_SLIDE) is None
+
+
+class TestPhase18dFontSelection:
+    """Tests for Phase 18d: Font family selection."""
+
+    def test_set_font_on_shape(self):
+        """Test setting font family on shape text."""
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a shape with text
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test text")
+
+        # Set font
+        result = set_text_style(pkg, shape_key, font="Arial")
+        assert result is True
+
+        # Verify a:latin element was added
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        txBody = shape.find(qn("p:txBody"), NSMAP)
+        r = txBody.find(".//" + qn("a:r"), NSMAP)
+        rPr = r.find(qn("a:rPr"), NSMAP)
+        latin = rPr.find(qn("a:latin"), NSMAP)
+        assert latin is not None
+        assert latin.get("typeface") == "Arial"
+
+    def test_set_font_updates_existing(self):
+        """Test that setting font updates existing a:latin element."""
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        # Set initial font
+        set_text_style(pkg, shape_key, font="Arial")
+
+        # Update to different font
+        set_text_style(pkg, shape_key, font="Times New Roman")
+
+        # Verify only one a:latin and has new font
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        txBody = shape.find(qn("p:txBody"), NSMAP)
+        r = txBody.find(".//" + qn("a:r"), NSMAP)
+        rPr = r.find(qn("a:rPr"), NSMAP)
+        latins = rPr.findall(qn("a:latin"), NSMAP)
+        assert len(latins) == 1
+        assert latins[0].get("typeface") == "Times New Roman"
+
+    def test_set_font_on_end_para_rpr(self):
+        """Test that font is set on endParaRPr as well."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Create shape with endParaRPr
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "100")
+        cNvPr.set("name", "Test")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        txBody = etree.SubElement(sp, qn("p:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        r = etree.SubElement(p, qn("a:r"))
+        etree.SubElement(r, qn("a:rPr"), lang="en-US")
+        t = etree.SubElement(r, qn("a:t"))
+        t.text = "Test"
+        etree.SubElement(p, qn("a:endParaRPr"), lang="en-US")
+        pkg.mark_xml_dirty(pkg.get_slide_partname(1))
+
+        # Set font
+        result = set_text_style(pkg, "1:100", font="Georgia")
+        assert result is True
+
+        # Verify endParaRPr has font
+        endParaRPr = p.find(qn("a:endParaRPr"), NSMAP)
+        latin = endParaRPr.find(qn("a:latin"), NSMAP)
+        assert latin is not None
+        assert latin.get("typeface") == "Georgia"
+
+    def test_set_font_with_other_styles(self):
+        """Test setting font along with other text styles."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        shape_key = add_shape(pkg, 1, 1.0, 1.0, 2.0, 1.0, "Test")
+
+        # Set font along with size and bold
+        result = set_text_style(pkg, shape_key, font="Courier New", size=14, bold=True)
+        assert result is True
+
+        # Verify all styles applied
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        shape = sp_tree.find(".//" + qn("p:sp"), NSMAP)
+        txBody = shape.find(qn("p:txBody"), NSMAP)
+        r = txBody.find(".//" + qn("a:r"), NSMAP)
+        rPr = r.find(qn("a:rPr"), NSMAP)
+
+        # Check font
+        latin = rPr.find(qn("a:latin"), NSMAP)
+        assert latin.get("typeface") == "Courier New"
+
+        # Check size (in 100ths of point)
+        assert rPr.get("sz") == "1400"
+
+        # Check bold
+        assert rPr.get("b") == "1"
+
+
+class TestPhase17cDocumentProperties:
+    """Tests for Phase 17c - document properties consolidation."""
+
+    def test_get_core_properties_empty(self):
+        """Test getting core properties from new presentation (empty values)."""
+        from mcp_handley_lab.microsoft.common.properties import get_core_properties
+
+        pkg = PowerPointPackage.new()
+        props = get_core_properties(pkg)
+
+        # New presentations have no core.xml
+        assert props["title"] == ""
+        assert props["author"] == ""
+        assert props["revision"] == 0
+
+    def test_set_core_properties(self):
+        """Test setting core properties."""
+        from mcp_handley_lab.microsoft.common.properties import (
+            get_core_properties,
+            set_core_properties,
+        )
+
+        pkg = PowerPointPackage.new()
+
+        set_core_properties(
+            pkg,
+            title="Test Presentation",
+            author="Test Author",
+            subject="Test Subject",
+        )
+
+        props = get_core_properties(pkg)
+        assert props["title"] == "Test Presentation"
+        assert props["author"] == "Test Author"
+        assert props["subject"] == "Test Subject"
+
+    def test_set_custom_property(self):
+        """Test setting custom properties."""
+        from mcp_handley_lab.microsoft.common.properties import (
+            get_custom_properties,
+            set_custom_property,
+        )
+
+        pkg = PowerPointPackage.new()
+
+        set_custom_property(pkg, "Version", "1.0", "string")
+        set_custom_property(pkg, "Count", "42", "int")
+
+        props = get_custom_properties(pkg)
+        assert len(props) == 2
+        assert props[0]["name"] == "Version"
+        assert props[0]["value"] == "1.0"
+        assert props[0]["type"] == "string"
+        assert props[1]["name"] == "Count"
+        assert props[1]["value"] == "42"
+        assert props[1]["type"] == "int"
+
+    def test_delete_custom_property(self):
+        """Test deleting custom properties."""
+        from mcp_handley_lab.microsoft.common.properties import (
+            delete_custom_property,
+            get_custom_properties,
+            set_custom_property,
+        )
+
+        pkg = PowerPointPackage.new()
+
+        set_custom_property(pkg, "ToDelete", "value", "string")
+        assert len(get_custom_properties(pkg)) == 1
+
+        # Delete it
+        result = delete_custom_property(pkg, "ToDelete")
+        assert result is True
+        assert len(get_custom_properties(pkg)) == 0
+
+        # Deleting non-existent returns False
+        result = delete_custom_property(pkg, "NonExistent")
+        assert result is False
+
+    def test_properties_persist_after_save(self):
+        """Test that properties persist through save/reload cycle."""
+        import tempfile
+        from pathlib import Path
+
+        from mcp_handley_lab.microsoft.common.properties import (
+            get_core_properties,
+            get_custom_properties,
+            set_core_properties,
+            set_custom_property,
+        )
+
+        pkg = PowerPointPackage.new()
+        set_core_properties(pkg, title="Save Test", author="Tester")
+        set_custom_property(pkg, "MyProp", "MyValue", "string")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pptx"
+            pkg.save(str(path))
+
+            # Reload and verify
+            pkg2 = PowerPointPackage.open(str(path))
+            core = get_core_properties(pkg2)
+            assert core["title"] == "Save Test"
+            assert core["author"] == "Tester"
+
+            custom = get_custom_properties(pkg2)
+            assert len(custom) == 1
+            assert custom[0]["name"] == "MyProp"
+            assert custom[0]["value"] == "MyValue"
+
+    def test_unknown_property_type_raises(self):
+        """Test that unknown property types raise ValueError."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.common.properties import set_custom_property
+
+        pkg = PowerPointPackage.new()
+
+        with pytest.raises(ValueError) as exc_info:
+            set_custom_property(pkg, "BadType", "value", "invalid_type")
+
+        assert "Unknown property type" in str(exc_info.value)
+        assert "invalid_type" in str(exc_info.value)
+
+    def test_filetime_requires_datetime_object(self):
+        """Test that filetime type requires datetime, not string."""
+        from datetime import datetime, timezone
+
+        import pytest
+
+        from mcp_handley_lab.microsoft.common.properties import (
+            get_custom_properties,
+            set_custom_property,
+        )
+
+        pkg = PowerPointPackage.new()
+
+        # String value for filetime raises TypeError
+        with pytest.raises(TypeError) as exc_info:
+            set_custom_property(pkg, "BadDate", "2024-01-01", "filetime")
+
+        assert "requires datetime object" in str(exc_info.value)
+
+        # Valid timezone-aware datetime works
+        dt = datetime(2024, 1, 15, 12, 30, 0, tzinfo=timezone.utc)
+        set_custom_property(pkg, "GoodDate", dt, "filetime")
+
+        props = get_custom_properties(pkg)
+        assert len(props) == 1
+        assert props[0]["name"] == "GoodDate"
+        assert props[0]["type"] == "datetime"
+        assert "2024-01-15" in props[0]["value"]
+
+    def test_filetime_requires_timezone_aware(self):
+        """Test that filetime rejects naive datetime."""
+        from datetime import datetime
+
+        import pytest
+
+        from mcp_handley_lab.microsoft.common.properties import set_custom_property
+
+        pkg = PowerPointPackage.new()
+
+        # Naive datetime raises ValueError
+        naive_dt = datetime(2024, 1, 15, 12, 30, 0)
+        with pytest.raises(ValueError) as exc_info:
+            set_custom_property(pkg, "NaiveDate", naive_dt, "datetime")
+
+        assert "timezone-aware" in str(exc_info.value)
+
+
+class TestPhase19bHideSlides:
+    """Tests for Phase 19b: Hide Slides."""
+
+    def test_hide_slide(self):
+        """Test hiding a slide."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+            hide_slide,
+            is_slide_hidden,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)  # Adds slide 1
+
+        # Initially not hidden
+        assert is_slide_hidden(pkg, 1) is False
+
+        # Hide the slide
+        result = hide_slide(pkg, 1, hidden=True)
+        assert result is True
+        assert is_slide_hidden(pkg, 1) is True
+
+    def test_show_hidden_slide(self):
+        """Test showing a hidden slide."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+            hide_slide,
+            is_slide_hidden,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Hide then show
+        hide_slide(pkg, 1, hidden=True)
+        assert is_slide_hidden(pkg, 1) is True
+
+        hide_slide(pkg, 1, hidden=False)
+        assert is_slide_hidden(pkg, 1) is False
+
+    def test_hide_nonexistent_slide_returns_false(self):
+        """Test that hiding a non-existent slide returns False."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import hide_slide
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Slide 99 doesn't exist
+        result = hide_slide(pkg, 99, hidden=True)
+        assert result is False
+
+    def test_is_slide_hidden_nonexistent_returns_none(self):
+        """Test that checking hidden state of non-existent slide returns None."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import is_slide_hidden
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Slide 99 doesn't exist
+        result = is_slide_hidden(pkg, 99)
+        assert result is None
+
+    def test_hide_slide_persists_after_save(self):
+        """Test that hidden state persists through save/reload."""
+        import tempfile
+        from pathlib import Path
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+            hide_slide,
+            is_slide_hidden,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+        hide_slide(pkg, 1, hidden=True)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pptx"
+            pkg.save(str(path))
+
+            # Reload and verify
+            pkg2 = PowerPointPackage.open(str(path))
+            assert is_slide_hidden(pkg2, 1) is True
+
+    def test_hide_slide_via_tool(self):
+        """Test hiding a slide via the edit tool interface."""
+        import json
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.slides import is_slide_hidden
+        from mcp_handley_lab.microsoft.powerpoint.tool import edit
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pptx"
+            pkg.save(str(path))
+
+            # Hide via tool
+            result = edit(
+                str(path),
+                ops=json.dumps([{"op": "hide_slide", "slide_num": 1, "hidden": True}]),
+            )
+            assert result["success"] is True
+            assert "Hidden" in result["results"][0]["message"]
+
+            # Verify
+            pkg2 = PowerPointPackage.open(str(path))
+            assert is_slide_hidden(pkg2, 1) is True
+
+            # Show via tool
+            result = edit(
+                str(path),
+                ops=json.dumps([{"op": "hide_slide", "slide_num": 1, "hidden": False}]),
+            )
+            assert result["success"] is True
+            assert "Shown" in result["results"][0]["message"]
+
+            # Verify
+            pkg3 = PowerPointPackage.open(str(path))
+            assert is_slide_hidden(pkg3, 1) is False
+
+
+class TestPhase19cTableRowColumnOps:
+    """Tests for Phase 19c: Table Row/Column Operations."""
+
+    def _create_pkg_with_table(self):
+        """Create a package with a slide and a 2x3 table."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import add_table
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a 2x3 table
+        shape_key = add_table(pkg, 1, rows=2, cols=3)
+        return pkg, shape_key
+
+    def test_add_table_row_at_end(self):
+        """Test adding a row at the end of a table."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table_row,
+            list_tables,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Initially 2 rows
+        tables = list_tables(pkg, 1)
+        assert tables[0]["rows"] == 2
+
+        # Add row at end
+        result = add_table_row(pkg, shape_key)
+        assert result is True
+
+        # Now 3 rows
+        tables = list_tables(pkg, 1)
+        assert tables[0]["rows"] == 3
+
+    def test_add_table_row_at_position(self):
+        """Test adding a row at a specific position."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table_row,
+            list_tables,
+            set_table_cell,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Set text in first cell to track row positions
+        set_table_cell(pkg, shape_key, 0, 0, "Row0")
+        set_table_cell(pkg, shape_key, 1, 0, "Row1")
+
+        # Add row at position 1
+        result = add_table_row(pkg, shape_key, position=1)
+        assert result is True
+
+        # Now 3 rows
+        tables = list_tables(pkg, 1)
+        assert tables[0]["rows"] == 3
+
+        # Row0 should still be at position 0
+        cells = {(c["row"], c["col"]): c["text"] for c in tables[0]["cells"]}
+        assert cells[(0, 0)] == "Row0"
+        # Row1 should now be at position 2
+        assert cells[(2, 0)] == "Row1"
+
+    def test_add_table_column_at_end(self):
+        """Test adding a column at the end of a table."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table_column,
+            list_tables,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Initially 3 columns
+        tables = list_tables(pkg, 1)
+        assert tables[0]["cols"] == 3
+
+        # Add column at end
+        result = add_table_column(pkg, shape_key)
+        assert result is True
+
+        # Now 4 columns
+        tables = list_tables(pkg, 1)
+        assert tables[0]["cols"] == 4
+
+    def test_add_table_column_at_position(self):
+        """Test adding a column at a specific position."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table_column,
+            list_tables,
+            set_table_cell,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Set text in first row to track column positions
+        set_table_cell(pkg, shape_key, 0, 0, "Col0")
+        set_table_cell(pkg, shape_key, 0, 1, "Col1")
+        set_table_cell(pkg, shape_key, 0, 2, "Col2")
+
+        # Add column at position 1
+        result = add_table_column(pkg, shape_key, position=1)
+        assert result is True
+
+        # Now 4 columns
+        tables = list_tables(pkg, 1)
+        assert tables[0]["cols"] == 4
+
+        # Col0 should still be at position 0
+        cells = {(c["row"], c["col"]): c["text"] for c in tables[0]["cells"]}
+        assert cells[(0, 0)] == "Col0"
+        # Col1 should now be at position 2
+        assert cells[(0, 2)] == "Col1"
+        # Col2 should now be at position 3
+        assert cells[(0, 3)] == "Col2"
+
+    def test_delete_table_row(self):
+        """Test deleting a row from a table."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            delete_table_row,
+            list_tables,
+            set_table_cell,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Set text to identify rows
+        set_table_cell(pkg, shape_key, 0, 0, "Row0")
+        set_table_cell(pkg, shape_key, 1, 0, "Row1")
+
+        # Delete row 0
+        result = delete_table_row(pkg, shape_key, 0)
+        assert result is True
+
+        # Now 1 row
+        tables = list_tables(pkg, 1)
+        assert tables[0]["rows"] == 1
+
+        # Row1 should now be at position 0
+        cells = {(c["row"], c["col"]): c["text"] for c in tables[0]["cells"]}
+        assert cells[(0, 0)] == "Row1"
+
+    def test_delete_table_column(self):
+        """Test deleting a column from a table."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            delete_table_column,
+            list_tables,
+            set_table_cell,
+        )
+
+        pkg, shape_key = self._create_pkg_with_table()
+
+        # Set text to identify columns
+        set_table_cell(pkg, shape_key, 0, 0, "Col0")
+        set_table_cell(pkg, shape_key, 0, 1, "Col1")
+        set_table_cell(pkg, shape_key, 0, 2, "Col2")
+
+        # Delete column 1 (middle)
+        result = delete_table_column(pkg, shape_key, 1)
+        assert result is True
+
+        # Now 2 columns
+        tables = list_tables(pkg, 1)
+        assert tables[0]["cols"] == 2
+
+        # Col0 and Col2 remain
+        cells = {(c["row"], c["col"]): c["text"] for c in tables[0]["cells"]}
+        assert cells[(0, 0)] == "Col0"
+        assert cells[(0, 1)] == "Col2"
+
+    def test_delete_last_row_fails(self):
+        """Test that deleting the last row fails."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table,
+            delete_table_row,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Create a 1x1 table
+        shape_key = add_table(pkg, 1, rows=1, cols=1)
+
+        # Deleting the last row should fail
+        result = delete_table_row(pkg, shape_key, 0)
+        assert result is False
+
+    def test_delete_last_column_fails(self):
+        """Test that deleting the last column fails."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+            add_table,
+            delete_table_column,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Create a 1x1 table
+        shape_key = add_table(pkg, 1, rows=1, cols=1)
+
+        # Deleting the last column should fail
+        result = delete_table_column(pkg, shape_key, 0)
+        assert result is False
+
+    def test_table_ops_via_tool(self):
+        """Test table operations via the edit tool interface."""
+        import json
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import list_tables
+        from mcp_handley_lab.microsoft.powerpoint.tool import edit
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pptx"
+            pkg.save(str(path))
+
+            # Add a 2x2 table via tool
+            result = edit(
+                str(path),
+                ops=json.dumps(
+                    [{"op": "add_table", "slide_num": 1, "rows": 2, "cols": 2}]
+                ),
+            )
+            assert result["success"] is True
+            shape_key = result["results"][0]["element_id"]
+
+            # Add row via tool
+            result = edit(
+                str(path),
+                ops=json.dumps([{"op": "add_table_row", "shape_key": shape_key}]),
+            )
+            assert result["success"] is True
+
+            # Verify
+            pkg2 = PowerPointPackage.open(str(path))
+            tables = list_tables(pkg2, 1)
+            assert tables[0]["rows"] == 3
+
+            # Add column via tool
+            result = edit(
+                str(path),
+                ops=json.dumps([{"op": "add_table_column", "shape_key": shape_key}]),
+            )
+            assert result["success"] is True
+
+            # Verify
+            pkg3 = PowerPointPackage.open(str(path))
+            tables = list_tables(pkg3, 1)
+            assert tables[0]["cols"] == 3
+
+            # Delete row via tool
+            result = edit(
+                str(path),
+                ops=json.dumps(
+                    [{"op": "delete_table_row", "shape_key": shape_key, "row": 0}]
+                ),
+            )
+            assert result["success"] is True
+
+            # Verify
+            pkg4 = PowerPointPackage.open(str(path))
+            tables = list_tables(pkg4, 1)
+            assert tables[0]["rows"] == 2
+
+            # Delete column via tool
+            result = edit(
+                str(path),
+                ops=json.dumps(
+                    [{"op": "delete_table_column", "shape_key": shape_key, "col": 0}]
+                ),
+            )
+            assert result["success"] is True
+
+            # Verify
+            pkg5 = PowerPointPackage.open(str(path))
+            tables = list_tables(pkg5, 1)
+            assert tables[0]["cols"] == 2

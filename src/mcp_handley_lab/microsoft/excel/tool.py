@@ -9,6 +9,10 @@ from __future__ import annotations
 import copy
 import json
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -795,6 +799,10 @@ def edit(
     Returns:
         ExcelEditResult with success status, counts, and per-operation results
     """
+    # Handle direct calls (Field descriptors not resolved outside MCP)
+    if not isinstance(mode, str):
+        mode = "atomic"
+
     # Parse operations
     try:
         operations = json.loads(ops)
@@ -1608,3 +1616,89 @@ def _op_delete_custom_property(
         return {"message": f"Deleted custom property '{name}'", "element_id": ""}
     else:
         raise ValueError(f"Custom property '{name}' not found")
+
+
+# =============================================================================
+# Standalone Operations (not available in batch mode)
+# =============================================================================
+
+
+@mcp.tool()
+def create(
+    file_path: str = Field(description="Path to create new .xlsx file"),
+) -> dict[str, Any]:
+    """Create a new empty Excel workbook."""
+    pkg = ExcelPackage.new()
+    pkg.save(file_path)
+    return ExcelEditResult(
+        success=True,
+        message=f"Created workbook: {file_path}",
+        total=1,
+        succeeded=1,
+        saved=True,
+    ).model_dump(exclude_none=True)
+
+
+@mcp.tool()
+def recalculate(
+    file_path: str = Field(description="Path to .xlsx file"),
+) -> dict[str, Any]:
+    """Recalculate all formulas using LibreOffice headless.
+
+    Opens the file in LibreOffice to trigger formula calculation,
+    then saves it back. The cached values in <v> elements are then populated.
+    """
+    resolved_path = str(Path(file_path).resolve())
+    file_name = Path(resolved_path).name
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_dir = Path(tmpdir) / "in"
+        output_dir = Path(tmpdir) / "out"
+        input_dir.mkdir()
+        output_dir.mkdir()
+
+        input_copy = input_dir / file_name
+        shutil.copy2(resolved_path, input_copy)
+
+        result = subprocess.run(
+            [
+                "libreoffice",
+                "--headless",
+                "--calc",
+                "--convert-to",
+                "xlsx",
+                "--outdir",
+                str(output_dir),
+                str(input_copy),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"LibreOffice failed: {result.stderr or result.stdout}")
+
+        output_file = output_dir / file_name
+        if not output_file.exists():
+            xlsx_files = list(output_dir.glob("*.xlsx"))
+            if len(xlsx_files) == 1:
+                output_file = xlsx_files[0]
+            elif not xlsx_files:
+                raise RuntimeError(
+                    f"LibreOffice did not produce any .xlsx file in {output_dir}"
+                )
+            else:
+                raise RuntimeError(
+                    f"LibreOffice produced multiple files: {[f.name for f in xlsx_files]}"
+                )
+
+        shutil.move(str(output_file), resolved_path)
+
+    return ExcelEditResult(
+        success=True,
+        message="Recalculated all formulas",
+        total=1,
+        succeeded=1,
+        saved=True,
+    ).model_dump(exclude_none=True)

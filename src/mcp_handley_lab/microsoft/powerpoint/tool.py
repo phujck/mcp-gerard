@@ -422,6 +422,10 @@ def edit(
     Returns:
         PowerPointEditResult with success status, counts, and per-operation results
     """
+    # Handle direct calls (Field descriptors not resolved outside MCP)
+    if not isinstance(mode, str):
+        mode = "atomic"
+
     # Parse operations
     try:
         operations = json.loads(ops)
@@ -716,13 +720,14 @@ def _op_set_placeholder(
         raise ValueError("slide_num required for set_placeholder")
     if text is None:
         raise ValueError("text required for set_placeholder")
-    shape_id = set_placeholder_text(
+    result = set_placeholder_text(
         pkg, slide_num, text, placeholder_type, placeholder_idx
     )
-    shape_key = f"{slide_num}:{shape_id}"
+    if not result:
+        raise ValueError(f"Placeholder not found on slide {slide_num}")
     return {
         "message": f"Set placeholder text on slide {slide_num}",
-        "element_id": shape_key,
+        "element_id": "",
     }
 
 
@@ -750,8 +755,7 @@ def _op_add_shape(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, A
         raise ValueError("slide_num required for add_shape")
     if x is None or y is None or width is None or height is None:
         raise ValueError("x, y, width, height required for add_shape")
-    shape_id = add_shape(pkg, slide_num, x, y, width, height, text)
-    shape_key = f"{slide_num}:{shape_id}"
+    shape_key = add_shape(pkg, slide_num, x, y, width, height, text)
     return {"message": f"Added shape on slide {slide_num}", "element_id": shape_key}
 
 
@@ -764,10 +768,7 @@ def _op_edit_shape(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, 
         raise ValueError("shape_key required for edit_shape")
     if text is None:
         raise ValueError("text required for edit_shape")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    edit_shape(pkg, slide_num, shape_id, text, bullet_style)
+    edit_shape(pkg, shape_key, text, bullet_style)
     return {"message": f"Edited shape {shape_key}", "element_id": shape_key}
 
 
@@ -776,10 +777,7 @@ def _op_delete_shape(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str
     shape_key = params.get("shape_key")
     if shape_key is None:
         raise ValueError("shape_key required for delete_shape")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    delete_shape(pkg, slide_num, shape_id)
+    delete_shape(pkg, shape_key)
     return {"message": f"Deleted shape {shape_key}", "element_id": ""}
 
 
@@ -794,10 +792,7 @@ def _op_transform_shape(
     height = params.get("height")
     if shape_key is None:
         raise ValueError("shape_key required for transform_shape")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    set_shape_transform(pkg, slide_num, shape_id, x, y, width, height)
+    set_shape_transform(pkg, shape_key, x, y, width, height)
     return {"message": f"Transformed shape {shape_key}", "element_id": shape_key}
 
 
@@ -805,16 +800,15 @@ def _op_add_image(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, A
     """Add an image."""
     slide_num = params.get("slide_num")
     image_path = params.get("image_path")
-    x = params.get("x")
-    y = params.get("y")
-    width = params.get("width")
-    height = params.get("height")
     if slide_num is None:
         raise ValueError("slide_num required for add_image")
     if image_path is None:
         raise ValueError("image_path required for add_image")
-    shape_id = add_image(pkg, slide_num, image_path, x, y, width, height)
-    shape_key = f"{slide_num}:{shape_id}"
+    kwargs: dict[str, Any] = {}
+    for k in ("x", "y", "width", "height"):
+        if k in params:
+            kwargs[k] = params[k]
+    shape_key = add_image(pkg, slide_num, image_path, **kwargs)
     return {"message": f"Added image on slide {slide_num}", "element_id": shape_key}
 
 
@@ -835,16 +829,15 @@ def _op_add_table(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, A
     slide_num = params.get("slide_num")
     rows = params.get("rows")
     cols = params.get("cols")
-    x = params.get("x")
-    y = params.get("y")
-    width = params.get("width")
-    height = params.get("height")
     if slide_num is None:
         raise ValueError("slide_num required for add_table")
     if rows is None or cols is None:
         raise ValueError("rows and cols required for add_table")
-    shape_id = add_table(pkg, slide_num, rows, cols, x, y, width, height)
-    shape_key = f"{slide_num}:{shape_id}"
+    kwargs: dict[str, Any] = {}
+    for k in ("x", "y", "width", "height"):
+        if k in params:
+            kwargs[k] = params[k]
+    shape_key = add_table(pkg, slide_num, rows, cols, **kwargs)
     return {
         "message": f"Added {rows}x{cols} table on slide {slide_num}",
         "element_id": shape_key,
@@ -865,10 +858,7 @@ def _op_set_table_cell(
         raise ValueError("row and col required for set_table_cell")
     if text is None:
         raise ValueError("text required for set_table_cell")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    set_table_cell(pkg, slide_num, shape_id, row, col, text)
+    set_table_cell(pkg, shape_key, row, col, text)
     return {
         "message": f"Set cell ({row},{col}) in table {shape_key}",
         "element_id": shape_key,
@@ -878,15 +868,12 @@ def _op_set_table_cell(
 def _op_add_table_row(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Add a table row."""
     shape_key = params.get("shape_key")
-    row = params.get("row")
+    position = params.get("row")
     if shape_key is None:
         raise ValueError("shape_key required for add_table_row")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    new_row = add_table_row(pkg, slide_num, shape_id, row)
+    add_table_row(pkg, shape_key, position)
     return {
-        "message": f"Added row {new_row} to table {shape_key}",
+        "message": f"Added row to table {shape_key}",
         "element_id": shape_key,
     }
 
@@ -896,15 +883,12 @@ def _op_add_table_column(
 ) -> dict[str, Any]:
     """Add a table column."""
     shape_key = params.get("shape_key")
-    col = params.get("col")
+    position = params.get("col")
     if shape_key is None:
         raise ValueError("shape_key required for add_table_column")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    new_col = add_table_column(pkg, slide_num, shape_id, col)
+    add_table_column(pkg, shape_key, position)
     return {
-        "message": f"Added column {new_col} to table {shape_key}",
+        "message": f"Added column to table {shape_key}",
         "element_id": shape_key,
     }
 
@@ -919,10 +903,7 @@ def _op_delete_table_row(
         raise ValueError("shape_key required for delete_table_row")
     if row is None:
         raise ValueError("row required for delete_table_row")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    delete_table_row(pkg, slide_num, shape_id, row)
+    delete_table_row(pkg, shape_key, row)
     return {
         "message": f"Deleted row {row} from table {shape_key}",
         "element_id": shape_key,
@@ -939,10 +920,7 @@ def _op_delete_table_column(
         raise ValueError("shape_key required for delete_table_column")
     if col is None:
         raise ValueError("col required for delete_table_column")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    delete_table_column(pkg, slide_num, shape_id, col)
+    delete_table_column(pkg, shape_key, col)
     return {
         "message": f"Deleted column {col} from table {shape_key}",
         "element_id": shape_key,
@@ -959,10 +937,7 @@ def _op_set_shape_fill(
         raise ValueError("shape_key required for set_shape_fill")
     if color is None:
         raise ValueError("color required for set_shape_fill")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    set_shape_fill(pkg, slide_num, shape_id, color)
+    set_shape_fill(pkg, shape_key, color)
     return {"message": f"Set fill color for shape {shape_key}", "element_id": shape_key}
 
 
@@ -975,10 +950,7 @@ def _op_set_shape_line(
     line_width = params.get("line_width")
     if shape_key is None:
         raise ValueError("shape_key required for set_shape_line")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    set_shape_line(pkg, slide_num, shape_id, color, line_width)
+    set_shape_line(pkg, shape_key, color, line_width)
     return {"message": f"Set line style for shape {shape_key}", "element_id": shape_key}
 
 
@@ -995,10 +967,7 @@ def _op_set_text_style(
     font = params.get("font")
     if shape_key is None:
         raise ValueError("shape_key required for set_text_style")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    set_text_style(pkg, slide_num, shape_id, size, bold, italic, color, alignment, font)
+    set_text_style(pkg, shape_key, size, bold, italic, color, alignment, font)
     return {"message": f"Set text style for shape {shape_key}", "element_id": shape_key}
 
 
@@ -1028,10 +997,7 @@ def _op_add_hyperlink(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[st
         raise ValueError("Either url or target_slide required for add_hyperlink")
     if url is not None and target_slide is not None:
         raise ValueError("Cannot specify both url and target_slide")
-    slide_num_str, shape_id_str = shape_key.split(":")
-    slide_num = int(slide_num_str)
-    shape_id = int(shape_id_str)
-    add_hyperlink(pkg, slide_num, shape_id, url, tooltip, target_slide)
+    add_hyperlink(pkg, shape_key, url, tooltip, target_slide)
     link_type = "external URL" if url else f"slide {target_slide}"
     return {
         "message": f"Added hyperlink to {link_type} on shape {shape_key}",
