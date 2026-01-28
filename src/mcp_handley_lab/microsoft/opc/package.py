@@ -164,6 +164,9 @@ class OpcPackage:
             raise KeyError(f"Relationship {rId} not found in {partname}")
         if rel.is_external:
             return rel.target  # External URL, return as-is
+        # If target is already absolute, return it directly
+        if rel.target.startswith("/"):
+            return rel.target
         # Internal: resolve relative to source part's directory
         base_uri = dirname(partname)
         resolved = normpath(f"{base_uri}/{rel.target}")

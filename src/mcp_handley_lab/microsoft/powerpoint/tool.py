@@ -21,6 +21,10 @@ from mcp_handley_lab.microsoft.powerpoint.ops.images import (
 )
 from mcp_handley_lab.microsoft.powerpoint.ops.notes import get_notes, set_notes
 from mcp_handley_lab.microsoft.powerpoint.ops.placeholders import set_placeholder_text
+from mcp_handley_lab.microsoft.powerpoint.ops.render import (
+    render_to_images,
+    render_to_pdf,
+)
 from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
     add_shape,
     delete_shape,
@@ -804,3 +808,62 @@ def _edit_add_hyperlink(
             success=False,
             message=f"Shape {shape_key} not found or has no text runs",
         )
+
+
+@mcp.tool()
+def render(
+    file_path: str,
+    slides: list[int] | None = None,
+    dpi: int = 150,
+    output: str = "png",
+):
+    """Render PowerPoint slides for visual inspection or sharing.
+
+    Use read to get presentation structure, render to see it visually.
+    output='png' (default) returns labeled images for Claude to see.
+    output='pdf' returns PDF bytes for sharing.
+    Requires libreoffice (and pdftoppm for PNG).
+
+    Args:
+        file_path: Path to .pptx file
+        slides: Slide numbers to render (1-based). Required for PNG output. Max 5 slides.
+        dpi: Resolution for PNG (default 150, max 300)
+        output: Output format: 'png' (images) or 'pdf' (full document)
+
+    Returns:
+        List of TextContent and Image objects
+    """
+    from mcp.types import ImageContent, TextContent
+
+    if output == "pdf":
+        pdf_bytes = render_to_pdf(file_path)
+        import base64
+
+        return [
+            TextContent(type="text", text=f"PDF ({len(pdf_bytes):,} bytes)"),
+            ImageContent(
+                type="image",
+                data=base64.b64encode(pdf_bytes).decode(),
+                mimeType="application/pdf",
+            ),
+        ]
+
+    # PNG output (default)
+    if not slides:
+        raise ValueError("slides is required for PNG output")
+    if dpi > 300:
+        raise ValueError("dpi max is 300")
+
+    import base64
+
+    result = []
+    for slide_num, png_bytes in render_to_images(file_path, slides, dpi):
+        result.append(TextContent(type="text", text=f"Slide {slide_num}:"))
+        result.append(
+            ImageContent(
+                type="image",
+                data=base64.b64encode(png_bytes).decode(),
+                mimeType="image/png",
+            )
+        )
+    return result

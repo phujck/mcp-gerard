@@ -656,3 +656,21 @@ class TestNextPartname:
         # Next should be 6 (max existing + 1)
         next_slide = pkg.next_partname("/ppt/slides/slide", ".xml")
         assert next_slide == "/ppt/slides/slide6.xml"
+
+
+class TestRender:
+    """Tests for PowerPoint rendering."""
+
+    def test_render_validation(self):
+        """Test render input validation."""
+        import pytest
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.render import render_to_images
+
+        # Empty slides list should raise
+        with pytest.raises(ValueError, match="slides is required"):
+            render_to_images("/tmp/test.pptx", [])
+
+        # Too many slides should raise
+        with pytest.raises(ValueError, match="max 5 slides"):
+            render_to_images("/tmp/test.pptx", [1, 2, 3, 4, 5, 6])
