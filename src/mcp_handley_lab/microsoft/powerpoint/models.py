@@ -2,7 +2,35 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CustomPropertyInfo(BaseModel):
+    """A custom document property."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    value: str  # String representation
+    type: str  # "string", "datetime", "int", "bool", "float"
+
+
+class DocumentProperties(BaseModel):
+    """Document core and custom properties."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = ""
+    author: str = ""
+    subject: str = ""
+    keywords: str = ""
+    category: str = ""
+    comments: str = ""
+    created: str = ""
+    modified: str = ""
+    revision: int = 0
+    last_modified_by: str = ""
+    custom_properties: list[CustomPropertyInfo] = Field(default_factory=list)
 
 
 class PresentationMeta(BaseModel):
@@ -14,6 +42,7 @@ class PresentationMeta(BaseModel):
     slide_width_inches: float
     slide_height_inches: float
     notes_count: int
+    properties: DocumentProperties | None = None
 
 
 class SlideInfo(BaseModel):
@@ -77,7 +106,9 @@ class LayoutInfo(BaseModel):
     name: str
     type: str | None = None  # e.g., "title", "obj", "twoObj"
     placeholder_count: int = 0
-    placeholder_types: list[str] = []  # e.g., ["title", "body", "dt"]
+    placeholder_types: list[str] = Field(
+        default_factory=list
+    )  # e.g., ["title", "body", "dt"]
     master_name: str | None = None
     master_index: int = 0
 
@@ -127,7 +158,7 @@ class TableInfo(BaseModel):
     # Table structure
     rows: int
     cols: int
-    cells: list[TableCell] = []
+    cells: list[TableCell] = Field(default_factory=list)
 
 
 class PowerPointReadResult(BaseModel):
@@ -144,14 +175,31 @@ class PowerPointReadResult(BaseModel):
     layouts: list[LayoutInfo] | None = None
     images: list[ImageInfo] | None = None
     tables: list[TableInfo] | None = None
+    properties: DocumentProperties | None = None
+
+
+class PowerPointOpResult(BaseModel):
+    """Result from a single PowerPoint batch operation."""
+
+    model_config = ConfigDict(extra="forbid", exclude_none=True)
+
+    index: int
+    op: str
+    success: bool
+    element_id: str = ""  # For $prev chaining (shape_key, etc.)
+    message: str = ""
+    error: str = ""
 
 
 class PowerPointEditResult(BaseModel):
-    """Result from edit() operation."""
+    """Result from edit() operation (batch mode)."""
 
     model_config = ConfigDict(extra="forbid", exclude_none=True)
 
     success: bool
     message: str
-    element_id: str | None = None
-    affected_refs: list[str] | None = None
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    results: list[PowerPointOpResult] = Field(default_factory=list)
+    saved: bool = False
