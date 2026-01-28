@@ -157,15 +157,60 @@ class PowerPointPackage(OpcPackage):
         pkg._init_minimal_presentation()
         return pkg
 
+    # Standard layouts for new presentations: (name, type, placeholders)
+    # Each placeholder: (type, idx, name, x, y, cx, cy)
+    # Coordinates in EMU (914400 EMU = 1 inch)
+    _STANDARD_LAYOUTS: list[
+        tuple[str, str, list[tuple[str, str, str, str, str, str, str]]]
+    ] = [
+        (
+            "Title Slide",
+            "title",
+            [
+                ("ctrTitle", "0", "Title 1", "685800", "2130425", "7772400", "1470025"),
+                (
+                    "subTitle",
+                    "1",
+                    "Subtitle 2",
+                    "1371600",
+                    "3886200",
+                    "6400800",
+                    "1752600",
+                ),
+            ],
+        ),
+        (
+            "Title and Content",
+            "obj",
+            [
+                ("title", "0", "Title 1", "457200", "274638", "8229600", "1143000"),
+                ("body", "1", "Content 2", "457200", "1600200", "8229600", "4525963"),
+            ],
+        ),
+        (
+            "Title Only",
+            "titleOnly",
+            [
+                ("title", "0", "Title 1", "457200", "274638", "8229600", "1143000"),
+            ],
+        ),
+        ("Blank", "blank", []),
+    ]
+
     def _init_minimal_presentation(self) -> None:
         """Initialize a minimal valid presentation structure.
 
-        Creates all required parts: presentation, slide master, slide layout, theme.
+        Creates all required parts: presentation, slide master, slide layouts, theme.
         """
+        layouts = self._STANDARD_LAYOUTS
+
         # Register content types for presentation parts
         self._content_types["/ppt/presentation.xml"] = CT.PML_PRESENTATION_MAIN
         self._content_types["/ppt/slideMasters/slideMaster1.xml"] = CT.PML_SLIDE_MASTER
-        self._content_types["/ppt/slideLayouts/slideLayout1.xml"] = CT.PML_SLIDE_LAYOUT
+        for i in range(len(layouts)):
+            self._content_types[f"/ppt/slideLayouts/slideLayout{i + 1}.xml"] = (
+                CT.PML_SLIDE_LAYOUT
+            )
         self._content_types["/ppt/theme/theme1.xml"] = CT.THEME
 
         # Package relationships
@@ -235,43 +280,29 @@ class PowerPointPackage(OpcPackage):
             clr_map.set(attr, val)
         # Slide layout ID list
         sld_layout_id_lst = etree.SubElement(master, qn("p:sldLayoutIdLst"))
-        sld_layout_id = etree.SubElement(sld_layout_id_lst, qn("p:sldLayoutId"))
-        sld_layout_id.set("id", "2147483649")
-        sld_layout_id.set(qn("r:id"), "rId1")
+        for i in range(len(layouts)):
+            sld_layout_id = etree.SubElement(sld_layout_id_lst, qn("p:sldLayoutId"))
+            sld_layout_id.set("id", str(2147483649 + i))
+            sld_layout_id.set(qn("r:id"), f"rId{i + 1}")
         self.set_xml("/ppt/slideMasters/slideMaster1.xml", master)
 
         # Slide master relationships
         master_rels = self.get_rels("/ppt/slideMasters/slideMaster1.xml")
-        master_rels.get_or_add(RT.SLIDE_LAYOUT, "/ppt/slideLayouts/slideLayout1.xml")
+        for i in range(len(layouts)):
+            master_rels.get_or_add(
+                RT.SLIDE_LAYOUT, f"/ppt/slideLayouts/slideLayout{i + 1}.xml"
+            )
         master_rels.get_or_add(RT.THEME, "/ppt/theme/theme1.xml")
 
-        # Create slide layout
-        layout = etree.Element(
-            qn("p:sldLayout"),
-            nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]},
-        )
-        layout.set("type", "blank")
-        cSld = etree.SubElement(layout, qn("p:cSld"))
-        cSld.set("name", "Blank")
-        spTree = etree.SubElement(cSld, qn("p:spTree"))
-        nvGrpSpPr = etree.SubElement(spTree, qn("p:nvGrpSpPr"))
-        cNvPr = etree.SubElement(nvGrpSpPr, qn("p:cNvPr"))
-        cNvPr.set("id", "1")
-        cNvPr.set("name", "")
-        etree.SubElement(nvGrpSpPr, qn("p:cNvGrpSpPr"))
-        etree.SubElement(nvGrpSpPr, qn("p:nvPr"))
-        grpSpPr = etree.SubElement(spTree, qn("p:grpSpPr"))
-        xfrm = etree.SubElement(grpSpPr, qn("a:xfrm"))
-        etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
-        etree.SubElement(xfrm, qn("a:ext"), cx="0", cy="0")
-        etree.SubElement(xfrm, qn("a:chOff"), x="0", y="0")
-        etree.SubElement(xfrm, qn("a:chExt"), cx="0", cy="0")
-        etree.SubElement(layout, qn("p:clrMapOvr"))
-        self.set_xml("/ppt/slideLayouts/slideLayout1.xml", layout)
-
-        # Slide layout relationships
-        layout_rels = self.get_rels("/ppt/slideLayouts/slideLayout1.xml")
-        layout_rels.get_or_add(RT.SLIDE_MASTER, "/ppt/slideMasters/slideMaster1.xml")
+        # Create slide layouts
+        for i, (layout_name, layout_type, placeholders) in enumerate(layouts):
+            layout_path = f"/ppt/slideLayouts/slideLayout{i + 1}.xml"
+            layout_xml = self._build_layout_xml(layout_name, layout_type, placeholders)
+            self.set_xml(layout_path, layout_xml)
+            layout_rels = self.get_rels(layout_path)
+            layout_rels.get_or_add(
+                RT.SLIDE_MASTER, "/ppt/slideMasters/slideMaster1.xml"
+            )
 
         # Create minimal theme
         theme = etree.Element(
@@ -334,6 +365,60 @@ class PowerPointPackage(OpcPackage):
         self.set_xml("/ppt/theme/theme1.xml", theme)
 
         self._presentation_path = "/ppt/presentation.xml"
+
+    @staticmethod
+    def _build_layout_xml(
+        name: str,
+        layout_type: str,
+        placeholders: list[tuple[str, str, str, str, str, str, str]],
+    ) -> etree._Element:
+        """Build a slide layout XML element with optional placeholder shapes."""
+        layout = etree.Element(
+            qn("p:sldLayout"),
+            nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]},
+        )
+        layout.set("type", layout_type)
+        cSld = etree.SubElement(layout, qn("p:cSld"))
+        cSld.set("name", name)
+        spTree = etree.SubElement(cSld, qn("p:spTree"))
+
+        # Required group shape properties
+        nvGrpSpPr = etree.SubElement(spTree, qn("p:nvGrpSpPr"))
+        cNvPr = etree.SubElement(nvGrpSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "1")
+        cNvPr.set("name", "")
+        etree.SubElement(nvGrpSpPr, qn("p:cNvGrpSpPr"))
+        etree.SubElement(nvGrpSpPr, qn("p:nvPr"))
+        grpSpPr = etree.SubElement(spTree, qn("p:grpSpPr"))
+        xfrm = etree.SubElement(grpSpPr, qn("a:xfrm"))
+        etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:ext"), cx="0", cy="0")
+        etree.SubElement(xfrm, qn("a:chOff"), x="0", y="0")
+        etree.SubElement(xfrm, qn("a:chExt"), cx="0", cy="0")
+
+        # Add placeholder shapes
+        for shape_id, (ph_type, ph_idx, ph_name, x, y, cx, cy) in enumerate(
+            placeholders, start=2
+        ):
+            sp = etree.SubElement(spTree, qn("p:sp"))
+            nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+            sp_cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+            sp_cNvPr.set("id", str(shape_id))
+            sp_cNvPr.set("name", ph_name)
+            cNvSpPr = etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+            sp_locks = etree.SubElement(cNvSpPr, qn("a:spLocks"))
+            sp_locks.set("noGrp", "1")
+            nvPr = etree.SubElement(nvSpPr, qn("p:nvPr"))
+            ph = etree.SubElement(nvPr, qn("p:ph"))
+            ph.set("type", ph_type)
+            ph.set("idx", ph_idx)
+            spPr = etree.SubElement(sp, qn("p:spPr"))
+            sp_xfrm = etree.SubElement(spPr, qn("a:xfrm"))
+            etree.SubElement(sp_xfrm, qn("a:off"), x=x, y=y)
+            etree.SubElement(sp_xfrm, qn("a:ext"), cx=cx, cy=cy)
+
+        etree.SubElement(layout, qn("p:clrMapOvr"))
+        return layout
 
     def invalidate_caches(self) -> None:
         """Clear cached values after modifications."""

@@ -34,9 +34,6 @@ _HF_SET_OPS = {
 _HF_APPEND_OPS = {"append_header": "header", "append_footer": "footer"}
 _HF_CLEAR_OPS = {"clear_header": "header", "clear_footer": "footer"}
 
-# Operations excluded from batch mode (must be called standalone)
-_EXCLUDED_FROM_BATCH = {"create"}
-
 
 def _recalc_table_id(doc, t) -> str:
     """Recalculate table element ID after modification. Requires base_kind == 'table'."""
@@ -912,50 +909,23 @@ def render(
 
 
 @mcp.tool(
-    description="Edit Word document with batch operations. Supported ops: 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Use separate create() tool to create new documents. 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
+    description="Edit Word document with batch operations. Supported ops: 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Creates a new file if file_path doesn't exist. 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     ops: str = Field(
         ...,
-        description='JSON array of operation objects. Each object must have an "op" field and operation-specific parameters. Example: [{"op": "edit_cell", "target_id": "table_abc_0", "row": 0, "col": 0, "content_data": "A1"}]. Use $prev[N] in target_id to reference element_id from operation N (0-indexed). Supported ops: insert_before, insert_after, append, delete, replace, style, edit_cell, edit_run, edit_style, add_comment, reply_comment, resolve_comment, unresolve_comment, set_header, set_footer, set_first_page_header, set_first_page_footer, set_even_page_header, set_even_page_footer, append_header, append_footer, clear_header, clear_footer, set_margins, set_orientation, set_columns, set_line_numbering, set_page_borders, set_custom_property, delete_custom_property, create_style, delete_style, insert_image, insert_floating_image, delete_image, add_row, add_column, delete_row, delete_column, add_page_break, add_break, set_meta, add_section, merge_cells, set_table_alignment, set_table_autofit, set_table_fixed_layout, set_row_height, set_cell_width, set_cell_vertical_alignment, set_cell_borders, set_cell_shading, set_header_row, add_tab_stop, clear_tab_stops, insert_field, insert_page_x_of_y, accept_change, reject_change, accept_all_changes, reject_all_changes, set_list_level, promote_list, demote_list, restart_numbering, remove_list, add_to_list, edit_text_box, add_bookmark, add_hyperlink, insert_cross_ref, insert_caption, insert_toc, update_toc, add_footnote, delete_footnote, set_content_control, add_source, delete_source, insert_citation, insert_bibliography. Excluded from batch: create (use separately).',
+        description='JSON array of operation objects. Each object must have an "op" field and operation-specific parameters. Example: [{"op": "edit_cell", "target_id": "table_abc_0", "row": 0, "col": 0, "content_data": "A1"}]. Use $prev[N] in target_id to reference element_id from operation N (0-indexed). Supported ops: insert_before, insert_after, append, delete, replace, style, edit_cell, edit_run, edit_style, add_comment, reply_comment, resolve_comment, unresolve_comment, set_header, set_footer, set_first_page_header, set_first_page_footer, set_even_page_header, set_even_page_footer, append_header, append_footer, clear_header, clear_footer, set_margins, set_orientation, set_columns, set_line_numbering, set_page_borders, set_custom_property, delete_custom_property, create_style, delete_style, insert_image, insert_floating_image, delete_image, add_row, add_column, delete_row, delete_column, add_page_break, add_break, set_meta, add_section, merge_cells, set_table_alignment, set_table_autofit, set_table_fixed_layout, set_row_height, set_cell_width, set_cell_vertical_alignment, set_cell_borders, set_cell_shading, set_header_row, add_tab_stop, clear_tab_stops, insert_field, insert_page_x_of_y, accept_change, reject_change, accept_all_changes, reject_all_changes, set_list_level, promote_list, demote_list, restart_numbering, remove_list, add_to_list, edit_text_box, add_bookmark, add_hyperlink, insert_cross_ref, insert_caption, insert_toc, update_toc, add_footnote, delete_footnote, set_content_control, add_source, delete_source, insert_citation, insert_bibliography.',
     ),
     mode: str = Field(
         "atomic",
         description="Batch mode: 'atomic' (all-or-nothing, file unchanged on any failure) or 'partial' (save successful ops before failure).",
     ),
 ) -> EditResult:
-    """Edit Word document with batch operations."""
+    """Edit Word document with batch operations. Creates a new file if file_path doesn't exist."""
     from mcp_handley_lab.microsoft.word.shared import edit as _edit
 
     return _edit(file_path=file_path, ops=ops, mode=mode)
-
-
-@mcp.tool(
-    description="Create a new Word document. Then use read to inspect and edit to modify. This operation is excluded from batch mode and must be called separately."
-)
-def create(
-    file_path: str = Field(..., description="Path for the new .docx file"),
-    content_type: str = Field(
-        "paragraph",
-        description="Type of initial content: 'paragraph', 'heading', 'table'",
-    ),
-    content_data: str = Field("", description="Initial content text or JSON"),
-    style_name: str = Field("", description="Word style name to apply"),
-    heading_level: int = Field(
-        1, description="Heading level 1-9 (for content_type='heading')"
-    ),
-) -> EditResult:
-    """Create a new Word document."""
-    from mcp_handley_lab.microsoft.word.shared import create as _create
-
-    return _create(
-        file_path=file_path,
-        content_type=content_type,
-        content_data=content_data,
-        style_name=style_name,
-        heading_level=heading_level,
-    )
 
 
 if __name__ == "__main__":

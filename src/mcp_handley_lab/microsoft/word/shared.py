@@ -6,6 +6,7 @@ Identical interface to MCP tools, usable without MCP server.
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -286,10 +287,10 @@ def edit(
     ops: str,
     mode: str = "atomic",
 ) -> EditResult:
-    """Edit Word document with batch operations.
+    """Edit Word document with batch operations. Creates a new file if file_path doesn't exist.
 
     Args:
-        file_path: Path to .docx file.
+        file_path: Path to .docx file (created if it doesn't exist).
         ops: JSON array of operation objects. Each object must have an "op" field.
             Use $prev[N] in target_id to reference element_id from operation N (0-indexed).
         mode: Batch mode: 'atomic' (all-or-nothing, file unchanged on any failure)
@@ -364,7 +365,6 @@ def edit(
             saved=False,
         )
 
-    _EXCLUDED_FROM_BATCH = {"create"}
     for i, op_obj in enumerate(operations):
         if "op" not in op_obj:
             return EditResult(
@@ -377,21 +377,16 @@ def edit(
                 results=[],
                 saved=False,
             )
-        op_name = op_obj["op"]
-        if op_name in _EXCLUDED_FROM_BATCH:
-            return EditResult(
-                success=False,
-                message=f"ops[{i}]: '{op_name}' cannot be used in batch",
-                error=f"Operation '{op_name}' is excluded from batch mode (use separately)",
-                total=len(operations),
-                succeeded=0,
-                failed=0,
-                results=[],
-                saved=False,
-            )
-
     try:
-        pkg = WordPackage.open(file_path)
+        if os.path.exists(file_path):
+            pkg = WordPackage.open(file_path)
+        else:
+            from mcp_handley_lab.microsoft.word.constants import qn
+
+            pkg = WordPackage.new()
+            # Strip default empty paragraphs so ops start with a clean body
+            for p in list(pkg.body.findall(qn("w:p"))):
+                pkg.body.remove(p)
     except Exception as e:
         return EditResult(
             success=False,
@@ -534,62 +529,4 @@ def edit(
         failed=failed,
         results=results,
         saved=saved,
-    )
-
-
-def create(
-    file_path: str,
-    content_type: str = "paragraph",
-    content_data: str = "",
-    style_name: str = "",
-    heading_level: int = 1,
-) -> EditResult:
-    """Create a new Word document.
-
-    Args:
-        file_path: Path for the new .docx file.
-        content_type: Type of initial content: 'paragraph', 'heading', 'table'.
-        content_data: Initial content text or JSON.
-        style_name: Word style name to apply.
-        heading_level: Heading level 1-9 (for content_type='heading').
-
-    Returns:
-        EditResult with the new document's element_id.
-    """
-    from mcp_handley_lab.microsoft.word.constants import qn
-
-    pkg = WordPackage.new()
-    element_id = ""
-
-    if content_type:
-        body = pkg.body
-        for p in list(body.findall(qn("w:p"))):
-            body.remove(p)
-        el = word_ops.append_content_ooxml(
-            pkg, content_type, content_data, style_name, heading_level
-        )
-        level = heading_level if content_type == "heading" else 0
-        element_id = word_ops.get_element_id_ooxml(pkg, el, level)
-    else:
-        el = pkg.body.find(qn("w:p"))
-        element_id = word_ops.get_element_id_ooxml(pkg, el, 0)
-
-    pkg.save(file_path)
-    return EditResult(
-        success=True,
-        element_id=element_id,
-        message=f"Created: {file_path}",
-        total=1,
-        succeeded=1,
-        failed=0,
-        results=[
-            OpResult(
-                index=0,
-                op="create",
-                success=True,
-                element_id=element_id,
-                message=f"Created: {file_path}",
-            )
-        ],
-        saved=True,
     )

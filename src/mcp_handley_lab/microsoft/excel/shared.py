@@ -104,13 +104,13 @@ def edit(
     ops: str,
     mode: str = "atomic",
 ) -> dict[str, Any]:
-    """Edit an Excel workbook using batch operations.
+    """Edit an Excel workbook using batch operations. Creates a new file if file_path doesn't exist.
 
     Batch operations allow multiple edits in a single call with $prev chaining.
     Use read() first to discover sheets, cells, and tables.
 
     Args:
-        file_path: Path to .xlsx file.
+        file_path: Path to .xlsx file (created if it doesn't exist).
         ops: JSON array of operation objects, e.g.:
             [{"op": "set_cell", "sheet": "Sheet1", "cell_ref": "A1", "value": "Hello"},
              {"op": "set_style", "sheet": "Sheet1", "cell_ref": "$prev[0]", "style_index": 1}]

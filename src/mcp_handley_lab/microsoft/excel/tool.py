@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -642,7 +643,7 @@ def _format_cell_for_markdown(value: Any) -> str:
 _PREV_PATTERN = re.compile(r"^\$prev\[(\d+)\]$")
 
 # Operations that cannot be used in batch mode
-_EXCLUDED_OPS = {"create", "recalculate"}
+_EXCLUDED_OPS = {"recalculate"}
 
 # Fields that can use $prev references
 _PREV_FIELDS = {
@@ -737,7 +738,7 @@ def edit(
         description="'atomic' (save only if all succeed) or 'partial' (save if any succeed)",
     ),
 ) -> dict[str, Any]:
-    """Edit an Excel workbook using batch operations.
+    """Edit an Excel workbook using batch operations. Creates a new file if file_path doesn't exist.
 
     Batch operations allow multiple edits in a single call with $prev chaining.
     Use read() first to discover sheets, cells, and tables.
@@ -854,8 +855,11 @@ def edit(
                 message=f"Operation '{op_dict['op']}' at index {i} is not allowed in batch mode",
             ).model_dump(exclude_none=True)
 
-    # Open package once
-    pkg = ExcelPackage.open(file_path)
+    # Open package (or create new if file doesn't exist)
+    if os.path.exists(file_path):
+        pkg = ExcelPackage.open(file_path)
+    else:
+        pkg = ExcelPackage.new()
     results: list[ExcelOpResult] = []
 
     # Execute operations
@@ -1621,22 +1625,6 @@ def _op_delete_custom_property(
 # =============================================================================
 # Standalone Operations (not available in batch mode)
 # =============================================================================
-
-
-@mcp.tool()
-def create(
-    file_path: str = Field(description="Path to create new .xlsx file"),
-) -> dict[str, Any]:
-    """Create a new empty Excel workbook."""
-    pkg = ExcelPackage.new()
-    pkg.save(file_path)
-    return ExcelEditResult(
-        success=True,
-        message=f"Created workbook: {file_path}",
-        total=1,
-        succeeded=1,
-        saved=True,
-    ).model_dump(exclude_none=True)
 
 
 @mcp.tool()

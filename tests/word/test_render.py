@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from mcp_handley_lab.microsoft.word.ops.render import render_to_images, render_to_pdf
+from mcp_handley_lab.microsoft.word.package import WordPackage
 from mcp_handley_lab.microsoft.word.tool import mcp
 
 
@@ -35,9 +36,8 @@ async def sample_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    # Create document with initial empty paragraph
-    await mcp.call_tool("create", {"file_path": str(path)})
-    # Append content
+    # Create document and append content
+    WordPackage.new().save(str(path))
     await mcp.call_tool(
         "edit",
         {
@@ -63,8 +63,8 @@ async def multi_page_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    # Create document with initial empty paragraph
-    await mcp.call_tool("create", {"file_path": str(path)})
+    # Create document and add content
+    WordPackage.new().save(str(path))
 
     # Add first heading and all page breaks with content in a single batch
     ops = [

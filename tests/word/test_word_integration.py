@@ -24,17 +24,8 @@ async def sample_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    # Create document with first heading (replaces default empty paragraph)
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(path),
-            "content_type": "heading",
-            "content_data": "Test Document",
-            "heading_level": 1,
-        },
-    )
-    # Add remaining content in a batch
+    # Auto-create document and add all content via edit (auto-creates file)
+    path.unlink()  # remove so edit() auto-creates
     table_data = json.dumps(
         [
             ["Header 1", "Header 2"],
@@ -47,6 +38,12 @@ async def sample_docx():
             "file_path": str(path),
             "ops": _ops(
                 [
+                    {
+                        "op": "append",
+                        "content_type": "heading",
+                        "content_data": "Test Document",
+                        "heading_level": 1,
+                    },
                     {"op": "append", "content_data": "This is the first paragraph."},
                     {
                         "op": "append",
@@ -70,8 +67,8 @@ async def sample_docx():
 
 
 async def create_empty_docx(path: Path) -> None:
-    """Helper to create an empty document using MCP tool."""
-    await mcp.call_tool("create", {"file_path": str(path)})
+    """Helper to create an empty document."""
+    WordPackage.new().save(str(path))
 
 
 def create_pkg_with_paragraph(text: str = "Test paragraph") -> WordPackage:
@@ -330,79 +327,6 @@ async def test_edit_append_table(sample_docx):
     )
     assert edit_result["success"]
     assert edit_result["element_id"]
-
-
-@pytest.mark.asyncio
-async def test_edit_create_empty():
-    """Test creating a new empty document."""
-    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
-        new_path = Path(f.name)
-    new_path.unlink()  # Remove so we can create it
-
-    try:
-        _, edit_result = await mcp.call_tool(
-            "create",
-            {"file_path": str(new_path)},
-        )
-        assert edit_result["success"]
-        assert new_path.exists()
-
-        # Verify it's readable (creates default empty paragraph)
-        _, read_result = await mcp.call_tool(
-            "read", {"file_path": str(new_path), "scope": "blocks"}
-        )
-        assert read_result["block_count"] == 1
-        assert read_result["blocks"][0]["text"] == ""
-    finally:
-        new_path.unlink(missing_ok=True)
-
-
-@pytest.mark.asyncio
-async def test_edit_create_with_content():
-    """Test creating a new document with initial content."""
-    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
-        new_path = Path(f.name)
-    new_path.unlink()  # Remove so we can create it
-
-    try:
-        _, edit_result = await mcp.call_tool(
-            "create",
-            {
-                "file_path": str(new_path),
-                "content_type": "heading",
-                "content_data": "My New Document",
-                "heading_level": 1,
-            },
-        )
-        assert edit_result["success"]
-        assert edit_result["element_id"]
-        assert new_path.exists()
-
-        # Verify content
-        _, read_result = await mcp.call_tool(
-            "read", {"file_path": str(new_path), "scope": "blocks"}
-        )
-        assert read_result["block_count"] == 1
-        assert read_result["blocks"][0]["type"] == "heading1"  # Level in type
-        assert "My New Document" in read_result["blocks"][0]["text"]
-    finally:
-        new_path.unlink(missing_ok=True)
-
-
-@pytest.mark.asyncio
-async def test_edit_create_overwrites_existing(sample_docx):
-    """Test that create overwrites an existing file (no defensive check)."""
-    _, edit_result = await mcp.call_tool(
-        "create",
-        {"file_path": str(sample_docx), "content_data": "New content"},
-    )
-    assert edit_result["success"]
-    # Verify new content
-    _, read_result = await mcp.call_tool(
-        "read", {"file_path": str(sample_docx), "scope": "blocks"}
-    )
-    assert read_result["block_count"] == 1
-    assert "New content" in read_result["blocks"][0]["text"]
 
 
 @pytest.mark.asyncio
@@ -1105,7 +1029,7 @@ async def test_read_page_setup_multi_section():
     """Test reading page setup with multiple sections including section breaks."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         doc_path = Path(f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
         "edit",
         {
@@ -1363,20 +1287,6 @@ async def test_read_corrupt_file():
         Path(corrupt_path).unlink(missing_ok=True)
 
 
-@pytest.mark.asyncio
-async def test_create_in_new_directory():
-    """Test creating a document in a new (non-existent) directory raises error."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create path with nested non-existent directory
-        new_file = Path(tmpdir) / "subdir" / "nested" / "test.docx"
-        # Now fails because we don't create parent directories
-        with pytest.raises(ToolError):
-            await mcp.call_tool(
-                "create",
-                {"file_path": str(new_file), "content_data": "Test content"},
-            )
-
-
 # --- Image tests ---
 
 
@@ -1399,7 +1309,7 @@ async def docx_with_image(sample_image):
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
     # Create document with heading
-    await mcp.call_tool("create", {"file_path": str(path)})
+    WordPackage.new().save(str(path))
     await mcp.call_tool(
         "edit",
         {
@@ -1591,7 +1501,7 @@ async def test_image_id_format(sample_image):
 
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     # Get paragraph ID to insert image
     _, blocks = await mcp.call_tool(
         "read", {"file_path": str(doc_path), "scope": "blocks"}
@@ -1633,7 +1543,7 @@ async def test_multiple_same_images(sample_image):
     """Test that same image appearing twice has different occurrence numbers."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     # Get first paragraph and add image
     _, blocks = await mcp.call_tool(
         "read", {"file_path": str(doc_path), "scope": "blocks"}
@@ -1728,7 +1638,7 @@ async def test_read_images_in_table(sample_image):
     """Test reading images from table cells with hierarchical block_id."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
         "edit",
         {
@@ -1806,7 +1716,7 @@ async def test_delete_image_in_table(sample_image):
     """Test deleting an image from a table cell."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     # Add a 1x1 table
     table_data = json.dumps([[""]])
     _, table_result = await mcp.call_tool(
@@ -1889,7 +1799,7 @@ async def test_insert_image_into_table_cell(sample_image):
     """Test inserting an image into a specific table cell using hierarchical target_id."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as doc_f:
         doc_path = Path(doc_f.name)
-    await mcp.call_tool("create", {"file_path": str(doc_path)})
+    WordPackage.new().save(str(doc_path))
     # Add a 2x2 table
     table_data = json.dumps([["Image", "Description"], ["", "A test image"]])
     await mcp.call_tool(
@@ -2889,17 +2799,26 @@ async def docx_with_hyperlinks():
     """Create a Word document with hyperlinks for testing."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
-    # Create document with heading
+    path.unlink()  # remove so edit() auto-creates
+    # Add heading and paragraph with text
     await mcp.call_tool(
-        "create",
+        "edit",
         {
             "file_path": str(path),
-            "content_type": "heading",
-            "content_data": "Document with Links",
-            "heading_level": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Document with Links",
+                            "heading_level": 1,
+                        },
+                    ]
+                )
+            ),
         },
     )
-    # Add a paragraph with text
     _, para_result = await mcp.call_tool(
         "edit",
         {
@@ -3005,16 +2924,24 @@ async def test_hyperlink_in_table_cell():
         doc_path = Path(f.name)
 
     try:
-        # Create document with table using MCP
+        # Create document with table using MCP (auto-create)
+        doc_path.unlink()
         await mcp.call_tool(
-            "create",
+            "edit",
             {
                 "file_path": str(doc_path),
-                "content_type": "table",
-                "content_data": json.dumps(
+                "ops": _ops(
                     [
-                        ["Name", "Website"],
-                        ["Example Corp", ""],
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": json.dumps(
+                                [
+                                    ["Name", "Website"],
+                                    ["Example Corp", ""],
+                                ]
+                            ),
+                        }
                     ]
                 ),
             },
@@ -3281,16 +3208,24 @@ async def test_add_hyperlink_to_table_cell():
         doc_path = Path(tmp.name)
 
     try:
-        # Create document with table using MCP
+        # Create document with table using MCP (auto-create)
+        doc_path.unlink()
         await mcp.call_tool(
-            "create",
+            "edit",
             {
                 "file_path": str(doc_path),
-                "content_type": "table",
-                "content_data": json.dumps(
+                "ops": _ops(
                     [
-                        ["Cell A", "Cell B"],
-                        ["", ""],
+                        {
+                            "op": "append",
+                            "content_type": "table",
+                            "content_data": json.dumps(
+                                [
+                                    ["Cell A", "Cell B"],
+                                    ["", ""],
+                                ]
+                            ),
+                        }
                     ]
                 ),
             },
@@ -3530,9 +3465,13 @@ async def test_read_styles_includes_custom():
 
     try:
         # Create document with MCP
+        WordPackage.new().save(str(doc_path))
         await mcp.call_tool(
-            "create",
-            {"file_path": str(doc_path), "content_data": "Test paragraph"},
+            "edit",
+            {
+                "file_path": str(doc_path),
+                "ops": _ops([{"op": "append", "content_data": "Test paragraph"}]),
+            },
         )
 
         # Create custom style using MCP
@@ -3604,9 +3543,13 @@ async def test_read_styles_includes_character_styles():
 
     try:
         # Create a document with a character style
+        WordPackage.new().save(str(doc_path))
         await mcp.call_tool(
-            "create",
-            {"file_path": str(doc_path), "content_data": "Test paragraph"},
+            "edit",
+            {
+                "file_path": str(doc_path),
+                "ops": _ops([{"op": "append", "content_data": "Test paragraph"}]),
+            },
         )
         await mcp.call_tool(
             "edit",
@@ -3651,9 +3594,13 @@ async def docx_with_formatting():
         doc_path = Path(f.name)
 
     # Create document with paragraph using MCP
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(doc_path), "content_data": "Formatted paragraph"},
+        "edit",
+        {
+            "file_path": str(doc_path),
+            "ops": _ops([{"op": "append", "content_data": "Formatted paragraph"}]),
+        },
     )
 
     # Get paragraph ID
@@ -3980,17 +3927,9 @@ async def docx_with_table():
         doc_path = Path(f.name)
 
     # Create document with heading using MCP
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(doc_path),
-            "content_type": "heading",
-            "content_data": "Table for Merge Testing",
-            "heading_level": 1,
-        },
-    )
+    WordPackage.new().save(str(doc_path))
 
-    # Append 3x3 table
+    # Append heading and 3x3 table
     table_data = [[f"R{r}C{c}" for c in range(3)] for r in range(3)]
     await mcp.call_tool(
         "edit",
@@ -4001,9 +3940,15 @@ async def docx_with_table():
                     [
                         {
                             "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Table for Merge Testing",
+                            "heading_level": 1,
+                        },
+                        {
+                            "op": "append",
                             "content_type": "table",
                             "content_data": json.dumps(table_data),
-                        }
+                        },
                     ]
                 )
             ),
@@ -4620,9 +4565,15 @@ async def docx_with_custom_style(tmp_path):
     path = tmp_path / "custom_style.docx"
 
     # Create document with MCP
+    WordPackage.new().save(str(path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(path), "content_data": "Test paragraph with custom style"},
+        "edit",
+        {
+            "file_path": str(path),
+            "ops": _ops(
+                [{"op": "append", "content_data": "Test paragraph with custom style"}]
+            ),
+        },
     )
 
     # Create a custom style based on Normal
@@ -6362,9 +6313,15 @@ async def docx_for_tabs():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         doc_path = Path(f.name)
 
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(doc_path), "content_data": "Test paragraph for tab stops"},
+        "edit",
+        {
+            "file_path": str(doc_path),
+            "ops": _ops(
+                [{"op": "append", "content_data": "Test paragraph for tab stops"}]
+            ),
+        },
     )
     yield doc_path
     doc_path.unlink(missing_ok=True)
@@ -6587,9 +6544,13 @@ async def test_read_tab_stops(docx_for_tabs):
 async def docx_for_fields(tmp_path):
     """Create a document for field tests."""
     doc_path = tmp_path / "fields_test.docx"
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(doc_path), "content_data": "First section content"},
+        "edit",
+        {
+            "file_path": str(doc_path),
+            "ops": _ops([{"op": "append", "content_data": "First section content"}]),
+        },
     )
     return doc_path
 
@@ -8441,15 +8402,7 @@ async def docx_for_bookmarks(tmp_path):
     """Create a document for bookmark tests."""
     doc_path = tmp_path / "bookmarks_test.docx"
 
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(doc_path),
-            "content_type": "heading",
-            "content_data": "Chapter 1: Introduction",
-            "heading_level": 1,
-        },
-    )
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
         "edit",
         {
@@ -8459,8 +8412,14 @@ async def docx_for_bookmarks(tmp_path):
                     [
                         {
                             "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Chapter 1: Introduction",
+                            "heading_level": 1,
+                        },
+                        {
+                            "op": "append",
                             "content_data": "This is the introduction paragraph.",
-                        }
+                        },
                     ]
                 )
             ),
@@ -8761,10 +8720,7 @@ async def docx_for_captions(tmp_path):
     """Create a document for caption tests."""
     doc_path = tmp_path / "captions_test.docx"
 
-    await mcp.call_tool(
-        "create",
-        {"file_path": str(doc_path), "content_data": "Text before table"},
-    )
+    WordPackage.new().save(str(doc_path))
     await mcp.call_tool(
         "edit",
         {
@@ -8772,11 +8728,12 @@ async def docx_for_captions(tmp_path):
             "ops": (
                 _ops(
                     [
+                        {"op": "append", "content_data": "Text before table"},
                         {
                             "op": "append",
                             "content_type": "table",
                             "content_data": json.dumps([["A", "B"], ["C", "D"]]),
-                        }
+                        },
                     ]
                 )
             ),
@@ -9241,15 +9198,7 @@ async def test_insert_toc_creates_toc(tmp_path):
     """Test that insert_toc creates a TOC field."""
     # Create a document with headings using MCP
     file_path = tmp_path / "toc_test.docx"
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(file_path),
-            "content_type": "heading",
-            "content_data": "Chapter 1",
-            "heading_level": 1,
-        },
-    )
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
         "edit",
         {
@@ -9259,8 +9208,14 @@ async def test_insert_toc_creates_toc(tmp_path):
                     [
                         {
                             "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Chapter 1",
+                            "heading_level": 1,
+                        },
+                        {
+                            "op": "append",
                             "content_data": "Content for chapter 1",
-                        }
+                        },
                     ]
                 )
             ),
@@ -9340,20 +9295,24 @@ async def test_insert_toc_heading_levels_configurable(tmp_path):
     """Test that insert_toc respects heading_levels parameter."""
     # Create a document using MCP
     file_path = tmp_path / "toc_levels.docx"
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(file_path),
-            "content_type": "heading",
-            "content_data": "Heading 1",
-            "heading_level": 1,
-        },
-    )
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "ops": (_ops([{"op": "append", "content_data": "Content"}])),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Heading 1",
+                            "heading_level": 1,
+                        },
+                        {"op": "append", "content_data": "Content"},
+                    ]
+                )
+            ),
         },
     )
 
@@ -9396,20 +9355,24 @@ async def test_update_toc_sets_dirty_flag(tmp_path):
     """Test that update_toc sets the dirty flag on the TOC field."""
     # Create a document with headings using MCP
     file_path = tmp_path / "toc_update.docx"
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(file_path),
-            "content_type": "heading",
-            "content_data": "Chapter 1",
-            "heading_level": 1,
-        },
-    )
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(file_path),
-            "ops": (_ops([{"op": "append", "content_data": "Content"}])),
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Chapter 1",
+                            "heading_level": 1,
+                        },
+                        {"op": "append", "content_data": "Content"},
+                    ]
+                )
+            ),
         },
     )
 
@@ -9462,13 +9425,23 @@ async def test_has_toc_detects_existing_toc(tmp_path):
     """Test that has_toc properly detects an existing TOC."""
     # Create document using MCP
     file_path = tmp_path / "toc_detect.docx"
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
+        "edit",
         {
             "file_path": str(file_path),
-            "content_type": "heading",
-            "content_data": "Test",
-            "heading_level": 1,
+            "ops": (
+                _ops(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "Test",
+                            "heading_level": 1,
+                        }
+                    ]
+                )
+            ),
         },
     )
 
@@ -9529,13 +9502,7 @@ async def test_add_footnote():
         file_path = Path(f.name)
 
     # Create document with MCP
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(file_path),
-            "content_data": "This paragraph needs a footnote.",
-        },
-    )
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
         "edit",
         {
@@ -9545,8 +9512,12 @@ async def test_add_footnote():
                     [
                         {
                             "op": "append",
+                            "content_data": "This paragraph needs a footnote.",
+                        },
+                        {
+                            "op": "append",
                             "content_data": "Another paragraph.",
-                        }
+                        },
                     ]
                 )
             ),
@@ -9603,11 +9574,14 @@ async def test_add_endnote():
         file_path = Path(f.name)
 
     # Create document with MCP
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
+        "edit",
         {
             "file_path": str(file_path),
-            "content_data": "This paragraph needs an endnote.",
+            "ops": _ops(
+                [{"op": "append", "content_data": "This paragraph needs an endnote."}]
+            ),
         },
     )
 
@@ -9659,9 +9633,15 @@ async def test_delete_footnote():
         file_path = Path(f.name)
 
     # Create document with MCP
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "This paragraph has a footnote."},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops(
+                [{"op": "append", "content_data": "This paragraph has a footnote."}]
+            ),
+        },
     )
 
     try:
@@ -9732,10 +9712,7 @@ async def test_multiple_footnotes():
         file_path = Path(f.name)
 
     # Create document with MCP
-    await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "First paragraph."},
-    )
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
         "edit",
         {
@@ -9743,26 +9720,9 @@ async def test_multiple_footnotes():
             "ops": (
                 _ops(
                     [
-                        {
-                            "op": "append",
-                            "content_data": "Second paragraph.",
-                        }
-                    ]
-                )
-            ),
-        },
-    )
-    await mcp.call_tool(
-        "edit",
-        {
-            "file_path": str(file_path),
-            "ops": (
-                _ops(
-                    [
-                        {
-                            "op": "append",
-                            "content_data": "Third paragraph.",
-                        }
+                        {"op": "append", "content_data": "First paragraph."},
+                        {"op": "append", "content_data": "Second paragraph."},
+                        {"op": "append", "content_data": "Third paragraph."},
                     ]
                 )
             ),
@@ -9818,9 +9778,13 @@ async def test_footnote_opc_package_integrity():
         file_path = Path(f.name)
 
     # Create document with MCP
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Paragraph with footnote."},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Paragraph with footnote."}]),
+        },
     )
 
     try:
@@ -9889,11 +9853,19 @@ async def test_footnote_delete_removes_reference():
         file_path = Path(f.name)
 
     # Create document with MCP
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
+        "edit",
         {
             "file_path": str(file_path),
-            "content_data": "Paragraph with footnote to delete.",
+            "ops": _ops(
+                [
+                    {
+                        "op": "append",
+                        "content_data": "Paragraph with footnote to delete.",
+                    }
+                ]
+            ),
         },
     )
 
@@ -10022,9 +9994,15 @@ async def test_read_content_controls_empty_document():
         file_path = Path(f.name)
 
     # Create document with MCP (no content controls)
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "No content controls here."},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops(
+                [{"op": "append", "content_data": "No content controls here."}]
+            ),
+        },
     )
 
     try:
@@ -10044,9 +10022,13 @@ async def test_read_content_controls_finds_text_sdt():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Before content control."},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Before content control."}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10079,9 +10061,13 @@ async def test_read_content_controls_finds_dropdown_sdt():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Select an option:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Select an option:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10116,9 +10102,13 @@ async def test_set_content_control_text():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Form:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Form:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10166,9 +10156,13 @@ async def test_set_content_control_dropdown():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Status:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Status:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10218,9 +10212,13 @@ async def test_set_content_control_invalid_id():
         file_path = Path(f.name)
 
     # Create document with MCP (no content controls)
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "No content controls."},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "No content controls."}]),
+        },
     )
 
     try:
@@ -10253,9 +10251,13 @@ async def test_set_content_control_dropdown_invalid_value():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Priority:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Priority:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10335,9 +10337,13 @@ async def test_read_content_controls_finds_checkbox_sdt():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Checkbox form:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Checkbox form:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10369,9 +10375,13 @@ async def test_set_content_control_checkbox():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Agreement:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Agreement:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10453,9 +10463,13 @@ async def test_read_content_controls_finds_date_sdt():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Due date:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Due date:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10488,9 +10502,13 @@ async def test_set_content_control_date():
         file_path = Path(f.name)
 
     # Create document with paragraph, then add SDT via WordPackage
+    WordPackage.new().save(str(file_path))
     await mcp.call_tool(
-        "create",
-        {"file_path": str(file_path), "content_data": "Event date:"},
+        "edit",
+        {
+            "file_path": str(file_path),
+            "ops": _ops([{"op": "append", "content_data": "Event date:"}]),
+        },
     )
 
     # Add SDT using WordPackage
@@ -10618,9 +10636,13 @@ async def test_read_equations_empty_document():
 
     try:
         # Create document without equations using MCP
+        WordPackage.new().save(str(file_path))
         await mcp.call_tool(
-            "create",
-            {"file_path": str(file_path), "content_data": "No equations here"},
+            "edit",
+            {
+                "file_path": str(file_path),
+                "ops": _ops([{"op": "append", "content_data": "No equations here"}]),
+            },
         )
 
         _, result = await mcp.call_tool(
@@ -10744,7 +10766,7 @@ async def test_new_document_has_section():
 
     try:
         # Create new document
-        await mcp.call_tool("create", {"file_path": str(new_path)})
+        WordPackage.new().save(str(new_path))
 
         # Read metadata
         _, result = await mcp.call_tool(
@@ -10763,7 +10785,7 @@ async def test_new_document_has_page_dimensions():
     new_path.unlink()
 
     try:
-        await mcp.call_tool("create", {"file_path": str(new_path)})
+        WordPackage.new().save(str(new_path))
 
         _, result = await mcp.call_tool(
             "read", {"file_path": str(new_path), "scope": "page_setup"}
@@ -10789,7 +10811,7 @@ async def test_set_meta_on_new_document():
 
     try:
         # Create and set meta
-        await mcp.call_tool("create", {"file_path": str(new_path)})
+        WordPackage.new().save(str(new_path))
         await mcp.call_tool(
             "edit",
             {
@@ -10828,7 +10850,7 @@ async def test_set_meta_creates_core_xml_on_minimal_doc():
 
     try:
         # Create doc, set meta, save
-        await mcp.call_tool("create", {"file_path": str(new_path)})
+        WordPackage.new().save(str(new_path))
         await mcp.call_tool(
             "edit",
             {

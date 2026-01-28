@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 from typing import Any, Literal
 
@@ -95,7 +96,7 @@ ReadScope = Literal[
 _PREV_PATTERN = re.compile(r"^\$prev\[(\d+)\]$")
 
 # Operations that cannot be used in batch mode
-_EXCLUDED_OPS = {"create"}
+_EXCLUDED_OPS: set[str] = set()
 
 # Fields that can use $prev references (shape_key only, NOT slide_num)
 _PREV_FIELDS = {"shape_key"}
@@ -373,7 +374,7 @@ def edit(
         description="'atomic' (save only if all succeed) or 'partial' (save if any succeed)",
     ),
 ) -> dict[str, Any]:
-    """Edit a PowerPoint presentation using batch operations.
+    """Edit a PowerPoint presentation using batch operations. Creates a new file if file_path doesn't exist.
 
     Batch operations allow multiple edits in a single call with $prev chaining.
     Use read() first to discover slides, shapes, and layouts.
@@ -477,8 +478,11 @@ def edit(
                 message=f"Operation '{op_dict['op']}' at index {i} is not allowed in batch mode",
             ).model_dump(exclude_none=True)
 
-    # Open package once
-    pkg = PowerPointPackage.open(file_path)
+    # Open package (or create new if file doesn't exist)
+    if os.path.exists(file_path):
+        pkg = PowerPointPackage.open(file_path)
+    else:
+        pkg = PowerPointPackage.new()
     results: list[PowerPointOpResult] = []
 
     # Execute operations
