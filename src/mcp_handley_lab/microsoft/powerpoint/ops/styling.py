@@ -38,17 +38,21 @@ def set_shape_fill(
     if shape is None:
         return False
 
+    # Only apply fill to standard shapes and connectors
+    tag = etree.QName(shape.tag).localname
+    if tag not in ("sp", "cxnSp"):
+        return False
+
     # Get or create spPr
     spPr = shape.find(qn("p:spPr"), NSMAP)
     if spPr is None:
         spPr = etree.SubElement(shape, qn("p:spPr"))
 
-    # Remove existing fill elements (noFill, solidFill, gradFill, etc.)
+    # Remove existing fill elements
     for fill_tag in (
         "a:noFill",
         "a:solidFill",
         "a:gradFill",
-        "a:blipFill",
         "a:pattFill",
     ):
         existing = spPr.find(qn(fill_tag), NSMAP)

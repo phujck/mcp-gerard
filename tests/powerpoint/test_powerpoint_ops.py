@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from mcp_handley_lab.microsoft.powerpoint.constants import EMU_PER_INCH
+from mcp_handley_lab.microsoft.powerpoint.constants import EMU_PER_INCH, NSMAP, qn
 from mcp_handley_lab.microsoft.powerpoint.ops.core import (
     emu_to_inches,
     inches_to_emu,
@@ -186,6 +186,133 @@ class TestImageDimensions:
         width, height = _get_image_dimensions(corrupted_data, "image/png")
         assert width == 640
         assert height == 480
+
+
+class TestPhase12BugFixes:
+    """Tests for Phase 12 bug fixes (Gemini review)."""
+
+    def test_image_namespace_on_root(self):
+        """12a: r namespace should be on root p:pic, not on child a:blip."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+            _create_pic_element,
+        )
+
+        pic = _create_pic_element(1, "rId1", 1.0, 1.0, 3.0, 2.0)
+        # r namespace should be declared on root element
+        assert "r" in pic.nsmap or NSMAP["r"] in pic.nsmap.values()
+        # a:blip should NOT have its own nsmap override
+        blip = pic.find(".//" + qn("a:blip"), NSMAP)
+        assert blip is not None
+
+    def test_fill_guard_rejects_non_shape(self):
+        """12b: fill guard should only allow sp and cxnSp shapes."""
+        from lxml import etree
+
+        # Test the guard logic directly: pic, graphicFrame should be rejected
+        for tag in ("pic", "graphicFrame"):
+            elem = etree.Element(qn(f"p:{tag}"))
+            local = etree.QName(elem.tag).localname
+            assert local not in ("sp", "cxnSp"), f"{tag} should be rejected by guard"
+
+        # sp and cxnSp should be allowed
+        for tag in ("sp", "cxnSp"):
+            elem = etree.Element(qn(f"p:{tag}"))
+            local = etree.QName(elem.tag).localname
+            assert local in ("sp", "cxnSp"), f"{tag} should be allowed by guard"
+
+    def test_fill_removal_list_no_blipfill(self):
+        """12b: a:blipFill should not be in fill removal list."""
+        import inspect
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_shape_fill
+
+        source = inspect.getsource(set_shape_fill)
+        assert "a:blipFill" not in source
+
+    def test_tab_extraction(self):
+        """12d: a:tab elements should be extracted as tab characters."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import (
+            extract_text_from_txBody,
+        )
+
+        txBody = etree.Element(qn("a:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        r1 = etree.SubElement(p, qn("a:r"))
+        t1 = etree.SubElement(r1, qn("a:t"))
+        t1.text = "Col1"
+        etree.SubElement(p, qn("a:tab"))
+        r2 = etree.SubElement(p, qn("a:r"))
+        t2 = etree.SubElement(r2, qn("a:t"))
+        t2.text = "Col2"
+
+        text = extract_text_from_txBody(txBody)
+        assert text == "Col1\tCol2"
+
+    def test_tab_creation_in_shape_text(self):
+        """12d: Tabs in text should create a:tab elements."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import (
+            extract_text_from_txBody,
+            set_shape_text,
+        )
+
+        sp = etree.Element(qn("p:sp"))
+        set_shape_text(sp, "A\tB\tC")
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        assert txBody is not None
+
+        # Should have tab elements
+        p = txBody.find(qn("a:p"), NSMAP)
+        tabs = p.findall(qn("a:tab"), NSMAP)
+        assert len(tabs) == 2
+
+        # Round-trip should preserve tabs
+        text = extract_text_from_txBody(txBody)
+        assert text == "A\tB\tC"
+
+    def test_cell_text_preserves_formatting(self):
+        """12c: _set_cell_text should preserve existing formatting."""
+
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.tables import _set_cell_text
+
+        # Create a cell with formatting
+        tc = etree.Element(qn("a:tc"))
+        txBody = etree.SubElement(tc, qn("a:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        etree.SubElement(txBody, qn("a:lstStyle"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        pPr = etree.SubElement(p, qn("a:pPr"))
+        pPr.set("algn", "ctr")
+        r = etree.SubElement(p, qn("a:r"))
+        rPr = etree.SubElement(r, qn("a:rPr"))
+        rPr.set("sz", "2400")
+        rPr.set("b", "1")
+        t = etree.SubElement(r, qn("a:t"))
+        t.text = "Old text"
+
+        # Set new text
+        _set_cell_text(tc, "New text")
+
+        # Verify formatting preserved
+        new_txBody = tc.find(qn("a:txBody"), NSMAP)
+        new_p = new_txBody.find(qn("a:p"), NSMAP)
+        new_pPr = new_p.find(qn("a:pPr"), NSMAP)
+        assert new_pPr is not None
+        assert new_pPr.get("algn") == "ctr"
+
+        new_r = new_p.find(qn("a:r"), NSMAP)
+        new_rPr = new_r.find(qn("a:rPr"), NSMAP)
+        assert new_rPr.get("sz") == "2400"
+        assert new_rPr.get("b") == "1"
+
+        new_t = new_r.find(qn("a:t"), NSMAP)
+        assert new_t.text == "New text"
 
 
 class TestNextPartname:

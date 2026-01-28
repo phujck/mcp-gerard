@@ -125,7 +125,9 @@ def _create_pic_element(
     height: float,
 ) -> etree._Element:
     """Create a p:pic element for an image."""
-    pic = etree.Element(qn("p:pic"), nsmap={"p": NSMAP["p"], "a": NSMAP["a"]})
+    pic = etree.Element(
+        qn("p:pic"), nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]}
+    )
 
     # nvPicPr (non-visual picture properties)
     nvPicPr = etree.SubElement(pic, qn("p:nvPicPr"))
@@ -139,7 +141,7 @@ def _create_pic_element(
 
     # blipFill (image reference and fill mode)
     blipFill = etree.SubElement(pic, qn("p:blipFill"))
-    blip = etree.SubElement(blipFill, qn("a:blip"), nsmap={"r": NSMAP["r"]})
+    blip = etree.SubElement(blipFill, qn("a:blip"))
     blip.set(qn("r:embed"), rId)
     stretch = etree.SubElement(blipFill, qn("a:stretch"))
     etree.SubElement(stretch, qn("a:fillRect"))

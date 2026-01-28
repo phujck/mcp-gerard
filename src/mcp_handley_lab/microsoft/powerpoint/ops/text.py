@@ -27,13 +27,16 @@ def extract_text_from_txBody(txBody: etree._Element | None) -> str:
         for child in p:
             tag = etree.QName(child).localname
 
-            if tag == "r" or tag == "fld":  # Run
+            if tag == "r" or tag == "fld":  # Run or field
                 t = child.find(qn("a:t"), NSMAP)
                 if t is not None and t.text:
                     parts.append(t.text)
 
             elif tag == "br":  # Line break
                 parts.append("\n")
+
+            elif tag == "tab":  # Tab character
+                parts.append("\t")
 
         if parts:
             paragraphs.append("".join(parts))
@@ -148,7 +151,10 @@ def set_shape_text(sp: etree._Element, text: str) -> None:
 
     Works with any p:sp element. Creates txBody if not present.
     Preserves paragraph and run formatting from existing content.
+    Supports tab characters (\\t) via a:tab elements.
     """
+    import copy
+
     txBody = sp.find(qn("p:txBody"), NSMAP)
 
     if txBody is None:
@@ -162,10 +168,14 @@ def set_shape_text(sp: etree._Element, text: str) -> None:
     existing_rPr = None
 
     if existing_p is not None:
-        existing_pPr = existing_p.find(qn("a:pPr"), NSMAP)
+        pPr = existing_p.find(qn("a:pPr"), NSMAP)
+        if pPr is not None:
+            existing_pPr = copy.deepcopy(pPr)
         existing_r = existing_p.find(qn("a:r"), NSMAP)
         if existing_r is not None:
-            existing_rPr = existing_r.find(qn("a:rPr"), NSMAP)
+            rPr = existing_r.find(qn("a:rPr"), NSMAP)
+            if rPr is not None:
+                existing_rPr = copy.deepcopy(rPr)
 
     # Remove existing paragraphs
     for p in list(txBody.findall(qn("a:p"), NSMAP)):
@@ -177,15 +187,21 @@ def set_shape_text(sp: etree._Element, text: str) -> None:
         p = etree.SubElement(txBody, qn("a:p"))
 
         if existing_pPr is not None:
-            p.append(existing_pPr.__copy__())
+            p.append(copy.deepcopy(existing_pPr))
 
         if para_text:
-            r = etree.SubElement(p, qn("a:r"))
-            if existing_rPr is not None:
-                r.append(existing_rPr.__copy__())
-            else:
-                etree.SubElement(r, qn("a:rPr"), lang="en-US")
-            t = etree.SubElement(r, qn("a:t"))
-            t.text = para_text
+            # Split on tabs and create a:tab elements between segments
+            segments = para_text.split("\t")
+            for i, segment in enumerate(segments):
+                if i > 0:
+                    etree.SubElement(p, qn("a:tab"))
+                if segment:
+                    r = etree.SubElement(p, qn("a:r"))
+                    if existing_rPr is not None:
+                        r.append(copy.deepcopy(existing_rPr))
+                    else:
+                        etree.SubElement(r, qn("a:rPr"), lang="en-US")
+                    t = etree.SubElement(r, qn("a:t"))
+                    t.text = segment
         else:
             etree.SubElement(p, qn("a:endParaRPr"), lang="en-US")

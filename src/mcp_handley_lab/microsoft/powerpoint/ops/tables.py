@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 from lxml import etree
 
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, qn
@@ -209,25 +211,57 @@ def _create_empty_cell() -> etree._Element:
 
 
 def _set_cell_text(tc: etree._Element, text: str) -> None:
-    """Set text in a table cell."""
+    """Set text in a table cell, preserving existing formatting."""
     txBody = tc.find(qn("a:txBody"), NSMAP)
     if txBody is None:
         txBody = etree.SubElement(tc, qn("a:txBody"))
         etree.SubElement(txBody, qn("a:bodyPr"))
         etree.SubElement(txBody, qn("a:lstStyle"))
 
+    # Preserve first paragraph/run/endPara properties
+    existing_p = txBody.find(qn("a:p"), NSMAP)
+    existing_pPr = None
+    existing_rPr = None
+    existing_endParaRPr = None
+    if existing_p is not None:
+        pPr = existing_p.find(qn("a:pPr"), NSMAP)
+        if pPr is not None:
+            existing_pPr = copy.deepcopy(pPr)
+        endParaRPr = existing_p.find(qn("a:endParaRPr"), NSMAP)
+        if endParaRPr is not None:
+            existing_endParaRPr = copy.deepcopy(endParaRPr)
+        existing_r = existing_p.find(qn("a:r"), NSMAP)
+        if existing_r is not None:
+            rPr = existing_r.find(qn("a:rPr"), NSMAP)
+            if rPr is not None:
+                existing_rPr = copy.deepcopy(rPr)
+
     # Remove existing paragraphs
     for p in list(txBody.findall(qn("a:p"), NSMAP)):
         txBody.remove(p)
 
-    # Add new paragraphs
+    # Add new paragraphs preserving formatting
     for line in text.split("\n"):
         p = etree.SubElement(txBody, qn("a:p"))
+        if existing_pPr is not None:
+            p.append(copy.deepcopy(existing_pPr))
         if line:
-            r = etree.SubElement(p, qn("a:r"))
-            etree.SubElement(r, qn("a:rPr"), lang="en-US")
-            t = etree.SubElement(r, qn("a:t"))
-            t.text = line
+            # Split on tabs and create a:tab elements between segments
+            segments = line.split("\t")
+            for i, segment in enumerate(segments):
+                if i > 0:
+                    etree.SubElement(p, qn("a:tab"))
+                if segment:
+                    r = etree.SubElement(p, qn("a:r"))
+                    if existing_rPr is not None:
+                        r.append(copy.deepcopy(existing_rPr))
+                    else:
+                        etree.SubElement(r, qn("a:rPr"), lang="en-US")
+                    t = etree.SubElement(r, qn("a:t"))
+                    t.text = segment
+        # Always append endParaRPr
+        if existing_endParaRPr is not None:
+            p.append(copy.deepcopy(existing_endParaRPr))
         else:
             etree.SubElement(p, qn("a:endParaRPr"), lang="en-US")
 
@@ -318,16 +352,7 @@ def list_tables(
 
 def _extract_cell_text(tc: etree._Element) -> str:
     """Extract text from a table cell."""
+    from mcp_handley_lab.microsoft.powerpoint.ops.text import extract_text_from_txBody
+
     txBody = tc.find(qn("a:txBody"), NSMAP)
-    if txBody is None:
-        return ""
-
-    lines = []
-    for p in txBody.findall(qn("a:p"), NSMAP):
-        texts = []
-        for t in p.findall(".//" + qn("a:t"), NSMAP):
-            if t.text:
-                texts.append(t.text)
-        lines.append("".join(texts))
-
-    return "\n".join(lines)
+    return extract_text_from_txBody(txBody)
