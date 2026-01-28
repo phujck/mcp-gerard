@@ -850,13 +850,39 @@ def _list_accounts(config_file: str = "") -> list[str]:
     return accounts
 
 
+# =============================================================================
+# MCP Resources: Email Discovery
+# =============================================================================
+
+
+@mcp.resource("email://tags")
+def email_tags() -> list[str]:
+    """All tags in the notmuch email database."""
+    return _list_tags()
+
+
+@mcp.resource("email://folders")
+def email_folders() -> list[str]:
+    """All maildir folders in format 'Account/Folder'."""
+    return _list_folders()
+
+
+@mcp.resource("email://accounts")
+def email_accounts() -> list[str]:
+    """All configured msmtp email accounts."""
+    try:
+        return _list_accounts()
+    except FileNotFoundError:
+        return []  # No msmtprc configured
+
+
 # ============================================================================
 # Unified Tools
 # ============================================================================
 
 
 @mcp.tool(
-    description="""Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+    description="""Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Use email://tags, email://folders, email://accounts resources to discover available options. Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
 )
 def read(
     query: str = Field(

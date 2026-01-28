@@ -557,6 +557,35 @@ mcp__code2prompt__generate_prompt path="/path/to/code" output_file="/tmp/code_re
 mcp__llm__chat prompt="Review this code for improvements" agent_name="code_reviewer" model="gemini" files=["/tmp/code_review.md"]
 ```
 
+## MCP Resources
+
+MCP resources provide read-only discovery data that can be cached by clients. Check relevant resources before making tool calls that need discovery info.
+
+### Available Resources
+
+| Resource URI | Server | Description |
+|-------------|--------|-------------|
+| `calendar://list` | mcp-google-calendar | All accessible calendars with IDs, names, access levels |
+| `model://list` | mcp-llm | All LLM models grouped by provider with capabilities and pricing |
+| `email://tags` | mcp-email | All tags in the notmuch database |
+| `email://folders` | mcp-email | All maildir folders (Account/Folder format) |
+| `email://accounts` | mcp-email | All configured msmtp email accounts |
+| `repl://backends` | mcp-repl | All available REPL backends (bash, python, julia, etc.) |
+
+### Usage via JSON-RPC
+
+```bash
+# List available resources
+{"jsonrpc": "2.0", "id": 1, "method": "resources/list"}
+
+# Read a specific resource
+{"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": "model://list"}}
+```
+
+### When to Use Resources vs Tools
+
+- **Resources**: Discovery, listing, static/semi-static data (calendars, models, folders)
+- **Tools**: Actions, mutations, queries with parameters (send email, create event, chat)
 
 ## Reference Documentation
 

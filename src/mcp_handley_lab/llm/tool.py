@@ -29,6 +29,12 @@ from mcp_handley_lab.shared.models import LLMResult  # noqa: F401 - used in type
 mcp = FastMCP("LLM Tool")
 
 
+@mcp.resource("model://list")
+def model_list() -> dict[str, list[dict[str, Any]]]:
+    """All available LLM models grouped by provider with capabilities and pricing."""
+    return list_all_models()
+
+
 def _resolve_session_branch(branch: str) -> str:
     """Resolve 'session' branch to client-scoped ID for MCP context."""
     if branch != "session":
@@ -56,8 +62,8 @@ def _detect_image_format(data: bytes) -> str:
 @mcp.tool(
     description="Send a message to an LLM. Provider is auto-detected from model name. "
     "Supports Gemini, OpenAI, Claude, Mistral, Grok, and Groq. "
-    "Each response includes commit_sha - use from_ref to fork from any point. "
-    "Use conversation(log/show) to browse history. "
+    "Use conversation tool to manage branches and retrieve past responses. "
+    "For vision/image analysis, provide images parameter with local paths or data URIs. "
     "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch, commit_sha}."
 )
 def chat(
@@ -88,7 +94,7 @@ def chat(
         default="gemini",
         description="Model or provider name. Provider is inferred automatically. "
         "Use provider names (gemini, openai, claude) for latest defaults, "
-        "or specific model IDs. Run list_models() to see available options.",
+        "or specific model IDs. Use model://list resource or list_models() to see available options.",
     ),
     temperature: float = Field(
         default=1.0,
@@ -125,7 +131,7 @@ def chat(
     ),
     options: dict[str, Any] = Field(
         default_factory=dict,
-        description="Provider-specific options. Use list_models() to discover. "
+        description="Provider-specific options. Use model://list resource to discover. "
         "Examples: grounding (Gemini), reasoning_effort (OpenAI), enable_thinking (Claude).",
     ),
     from_ref: str = Field(
@@ -212,8 +218,8 @@ def conversation(
 
 @mcp.tool(
     description="Generate an image from a text prompt. "
+    "Use model://list resource to discover available image models. "
     "Supports Gemini (imagen-*, gemini-*-image), OpenAI (dall-e-*), and Grok (grok-*-image) models. "
-    "Use list_models() to discover available image models. "
     "Nano Banana models (gemini-*-image) support input_images for editing/reference. "
     "Returns: [TextContent(JSON metadata), Image(preview)]. "
     "Metadata includes: file_path, file_size_bytes, model, provider, cost, detected_format, enhanced_prompt, original_prompt."
@@ -348,7 +354,7 @@ def generate_image(
 
 @mcp.tool(
     description="Transcribe audio to text using Mistral Voxtral. "
-    "Supports MP3, WAV, FLAC, OGG, M4A. Use list_models() to discover audio models. "
+    "Supports MP3, WAV, FLAC, OGG, M4A. Use model://list resource to discover audio models. "
     "Returns: {text, segments?: [{start, end, text}]}. Segments included if include_timestamps=true."
 )
 def transcribe(
@@ -387,7 +393,7 @@ def transcribe(
 
 @mcp.tool(
     description="Extract text from documents using Mistral OCR. "
-    "Supports PDFs, images (PNG, JPG), PPTX, and DOCX. Use list_models() to discover OCR models. "
+    "Supports PDFs, images (PNG, JPG), PPTX, and DOCX. Use model://list resource to discover OCR models. "
     "Returns: {status, pages, output_file?, message}. Full OCR JSON saved to output_file if provided."
 )
 def ocr(
