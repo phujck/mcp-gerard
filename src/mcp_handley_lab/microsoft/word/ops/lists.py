@@ -14,7 +14,7 @@ from __future__ import annotations
 from lxml import etree
 from lxml.etree import ElementBase as _LxmlElementBase
 
-from mcp_handley_lab.microsoft.word.constants import qn
+from mcp_handley_lab.microsoft.word.constants import CT, RT, qn
 from mcp_handley_lab.microsoft.word.ops.core import mark_dirty
 
 # Namespace for numbering XPath queries
@@ -221,6 +221,8 @@ def set_list_level(pkg, p_el: etree._Element, level: int) -> None:
     Only works on paragraphs already in a list.
     Raises ValueError if paragraph is not in a list.
     """
+    if not 0 <= level <= 8:
+        raise ValueError(f"List level must be 0-8, got {level}")
     numPr = _require_numPr(p_el)
     _ensure_ilvl(numPr).set(qn("w:val"), str(level))
     mark_dirty(pkg)
@@ -357,6 +359,149 @@ def remove_list_formatting(pkg, p_el: etree._Element) -> None:
 
 
 # =============================================================================
+# List Creation
+# =============================================================================
+
+
+# Bullet characters per level (cycling pattern)
+_BULLET_CHARS = ["\u2022", "\u25cb", "\u25aa"]  # •, ○, ▪
+
+# Numbered format cycling pattern: (numFmt, lvlText_template)
+_NUMBERED_FMTS = [
+    ("decimal", "%{lvl}."),
+    ("lowerLetter", "%{lvl}."),
+    ("lowerRoman", "%{lvl}."),
+]
+
+
+def _ensure_numbering_xml(pkg) -> etree._Element:
+    """Ensure numbering.xml exists, creating it if missing.
+
+    Returns the root <w:numbering> element.
+    """
+    root = _get_numbering_xml(pkg)
+    if root is not None:
+        return root
+
+    # Create new numbering.xml
+    W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    root = etree.Element(qn("w:numbering"), nsmap={"w": W_NS})
+
+    # Register part with content type and relationship
+    pkg.set_xml("/word/numbering.xml", root, CT.WML_NUMBERING)
+    pkg.relate_to("/word/document.xml", "numbering.xml", RT.NUMBERING)
+
+    return root
+
+
+def _get_max_abstract_num_id(pkg) -> int:
+    """Get the maximum abstractNumId currently in use."""
+    numbering_xml = _get_numbering_xml(pkg)
+    if numbering_xml is None:
+        return -1
+
+    max_id = -1
+    for abs_num in _numbering_xpath(numbering_xml, ".//w:abstractNum"):
+        aid = int(abs_num.get(qn("w:abstractNumId"), "0"))
+        max_id = max(max_id, aid)
+    return max_id
+
+
+def create_list(
+    pkg,
+    p_el: etree._Element,
+    list_type: str = "bullet",
+    level: int = 0,
+) -> int:
+    """Create a new list and apply it to a paragraph.
+
+    Creates an abstract numbering definition with 9 levels (0-8),
+    a concrete w:num referencing it, and sets w:numPr on the paragraph.
+
+    Args:
+        pkg: WordPackage
+        p_el: w:p element to make into the first list item
+        list_type: "bullet" or "numbered"
+        level: Initial indentation level (0-8)
+
+    Returns the numId (for subsequent add_to_list calls).
+    """
+    if level < 0 or level > 8:
+        raise ValueError(f"List level must be 0-8, got {level}")
+    if list_type not in ("bullet", "numbered"):
+        raise ValueError(f"list_type must be 'bullet' or 'numbered', got {list_type!r}")
+
+    numbering_root = _ensure_numbering_xml(pkg)
+
+    # Create abstractNum with 9 levels
+    abstract_num_id = _get_max_abstract_num_id(pkg) + 1
+    abstract_num = etree.SubElement(numbering_root, qn("w:abstractNum"))
+    abstract_num.set(qn("w:abstractNumId"), str(abstract_num_id))
+
+    multi_level = etree.SubElement(abstract_num, qn("w:multiLevelType"))
+    multi_level.set(qn("w:val"), "hybridMultilevel")
+
+    for ilvl in range(9):
+        lvl_el = etree.SubElement(abstract_num, qn("w:lvl"))
+        lvl_el.set(qn("w:ilvl"), str(ilvl))
+
+        start_el = etree.SubElement(lvl_el, qn("w:start"))
+        start_el.set(qn("w:val"), "1")
+
+        num_fmt_el = etree.SubElement(lvl_el, qn("w:numFmt"))
+        lvl_text_el = etree.SubElement(lvl_el, qn("w:lvlText"))
+
+        if list_type == "bullet":
+            num_fmt_el.set(qn("w:val"), "bullet")
+            lvl_text_el.set(qn("w:val"), _BULLET_CHARS[ilvl % len(_BULLET_CHARS)])
+            # Add rPr with rFonts for bullet rendering
+            rPr = etree.SubElement(lvl_el, qn("w:rPr"))
+            rFonts = etree.SubElement(rPr, qn("w:rFonts"))
+            rFonts.set(qn("w:ascii"), "Calibri")
+            rFonts.set(qn("w:hAnsi"), "Calibri")
+        else:
+            fmt, tmpl = _NUMBERED_FMTS[ilvl % len(_NUMBERED_FMTS)]
+            num_fmt_el.set(qn("w:val"), fmt)
+            lvl_text_el.set(qn("w:val"), tmpl.format(lvl=ilvl + 1))
+
+        lvl_jc = etree.SubElement(lvl_el, qn("w:lvlJc"))
+        lvl_jc.set(qn("w:val"), "left")
+
+        pPr = etree.SubElement(lvl_el, qn("w:pPr"))
+        ind = etree.SubElement(pPr, qn("w:ind"))
+        ind.set(qn("w:left"), str(720 * (ilvl + 1)))
+        ind.set(qn("w:hanging"), "360")
+
+    # Create w:num referencing the abstractNum
+    num_id = _get_max_num_id(pkg) + 1
+    num_el = etree.SubElement(numbering_root, qn("w:num"))
+    num_el.set(qn("w:numId"), str(num_id))
+    abstract_ref = etree.SubElement(num_el, qn("w:abstractNumId"))
+    abstract_ref.set(qn("w:val"), str(abstract_num_id))
+
+    _mark_numbering_dirty(pkg)
+
+    # Set numPr on the target paragraph
+    pPr = _ensure_pPr(p_el)
+    numPr = _ensure_numPr(pPr)
+
+    # Set or update ilvl
+    ilvl_el = numPr.find(qn("w:ilvl"))
+    if ilvl_el is None:
+        ilvl_el = etree.SubElement(numPr, qn("w:ilvl"))
+    ilvl_el.set(qn("w:val"), str(level))
+
+    # Set or update numId
+    num_id_el = numPr.find(qn("w:numId"))
+    if num_id_el is None:
+        num_id_el = etree.SubElement(numPr, qn("w:numId"))
+    num_id_el.set(qn("w:val"), str(num_id))
+
+    mark_dirty(pkg)
+    return num_id
+
+
+# =============================================================================
 # Add List Item
 # =============================================================================
 
@@ -380,6 +525,9 @@ def add_to_list(
     Returns the new w:p element.
     Raises ValueError if reference paragraph is not in a list (no w:numPr).
     """
+    if position not in ("before", "after"):
+        raise ValueError(f"position must be 'before' or 'after', got {position!r}")
+
     # Get list info from reference
     list_info = get_list_info(pkg, reference_p_el)
     if list_info is None:
@@ -390,6 +538,8 @@ def add_to_list(
     # Determine level
     if level is None:
         level = list_info["level"]
+    if not 0 <= level <= 8:
+        raise ValueError(f"List level must be 0-8, got {level}")
 
     # Create new paragraph using reference's tag for namespace context
     new_p = etree.Element(reference_p_el.tag)

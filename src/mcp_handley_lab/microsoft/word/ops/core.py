@@ -46,7 +46,10 @@ _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
 _TABLE_RE = re.compile(r"^tbl(\d+)$")
 
-# Unit conversions - import from common module
+# Unit conversions - re-export from common module for backwards compatibility
+from mcp_handley_lab.microsoft.common.constants import (
+    EMU_PER_INCH as _EMU_PER_INCH,  # noqa: F401
+)
 
 # PathSegment: (kind, indices) where kind='cell'|'para'|'tbl'
 PathSegment = tuple[str, tuple[int, ...]]

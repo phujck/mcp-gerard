@@ -49,7 +49,7 @@ def _get_sdt_type(sdt_pr) -> str:
     if sdt_pr.find("w:dropDownList", namespaces=_SDT_NSMAP) is not None:
         return "dropdown"
     if sdt_pr.find("w:comboBox", namespaces=_SDT_NSMAP) is not None:
-        return "dropdown"
+        return "comboBox"
     if sdt_pr.find("w:date", namespaces=_SDT_NSMAP) is not None:
         return "date"
     if sdt_pr.find("w15:color", namespaces=_SDT_NSMAP) is not None:
@@ -201,7 +201,11 @@ def build_content_controls(pkg) -> list[dict]:
 
         # Get type-specific info
         checked = _get_sdt_checked_state(sdt_pr) if sdt_type == "checkbox" else None
-        options = _get_sdt_dropdown_options(sdt_pr) if sdt_type == "dropdown" else []
+        options = (
+            _get_sdt_dropdown_options(sdt_pr)
+            if sdt_type in ("dropdown", "comboBox")
+            else []
+        )
         date_format = _get_sdt_date_format(sdt_pr) if sdt_type == "date" else None
 
         # Build block_id (find nearest parent paragraph or use document body)
@@ -271,7 +275,7 @@ def set_content_control_value(pkg, sdt_id: int, value: str) -> None:
 
         if sdt_type == "checkbox":
             _set_checkbox_value(sdt, sdt_pr, value)
-        elif sdt_type == "dropdown":
+        elif sdt_type in ("dropdown", "comboBox"):
             _set_dropdown_value(sdt, sdt_pr, value)
         else:
             # Text, richText, date, etc.
@@ -363,3 +367,156 @@ def _set_text_value(sdt: etree._Element, value: str) -> None:
     text = etree.SubElement(run, qn("w:t"))
     text.text = value
     sdt_content.append(p)
+
+
+# =============================================================================
+# SDT Creation
+# =============================================================================
+
+
+def _generate_sdt_id(anchor: etree._Element) -> int:
+    """Generate a unique SDT id by scanning all existing w:id values in the document tree."""
+    max_id = 0
+    root = anchor.getroottree().getroot()
+    for sdt in root.iter(qn("w:sdt")):
+        sdt_pr = sdt.find("w:sdtPr", namespaces=NSMAP)
+        if sdt_pr is not None:
+            id_el = sdt_pr.find("w:id", namespaces=NSMAP)
+            if id_el is not None:
+                val = int(id_el.get(qn("w:val"), "0"))
+                max_id = max(max_id, val)
+    return max_id + 1
+
+
+_VALID_SDT_TYPES = {"text", "richText", "dropdown", "comboBox", "checkbox", "date"}
+
+
+def create_content_control(
+    pkg,
+    body: etree._Element | None,
+    p_el: etree._Element,
+    sdt_type: str,
+    tag: str | None = None,
+    alias: str | None = None,
+    placeholder: str = "Click here",
+    position: str = "after",
+    options: list[str] | None = None,
+    checked: bool = False,
+    date_format: str = "yyyy-MM-dd",
+) -> etree._Element:
+    """Create a new block-level content control (SDT).
+
+    Args:
+        pkg: WordPackage
+        body: Deprecated, ignored. ID generation scans from p_el's root tree.
+        p_el: Reference paragraph element for insertion position
+        sdt_type: One of "text", "richText", "dropdown", "comboBox", "checkbox", "date"
+        tag: Optional tag string
+        alias: Optional alias/title string
+        placeholder: Placeholder text displayed in the content control
+        position: "before" or "after" the reference paragraph
+        options: List of option strings (for dropdown/comboBox)
+        checked: Initial checked state (for checkbox)
+        date_format: Date format string (for date type)
+
+    Returns the created w:sdt element.
+    """
+    if position not in ("before", "after"):
+        raise ValueError(f"position must be 'before' or 'after', got {position!r}")
+
+    if sdt_type not in _VALID_SDT_TYPES:
+        raise ValueError(
+            f"sdt_type must be one of {sorted(_VALID_SDT_TYPES)}, got {sdt_type!r}"
+        )
+
+    # Validate parent is a block-level context
+    parent = p_el.getparent()
+    if parent is None or parent.tag not in (qn("w:body"), qn("w:tc")):
+        raise ValueError(
+            "Content controls can only be inserted as siblings of block-level "
+            "elements (in w:body or w:tc)"
+        )
+
+    sdt_id = _generate_sdt_id(p_el)
+
+    # Build w:sdt
+    sdt = etree.Element(qn("w:sdt"))
+
+    # -- w:sdtPr --
+    sdt_pr = etree.SubElement(sdt, qn("w:sdtPr"))
+
+    id_el = etree.SubElement(sdt_pr, qn("w:id"))
+    id_el.set(qn("w:val"), str(sdt_id))
+
+    if tag:
+        tag_el = etree.SubElement(sdt_pr, qn("w:tag"))
+        tag_el.set(qn("w:val"), tag)
+
+    if alias:
+        alias_el = etree.SubElement(sdt_pr, qn("w:alias"))
+        alias_el.set(qn("w:val"), alias)
+
+    # Type-specific sdtPr children
+    ns_w14 = "http://schemas.microsoft.com/office/word/2010/wordml"
+
+    if sdt_type == "text":
+        etree.SubElement(sdt_pr, qn("w:text"))
+
+    elif sdt_type == "richText":
+        etree.SubElement(sdt_pr, qn("w:richText"))
+
+    elif sdt_type == "dropdown":
+        dd = etree.SubElement(sdt_pr, qn("w:dropDownList"))
+        for opt in options or []:
+            item = etree.SubElement(dd, qn("w:listItem"))
+            item.set(qn("w:displayText"), opt)
+            item.set(qn("w:value"), opt)
+
+    elif sdt_type == "comboBox":
+        cb = etree.SubElement(sdt_pr, qn("w:comboBox"))
+        for opt in options or []:
+            item = etree.SubElement(cb, qn("w:listItem"))
+            item.set(qn("w:displayText"), opt)
+            item.set(qn("w:value"), opt)
+
+    elif sdt_type == "checkbox":
+        checkbox = etree.SubElement(
+            sdt_pr, f"{{{ns_w14}}}checkbox", nsmap={"w14": ns_w14}
+        )
+        checked_el = etree.SubElement(checkbox, f"{{{ns_w14}}}checked")
+        checked_el.set(f"{{{ns_w14}}}val", "1" if checked else "0")
+        checked_state = etree.SubElement(checkbox, f"{{{ns_w14}}}checkedState")
+        checked_state.set(f"{{{ns_w14}}}val", "2612")
+        checked_state.set(f"{{{ns_w14}}}font", "MS Gothic")
+        unchecked_state = etree.SubElement(checkbox, f"{{{ns_w14}}}uncheckedState")
+        unchecked_state.set(f"{{{ns_w14}}}val", "2610")
+        unchecked_state.set(f"{{{ns_w14}}}font", "MS Gothic")
+
+    elif sdt_type == "date":
+        date_el = etree.SubElement(sdt_pr, qn("w:date"))
+        date_fmt = etree.SubElement(date_el, qn("w:dateFormat"))
+        date_fmt.set(qn("w:val"), date_format)
+        lid = etree.SubElement(date_el, qn("w:lid"))
+        lid.set(qn("w:val"), "en-US")
+        store = etree.SubElement(date_el, qn("w:storeMappedDataAs"))
+        store.set(qn("w:val"), "dateTime")
+
+    # -- w:sdtContent --
+    sdt_content = etree.SubElement(sdt, qn("w:sdtContent"))
+    p = etree.SubElement(sdt_content, qn("w:p"))
+    run = etree.SubElement(p, qn("w:r"))
+    t = etree.SubElement(run, qn("w:t"))
+
+    if sdt_type == "checkbox":
+        t.text = "\u2612" if checked else "\u2610"
+    else:
+        t.text = placeholder
+
+    # Insert relative to reference paragraph
+    if position == "before":
+        p_el.addprevious(sdt)
+    else:
+        p_el.addnext(sdt)
+
+    mark_dirty(pkg)
+    return sdt

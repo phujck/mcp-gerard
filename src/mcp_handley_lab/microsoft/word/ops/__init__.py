@@ -126,6 +126,8 @@ from mcp_handley_lab.microsoft.word.ops.lists import (
     _numbering_xpath,
     _resolve_abstract_num_id,
     _resolve_level_format,
+    add_to_list,
+    create_list,
     demote_list_item,
     get_list_info,
     promote_list_item,
@@ -169,6 +171,7 @@ from mcp_handley_lab.microsoft.word.ops.revisions import (
 )
 from mcp_handley_lab.microsoft.word.ops.sdt import (
     _SDT_NSMAP,
+    _generate_sdt_id,
     _get_sdt_checked_state,
     _get_sdt_date_format,
     _get_sdt_dropdown_options,
@@ -179,6 +182,7 @@ from mcp_handley_lab.microsoft.word.ops.sdt import (
     _set_text_value,
     build_block_id_from_element,
     build_content_controls,
+    create_content_control,
     set_content_control_value,
 )
 from mcp_handley_lab.microsoft.word.ops.sections import (
@@ -353,6 +357,8 @@ __all__ = [
     "demote_list_item",
     "restart_numbering",
     "remove_list_formatting",
+    "create_list",
+    "add_to_list",
     # Images
     "_WRAP_API_TO_XML",
     "_WRAP_XML_TO_API",
@@ -474,7 +480,9 @@ __all__ = [
     "_get_sdt_date_format",
     "build_block_id_from_element",
     "build_content_controls",
+    "create_content_control",
     "set_content_control_value",
+    "_generate_sdt_id",
     "_set_checkbox_value",
     "_set_dropdown_value",
     "_set_text_value",

@@ -350,6 +350,19 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         word_ops.remove_list_formatting(pkg, p_el)
         message = "Removed list formatting"
 
+    elif operation == "create_list":
+        t = word_ops.resolve_target(pkg, target_id)
+        from mcp_handley_lab.microsoft.word.constants import qn as _qn
+
+        if t.leaf_el.tag != _qn("w:p"):
+            raise ValueError("create_list requires a paragraph target")
+        data = json.loads(content_data) if content_data else {}
+        list_type = data.get("list_type", "bullet")
+        level = data.get("level", 0)
+        num_id = word_ops.create_list(pkg, t.leaf_el, list_type, level)
+        element_id = word_ops.get_element_id_ooxml(pkg, t.leaf_el)
+        message = f"Created {list_type} list (numId={num_id})"
+
     elif operation == "add_to_list":
         t = word_ops.resolve_target(pkg, target_id)
         if t.base_kind not in (
@@ -470,6 +483,49 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         word_ops.set_content_control_value(pkg, sdt_id, content_data)
         element_id = ""
         message = f"Set content control {sdt_id} to '{content_data}'"
+
+    elif operation == "create_content_control":
+        if not target_id:
+            raise ValueError("target_id required for create_content_control")
+        if not content_data:
+            raise ValueError(
+                "content_data (JSON with type and optional tag/alias/options) "
+                "required for create_content_control"
+            )
+        data = json.loads(content_data)
+        sdt_type_val = data.get("type", "text")
+        t = word_ops.resolve_target(pkg, target_id)
+        from mcp_handley_lab.microsoft.word.constants import qn as _qn
+
+        if t.leaf_el.tag != _qn("w:p"):
+            raise ValueError("create_content_control requires a paragraph target")
+        parent = t.leaf_el.getparent()
+        if parent is None or parent.tag not in (_qn("w:body"), _qn("w:tc")):
+            raise ValueError(
+                "Content controls can only be inserted in block-level contexts "
+                "(w:body or w:tc)"
+            )
+        sdt_el = word_ops.create_content_control(
+            pkg,
+            None,
+            t.leaf_el,
+            sdt_type=sdt_type_val,
+            tag=data.get("tag"),
+            alias=data.get("alias"),
+            placeholder=data.get("placeholder", "Click here"),
+            position=data.get("position", "after"),
+            options=data.get("options"),
+            checked=data.get("checked", False),
+            date_format=data.get("date_format", "yyyy-MM-dd"),
+        )
+        # Extract the SDT id for the response (numeric id usable with set_content_control)
+        sdt_pr = sdt_el.find(_qn("w:sdtPr"))
+        id_el = sdt_pr.find(_qn("w:id")) if sdt_pr is not None else None
+        created_id = id_el.get(_qn("w:val")) if id_el is not None else ""
+        if not created_id or not created_id.isdigit():
+            raise ValueError("Failed to determine created content control id")
+        element_id = created_id
+        message = f"Created {sdt_type_val} content control (id={created_id})"
 
     elif operation == "set_margins":
         margins = json.loads(formatting)
@@ -686,7 +742,8 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
                 f"Cannot add hyperlink to {target.leaf_kind}. "
                 "Hyperlinks can only be added to paragraphs or table cells."
             )
-        word_ops.add_hyperlink(pkg, p_el, text, address, fragment)
+        replace = link_data.get("replace", False)
+        word_ops.add_hyperlink(pkg, p_el, text, address, fragment, replace)
         if target.leaf_kind == "cell":
             element_id = word_ops.get_element_id_ooxml(pkg, target.base_el)
         else:
@@ -909,13 +966,13 @@ def render(
 
 
 @mcp.tool(
-    description="Edit Word document with batch operations. Supported ops: 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Creates a new file if file_path doesn't exist. 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}."
+    description="Edit Word document with batch operations. Supported ops: 'insert_before', 'insert_after', 'append', 'delete', 'replace', 'style', 'edit_cell', 'edit_run', 'edit_style', 'add_comment', 'reply_comment', 'resolve_comment', 'unresolve_comment', 'set_header', 'set_footer', 'set_first_page_header', 'set_first_page_footer', 'set_even_page_header', 'set_even_page_footer', 'append_header', 'append_footer', 'clear_header', 'clear_footer', 'set_margins', 'set_orientation', 'set_columns', 'set_line_numbering', 'set_page_borders', 'set_custom_property', 'delete_custom_property', 'create_style', 'delete_style', 'insert_image', 'insert_floating_image', 'delete_image', 'add_row', 'add_column', 'delete_row', 'delete_column', 'add_page_break', 'add_break', 'set_meta', 'add_section', 'merge_cells', 'set_table_alignment', 'set_table_autofit', 'set_table_fixed_layout', 'set_row_height', 'set_cell_width', 'set_cell_vertical_alignment', 'set_cell_borders', 'set_cell_shading', 'set_header_row', 'add_tab_stop', 'clear_tab_stops', 'insert_field', 'insert_page_x_of_y', 'accept_change', 'reject_change', 'accept_all_changes', 'reject_all_changes', 'create_list', 'set_list_level', 'promote_list', 'demote_list', 'restart_numbering', 'remove_list', 'add_to_list', 'edit_text_box', 'add_bookmark', 'add_hyperlink', 'insert_cross_ref', 'insert_caption', 'insert_toc', 'update_toc', 'add_footnote', 'delete_footnote', 'set_content_control', 'create_content_control', 'add_source', 'delete_source', 'insert_citation', 'insert_bibliography'. Block IDs are content-addressed and CHANGE when content changes or after inserts/deletes shift occurrence index. Always use element_id from response for chaining operations on modified content. Creates a new file if file_path doesn't exist. 'update_toc' sets dirty flag; Word updates content on open. 'add_to_list' adds a new paragraph to an existing list; content_data: {\"text\": \"...\", \"position\": \"before|after\", \"level\": 0-8 (optional)}. 'add_hyperlink' content_data: {\"text\": \"...\", \"address\"?: \"...\", \"fragment\"?: \"...\", \"replace\"?: true}."
 )
 def edit(
     file_path: str = Field(..., description="Path to .docx file"),
     ops: str = Field(
         ...,
-        description='JSON array of operation objects. Each object must have an "op" field and operation-specific parameters. Example: [{"op": "edit_cell", "target_id": "table_abc_0", "row": 0, "col": 0, "content_data": "A1"}]. Use $prev[N] in target_id to reference element_id from operation N (0-indexed). Supported ops: insert_before, insert_after, append, delete, replace, style, edit_cell, edit_run, edit_style, add_comment, reply_comment, resolve_comment, unresolve_comment, set_header, set_footer, set_first_page_header, set_first_page_footer, set_even_page_header, set_even_page_footer, append_header, append_footer, clear_header, clear_footer, set_margins, set_orientation, set_columns, set_line_numbering, set_page_borders, set_custom_property, delete_custom_property, create_style, delete_style, insert_image, insert_floating_image, delete_image, add_row, add_column, delete_row, delete_column, add_page_break, add_break, set_meta, add_section, merge_cells, set_table_alignment, set_table_autofit, set_table_fixed_layout, set_row_height, set_cell_width, set_cell_vertical_alignment, set_cell_borders, set_cell_shading, set_header_row, add_tab_stop, clear_tab_stops, insert_field, insert_page_x_of_y, accept_change, reject_change, accept_all_changes, reject_all_changes, set_list_level, promote_list, demote_list, restart_numbering, remove_list, add_to_list, edit_text_box, add_bookmark, add_hyperlink, insert_cross_ref, insert_caption, insert_toc, update_toc, add_footnote, delete_footnote, set_content_control, add_source, delete_source, insert_citation, insert_bibliography.',
+        description='JSON array of operation objects. Each object must have an "op" field and operation-specific parameters. Example: [{"op": "edit_cell", "target_id": "table_abc_0", "row": 0, "col": 0, "content_data": "A1"}]. Use $prev[N] in target_id to reference element_id from operation N (0-indexed). Supported ops: insert_before, insert_after, append, delete, replace, style, edit_cell, edit_run, edit_style, add_comment, reply_comment, resolve_comment, unresolve_comment, set_header, set_footer, set_first_page_header, set_first_page_footer, set_even_page_header, set_even_page_footer, append_header, append_footer, clear_header, clear_footer, set_margins, set_orientation, set_columns, set_line_numbering, set_page_borders, set_custom_property, delete_custom_property, create_style, delete_style, insert_image, insert_floating_image, delete_image, add_row, add_column, delete_row, delete_column, add_page_break, add_break, set_meta, add_section, merge_cells, set_table_alignment, set_table_autofit, set_table_fixed_layout, set_row_height, set_cell_width, set_cell_vertical_alignment, set_cell_borders, set_cell_shading, set_header_row, add_tab_stop, clear_tab_stops, insert_field, insert_page_x_of_y, accept_change, reject_change, accept_all_changes, reject_all_changes, create_list, set_list_level, promote_list, demote_list, restart_numbering, remove_list, add_to_list, edit_text_box, add_bookmark, add_hyperlink, insert_cross_ref, insert_caption, insert_toc, update_toc, add_footnote, delete_footnote, set_content_control, create_content_control, add_source, delete_source, insert_citation, insert_bibliography.',
     ),
     mode: str = Field(
         "atomic",
