@@ -6,19 +6,27 @@ Default representation is 'grid' with values + types arrays.
 
 from __future__ import annotations
 
+import copy
 import json
-import shutil
-import subprocess
-import tempfile
-from pathlib import Path
+import re
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+from mcp_handley_lab.microsoft.common.properties import (
+    delete_custom_property,
+    get_core_properties,
+    get_custom_properties,
+    set_core_properties,
+    set_custom_property,
+)
 from mcp_handley_lab.microsoft.excel.models import (
     CellInfo,
+    CustomPropertyInfo,
+    DocumentProperties,
     ExcelEditResult,
+    ExcelOpResult,
     ExcelReadResult,
     GridData,
     RangeMeta,
@@ -148,7 +156,7 @@ def read(
     file_path: str = Field(description="Path to .xlsx file"),
     scope: str = Field(
         default="sheets",
-        description="What to read: meta, sheets, cells, table, tables, styles, conditional_formats, protection, print_settings, charts",
+        description="What to read: meta, sheets, cells, table, tables, styles, conditional_formats, protection, print_settings, charts, properties",
     ),
     sheet: str = Field(
         default="",
@@ -405,6 +413,37 @@ def _read_pivots(pkg: ExcelPackage, sheet: str) -> ExcelReadResult:
     )
 
 
+def _get_document_properties(pkg: ExcelPackage) -> DocumentProperties:
+    """Get document properties from core.xml and custom.xml."""
+    core = get_core_properties(pkg)
+    custom = get_custom_properties(pkg)
+
+    return DocumentProperties(
+        title=core["title"],
+        author=core["author"],
+        subject=core["subject"],
+        keywords=core["keywords"],
+        category=core["category"],
+        comments=core["comments"],
+        created=core["created"],
+        modified=core["modified"],
+        revision=core["revision"],
+        last_modified_by=core["last_modified_by"],
+        custom_properties=[
+            CustomPropertyInfo(name=p["name"], value=p["value"], type=p["type"])
+            for p in custom
+        ],
+    )
+
+
+def _read_properties(pkg: ExcelPackage) -> ExcelReadResult:
+    """Read document properties."""
+    return ExcelReadResult(
+        scope="properties",
+        properties=_get_document_properties(pkg),
+    )
+
+
 def _read_cells(
     pkg: ExcelPackage,
     sheet: str,
@@ -592,331 +631,469 @@ def _format_cell_for_markdown(value: Any) -> str:
 
 
 # =============================================================================
-# Edit Operations
+# Edit Operations - Batch API
 # =============================================================================
+
+# Pattern to match $prev[N] references
+_PREV_PATTERN = re.compile(r"^\$prev\[(\d+)\]$")
+
+# Operations that cannot be used in batch mode
+_EXCLUDED_OPS = {"create", "recalculate"}
+
+# Fields that can use $prev references
+_PREV_FIELDS = {
+    "cell_ref",
+    "range_ref",
+    "sheet",
+    "table_name",
+    "chart_id",
+    "pivot_id",
+}
+
+# Fields that should have text normalization (\\n -> \n, \\t -> \t)
+_TEXT_FIELDS: dict[str, set[str]] = {
+    "set_cell": {"value"},
+    "add_table_row": set(),  # value is JSON, don't normalize
+}
+
+# Maximum operations per batch
+_MAX_OPS = 500
+
+
+def _normalize_text(op: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Normalize escaped characters in text fields.
+
+    Converts \\n to newline and \\t to tab only for known text fields,
+    not for JSON payloads.
+    """
+    fields = _TEXT_FIELDS.get(op, set())
+    for field in fields:
+        if field in params and isinstance(params[field], str):
+            val = params[field].lstrip()
+            # Don't normalize if it looks like JSON
+            if not (val.startswith("[") or val.startswith("{")):
+                params[field] = params[field].replace("\\n", "\n").replace("\\t", "\t")
+    return params
+
+
+def _resolve_prev_refs(
+    params: dict[str, Any],
+    results: list[ExcelOpResult],
+    index: int,
+) -> dict[str, Any]:
+    """Resolve $prev[N] references in operation parameters.
+
+    Args:
+        params: Operation parameters (modified in place)
+        results: Results from previous operations
+        index: Current operation index (for validation)
+
+    Returns:
+        Modified params dict
+
+    Raises:
+        ValueError: If $prev reference is invalid
+    """
+    resolved = copy.copy(params)
+    for field in _PREV_FIELDS:
+        if field not in resolved:
+            continue
+        value = resolved[field]
+        if not isinstance(value, str):
+            continue
+        match = _PREV_PATTERN.match(value)
+        if match:
+            ref_idx = int(match.group(1))
+            if ref_idx >= index:
+                raise ValueError(
+                    f"$prev[{ref_idx}] at index {index}: cannot reference future operation"
+                )
+            if ref_idx >= len(results):
+                raise ValueError(f"$prev[{ref_idx}]: index out of range")
+            prev_result = results[ref_idx]
+            if not prev_result.success:
+                raise ValueError(f"$prev[{ref_idx}]: referenced operation failed")
+            if not prev_result.element_id:
+                raise ValueError(
+                    f"$prev[{ref_idx}]: referenced operation has no element_id"
+                )
+            resolved[field] = prev_result.element_id
+    return resolved
 
 
 @mcp.tool()
 def edit(
     file_path: str = Field(description="Path to .xlsx file"),
-    operation: str = Field(
-        description="Operation: create, set_cell, set_formula, set_range, set_style, "
-        "insert_rows, delete_rows, insert_columns, delete_columns, "
-        "merge_cells, unmerge_cells, add_sheet, rename_sheet, delete_sheet, copy_sheet, "
-        "create_table, delete_table, add_table_row, delete_table_row, add_conditional_format, "
-        "protect_sheet, unprotect_sheet, protect_workbook, unprotect_workbook, lock_cells, unlock_cells, "
-        "set_print_area, clear_print_area, set_print_titles, set_page_margins, set_page_orientation, "
-        "set_page_size, set_scale, set_fit_to_page, add_page_break, clear_page_breaks, "
-        "create_chart, delete_chart, update_chart_data, "
-        "create_pivot, delete_pivot, refresh_pivot, recalculate"
+    ops: str = Field(
+        description='JSON array of operation objects. Each object has "op" (operation name) '
+        "plus operation-specific fields. Use $prev[N] to reference element_id from operation N."
     ),
-    sheet: str = Field(
-        default="",
-        description="Sheet name (required for cell/sheet operations)",
-    ),
-    cell_ref: str = Field(
-        default="",
-        description="Cell reference like 'A1' or range like 'A1:C3'",
-    ),
-    value: str = Field(
-        default="",
-        description="Value to set (string, number, or JSON array for add_table_row, JSON 2D array for set_range)",
-    ),
-    new_name: str = Field(
-        default="",
-        description="New name (for rename_sheet, copy_sheet, table_name for create_table)",
-    ),
-    table_name: str = Field(
-        default="",
-        description="Table name (for table operations)",
-    ),
-    row_index: int = Field(
-        default=0,
-        description="Row index for delete_table_row (0-based, relative to data rows)",
-    ),
-    count: int = Field(
-        default=1,
-        description="Count for insert/delete rows/columns",
-    ),
-    style_index: int = Field(
-        default=-1,
-        description="Style index for set_style or add_conditional_format (dxfId)",
-    ),
-    rule_type: str = Field(
-        default="",
-        description="For add_conditional_format: rule type (cellIs, colorScale, dataBar, etc.)",
-    ),
-    operator: str = Field(
-        default="",
-        description="For add_conditional_format: operator (lessThan, greaterThan, equal, between, etc.)",
-    ),
-    formula: str = Field(
-        default="",
-        description="For add_conditional_format: formula or value(s), semicolon-separated for between",
-    ),
-    priority: int = Field(
-        default=1,
-        description="For add_conditional_format: rule priority (lower = higher priority)",
-    ),
-    password: str = Field(
-        default="",
-        description="Password for protect_sheet/protect_workbook/unprotect operations",
-    ),
-    # Print settings parameters
-    margin_left: float = Field(
-        default=-1.0,
-        description="Left margin in inches (for set_page_margins)",
-    ),
-    margin_right: float = Field(
-        default=-1.0,
-        description="Right margin in inches (for set_page_margins)",
-    ),
-    margin_top: float = Field(
-        default=-1.0,
-        description="Top margin in inches (for set_page_margins)",
-    ),
-    margin_bottom: float = Field(
-        default=-1.0,
-        description="Bottom margin in inches (for set_page_margins)",
-    ),
-    landscape: bool = Field(
-        default=False,
-        description="Landscape orientation (for set_page_orientation)",
-    ),
-    paper_size: int = Field(
-        default=1,
-        description="Paper size code: 1=Letter, 9=A4, 5=Legal (for set_page_size)",
-    ),
-    print_rows: str = Field(
-        default="",
-        description="Rows to repeat, e.g., '1:2' (for set_print_titles)",
-    ),
-    print_cols: str = Field(
-        default="",
-        description="Columns to repeat, e.g., 'A:B' (for set_print_titles)",
-    ),
-    break_type: str = Field(
-        default="row",
-        description="Page break type: 'row' or 'column' (for add_page_break)",
-    ),
-    break_position: int = Field(
-        default=0,
-        description="Row or column number for page break (for add_page_break)",
-    ),
-    scale: int = Field(
-        default=100,
-        description="Print scale percentage 10-400 (for set_scale)",
-    ),
-    fit_width: int = Field(
-        default=-1,
-        description="Fit to N pages wide, 0=auto (for set_fit_to_page)",
-    ),
-    fit_height: int = Field(
-        default=-1,
-        description="Fit to N pages tall, 0=auto (for set_fit_to_page)",
-    ),
-    # Chart parameters
-    chart_type: str = Field(
-        default="",
-        description="Chart type: bar, column, line, pie, scatter, area (for create_chart)",
-    ),
-    data_range: str = Field(
-        default="",
-        description="Data range like 'A1:B10' (for create_chart, update_chart_data)",
-    ),
-    position: str = Field(
-        default="",
-        description="Chart position cell like 'E5' (for create_chart)",
-    ),
-    title: str = Field(
-        default="",
-        description="Chart title (for create_chart)",
-    ),
-    chart_id: str = Field(
-        default="",
-        description="Chart ID (for delete_chart, update_chart_data)",
-    ),
-    # Pivot table parameters
-    row_fields: str = Field(
-        default="",
-        description="Comma-separated field names for row labels (for create_pivot)",
-    ),
-    col_fields: str = Field(
-        default="",
-        description="Comma-separated field names for column labels (for create_pivot)",
-    ),
-    value_fields: str = Field(
-        default="",
-        description="Comma-separated field names for values (for create_pivot)",
-    ),
-    pivot_name: str = Field(
-        default="",
-        description="Pivot table name (for create_pivot)",
-    ),
-    pivot_id: str = Field(
-        default="",
-        description="Pivot table ID (for delete_pivot, refresh_pivot)",
-    ),
-    agg_func: str = Field(
-        default="sum",
-        description="Aggregation function: sum, count, average, min, max (for create_pivot)",
+    mode: str = Field(
+        default="atomic",
+        description="'atomic' (save only if all succeed) or 'partial' (save if any succeed)",
     ),
 ) -> dict[str, Any]:
-    """Edit an Excel workbook. Use read first to discover sheets, cells, and tables.
+    """Edit an Excel workbook using batch operations.
 
-    Operations:
-    - create: Create new empty workbook
-    - set_cell: Set cell value (auto-detects type)
-    - set_formula: Set cell formula (without leading =)
-    - set_range: Set range values from JSON 2D array (cell_ref is start cell)
-    - set_style: Apply style to cell or range (style_index from read scope=styles)
-    - insert_rows: Insert rows at cell_ref row (count = number to insert)
-    - delete_rows: Delete rows at cell_ref row (count = number to delete)
-    - insert_columns: Insert columns at cell_ref column (count = number to insert)
-    - delete_columns: Delete columns at cell_ref column (count = number to delete)
-    - merge_cells: Merge cells in range (cell_ref = range like 'A1:C3')
-    - unmerge_cells: Unmerge cells in range (cell_ref = range like 'A1:C3')
-    - add_sheet: Add new sheet
-    - rename_sheet: Rename existing sheet
-    - delete_sheet: Delete sheet
-    - copy_sheet: Copy sheet to new sheet
-    - create_table: Create table from range (cell_ref = range, new_name = table name)
-    - delete_table: Delete table by name (table_name)
-    - add_table_row: Add row to table (table_name, value = JSON array)
-    - delete_table_row: Delete row from table (table_name, row_index)
-    - add_conditional_format: Add conditional formatting (sheet, cell_ref=range, rule_type, operator, formula, style_index)
-    - protect_sheet: Protect sheet from modification (sheet, password=optional)
-    - unprotect_sheet: Remove sheet protection (sheet, password=required if set)
-    - protect_workbook: Protect workbook structure (password=optional)
-    - unprotect_workbook: Remove workbook protection (password=required if set)
-    - lock_cells: Lock cells in range (sheet, cell_ref=range)
-    - unlock_cells: Unlock cells in range (sheet, cell_ref=range)
-    - set_print_area: Set print area (sheet, cell_ref=range)
-    - clear_print_area: Clear print area (sheet)
-    - set_print_titles: Set repeating rows/columns (sheet, print_rows, print_cols)
-    - set_page_margins: Set page margins (sheet, margin_left/right/top/bottom)
-    - set_page_orientation: Set page orientation (sheet, landscape)
-    - set_page_size: Set paper size (sheet, paper_size: 1=Letter, 9=A4)
-    - set_scale: Set print scale percentage (sheet, scale: 10-400)
-    - set_fit_to_page: Fit to pages (sheet, fit_width, fit_height; 0=auto)
-    - add_page_break: Add page break (sheet, break_type='row'/'column', break_position)
-    - clear_page_breaks: Clear all page breaks (sheet)
-    - create_chart: Create chart (sheet, chart_type, data_range, position, title=optional)
-    - delete_chart: Delete chart by ID (sheet, chart_id)
-    - update_chart_data: Update chart data range (sheet, chart_id, data_range)
-    - create_pivot: Create pivot table (sheet, data_range, position, row_fields, col_fields, value_fields, pivot_name=optional, agg_func=sum)
-    - delete_pivot: Delete pivot table by ID (sheet, pivot_id)
-    - refresh_pivot: Refresh pivot table cache (sheet, pivot_id)
-    - recalculate: Recalculate all formulas using LibreOffice (populates cached values)
+    Batch operations allow multiple edits in a single call with $prev chaining.
+    Use read() first to discover sheets, cells, and tables.
+
+    Args:
+        file_path: Path to .xlsx file
+        ops: JSON array of operation objects, e.g.:
+            [{"op": "set_cell", "sheet": "Sheet1", "cell_ref": "A1", "value": "Hello"},
+             {"op": "set_style", "sheet": "Sheet1", "cell_ref": "$prev[0]", "style_index": 1}]
+        mode: 'atomic' (all-or-nothing) or 'partial' (save successful ops)
+
+    Available operations:
+        - set_cell: Set cell value {sheet, cell_ref, value}
+        - set_formula: Set formula {sheet, cell_ref, formula}
+        - set_range: Set range values {sheet, cell_ref, value} (value is JSON 2D array)
+        - set_style: Apply style {sheet, cell_ref, style_index}
+        - insert_rows: Insert rows {sheet, cell_ref, count}
+        - delete_rows: Delete rows {sheet, cell_ref, count}
+        - insert_columns: Insert columns {sheet, cell_ref, count}
+        - delete_columns: Delete columns {sheet, cell_ref, count}
+        - merge_cells: Merge range {sheet, cell_ref}
+        - unmerge_cells: Unmerge range {sheet, cell_ref}
+        - add_sheet: Add sheet {new_name}
+        - rename_sheet: Rename sheet {sheet, new_name}
+        - delete_sheet: Delete sheet {sheet}
+        - copy_sheet: Copy sheet {sheet, new_name}
+        - create_table: Create table {sheet, cell_ref, table_name}
+        - delete_table: Delete table {table_name}
+        - add_table_row: Add row {table_name, value} (value is JSON array)
+        - delete_table_row: Delete row {table_name, row_index}
+        - add_conditional_format: Add conditional format {sheet, cell_ref, rule_type, operator, formula, style_index, priority}
+        - protect_sheet/unprotect_sheet: {sheet, password}
+        - protect_workbook/unprotect_workbook: {password}
+        - lock_cells/unlock_cells: {sheet, cell_ref}
+        - set_print_area/clear_print_area: {sheet, cell_ref}
+        - set_print_titles: {sheet, print_rows, print_cols}
+        - set_page_margins: {sheet, margin_left, margin_right, margin_top, margin_bottom}
+        - set_page_orientation: {sheet, landscape}
+        - set_page_size: {sheet, paper_size}
+        - set_scale: {sheet, scale}
+        - set_fit_to_page: {sheet, fit_width, fit_height}
+        - add_page_break: {sheet, break_type, break_position}
+        - clear_page_breaks: {sheet}
+        - create_chart: {sheet, chart_type, data_range, position, title}
+        - delete_chart: {sheet, chart_id}
+        - update_chart_data: {sheet, chart_id, data_range}
+        - create_pivot: {sheet, data_range, position, row_fields, col_fields, value_fields, pivot_name, agg_func}
+        - delete_pivot: {sheet, pivot_id}
+        - refresh_pivot: {sheet, pivot_id}
+        - set_meta: {property_name, property_value}
+        - set_custom_property: {property_name, property_value, property_type}
+        - delete_custom_property: {property_name}
+
+    $prev chaining:
+        Reference results of previous operations using $prev[N] where N is the
+        operation index (0-based). Only works for: cell_ref, range_ref, sheet,
+        table_name, chart_id, pivot_id.
+
+    Returns:
+        ExcelEditResult with success status, counts, and per-operation results
     """
-    from mcp_handley_lab.microsoft.excel.shared import edit as _edit
+    # Parse operations
+    try:
+        operations = json.loads(ops)
+    except json.JSONDecodeError as e:
+        return ExcelEditResult(
+            success=False,
+            message=f"Invalid JSON in ops: {e}",
+        ).model_dump(exclude_none=True)
 
-    return _edit(
-        file_path=file_path,
-        operation=operation,
-        sheet=sheet,
-        cell_ref=cell_ref,
-        value=value,
-        new_name=new_name,
-        table_name=table_name,
-        row_index=row_index,
-        count=count,
-        style_index=style_index,
-        rule_type=rule_type,
-        operator=operator,
-        formula=formula,
-        priority=priority,
-        password=password,
-        margin_left=margin_left,
-        margin_right=margin_right,
-        margin_top=margin_top,
-        margin_bottom=margin_bottom,
-        landscape=landscape,
-        paper_size=paper_size,
-        print_rows=print_rows,
-        print_cols=print_cols,
-        break_type=break_type,
-        break_position=break_position,
-        scale=scale,
-        fit_width=fit_width,
-        fit_height=fit_height,
-        chart_type=chart_type,
-        data_range=data_range,
-        position=position,
-        title=title,
-        chart_id=chart_id,
-        row_fields=row_fields,
-        col_fields=col_fields,
-        value_fields=value_fields,
-        pivot_name=pivot_name,
-        pivot_id=pivot_id,
-        agg_func=agg_func,
-    )
+    if not isinstance(operations, list):
+        return ExcelEditResult(
+            success=False,
+            message="ops must be a JSON array",
+        ).model_dump(exclude_none=True)
 
+    if len(operations) == 0:
+        return ExcelEditResult(
+            success=False,
+            message="ops array is empty",
+        ).model_dump(exclude_none=True)
 
-def _edit_create(file_path: str) -> dict[str, Any]:
-    """Create a new empty workbook."""
-    pkg = ExcelPackage.new()
-    pkg.save(file_path)
+    if len(operations) > _MAX_OPS:
+        return ExcelEditResult(
+            success=False,
+            message=f"ops array exceeds maximum of {_MAX_OPS} operations",
+        ).model_dump(exclude_none=True)
+
+    if mode not in ("atomic", "partial"):
+        return ExcelEditResult(
+            success=False,
+            message=f"Invalid mode '{mode}': must be 'atomic' or 'partial'",
+        ).model_dump(exclude_none=True)
+
+    # Validate operations
+    for i, op_dict in enumerate(operations):
+        if not isinstance(op_dict, dict):
+            return ExcelEditResult(
+                success=False,
+                message=f"Operation at index {i} is not an object",
+            ).model_dump(exclude_none=True)
+        if "op" not in op_dict:
+            return ExcelEditResult(
+                success=False,
+                message=f"Operation at index {i} missing 'op' field",
+            ).model_dump(exclude_none=True)
+        if op_dict["op"] in _EXCLUDED_OPS:
+            return ExcelEditResult(
+                success=False,
+                message=f"Operation '{op_dict['op']}' at index {i} is not allowed in batch mode",
+            ).model_dump(exclude_none=True)
+
+    # Open package once
+    pkg = ExcelPackage.open(file_path)
+    results: list[ExcelOpResult] = []
+
+    # Execute operations
+    for i, op_dict in enumerate(operations):
+        op_name = op_dict["op"]
+        params = {k: v for k, v in op_dict.items() if k != "op"}
+
+        try:
+            # Resolve $prev references
+            params = _resolve_prev_refs(params, results, i)
+
+            # Normalize text fields
+            params = _normalize_text(op_name, params)
+
+            # Execute operation
+            result = _apply_op(pkg, op_name, params)
+            results.append(
+                ExcelOpResult(
+                    index=i,
+                    op=op_name,
+                    success=True,
+                    element_id=result.get("element_id", ""),
+                    message=result.get("message", ""),
+                )
+            )
+        except Exception as e:
+            results.append(
+                ExcelOpResult(
+                    index=i,
+                    op=op_name,
+                    success=False,
+                    error=str(e),
+                )
+            )
+            # In atomic mode, stop on first failure
+            if mode == "atomic":
+                break
+
+    # Calculate summary
+    succeeded = sum(1 for r in results if r.success)
+    failed = sum(1 for r in results if not r.success)
+    total = len(operations)
+
+    # Determine if we should save
+    should_save = (failed == 0 and succeeded > 0) if mode == "atomic" else succeeded > 0
+
+    # Save if appropriate
+    saved = False
+    if should_save:
+        try:
+            pkg.save(file_path)
+            saved = True
+        except Exception as e:
+            # If save fails, report it but keep operation results
+            return ExcelEditResult(
+                success=False,
+                message=f"Operations succeeded but save failed: {e}",
+                total=total,
+                succeeded=succeeded,
+                failed=failed,
+                results=results,
+                saved=False,
+            ).model_dump(exclude_none=True)
+
+    # Build response
+    if mode == "atomic":
+        if failed > 0:
+            message = f"Batch failed: {failed} operation(s) failed, file unchanged"
+            success = False
+        else:
+            message = f"Batch completed: {succeeded}/{total} operation(s) succeeded"
+            success = True
+    else:  # partial
+        message = (
+            f"Batch completed: {succeeded}/{total} succeeded, {failed}/{total} failed"
+        )
+        success = succeeded > 0
+
     return ExcelEditResult(
-        success=True,
-        message=f"Created workbook: {file_path}",
-        affected_refs=["Sheet1"],
+        success=success,
+        message=message,
+        total=total,
+        succeeded=succeeded,
+        failed=failed,
+        results=results,
+        saved=saved,
     ).model_dump(exclude_none=True)
 
 
-def _edit_set_cell(
-    file_path: str, sheet: str, cell_ref: str, value: str
-) -> dict[str, Any]:
+def _apply_op(pkg: ExcelPackage, op: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Apply a single operation to an open package.
+
+    Returns dict with 'message' and optionally 'element_id' for $prev chaining.
+    """
+    if op == "set_cell":
+        return _op_set_cell(pkg, params)
+    elif op == "set_formula":
+        return _op_set_formula(pkg, params)
+    elif op == "set_range":
+        return _op_set_range(pkg, params)
+    elif op == "set_style":
+        return _op_set_style(pkg, params)
+    elif op == "insert_rows":
+        return _op_insert_rows(pkg, params)
+    elif op == "delete_rows":
+        return _op_delete_rows(pkg, params)
+    elif op == "insert_columns":
+        return _op_insert_columns(pkg, params)
+    elif op == "delete_columns":
+        return _op_delete_columns(pkg, params)
+    elif op == "merge_cells":
+        return _op_merge_cells(pkg, params)
+    elif op == "unmerge_cells":
+        return _op_unmerge_cells(pkg, params)
+    elif op == "add_sheet":
+        return _op_add_sheet(pkg, params)
+    elif op == "rename_sheet":
+        return _op_rename_sheet(pkg, params)
+    elif op == "delete_sheet":
+        return _op_delete_sheet(pkg, params)
+    elif op == "copy_sheet":
+        return _op_copy_sheet(pkg, params)
+    elif op == "create_table":
+        return _op_create_table(pkg, params)
+    elif op == "delete_table":
+        return _op_delete_table(pkg, params)
+    elif op == "add_table_row":
+        return _op_add_table_row(pkg, params)
+    elif op == "delete_table_row":
+        return _op_delete_table_row(pkg, params)
+    elif op == "add_conditional_format":
+        return _op_add_conditional_format(pkg, params)
+    elif op == "protect_sheet":
+        return _op_protect_sheet(pkg, params)
+    elif op == "unprotect_sheet":
+        return _op_unprotect_sheet(pkg, params)
+    elif op == "protect_workbook":
+        return _op_protect_workbook(pkg, params)
+    elif op == "unprotect_workbook":
+        return _op_unprotect_workbook(pkg, params)
+    elif op == "lock_cells":
+        return _op_lock_cells(pkg, params)
+    elif op == "unlock_cells":
+        return _op_unlock_cells(pkg, params)
+    elif op == "set_print_area":
+        return _op_set_print_area(pkg, params)
+    elif op == "clear_print_area":
+        return _op_clear_print_area(pkg, params)
+    elif op == "set_print_titles":
+        return _op_set_print_titles(pkg, params)
+    elif op == "set_page_margins":
+        return _op_set_page_margins(pkg, params)
+    elif op == "set_page_orientation":
+        return _op_set_page_orientation(pkg, params)
+    elif op == "set_page_size":
+        return _op_set_page_size(pkg, params)
+    elif op == "set_scale":
+        return _op_set_scale(pkg, params)
+    elif op == "set_fit_to_page":
+        return _op_set_fit_to_page(pkg, params)
+    elif op == "add_page_break":
+        return _op_add_page_break(pkg, params)
+    elif op == "clear_page_breaks":
+        return _op_clear_page_breaks(pkg, params)
+    elif op == "create_chart":
+        return _op_create_chart(pkg, params)
+    elif op == "delete_chart":
+        return _op_delete_chart(pkg, params)
+    elif op == "update_chart_data":
+        return _op_update_chart_data(pkg, params)
+    elif op == "create_pivot":
+        return _op_create_pivot(pkg, params)
+    elif op == "delete_pivot":
+        return _op_delete_pivot(pkg, params)
+    elif op == "refresh_pivot":
+        return _op_refresh_pivot(pkg, params)
+    elif op == "set_meta":
+        return _op_set_meta(pkg, params)
+    elif op == "set_custom_property":
+        return _op_set_custom_property(pkg, params)
+    elif op == "delete_custom_property":
+        return _op_delete_custom_property(pkg, params)
+    else:
+        raise ValueError(f"Unknown operation: {op}")
+
+
+# =============================================================================
+# Individual Operation Handlers
+# =============================================================================
+
+
+def _op_set_cell(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set a cell's value."""
-    pkg = ExcelPackage.open(file_path)
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    value = params.get("value", "")
 
     # Auto-detect type from value string
     parsed_value: Any = value
     if value == "":
         parsed_value = None
-    elif value.lower() == "true":
-        parsed_value = True
-    elif value.lower() == "false":
-        parsed_value = False
-    else:
-        try:
-            parsed_value = float(value) if "." in value else int(value)
-        except ValueError:
-            parsed_value = value  # Keep as string
+    elif isinstance(value, str):
+        if value.lower() == "true":
+            parsed_value = True
+        elif value.lower() == "false":
+            parsed_value = False
+        else:
+            try:
+                parsed_value = float(value) if "." in value else int(value)
+            except ValueError:
+                parsed_value = value
 
     set_cell_value(pkg, sheet, cell_ref, parsed_value)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set {cell_ref} to {repr(parsed_value)}",
-        affected_refs=[cell_ref],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Set {cell_ref} to {repr(parsed_value)}",
+        "element_id": cell_ref,
+    }
 
 
-def _edit_set_formula(
-    file_path: str, sheet: str, cell_ref: str, formula: str
-) -> dict[str, Any]:
+def _op_set_formula(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set a cell's formula."""
-    pkg = ExcelPackage.open(file_path)
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    formula = params.get("formula", "")
+
     set_cell_formula(pkg, sheet, cell_ref, formula)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set {cell_ref} formula to ={formula}",
-        affected_refs=[cell_ref],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Set {cell_ref} formula to ={formula}", "element_id": cell_ref}
 
 
-def _edit_set_style(
-    file_path: str, sheet: str, cell_ref: str, style_index: int
-) -> dict[str, Any]:
+def _op_set_range(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set range values from JSON 2D array."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    value = params.get("value", "")
+
+    values = json.loads(value) if isinstance(value, str) else value
+    set_range_values(pkg, sheet, cell_ref, values)
+    return {"message": f"Set range starting at {cell_ref}", "element_id": cell_ref}
+
+
+def _op_set_style(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Apply a style to a cell or range."""
-    pkg = ExcelPackage.open(file_path)
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    style_index = params.get("style_index", -1)
 
-    # Support both single cell and range
     if ":" in cell_ref:
         # Range - apply style to all cells
         start_ref, end_ref = parse_range_ref(cell_ref)
@@ -925,759 +1102,509 @@ def _edit_set_style(
         start_col_idx = column_letter_to_index(start_col)
         end_col_idx = column_letter_to_index(end_col)
 
-        affected = []
         for row_num in range(start_row, end_row + 1):
             for col_idx in range(start_col_idx, end_col_idx + 1):
                 col_letter = index_to_column_letter(col_idx)
                 ref = f"{col_letter}{row_num}"
                 set_cell_style(pkg, sheet, ref, style_index)
-                affected.append(ref)
 
-        pkg.save(file_path)
-        return ExcelEditResult(
-            success=True,
-            message=f"Applied style {style_index} to {len(affected)} cells in {cell_ref}",
-            affected_refs=affected,
-        ).model_dump(exclude_none=True)
+        return {
+            "message": f"Applied style {style_index} to range {cell_ref}",
+            "element_id": cell_ref,
+        }
     else:
-        # Single cell
         set_cell_style(pkg, sheet, cell_ref, style_index)
-        pkg.save(file_path)
-        return ExcelEditResult(
-            success=True,
-            message=f"Applied style {style_index} to {cell_ref}",
-            affected_refs=[cell_ref],
-        ).model_dump(exclude_none=True)
+        return {
+            "message": f"Applied style {style_index} to {cell_ref}",
+            "element_id": cell_ref,
+        }
 
 
-def _edit_add_sheet(file_path: str, name: str) -> dict[str, Any]:
-    """Add a new sheet."""
-    pkg = ExcelPackage.open(file_path)
-    add_sheet(pkg, name)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Added sheet: {name}",
-        affected_refs=[name],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_rename_sheet(file_path: str, old_name: str, new_name: str) -> dict[str, Any]:
-    """Rename a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    rename_sheet(pkg, old_name, new_name)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Renamed sheet: {old_name} -> {new_name}",
-        affected_refs=[new_name],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_delete_sheet(file_path: str, name: str) -> dict[str, Any]:
-    """Delete a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    delete_sheet(pkg, name)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted sheet: {name}",
-        affected_refs=[name],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_copy_sheet(file_path: str, source: str, new_name: str) -> dict[str, Any]:
-    """Copy a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    copy_sheet(pkg, source, new_name)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Copied sheet: {source} -> {new_name}",
-        affected_refs=[new_name],
-    ).model_dump(exclude_none=True)
-
-
-# =============================================================================
-# Range Operations
-# =============================================================================
-
-
-def _edit_set_range(
-    file_path: str, sheet: str, start_ref: str, value: str
-) -> dict[str, Any]:
-    """Set range values from JSON 2D array."""
-    values = json.loads(value)
-
-    pkg = ExcelPackage.open(file_path)
-    count = set_range_values(pkg, sheet, start_ref, values)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set {count} cells starting at {start_ref}",
-        affected_refs=[start_ref],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_insert_rows(
-    file_path: str, sheet: str, cell_ref: str, count: int
-) -> dict[str, Any]:
+def _op_insert_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Insert rows."""
-    _, row_num, _, _ = parse_cell_ref(cell_ref)
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    count = params.get("count", 1)
 
-    pkg = ExcelPackage.open(file_path)
-    insert_rows(pkg, sheet, row_num, count)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Inserted {count} row(s) at row {row_num}",
-        affected_refs=[f"row {row_num}"],
-    ).model_dump(exclude_none=True)
+    _, row, _, _ = parse_cell_ref(cell_ref)
+    insert_rows(pkg, sheet, row, count)
+    return {"message": f"Inserted {count} row(s) at row {row}", "element_id": ""}
 
 
-def _edit_delete_rows(
-    file_path: str, sheet: str, cell_ref: str, count: int
-) -> dict[str, Any]:
+def _op_delete_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete rows."""
-    _, row_num, _, _ = parse_cell_ref(cell_ref)
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    count = params.get("count", 1)
 
-    pkg = ExcelPackage.open(file_path)
-    delete_rows(pkg, sheet, row_num, count)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted {count} row(s) at row {row_num}",
-        affected_refs=[f"row {row_num}"],
-    ).model_dump(exclude_none=True)
+    _, row, _, _ = parse_cell_ref(cell_ref)
+    delete_rows(pkg, sheet, row, count)
+    return {
+        "message": f"Deleted {count} row(s) starting at row {row}",
+        "element_id": "",
+    }
 
 
-def _edit_insert_columns(
-    file_path: str, sheet: str, cell_ref: str, count: int
-) -> dict[str, Any]:
+def _op_insert_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Insert columns."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    count = params.get("count", 1)
+
     col, _, _, _ = parse_cell_ref(cell_ref)
-
-    pkg = ExcelPackage.open(file_path)
-    insert_columns(pkg, sheet, col, count)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Inserted {count} column(s) at column {col}",
-        affected_refs=[f"column {col}"],
-    ).model_dump(exclude_none=True)
+    col_idx = column_letter_to_index(col)
+    insert_columns(pkg, sheet, col_idx, count)
+    return {"message": f"Inserted {count} column(s) at column {col}", "element_id": ""}
 
 
-def _edit_delete_columns(
-    file_path: str, sheet: str, cell_ref: str, count: int
-) -> dict[str, Any]:
+def _op_delete_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete columns."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    count = params.get("count", 1)
+
     col, _, _, _ = parse_cell_ref(cell_ref)
-
-    pkg = ExcelPackage.open(file_path)
-    delete_columns(pkg, sheet, col, count)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted {count} column(s) at column {col}",
-        affected_refs=[f"column {col}"],
-    ).model_dump(exclude_none=True)
+    col_idx = column_letter_to_index(col)
+    delete_columns(pkg, sheet, col_idx, count)
+    return {
+        "message": f"Deleted {count} column(s) starting at column {col}",
+        "element_id": "",
+    }
 
 
-def _edit_merge_cells(file_path: str, sheet: str, range_ref: str) -> dict[str, Any]:
-    """Merge cells in a range."""
-    pkg = ExcelPackage.open(file_path)
-    merge_cells(pkg, sheet, range_ref)
-    pkg.save(file_path)
+def _op_merge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Merge cells in range."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Merged cells: {range_ref}",
-        affected_refs=[range_ref],
-    ).model_dump(exclude_none=True)
+    merge_cells(pkg, sheet, cell_ref)
+    return {"message": f"Merged cells {cell_ref}", "element_id": cell_ref}
 
 
-def _edit_unmerge_cells(file_path: str, sheet: str, range_ref: str) -> dict[str, Any]:
-    """Unmerge cells in a range."""
-    pkg = ExcelPackage.open(file_path)
-    unmerge_cells(pkg, sheet, range_ref)
-    pkg.save(file_path)
+def _op_unmerge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Unmerge cells in range."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Unmerged cells: {range_ref}",
-        affected_refs=[range_ref],
-    ).model_dump(exclude_none=True)
+    unmerge_cells(pkg, sheet, cell_ref)
+    return {"message": f"Unmerged cells {cell_ref}", "element_id": cell_ref}
 
 
-# =============================================================================
-# Table Operations
-# =============================================================================
+def _op_add_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Add new sheet."""
+    name = params.get("new_name", "") or params.get("name", "")
+
+    add_sheet(pkg, name)
+    return {"message": f"Added sheet '{name}'", "element_id": name}
 
 
-def _edit_create_table(
-    file_path: str, sheet: str, range_ref: str, table_name: str
-) -> dict[str, Any]:
-    """Create a table from a range."""
-    pkg = ExcelPackage.open(file_path)
-    create_table(pkg, sheet, range_ref, table_name)
-    pkg.save(file_path)
+def _op_rename_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Rename existing sheet."""
+    old_name = params.get("sheet", "")
+    new_name = params.get("new_name", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Created table: {table_name} in {range_ref}",
-        affected_refs=[range_ref],
-    ).model_dump(exclude_none=True)
+    rename_sheet(pkg, old_name, new_name)
+    return {
+        "message": f"Renamed sheet '{old_name}' to '{new_name}'",
+        "element_id": new_name,
+    }
 
 
-def _edit_delete_table(file_path: str, table_name: str) -> dict[str, Any]:
-    """Delete a table."""
-    pkg = ExcelPackage.open(file_path)
+def _op_delete_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete sheet."""
+    name = params.get("sheet", "")
+
+    delete_sheet(pkg, name)
+    return {"message": f"Deleted sheet '{name}'", "element_id": ""}
+
+
+def _op_copy_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Copy sheet to new sheet."""
+    source = params.get("sheet", "")
+    new_name = params.get("new_name", "")
+
+    copy_sheet(pkg, source, new_name)
+    return {
+        "message": f"Copied sheet '{source}' to '{new_name}'",
+        "element_id": new_name,
+    }
+
+
+def _op_create_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Create table from range."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    table_name = params.get("table_name", "") or params.get("new_name", "")
+
+    create_table(pkg, sheet, cell_ref, table_name)
+    return {
+        "message": f"Created table '{table_name}' from range {cell_ref}",
+        "element_id": table_name,
+    }
+
+
+def _op_delete_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete table by name."""
+    table_name = params.get("table_name", "")
+
     delete_table(pkg, table_name)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted table: {table_name}",
-        affected_refs=[table_name],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Deleted table '{table_name}'", "element_id": ""}
 
 
-def _edit_add_table_row(file_path: str, table_name: str, value: str) -> dict[str, Any]:
-    """Add a row to a table."""
-    values = json.loads(value)
-    pkg = ExcelPackage.open(file_path)
-    first_ref = add_table_row(pkg, table_name, values)
-    pkg.save(file_path)
+def _op_add_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Add row to table."""
+    table_name = params.get("table_name", "")
+    value = params.get("value", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Added row to table {table_name} at {first_ref}",
-        affected_refs=[first_ref],
-    ).model_dump(exclude_none=True)
+    row_data = json.loads(value) if isinstance(value, str) else value
+    add_table_row(pkg, table_name, row_data)
+    return {"message": f"Added row to table '{table_name}'", "element_id": table_name}
 
 
-def _edit_delete_table_row(
-    file_path: str, table_name: str, row_index: int
-) -> dict[str, Any]:
-    """Delete a row from a table."""
-    pkg = ExcelPackage.open(file_path)
+def _op_delete_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete row from table."""
+    table_name = params.get("table_name", "")
+    row_index = params.get("row_index", 0)
+
     delete_table_row(pkg, table_name, row_index)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted row {row_index} from table {table_name}",
-        affected_refs=[table_name],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Deleted row {row_index} from table '{table_name}'",
+        "element_id": table_name,
+    }
 
 
-# =============================================================================
-# Conditional Formatting Operations
-# =============================================================================
-
-
-def _edit_add_conditional_format(
-    file_path: str,
-    sheet: str,
-    range_ref: str,
-    rule_type: str,
-    operator: str,
-    formula: str,
-    style_index: int,
-    priority: int,
+def _op_add_conditional_format(
+    pkg: ExcelPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
-    """Add a conditional formatting rule."""
-    pkg = ExcelPackage.open(file_path)
-
-    # Convert -1 style_index to None (optional)
-    dxf_id = style_index if style_index >= 0 else None
+    """Add conditional formatting."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+    rule_type = params.get("rule_type", "")
+    operator = params.get("operator", "")
+    formula = params.get("formula", "")
+    style_index = params.get("style_index", -1)
+    priority = params.get("priority", 1)
 
     add_conditional_format(
-        pkg,
-        sheet,
-        range_ref,
-        rule_type,
-        operator=operator or None,
-        formula=formula or None,
-        style_index=dxf_id,
-        priority=priority,
+        pkg, sheet, cell_ref, rule_type, operator, formula, style_index, priority
     )
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Added {rule_type} conditional format to {range_ref}",
-        affected_refs=[range_ref],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Added conditional format to {cell_ref}",
+        "element_id": cell_ref,
+    }
 
 
-# =============================================================================
-# Protection Operations
-# =============================================================================
+def _op_protect_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Protect sheet."""
+    sheet = params.get("sheet", "")
+    password = params.get("password", "")
+
+    protect_sheet(pkg, sheet, password if password else None)
+    return {"message": f"Protected sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_protect_sheet(file_path: str, sheet: str, password: str) -> dict[str, Any]:
-    """Protect a sheet from modification."""
-    pkg = ExcelPackage.open(file_path)
-    protect_sheet(pkg, sheet, password=password or None)
-    pkg.save(file_path)
+def _op_unprotect_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Unprotect sheet."""
+    sheet = params.get("sheet", "")
+    password = params.get("password", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Protected sheet: {sheet}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    unprotect_sheet(pkg, sheet, password if password else None)
+    return {"message": f"Unprotected sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_unprotect_sheet(file_path: str, sheet: str, password: str) -> dict[str, Any]:
-    """Remove protection from a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    unprotect_sheet(pkg, sheet, password=password or None)
-    pkg.save(file_path)
+def _op_protect_workbook(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Protect workbook."""
+    password = params.get("password", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Unprotected sheet: {sheet}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    protect_workbook(pkg, password if password else None)
+    return {"message": "Protected workbook", "element_id": ""}
 
 
-def _edit_protect_workbook(file_path: str, password: str) -> dict[str, Any]:
-    """Protect workbook structure."""
-    pkg = ExcelPackage.open(file_path)
-    protect_workbook(pkg, password=password or None)
-    pkg.save(file_path)
+def _op_unprotect_workbook(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Unprotect workbook."""
+    password = params.get("password", "")
 
-    return ExcelEditResult(
-        success=True,
-        message="Protected workbook structure",
-        affected_refs=["workbook"],
-    ).model_dump(exclude_none=True)
+    unprotect_workbook(pkg, password if password else None)
+    return {"message": "Unprotected workbook", "element_id": ""}
 
 
-def _edit_unprotect_workbook(file_path: str, password: str) -> dict[str, Any]:
-    """Remove workbook protection."""
-    pkg = ExcelPackage.open(file_path)
-    unprotect_workbook(pkg, password=password or None)
-    pkg.save(file_path)
+def _op_lock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Lock cells in range."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
 
-    return ExcelEditResult(
-        success=True,
-        message="Unprotected workbook",
-        affected_refs=["workbook"],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_lock_cells(file_path: str, sheet: str, cell_ref: str) -> dict[str, Any]:
-    """Lock cells in a range."""
-    pkg = ExcelPackage.open(file_path)
     lock_cells(pkg, sheet, cell_ref)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Locked cells: {cell_ref}",
-        affected_refs=[cell_ref],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Locked cells {cell_ref}", "element_id": cell_ref}
 
 
-def _edit_unlock_cells(file_path: str, sheet: str, cell_ref: str) -> dict[str, Any]:
-    """Unlock cells in a range."""
-    pkg = ExcelPackage.open(file_path)
+def _op_unlock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Unlock cells in range."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+
     unlock_cells(pkg, sheet, cell_ref)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Unlocked cells: {cell_ref}",
-        affected_refs=[cell_ref],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Unlocked cells {cell_ref}", "element_id": cell_ref}
 
 
-# =============================================================================
-# Print Settings Operations
-# =============================================================================
+def _op_set_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set print area."""
+    sheet = params.get("sheet", "")
+    cell_ref = params.get("cell_ref", "")
+
+    set_print_area(pkg, sheet, cell_ref)
+    return {"message": f"Set print area to {cell_ref}", "element_id": ""}
 
 
-def _edit_set_print_area(file_path: str, sheet: str, range_ref: str) -> dict[str, Any]:
-    """Set the print area for a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    set_print_area(pkg, sheet, range_ref)
-    pkg.save(file_path)
+def _op_clear_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Clear print area."""
+    sheet = params.get("sheet", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Set print area to {range_ref}",
-        affected_refs=[range_ref],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_clear_print_area(file_path: str, sheet: str) -> dict[str, Any]:
-    """Clear the print area for a sheet."""
-    pkg = ExcelPackage.open(file_path)
     clear_print_area(pkg, sheet)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message="Cleared print area",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Cleared print area for sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_set_print_titles(
-    file_path: str, sheet: str, rows: str, cols: str
-) -> dict[str, Any]:
-    """Set print titles (repeating rows/columns)."""
-    pkg = ExcelPackage.open(file_path)
-    set_print_titles(pkg, sheet, rows=rows or None, cols=cols or None)
-    pkg.save(file_path)
+def _op_set_print_titles(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set print titles."""
+    sheet = params.get("sheet", "")
+    print_rows = params.get("print_rows", "")
+    print_cols = params.get("print_cols", "")
 
-    parts = []
-    if rows:
-        parts.append(f"rows {rows}")
-    if cols:
-        parts.append(f"columns {cols}")
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set print titles: {', '.join(parts) or 'cleared'}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    set_print_titles(pkg, sheet, print_rows or None, print_cols or None)
+    return {"message": f"Set print titles for sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_set_page_margins(
-    file_path: str,
-    sheet: str,
-    left: float,
-    right: float,
-    top: float,
-    bottom: float,
-) -> dict[str, Any]:
-    """Set page margins for a sheet."""
-    pkg = ExcelPackage.open(file_path)
+def _op_set_page_margins(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set page margins."""
+    sheet = params.get("sheet", "")
+    left = params.get("margin_left", -1.0)
+    right = params.get("margin_right", -1.0)
+    top = params.get("margin_top", -1.0)
+    bottom = params.get("margin_bottom", -1.0)
+
     set_page_margins(
         pkg,
         sheet,
-        left=left if left >= 0 else None,
-        right=right if right >= 0 else None,
-        top=top if top >= 0 else None,
-        bottom=bottom if bottom >= 0 else None,
+        left if left >= 0 else None,
+        right if right >= 0 else None,
+        top if top >= 0 else None,
+        bottom if bottom >= 0 else None,
     )
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message="Updated page margins",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Set page margins for sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_set_page_orientation(
-    file_path: str, sheet: str, landscape: bool
+def _op_set_page_orientation(
+    pkg: ExcelPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
-    """Set page orientation for a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    set_page_orientation(pkg, sheet, landscape=landscape)
-    pkg.save(file_path)
+    """Set page orientation."""
+    sheet = params.get("sheet", "")
+    landscape = params.get("landscape", False)
 
+    set_page_orientation(pkg, sheet, landscape)
     orientation = "landscape" if landscape else "portrait"
-    return ExcelEditResult(
-        success=True,
-        message=f"Set page orientation to {orientation}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Set {sheet} to {orientation}", "element_id": ""}
 
 
-def _edit_set_page_size(file_path: str, sheet: str, paper_size: int) -> dict[str, Any]:
-    """Set paper size for a sheet."""
-    pkg = ExcelPackage.open(file_path)
+def _op_set_page_size(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set page size."""
+    sheet = params.get("sheet", "")
+    paper_size = params.get("paper_size", 1)
+
     set_page_size(pkg, sheet, paper_size)
-    pkg.save(file_path)
-
-    size_names = {1: "Letter", 5: "Legal", 9: "A4", 11: "A5"}
-    size_name = size_names.get(paper_size, f"code {paper_size}")
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set paper size to {size_name}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Set paper size to {paper_size} for sheet '{sheet}'",
+        "element_id": "",
+    }
 
 
-def _edit_add_page_break(
-    file_path: str, sheet: str, break_type: str, position: int
-) -> dict[str, Any]:
-    """Add a page break."""
-    pkg = ExcelPackage.open(file_path)
+def _op_set_scale(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set print scale."""
+    sheet = params.get("sheet", "")
+    scale_value = params.get("scale", 100)
 
-    if break_type == "row":
-        add_row_page_break(pkg, sheet, position)
-        msg = f"Added row page break before row {position}"
-    else:
-        add_column_page_break(pkg, sheet, position)
-        msg = f"Added column page break before column {position}"
-
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=msg,
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_clear_page_breaks(file_path: str, sheet: str) -> dict[str, Any]:
-    """Clear all page breaks for a sheet."""
-    pkg = ExcelPackage.open(file_path)
-    clear_page_breaks(pkg, sheet)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message="Cleared all page breaks",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
-
-
-def _edit_set_scale(file_path: str, sheet: str, scale_value: int) -> dict[str, Any]:
-    """Set print scale percentage."""
-    pkg = ExcelPackage.open(file_path)
     set_scale(pkg, sheet, scale_value)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set print scale to {scale_value}%",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Set scale to {scale_value}% for sheet '{sheet}'",
+        "element_id": "",
+    }
 
 
-def _edit_set_fit_to_page(
-    file_path: str, sheet: str, width: int, height: int
-) -> dict[str, Any]:
-    """Set fit-to-page printing."""
-    pkg = ExcelPackage.open(file_path)
+def _op_set_fit_to_page(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set fit to page."""
+    sheet = params.get("sheet", "")
+    fit_width = params.get("fit_width", -1)
+    fit_height = params.get("fit_height", -1)
+
     set_fit_to_page(
         pkg,
         sheet,
-        width=width if width >= 0 else None,
-        height=height if height >= 0 else None,
+        fit_width if fit_width >= 0 else None,
+        fit_height if fit_height >= 0 else None,
     )
-    pkg.save(file_path)
-
-    msg_parts = []
-    if width >= 0:
-        msg_parts.append(f"{width} page(s) wide" if width > 0 else "auto width")
-    if height >= 0:
-        msg_parts.append(f"{height} page(s) tall" if height > 0 else "auto height")
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Set fit-to-page: {', '.join(msg_parts) or 'default'}",
-        affected_refs=[sheet],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Set fit to page for sheet '{sheet}'", "element_id": ""}
 
 
-# =============================================================================
-# Chart Operations
-# =============================================================================
+def _op_add_page_break(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Add page break."""
+    sheet = params.get("sheet", "")
+    break_type = params.get("break_type", "row")
+    break_position = params.get("break_position", 0)
+
+    if break_type == "row":
+        add_row_page_break(pkg, sheet, break_position)
+        return {
+            "message": f"Added row page break at row {break_position}",
+            "element_id": "",
+        }
+    else:
+        add_column_page_break(pkg, sheet, break_position)
+        return {
+            "message": f"Added column page break at column {break_position}",
+            "element_id": "",
+        }
 
 
-def _edit_create_chart(
-    file_path: str,
-    sheet: str,
-    chart_type: str,
-    data_range: str,
-    position: str,
-    title: str,
-) -> dict[str, Any]:
-    """Create a chart on the sheet."""
-    pkg = ExcelPackage.open(file_path)
-    chart_info = create_chart(
-        pkg,
-        sheet,
-        chart_type,
-        data_range,
-        position,
-        title=title if title else None,
-    )
-    pkg.save(file_path)
+def _op_clear_page_breaks(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Clear all page breaks."""
+    sheet = params.get("sheet", "")
 
-    return ExcelEditResult(
-        success=True,
-        message=f"Created {chart_type} chart at {position}",
-        affected_refs=[chart_info.id or position],
-    ).model_dump(exclude_none=True)
+    clear_page_breaks(pkg, sheet)
+    return {"message": f"Cleared all page breaks for sheet '{sheet}'", "element_id": ""}
 
 
-def _edit_delete_chart(file_path: str, sheet: str, chart_id: str) -> dict[str, Any]:
-    """Delete a chart by ID."""
-    pkg = ExcelPackage.open(file_path)
+def _op_create_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Create chart."""
+    sheet = params.get("sheet", "")
+    chart_type = params.get("chart_type", "")
+    data_range = params.get("data_range", "")
+    position = params.get("position", "")
+    title = params.get("title", "")
+
+    chart_id = create_chart(pkg, sheet, chart_type, data_range, position, title or None)
+    return {
+        "message": f"Created {chart_type} chart at {position}",
+        "element_id": chart_id,
+    }
+
+
+def _op_delete_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete chart."""
+    sheet = params.get("sheet", "")
+    chart_id = params.get("chart_id", "")
+
     delete_chart(pkg, sheet, chart_id)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted chart: {chart_id}",
-        affected_refs=[chart_id],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Deleted chart '{chart_id}'", "element_id": ""}
 
 
-def _edit_update_chart_data(
-    file_path: str, sheet: str, chart_id: str, data_range: str
-) -> dict[str, Any]:
-    """Update a chart's data range."""
-    pkg = ExcelPackage.open(file_path)
+def _op_update_chart_data(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Update chart data range."""
+    sheet = params.get("sheet", "")
+    chart_id = params.get("chart_id", "")
+    data_range = params.get("data_range", "")
+
     update_chart_data(pkg, sheet, chart_id, data_range)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Updated chart {chart_id} data range to {data_range}",
-        affected_refs=[chart_id],
-    ).model_dump(exclude_none=True)
+    return {
+        "message": f"Updated chart '{chart_id}' data to {data_range}",
+        "element_id": chart_id,
+    }
 
 
-# =============================================================================
-# Pivot Table Operations
-# =============================================================================
+def _op_create_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Create pivot table."""
+    sheet = params.get("sheet", "")
+    data_range = params.get("data_range", "")
+    position = params.get("position", "")
+    row_fields_str = params.get("row_fields", "")
+    col_fields_str = params.get("col_fields", "")
+    value_fields_str = params.get("value_fields", "")
+    pivot_name = params.get("pivot_name", "")
+    agg_func = params.get("agg_func", "sum")
 
+    row_fields = [f.strip() for f in row_fields_str.split(",") if f.strip()]
+    col_fields = [f.strip() for f in col_fields_str.split(",") if f.strip()]
+    value_fields = [f.strip() for f in value_fields_str.split(",") if f.strip()]
 
-def _edit_create_pivot(
-    file_path: str,
-    sheet: str,
-    data_range: str,
-    position: str,
-    row_fields: str,
-    col_fields: str,
-    value_fields: str,
-    pivot_name: str,
-    agg_func: str,
-) -> dict[str, Any]:
-    """Create a pivot table."""
-    # Parse comma-separated field names
-    rows = [f.strip() for f in row_fields.split(",") if f.strip()] if row_fields else []
-    cols = [f.strip() for f in col_fields.split(",") if f.strip()] if col_fields else []
-    values = [f.strip() for f in value_fields.split(",") if f.strip()]
-
-    pkg = ExcelPackage.open(file_path)
-    pivot_info = create_pivot(
+    pivot_id = create_pivot(
         pkg,
         sheet,
         data_range,
         position,
-        rows,
-        cols,
-        values,
-        name=pivot_name if pivot_name else None,
-        agg_func=agg_func,
+        row_fields,
+        col_fields,
+        value_fields,
+        pivot_name or None,
+        agg_func,
     )
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Created pivot table '{pivot_info.name}' at {position}",
-        affected_refs=[pivot_info.id or position],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Created pivot table at {position}", "element_id": pivot_id}
 
 
-def _edit_delete_pivot(file_path: str, sheet: str, pivot_id: str) -> dict[str, Any]:
-    """Delete a pivot table by ID."""
-    pkg = ExcelPackage.open(file_path)
+def _op_delete_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete pivot table."""
+    sheet = params.get("sheet", "")
+    pivot_id = params.get("pivot_id", "")
+
     delete_pivot(pkg, sheet, pivot_id)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Deleted pivot table: {pivot_id}",
-        affected_refs=[pivot_id],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Deleted pivot table '{pivot_id}'", "element_id": ""}
 
 
-def _edit_refresh_pivot(file_path: str, sheet: str, pivot_id: str) -> dict[str, Any]:
-    """Refresh a pivot table's cache."""
-    pkg = ExcelPackage.open(file_path)
+def _op_refresh_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Refresh pivot table."""
+    sheet = params.get("sheet", "")
+    pivot_id = params.get("pivot_id", "")
+
     refresh_pivot(pkg, sheet, pivot_id)
-    pkg.save(file_path)
-
-    return ExcelEditResult(
-        success=True,
-        message=f"Refreshed pivot table: {pivot_id}",
-        affected_refs=[pivot_id],
-    ).model_dump(exclude_none=True)
+    return {"message": f"Refreshed pivot table '{pivot_id}'", "element_id": pivot_id}
 
 
-def _edit_recalculate(file_path: str) -> dict[str, Any]:
-    """Recalculate all formulas using LibreOffice headless.
+def _op_set_meta(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Set core document property."""
+    name = params.get("property_name", "")
+    value = params.get("property_value", "")
 
-    This opens the file in LibreOffice, which triggers formula calculation,
-    then saves it back. The cached values in <v> elements are then populated.
-    """
-    file_path = str(Path(file_path).resolve())
-    file_name = Path(file_path).name
+    set_core_properties(pkg, **{name: value})
+    return {"message": f"Set core property '{name}' = '{value}'", "element_id": ""}
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # LibreOffice can't overwrite input file, so use separate in/out dirs
-        input_dir = Path(tmpdir) / "in"
-        output_dir = Path(tmpdir) / "out"
-        input_dir.mkdir()
-        output_dir.mkdir()
 
-        # Copy input to temp location
-        input_copy = input_dir / file_name
-        shutil.copy2(file_path, input_copy)
+def _op_set_custom_property(
+    pkg: ExcelPackage, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Set custom document property."""
+    from datetime import datetime, timezone
 
-        # LibreOffice converts and outputs to a directory
-        result = subprocess.run(
-            [
-                "libreoffice",
-                "--headless",
-                "--calc",
-                "--convert-to",
-                "xlsx",
-                "--outdir",
-                str(output_dir),
-                str(input_copy),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+    name = params.get("property_name", "")
+    value = params.get("property_value", "")
+    prop_type = params.get("property_type", "string")
 
-        if result.returncode != 0:
-            raise RuntimeError(f"LibreOffice failed: {result.stderr or result.stdout}")
+    # Convert value to appropriate type
+    actual_value: Any = value
+    if prop_type in ("int", "i4"):
+        actual_value = int(value)
+    elif prop_type in ("float", "r8"):
+        actual_value = float(value)
+    elif prop_type == "bool":
+        actual_value = value.lower() in ("true", "1", "yes")
+    elif prop_type in ("datetime", "filetime"):
+        # Parse ISO format datetime
+        prop_type = "datetime"
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        actual_value = dt
 
-        # Find output file (LO may change extension or name slightly)
-        output_file = output_dir / file_name
-        if not output_file.exists():
-            # Fallback: find any .xlsx file in output dir
-            xlsx_files = list(output_dir.glob("*.xlsx"))
-            if len(xlsx_files) == 1:
-                output_file = xlsx_files[0]
-            elif not xlsx_files:
-                raise RuntimeError(
-                    f"LibreOffice did not produce any .xlsx file in {output_dir}"
-                )
-            else:
-                raise RuntimeError(
-                    f"LibreOffice produced multiple files: {[f.name for f in xlsx_files]}"
-                )
+    set_custom_property(pkg, name, actual_value, prop_type)
+    return {
+        "message": f"Set custom property '{name}' = '{value}' ({prop_type})",
+        "element_id": "",
+    }
 
-        # Replace original with recalculated version
-        shutil.move(str(output_file), file_path)
 
-    return ExcelEditResult(
-        success=True,
-        message="Recalculated all formulas",
-        affected_refs=["*"],
-    ).model_dump(exclude_none=True)
+def _op_delete_custom_property(
+    pkg: ExcelPackage, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Delete custom document property."""
+    name = params.get("property_name", "")
+
+    deleted = delete_custom_property(pkg, name)
+    if deleted:
+        return {"message": f"Deleted custom property '{name}'", "element_id": ""}
+    else:
+        raise ValueError(f"Custom property '{name}' not found")
