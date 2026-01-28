@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 from lxml import etree
 
 from mcp_handley_lab.microsoft.powerpoint.constants import CT, NSMAP, RT, qn
@@ -237,14 +239,14 @@ def _set_txBody_text(sp: etree._Element, text: str) -> None:
 
         # Restore paragraph properties if we had them
         if existing_pPr is not None:
-            p.append(existing_pPr.__copy__())
+            p.append(copy.deepcopy(existing_pPr))
 
         if para_text:
             r = etree.SubElement(p, qn("a:r"))
 
             # Restore run properties if we had them
             if existing_rPr is not None:
-                r.append(existing_rPr.__copy__())
+                r.append(copy.deepcopy(existing_rPr))
             else:
                 etree.SubElement(r, qn("a:rPr"), lang="en-US")
 

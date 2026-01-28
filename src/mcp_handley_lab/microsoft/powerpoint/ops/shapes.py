@@ -8,6 +8,7 @@ from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, qn
 from mcp_handley_lab.microsoft.powerpoint.models import ShapeInfo
 from mcp_handley_lab.microsoft.powerpoint.ops.core import (
     emu_to_inches,
+    find_shape_by_id,
     get_group_transform,
     get_placeholder_info,
     get_shape_id,
@@ -394,3 +395,122 @@ def delete_shape(
         return True
 
     return False
+
+
+def set_shape_transform(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    x: float | None = None,
+    y: float | None = None,
+    width: float | None = None,
+    height: float | None = None,
+) -> bool:
+    """Set the position and/or size of a shape.
+
+    Args:
+        pkg: PowerPoint package
+        shape_key: Shape identifier (slide_num:shape_id)
+        x: X position in inches (None = keep current)
+        y: Y position in inches (None = keep current)
+        width: Width in inches (None = keep current)
+        height: Height in inches (None = keep current)
+
+    Returns:
+        True if successful, False if shape not found
+
+    Raises:
+        ValueError: If shape is inside a group, has inherited position, or
+                    invalid dimensions provided
+    """
+    slide_num, shape_id = parse_shape_key(shape_key)
+
+    # Validate dimensions if provided
+    if width is not None and width <= 0:
+        raise ValueError(f"Width must be > 0, got {width}")
+    if height is not None and height <= 0:
+        raise ValueError(f"Height must be > 0, got {height}")
+
+    slide_xml = pkg.get_slide_xml(slide_num)
+    slide_partname = pkg.get_slide_partname(slide_num)
+
+    shape = find_shape_by_id(slide_xml, shape_id)
+    if shape is None:
+        return False
+
+    # Check if shape is inside a group (parent is grpSp)
+    parent = shape.getparent()
+    if parent is not None:
+        parent_tag = etree.QName(parent).localname
+        if parent_tag == "grpSp":
+            raise ValueError(
+                "Cannot transform shape inside group. Use group's shape_key instead."
+            )
+
+    tag = etree.QName(shape).localname
+
+    # Find the xfrm element based on shape type
+    xfrm = None
+
+    if tag in ("sp", "pic", "cxnSp"):
+        # These use p:spPr/a:xfrm
+        spPr = shape.find(qn("p:spPr"), NSMAP)
+        if spPr is not None:
+            xfrm = spPr.find(qn("a:xfrm"), NSMAP)
+    elif tag == "graphicFrame":
+        # GraphicFrame uses p:xfrm (direct child, not a:xfrm)
+        xfrm = shape.find(qn("p:xfrm"), NSMAP)
+    elif tag == "grpSp":
+        # Group uses p:grpSpPr/a:xfrm
+        grpSpPr = shape.find(qn("p:grpSpPr"), NSMAP)
+        if grpSpPr is not None:
+            xfrm = grpSpPr.find(qn("a:xfrm"), NSMAP)
+
+    # Handle missing xfrm
+    if xfrm is None:
+        # For graphicFrame without xfrm, we can create it if ALL values provided
+        if tag == "graphicFrame":
+            if (
+                x is not None
+                and y is not None
+                and width is not None
+                and height is not None
+            ):
+                # Create p:xfrm for graphicFrame
+                xfrm = etree.Element(qn("p:xfrm"))
+                etree.SubElement(xfrm, qn("a:off"), x="0", y="0")
+                etree.SubElement(xfrm, qn("a:ext"), cx="0", cy="0")
+                # Insert at beginning (before a:graphic)
+                shape.insert(0, xfrm)
+            else:
+                raise ValueError(
+                    "Cannot transform graphicFrame without existing xfrm unless all "
+                    "4 values (x, y, width, height) are provided"
+                )
+        else:
+            # Shape has no transform - likely inherited position
+            raise ValueError("Cannot transform shape with inherited position")
+
+    # Get current values from xfrm
+    off = xfrm.find(qn("a:off"), NSMAP)
+    ext = xfrm.find(qn("a:ext"), NSMAP)
+
+    if off is None or ext is None:
+        raise ValueError("Shape transform is malformed (missing off or ext)")
+
+    # Update position if provided
+    if x is not None:
+        off.set("x", str(inches_to_emu(x)))
+    if y is not None:
+        off.set("y", str(inches_to_emu(y)))
+
+    # Update size if provided
+    if width is not None:
+        ext.set("cx", str(inches_to_emu(width)))
+    if height is not None:
+        ext.set("cy", str(inches_to_emu(height)))
+
+    # Note: We preserve existing rot, flipH, flipV attributes on xfrm
+    # (they are not touched since we only modify off and ext elements)
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True

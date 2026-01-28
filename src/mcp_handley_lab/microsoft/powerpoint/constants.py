@@ -1,7 +1,11 @@
 """PowerPoint (PresentationML) constants: namespaces, content types, relationship types."""
 
+from mcp_handley_lab.microsoft.common.constants import EMU_PER_INCH
 from mcp_handley_lab.microsoft.opc.constants import CT as OPC_CT
 from mcp_handley_lab.microsoft.opc.constants import RT as OPC_RT
+
+# Re-export EMU_PER_INCH for backwards compatibility
+__all__ = ["EMU_PER_INCH", "NSMAP", "qn", "CT", "RT"]
 
 # PresentationML namespace map
 NSMAP = {
@@ -12,9 +16,6 @@ NSMAP = {
     "p15": "http://schemas.microsoft.com/office/powerpoint/2012/main",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
 }
-
-# EMU conversion constant
-EMU_PER_INCH = 914400
 
 
 def qn(tag: str) -> str:

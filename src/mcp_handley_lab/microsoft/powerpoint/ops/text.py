@@ -303,25 +303,38 @@ def _apply_bullet_style(pPr: etree._Element, style: str) -> None:
 def add_hyperlink(
     pkg: PowerPointPackage,
     shape_key: str,
-    url: str,
+    url: str | None = None,
     tooltip: str | None = None,
+    target_slide: int | None = None,
 ) -> bool:
     """Add a hyperlink to all text runs in a shape.
+
+    Supports both external URLs and internal slide links.
 
     Args:
         pkg: PowerPoint package
         shape_key: Shape identifier (slide_num:shape_id)
-        url: URL for the hyperlink
+        url: URL for external hyperlink (mutually exclusive with target_slide)
         tooltip: Optional tooltip text
+        target_slide: Slide number (1-based) for internal link (mutually exclusive with url)
 
     Returns:
         True if hyperlink was added, False if shape not found or has no text runs
+
+    Raises:
+        ValueError: If neither url nor target_slide provided, or both provided
     """
     from mcp_handley_lab.microsoft.powerpoint.constants import RT
     from mcp_handley_lab.microsoft.powerpoint.ops.core import (
         find_shape_by_id,
         parse_shape_key,
     )
+
+    # Validate parameters
+    if url is None and target_slide is None:
+        raise ValueError("Either url or target_slide must be provided")
+    if url is not None and target_slide is not None:
+        raise ValueError("Cannot specify both url and target_slide")
 
     slide_num, shape_id = parse_shape_key(shape_key)
     slide_partname = pkg.get_slide_partname(slide_num)
@@ -342,9 +355,26 @@ def add_hyperlink(
     if not elements:
         return False
 
-    # Add external hyperlink relationship to slide
     slide_rels = pkg.get_rels(slide_partname)
-    rId = slide_rels.get_or_add(RT.HYPERLINK, url, is_external=True)
+
+    if target_slide is not None:
+        # Internal slide link - use hyperlink relationship with relative path
+        # The action "ppaction://hlinksldjump" tells PowerPoint to jump to the target slide
+        # Note: Hyperlink relationships must be marked as external (TargetMode="External")
+        # even for internal slide jumps - this is how Office represents them
+        target_partname = pkg.get_slide_partname(target_slide)
+        # Compute relative path from source slide to target slide
+        # e.g., from /ppt/slides/slide1.xml to /ppt/slides/slide3.xml -> slide3.xml
+        import posixpath
+
+        source_dir = posixpath.dirname(slide_partname)
+        rel_target = posixpath.relpath(target_partname, source_dir)
+        rId = slide_rels.get_or_add(RT.HYPERLINK, rel_target, is_external=True)
+        action = "ppaction://hlinksldjump"
+    else:
+        # External URL link
+        rId = slide_rels.get_or_add(RT.HYPERLINK, url, is_external=True)
+        action = None
 
     # Apply hyperlink to each run/field
     for elem in elements:
@@ -362,6 +392,8 @@ def add_hyperlink(
         # Add new hyperlink
         hlink = etree.SubElement(rPr, qn("a:hlinkClick"))
         hlink.set(qn("r:id"), rId)
+        if action:
+            hlink.set("action", action)
         if tooltip:
             hlink.set("tooltip", tooltip)
 

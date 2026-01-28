@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from lxml import etree
 
+from mcp_handley_lab.microsoft.common.constants import EMU_PER_PT
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, qn
 from mcp_handley_lab.microsoft.powerpoint.ops.core import (
     find_shape_by_id,
     parse_shape_key,
 )
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
-
-# EMUs per point for line width
-EMU_PER_PT = 12700
 
 
 def set_slide_background(
@@ -168,6 +166,22 @@ def set_shape_line(
     return True
 
 
+def _set_font_on_rPr(rPr: etree._Element, font: str) -> None:
+    """Set font family on a run properties element.
+
+    Updates or creates a:latin element with the typeface attribute.
+    Preserves existing a:ea and a:cs elements.
+    """
+    latin = rPr.find(qn("a:latin"), NSMAP)
+    if latin is not None:
+        latin.set("typeface", font)
+    else:
+        # Insert a:latin - it should come early in rPr (after solidFill if present)
+        latin = etree.Element(qn("a:latin"))
+        latin.set("typeface", font)
+        rPr.append(latin)
+
+
 def set_text_style(
     pkg: PowerPointPackage,
     shape_key: str,
@@ -176,6 +190,7 @@ def set_text_style(
     italic: bool | None = None,
     color: str | None = None,
     alignment: str | None = None,
+    font: str | None = None,
 ) -> bool:
     """Set text style properties for all text in a shape.
 
@@ -187,6 +202,7 @@ def set_text_style(
         italic: Italic text
         color: Hex color without # (e.g., "000000" for black)
         alignment: Text alignment ("left", "center", "right", "justify")
+        font: Font family name (e.g., "Arial", "Times New Roman")
 
     Returns:
         True if successful, False if shape not found or has no text
@@ -263,6 +279,35 @@ def set_text_style(
                 srgb_clr = etree.SubElement(solid_fill, qn("a:srgbClr"))
                 srgb_clr.set("val", color.upper().lstrip("#"))
 
+            # Set font family
+            if font is not None:
+                _set_font_on_rPr(rPr, font)
+
+        # Also handle a:fld (field) elements
+        fields = p.findall(qn("a:fld"), NSMAP)
+        for fld in fields:
+            rPr = fld.find(qn("a:rPr"), NSMAP)
+            if rPr is None:
+                rPr = etree.Element(qn("a:rPr"))
+                fld.insert(0, rPr)
+
+            if size is not None:
+                rPr.set("sz", str(int(size * 100)))
+            if bold is not None:
+                rPr.set("b", "1" if bold else "0")
+            if italic is not None:
+                rPr.set("i", "1" if italic else "0")
+            if color is not None:
+                for fill_tag in ("a:noFill", "a:solidFill", "a:gradFill"):
+                    existing = rPr.find(qn(fill_tag), NSMAP)
+                    if existing is not None:
+                        rPr.remove(existing)
+                solid_fill = etree.SubElement(rPr, qn("a:solidFill"))
+                srgb_clr = etree.SubElement(solid_fill, qn("a:srgbClr"))
+                srgb_clr.set("val", color.upper().lstrip("#"))
+            if font is not None:
+                _set_font_on_rPr(rPr, font)
+
         # Also apply to endParaRPr if it exists (for empty paragraphs)
         endParaRPr = p.find(qn("a:endParaRPr"), NSMAP)
         if endParaRPr is not None:
@@ -272,6 +317,19 @@ def set_text_style(
                 endParaRPr.set("b", "1" if bold else "0")
             if italic is not None:
                 endParaRPr.set("i", "1" if italic else "0")
+            if font is not None:
+                _set_font_on_rPr(endParaRPr, font)
+
+        # For paragraphs with no runs, set default run properties
+        if not runs and not fields and font is not None:
+            pPr = p.find(qn("a:pPr"), NSMAP)
+            if pPr is None:
+                pPr = etree.Element(qn("a:pPr"))
+                p.insert(0, pPr)
+            defRPr = pPr.find(qn("a:defRPr"), NSMAP)
+            if defRPr is None:
+                defRPr = etree.SubElement(pPr, qn("a:defRPr"))
+            _set_font_on_rPr(defRPr, font)
 
     pkg.mark_xml_dirty(slide_partname)
     return True

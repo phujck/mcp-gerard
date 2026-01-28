@@ -210,6 +210,42 @@ def _create_empty_cell() -> etree._Element:
     return tc
 
 
+def _clear_cell_text(tc: etree._Element) -> None:
+    """Clear text from a table cell while preserving all formatting.
+
+    Preserves a:tcPr, paragraph props, run props, and endParaRPr formatting.
+    """
+    txBody = tc.find(qn("a:txBody"), NSMAP)
+    if txBody is None:
+        return
+
+    # Find first paragraph to get formatting
+    existing_p = txBody.find(qn("a:p"), NSMAP)
+    existing_pPr = None
+    existing_endParaRPr = None
+
+    if existing_p is not None:
+        pPr = existing_p.find(qn("a:pPr"), NSMAP)
+        if pPr is not None:
+            existing_pPr = copy.deepcopy(pPr)
+        endParaRPr = existing_p.find(qn("a:endParaRPr"), NSMAP)
+        if endParaRPr is not None:
+            existing_endParaRPr = copy.deepcopy(endParaRPr)
+
+    # Remove all existing paragraphs
+    for p in list(txBody.findall(qn("a:p"), NSMAP)):
+        txBody.remove(p)
+
+    # Create a single empty paragraph with preserved formatting
+    p = etree.SubElement(txBody, qn("a:p"))
+    if existing_pPr is not None:
+        p.append(existing_pPr)
+    if existing_endParaRPr is not None:
+        p.append(existing_endParaRPr)
+    else:
+        etree.SubElement(p, qn("a:endParaRPr"), lang="en-US")
+
+
 def _set_cell_text(tc: etree._Element, text: str) -> None:
     """Set text in a table cell, preserving existing formatting."""
     txBody = tc.find(qn("a:txBody"), NSMAP)
@@ -356,3 +392,285 @@ def _extract_cell_text(tc: etree._Element) -> str:
 
     txBody = tc.find(qn("a:txBody"), NSMAP)
     return extract_text_from_txBody(txBody)
+
+
+def _find_table(
+    pkg: PowerPointPackage, shape_key: str
+) -> tuple[etree._Element, etree._Element, str] | None:
+    """Find a table by shape_key.
+
+    Returns:
+        Tuple of (tbl element, graphicFrame element, slide_partname) or None if not found
+    """
+    slide_num, shape_id = parse_shape_key(shape_key)
+    slide_partname = pkg.get_slide_partname(slide_num)
+    slide_xml = pkg.get_slide_xml(slide_num)
+    sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+    if sp_tree is None:
+        return None
+
+    for gf in sp_tree.findall(qn("p:graphicFrame"), NSMAP):
+        gf_id = get_shape_id(gf)
+        if gf_id == shape_id:
+            tbl = gf.find(
+                qn("a:graphic") + "/" + qn("a:graphicData") + "/" + qn("a:tbl"), NSMAP
+            )
+            if tbl is not None:
+                return tbl, gf, slide_partname
+
+    return None
+
+
+def add_table_row(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    position: int | None = None,
+) -> bool:
+    """Add a row to an existing table.
+
+    Copies the structure and formatting from an adjacent row (the row before
+    the insertion point, or the last row if appending). Cell text is cleared
+    while preserving cell properties, paragraph formatting, and run properties.
+
+    Args:
+        pkg: PowerPoint package
+        shape_key: Table shape key (slide_num:shape_id)
+        position: Row index to insert at (0-based). None or -1 appends to end.
+
+    Returns:
+        True if successful, False if table not found
+    """
+    result = _find_table(pkg, shape_key)
+    if result is None:
+        return False
+
+    tbl, gf, slide_partname = result
+    tr_list = tbl.findall(qn("a:tr"), NSMAP)
+    num_rows = len(tr_list)
+
+    if num_rows == 0:
+        return False  # Empty table, can't determine structure to copy
+
+    # Calculate position
+    if position is None or position < 0 or position >= num_rows:
+        insert_pos = num_rows
+    else:
+        insert_pos = position
+
+    # Copy formatting from row before insertion point (or first row)
+    source_row = tr_list[insert_pos - 1] if insert_pos > 0 else tr_list[0]
+
+    # Deep copy the source row
+    new_tr = copy.deepcopy(source_row)
+
+    # Clear text from all cells in the copied row while preserving formatting
+    for tc in new_tr.findall(qn("a:tc"), NSMAP):
+        _clear_cell_text(tc)
+
+    # Insert at position
+    if insert_pos >= num_rows:
+        # Append after last row
+        tbl.append(new_tr)
+    else:
+        # Insert before specified row
+        tbl.insert(list(tbl).index(tr_list[insert_pos]), new_tr)
+
+    # Update table height in xfrm (use height from copied row)
+    row_height = int(new_tr.get("h", str(inches_to_emu(0.5))))
+    xfrm = gf.find(qn("p:xfrm"), NSMAP)
+    if xfrm is not None:
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        if ext is not None:
+            current_height = int(ext.get("cy", "0"))
+            ext.set("cy", str(current_height + row_height))
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True
+
+
+def add_table_column(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    position: int | None = None,
+) -> bool:
+    """Add a column to an existing table.
+
+    Copies the structure and formatting from an adjacent cell (the cell before
+    the insertion point, or the last cell if appending). Cell text is cleared
+    while preserving cell properties, paragraph formatting, and run properties.
+
+    Args:
+        pkg: PowerPoint package
+        shape_key: Table shape key (slide_num:shape_id)
+        position: Column index to insert at (0-based). None or -1 appends to end.
+
+    Returns:
+        True if successful, False if table not found
+    """
+    result = _find_table(pkg, shape_key)
+    if result is None:
+        return False
+
+    tbl, gf, slide_partname = result
+
+    # Find tblGrid
+    tbl_grid = tbl.find(qn("a:tblGrid"), NSMAP)
+    if tbl_grid is None:
+        return False
+
+    grid_cols = tbl_grid.findall(qn("a:gridCol"), NSMAP)
+    num_cols = len(grid_cols)
+
+    if num_cols == 0:
+        return False  # Empty table, can't determine structure to copy
+
+    # Calculate position
+    if position is None or position < 0 or position >= num_cols:
+        insert_pos = num_cols
+    else:
+        insert_pos = position
+
+    # Copy formatting from column before insertion point (or first column)
+    source_col_idx = insert_pos - 1 if insert_pos > 0 else 0
+
+    # Get column width from source column
+    col_width = int(grid_cols[source_col_idx].get("w", str(inches_to_emu(1.0))))
+
+    # Add new gridCol (copy attributes from source)
+    new_grid_col = copy.deepcopy(grid_cols[source_col_idx])
+
+    if insert_pos >= num_cols:
+        tbl_grid.append(new_grid_col)
+    else:
+        tbl_grid.insert(insert_pos, new_grid_col)
+
+    # Add cell to each row by copying the source cell and clearing its text
+    for tr in tbl.findall(qn("a:tr"), NSMAP):
+        tc_list = tr.findall(qn("a:tc"), NSMAP)
+        if not tc_list:
+            continue
+
+        # Get source cell (cell before insertion point, or last cell if appending)
+        source_cell = tc_list[source_col_idx]
+        new_cell = copy.deepcopy(source_cell)
+        _clear_cell_text(new_cell)
+
+        if insert_pos >= len(tc_list):
+            tr.append(new_cell)
+        else:
+            tr.insert(list(tr).index(tc_list[insert_pos]), new_cell)
+
+    # Update table width in xfrm
+    xfrm = gf.find(qn("p:xfrm"), NSMAP)
+    if xfrm is not None:
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        if ext is not None:
+            current_width = int(ext.get("cx", "0"))
+            ext.set("cx", str(current_width + col_width))
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True
+
+
+def delete_table_row(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    row: int,
+) -> bool:
+    """Delete a row from an existing table.
+
+    Args:
+        pkg: PowerPoint package
+        shape_key: Table shape key (slide_num:shape_id)
+        row: Row index to delete (0-based)
+
+    Returns:
+        True if successful, False if row not found
+    """
+    result = _find_table(pkg, shape_key)
+    if result is None:
+        return False
+
+    tbl, gf, slide_partname = result
+    tr_list = tbl.findall(qn("a:tr"), NSMAP)
+
+    if row < 0 or row >= len(tr_list):
+        return False
+
+    # Must keep at least one row
+    if len(tr_list) <= 1:
+        return False
+
+    tr_to_delete = tr_list[row]
+    row_height = int(tr_to_delete.get("h", "0"))
+    tbl.remove(tr_to_delete)
+
+    # Update table height in xfrm
+    xfrm = gf.find(qn("p:xfrm"), NSMAP)
+    if xfrm is not None:
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        if ext is not None:
+            current_height = int(ext.get("cy", "0"))
+            new_height = max(0, current_height - row_height)
+            ext.set("cy", str(new_height))
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True
+
+
+def delete_table_column(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    col: int,
+) -> bool:
+    """Delete a column from an existing table.
+
+    Args:
+        pkg: PowerPoint package
+        shape_key: Table shape key (slide_num:shape_id)
+        col: Column index to delete (0-based)
+
+    Returns:
+        True if successful, False if column not found
+    """
+    result = _find_table(pkg, shape_key)
+    if result is None:
+        return False
+
+    tbl, gf, slide_partname = result
+
+    # Find tblGrid
+    tbl_grid = tbl.find(qn("a:tblGrid"), NSMAP)
+    if tbl_grid is None:
+        return False
+
+    grid_cols = tbl_grid.findall(qn("a:gridCol"), NSMAP)
+
+    if col < 0 or col >= len(grid_cols):
+        return False
+
+    # Must keep at least one column
+    if len(grid_cols) <= 1:
+        return False
+
+    # Get column width before removing
+    col_width = int(grid_cols[col].get("w", "0"))
+    tbl_grid.remove(grid_cols[col])
+
+    # Remove cell from each row
+    for tr in tbl.findall(qn("a:tr"), NSMAP):
+        tc_list = tr.findall(qn("a:tc"), NSMAP)
+        if col < len(tc_list):
+            tr.remove(tc_list[col])
+
+    # Update table width in xfrm
+    xfrm = gf.find(qn("p:xfrm"), NSMAP)
+    if xfrm is not None:
+        ext = xfrm.find(qn("a:ext"), NSMAP)
+        if ext is not None:
+            current_width = int(ext.get("cx", "0"))
+            new_width = max(0, current_width - col_width)
+            ext.set("cx", str(new_width))
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True

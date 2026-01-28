@@ -46,8 +46,7 @@ _CELL_RE = re.compile(r"^r(\d+)c(\d+)$")
 _PARA_RE = re.compile(r"^p(\d+)$")
 _TABLE_RE = re.compile(r"^tbl(\d+)$")
 
-# Unit conversions
-_EMU_PER_INCH = 914400
+# Unit conversions - import from common module
 
 # PathSegment: (kind, indices) where kind='cell'|'para'|'tbl'
 PathSegment = tuple[str, tuple[int, ...]]
