@@ -15,6 +15,50 @@ from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 EMU_PER_PT = 12700
 
 
+def set_slide_background(
+    pkg: PowerPointPackage,
+    slide_num: int,
+    color: str,
+) -> bool:
+    """Set a solid color background on a slide.
+
+    Args:
+        pkg: PowerPoint package
+        slide_num: Slide number (1-based)
+        color: Hex color without # (e.g., "FF0000" for red)
+
+    Returns:
+        True if successful
+    """
+    slide_partname = pkg.get_slide_partname(slide_num)
+    slide_xml = pkg.get_slide_xml(slide_num)
+
+    cSld = slide_xml.find(qn("p:cSld"), NSMAP)
+    if cSld is None:
+        return False
+
+    # Remove existing background if present
+    existing_bg = cSld.find(qn("p:bg"), NSMAP)
+    if existing_bg is not None:
+        cSld.remove(existing_bg)
+
+    # Create p:bg element with explicit namespace bindings
+    bg = etree.Element(
+        qn("p:bg"), nsmap={"p": NSMAP["p"], "a": NSMAP["a"], "r": NSMAP["r"]}
+    )
+    bgPr = etree.SubElement(bg, qn("p:bgPr"))
+    solid_fill = etree.SubElement(bgPr, qn("a:solidFill"))
+    srgb_clr = etree.SubElement(solid_fill, qn("a:srgbClr"))
+    srgb_clr.set("val", color.upper().lstrip("#"))
+    etree.SubElement(bgPr, qn("a:effectLst"))
+
+    # Insert as first child of p:cSld (before p:spTree)
+    cSld.insert(0, bg)
+
+    pkg.mark_xml_dirty(slide_partname)
+    return True
+
+
 def set_shape_fill(
     pkg: PowerPointPackage,
     shape_key: str,

@@ -40,6 +40,7 @@ from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
 from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
     set_shape_fill,
     set_shape_line,
+    set_slide_background,
     set_text_style,
 )
 from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
@@ -47,6 +48,7 @@ from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
     list_tables,
     set_table_cell,
 )
+from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
 from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
 
 mcp = FastMCP("PowerPoint Tool")
@@ -71,6 +73,8 @@ EditOperation = Literal[
     "set_shape_fill",
     "set_shape_line",
     "set_text_style",
+    "set_slide_background",
+    "add_hyperlink",
 ]
 
 
@@ -255,6 +259,9 @@ def edit(
     bold: bool | None = None,
     italic: bool | None = None,
     alignment: str | None = None,
+    bullet_style: str | None = None,
+    url: str | None = None,
+    tooltip: str | None = None,
 ) -> dict:
     """Edit a PowerPoint presentation.
 
@@ -277,6 +284,8 @@ def edit(
             - "set_shape_fill": Set shape fill color (requires shape_key, color)
             - "set_shape_line": Set shape border (requires shape_key; color, line_width optional)
             - "set_text_style": Set text style (requires shape_key; size, bold, italic, color, alignment optional)
+            - "set_slide_background": Set slide background color (requires slide_num, color)
+            - "add_hyperlink": Add hyperlink to shape text (requires shape_key, url; tooltip optional)
         slide_num: Slide number (1-based) for slide operations
         text: Text content for set_placeholder/set_notes/add_shape/edit_shape/set_table_cell
         placeholder_type: Type for set_placeholder ("title", "body", "subtitle")
@@ -299,6 +308,9 @@ def edit(
         bold: Bold text for set_text_style
         italic: Italic text for set_text_style
         alignment: Text alignment for set_text_style ("left", "center", "right", "justify")
+        bullet_style: Bullet style for edit_shape ("bullet", "dash", "number", "none")
+        url: URL for add_hyperlink
+        tooltip: Optional tooltip text for add_hyperlink
 
     Returns:
         PowerPointEditResult with success status and message
@@ -353,7 +365,7 @@ def edit(
                 raise ValueError("shape_key required for edit_shape")
             if text is None:
                 raise ValueError("text required for edit_shape")
-            result = _edit_edit_shape(pkg, shape_key, text)
+            result = _edit_edit_shape(pkg, shape_key, text, bullet_style)
 
         elif operation == "delete_shape":
             if shape_key is None:
@@ -406,6 +418,20 @@ def edit(
             result = _edit_set_text_style(
                 pkg, shape_key, size, bold, italic, color, alignment
             )
+
+        elif operation == "set_slide_background":
+            if slide_num is None:
+                raise ValueError("slide_num required for set_slide_background")
+            if color is None:
+                raise ValueError("color required for set_slide_background")
+            result = _edit_set_slide_background(pkg, slide_num, color)
+
+        elif operation == "add_hyperlink":
+            if shape_key is None:
+                raise ValueError("shape_key required for add_hyperlink")
+            if url is None:
+                raise ValueError("url required for add_hyperlink")
+            result = _edit_add_hyperlink(pkg, shape_key, url, tooltip)
 
         else:
             raise ValueError(f"Unknown operation: {operation}")
@@ -538,9 +564,10 @@ def _edit_edit_shape(
     pkg: PowerPointPackage,
     shape_key: str,
     text: str,
+    bullet_style: str | None = None,
 ) -> PowerPointEditResult:
     """Edit shape text."""
-    success = edit_shape(pkg, shape_key, text)
+    success = edit_shape(pkg, shape_key, text, bullet_style=bullet_style)
 
     if success:
         return PowerPointEditResult(
@@ -735,4 +762,45 @@ def _edit_set_text_style(
         return PowerPointEditResult(
             success=False,
             message=f"Shape {shape_key} not found or has no text",
+        )
+
+
+def _edit_set_slide_background(
+    pkg: PowerPointPackage,
+    slide_num: int,
+    color: str,
+) -> PowerPointEditResult:
+    """Set slide background color."""
+    success = set_slide_background(pkg, slide_num, color)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Set background color on slide {slide_num}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Slide {slide_num} not found",
+        )
+
+
+def _edit_add_hyperlink(
+    pkg: PowerPointPackage,
+    shape_key: str,
+    url: str,
+    tooltip: str | None = None,
+) -> PowerPointEditResult:
+    """Add hyperlink to shape text."""
+    success = add_hyperlink(pkg, shape_key, url, tooltip)
+
+    if success:
+        return PowerPointEditResult(
+            success=True,
+            message=f"Added hyperlink to shape {shape_key}",
+        )
+    else:
+        return PowerPointEditResult(
+            success=False,
+            message=f"Shape {shape_key} not found or has no text runs",
         )

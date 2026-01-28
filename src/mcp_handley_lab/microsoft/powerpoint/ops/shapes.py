@@ -324,6 +324,7 @@ def edit_shape(
     pkg: PowerPointPackage,
     shape_key: str,
     text: str,
+    bullet_style: str | None = None,
 ) -> bool:
     """Edit text in an existing shape.
 
@@ -331,6 +332,7 @@ def edit_shape(
         pkg: PowerPoint package
         shape_key: Shape identifier (slide_num:shape_id)
         text: New text content
+        bullet_style: Optional bullet style ("bullet", "dash", "number", "none")
 
     Returns:
         True if successful, False if shape not found
@@ -353,7 +355,7 @@ def edit_shape(
     if tag != "sp":
         return False
 
-    set_shape_text(shape, text)
+    set_shape_text(shape, text, bullet_style=bullet_style)
     pkg.mark_xml_dirty(slide_partname)
     return True
 

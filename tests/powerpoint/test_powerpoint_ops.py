@@ -315,6 +315,328 @@ class TestPhase12BugFixes:
         assert new_t.text == "New text"
 
 
+def _add_test_slide(pkg):
+    """Add a minimal slide to a new package for testing.
+
+    Works around the fact that PowerPointPackage.new() doesn't have slide masters
+    so add_slide() fails. Creates slide XML directly in the package.
+    """
+    from lxml import etree
+
+    from mcp_handley_lab.microsoft.powerpoint.constants import RT
+
+    slide_xml = etree.fromstring(
+        b'<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
+        b' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        b' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        b"<p:cSld><p:spTree>"
+        b'<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+        b"<p:grpSpPr/>"
+        b"</p:spTree></p:cSld></p:sld>"
+    )
+    partname = "/ppt/slides/slide1.xml"
+    pkg._xml[partname] = slide_xml
+    pkg._bytes[partname] = etree.tostring(slide_xml)
+
+    # Add relationship from presentation to slide
+    pres_rels = pkg.get_rels(pkg.presentation_path)
+    rId = pres_rels.get_or_add(RT.SLIDE, "slides/slide1.xml")
+
+    # Add slide to sldIdLst
+    pres = pkg.presentation_xml
+    sldIdLst = pres.find(qn("p:sldIdLst"), NSMAP)
+    if sldIdLst is None:
+        sldIdLst = etree.SubElement(pres, qn("p:sldIdLst"))
+    sldId = etree.SubElement(sldIdLst, qn("p:sldId"))
+    sldId.set("id", "256")
+    sldId.set(qn("r:id"), rId)
+
+    # Reset cached slide paths
+    pkg._slide_paths = None
+    return partname
+
+
+class TestPhase13SlideBackground:
+    """Tests for Phase 13: Slide backgrounds."""
+
+    def test_set_slide_background(self):
+        """Setting a background creates p:bg as first child of p:cSld."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
+            set_slide_background,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        result = set_slide_background(pkg, 1, "FF0000")
+        assert result is True
+
+        slide_xml = pkg.get_slide_xml(1)
+        cSld = slide_xml.find(qn("p:cSld"), NSMAP)
+        bg = cSld.find(qn("p:bg"), NSMAP)
+        assert bg is not None
+
+        # p:bg should be first child of p:cSld
+        assert cSld[0].tag == qn("p:bg")
+
+        # Check structure: p:bg/p:bgPr/a:solidFill/a:srgbClr
+        bgPr = bg.find(qn("p:bgPr"), NSMAP)
+        assert bgPr is not None
+        solid_fill = bgPr.find(qn("a:solidFill"), NSMAP)
+        assert solid_fill is not None
+        srgb = solid_fill.find(qn("a:srgbClr"), NSMAP)
+        assert srgb is not None
+        assert srgb.get("val") == "FF0000"
+
+        # effectLst should be present
+        assert bgPr.find(qn("a:effectLst"), NSMAP) is not None
+
+    def test_replace_existing_background(self):
+        """Setting background twice replaces the first."""
+        from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
+            set_slide_background,
+        )
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        set_slide_background(pkg, 1, "FF0000")
+        set_slide_background(pkg, 1, "00FF00")
+
+        slide_xml = pkg.get_slide_xml(1)
+        cSld = slide_xml.find(qn("p:cSld"), NSMAP)
+        # Only one p:bg element
+        bgs = cSld.findall(qn("p:bg"), NSMAP)
+        assert len(bgs) == 1
+
+        srgb = bgs[0].find(".//" + qn("a:srgbClr"), NSMAP)
+        assert srgb.get("val") == "00FF00"
+
+
+class TestPhase15BulletLists:
+    """Tests for Phase 15: Bullet lists."""
+
+    def test_bullet_style_creates_buchar(self):
+        """bullet_style='bullet' creates a:buChar with bullet character."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        set_shape_text(sp, "Item 1\nItem 2", bullet_style="bullet")
+
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        paragraphs = txBody.findall(qn("a:p"), NSMAP)
+        assert len(paragraphs) == 2
+
+        for p in paragraphs:
+            pPr = p.find(qn("a:pPr"), NSMAP)
+            assert pPr is not None
+            buChar = pPr.find(qn("a:buChar"), NSMAP)
+            assert buChar is not None
+            assert buChar.get("char") == "\u2022"
+            assert pPr.get("marL") == "228600"
+            assert pPr.get("indent") == "-228600"
+
+    def test_dash_bullet_style(self):
+        """bullet_style='dash' creates a:buChar with en-dash."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        set_shape_text(sp, "Item", bullet_style="dash")
+
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        p = txBody.find(qn("a:p"), NSMAP)
+        pPr = p.find(qn("a:pPr"), NSMAP)
+        buChar = pPr.find(qn("a:buChar"), NSMAP)
+        assert buChar.get("char") == "\u2013"
+
+    def test_number_bullet_style(self):
+        """bullet_style='number' creates a:buAutoNum."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        set_shape_text(sp, "Step 1\nStep 2", bullet_style="number")
+
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        p = txBody.find(qn("a:p"), NSMAP)
+        pPr = p.find(qn("a:pPr"), NSMAP)
+        buAutoNum = pPr.find(qn("a:buAutoNum"), NSMAP)
+        assert buAutoNum is not None
+        assert buAutoNum.get("type") == "arabicPeriod"
+
+    def test_none_bullet_style_removes_bullets(self):
+        """bullet_style='none' adds a:buNone and removes indent."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        # First add bullets
+        set_shape_text(sp, "Item", bullet_style="bullet")
+        # Then remove
+        set_shape_text(sp, "Item", bullet_style="none")
+
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        p = txBody.find(qn("a:p"), NSMAP)
+        pPr = p.find(qn("a:pPr"), NSMAP)
+        assert pPr.find(qn("a:buNone"), NSMAP) is not None
+        assert pPr.find(qn("a:buChar"), NSMAP) is None
+        assert pPr.get("marL") is None
+        assert pPr.get("indent") is None
+
+    def test_invalid_bullet_style_raises(self):
+        """Unknown bullet_style raises ValueError."""
+        import pytest
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        with pytest.raises(ValueError, match="Unknown bullet_style"):
+            set_shape_text(sp, "Item", bullet_style="invalid")
+
+    def test_no_bullet_style_preserves_existing(self):
+        """bullet_style=None does not modify bullet state."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+
+        sp = etree.Element(qn("p:sp"))
+        set_shape_text(sp, "Item", bullet_style="bullet")
+
+        # Edit without bullet_style - should preserve
+        set_shape_text(sp, "New text")
+
+        txBody = sp.find(qn("p:txBody"), NSMAP)
+        p = txBody.find(qn("a:p"), NSMAP)
+        pPr = p.find(qn("a:pPr"), NSMAP)
+        # The existing pPr should be preserved with bullet properties
+        assert pPr is not None
+        buChar = pPr.find(qn("a:buChar"), NSMAP)
+        assert buChar is not None
+
+
+class TestPhase14Hyperlinks:
+    """Tests for Phase 14: Hyperlinks."""
+
+    def test_add_hyperlink(self):
+        """Adding a hyperlink creates a:hlinkClick on text runs."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a shape with text
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "100")
+        cNvPr.set("name", "Test Shape")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        txBody = etree.SubElement(sp, qn("p:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        r = etree.SubElement(p, qn("a:r"))
+        rPr = etree.SubElement(r, qn("a:rPr"), lang="en-US")
+        t = etree.SubElement(r, qn("a:t"))
+        t.text = "Click me"
+        slide_partname = pkg.get_slide_partname(1)
+        pkg.mark_xml_dirty(slide_partname)
+
+        result = add_hyperlink(pkg, "1:100", "https://example.com", "Example")
+        assert result is True
+
+        # Verify a:hlinkClick was added
+        hlink = rPr.find(qn("a:hlinkClick"), NSMAP)
+        assert hlink is not None
+        assert hlink.get("tooltip") == "Example"
+
+        # Verify relationship was created and is external
+        slide_rels = pkg.get_rels(slide_partname)
+        rId = hlink.get(qn("r:id"))
+        assert rId is not None
+        assert rId in slide_rels
+        rel = slide_rels[rId]
+        assert rel.is_external is True
+        assert rel.target == "https://example.com"
+
+    def test_hyperlink_replaces_existing(self):
+        """Adding a hyperlink replaces any existing one."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a shape with text
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "101")
+        cNvPr.set("name", "Test Shape")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        txBody = etree.SubElement(sp, qn("p:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        p = etree.SubElement(txBody, qn("a:p"))
+        r = etree.SubElement(p, qn("a:r"))
+        rPr = etree.SubElement(r, qn("a:rPr"), lang="en-US")
+        t = etree.SubElement(r, qn("a:t"))
+        t.text = "Link text"
+        slide_partname = pkg.get_slide_partname(1)
+        pkg.mark_xml_dirty(slide_partname)
+
+        # Add first hyperlink
+        add_hyperlink(pkg, "1:101", "https://old.com")
+        # Replace with second
+        add_hyperlink(pkg, "1:101", "https://new.com", "New Link")
+
+        # Should only have one hlinkClick
+        hlinks = rPr.findall(qn("a:hlinkClick"), NSMAP)
+        assert len(hlinks) == 1
+        assert hlinks[0].get("tooltip") == "New Link"
+
+    def test_hyperlink_no_text_returns_false(self):
+        """Hyperlink on shape with no text returns False."""
+        from lxml import etree
+
+        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+
+        pkg = PowerPointPackage.new()
+        _add_test_slide(pkg)
+
+        # Add a shape without text runs
+        slide_xml = pkg.get_slide_xml(1)
+        sp_tree = slide_xml.find(qn("p:cSld") + "/" + qn("p:spTree"), NSMAP)
+        sp = etree.SubElement(sp_tree, qn("p:sp"))
+        nvSpPr = etree.SubElement(sp, qn("p:nvSpPr"))
+        cNvPr = etree.SubElement(nvSpPr, qn("p:cNvPr"))
+        cNvPr.set("id", "102")
+        cNvPr.set("name", "Empty Shape")
+        etree.SubElement(nvSpPr, qn("p:cNvSpPr"))
+        etree.SubElement(nvSpPr, qn("p:nvPr"))
+        txBody = etree.SubElement(sp, qn("p:txBody"))
+        etree.SubElement(txBody, qn("a:bodyPr"))
+        etree.SubElement(txBody, qn("a:p"))  # Empty paragraph, no runs
+        pkg.mark_xml_dirty(pkg.get_slide_partname(1))
+
+        result = add_hyperlink(pkg, "1:102", "https://example.com")
+        assert result is False
+
+
 class TestNextPartname:
     """Tests for next_partname utility."""
 
