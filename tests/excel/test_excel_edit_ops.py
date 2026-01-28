@@ -571,7 +571,7 @@ class TestRecalculate:
         """Recalculate should populate cached values for formulas."""
         import shutil
 
-        from mcp_handley_lab.microsoft.excel.tool import _edit_recalculate
+        from mcp_handley_lab.microsoft.excel.tool import recalculate
 
         if not shutil.which("libreoffice"):
             pytest.skip("LibreOffice not installed")
@@ -590,7 +590,7 @@ class TestRecalculate:
             pkg.save(f.name)
 
             # Recalculate using LibreOffice
-            result = _edit_recalculate(f.name)
+            result = recalculate(f.name)
             assert result["success"] is True
 
             # Reload and check cached value

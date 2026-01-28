@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from mcp_handley_lab.microsoft.word.package import WordPackage
 from mcp_handley_lab.microsoft.word.tool import mcp
 
 
@@ -18,26 +19,28 @@ async def sample_docx():
     """Create a sample Word document for batch testing."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
+    path.unlink()  # remove so edit() auto-creates
 
-    # Create document with heading and table
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(path),
-            "content_type": "heading",
-            "content_data": "Batch Test Document",
-            "heading_level": 1,
-        },
-    )
-
-    # Add a 2x2 table
+    # Create document with heading and table via edit (auto-creates file)
     table_data = json.dumps([["A", "B"], ["C", "D"]])
     await mcp.call_tool(
         "edit",
         {
             "file_path": str(path),
             "ops": json.dumps(
-                [{"op": "append", "content_type": "table", "content_data": table_data}]
+                [
+                    {
+                        "op": "append",
+                        "content_type": "heading",
+                        "content_data": "Batch Test Document",
+                        "heading_level": 1,
+                    },
+                    {
+                        "op": "append",
+                        "content_type": "table",
+                        "content_data": table_data,
+                    },
+                ]
             ),
         },
     )
@@ -52,14 +55,7 @@ async def empty_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    await mcp.call_tool(
-        "create",
-        {
-            "file_path": str(path),
-            "content_type": "paragraph",
-            "content_data": "",
-        },
-    )
+    WordPackage.new().save(str(path))
 
     yield path
     path.unlink(missing_ok=True)
@@ -543,19 +539,6 @@ async def test_ops_missing_op_field(sample_docx):
 
 
 @pytest.mark.asyncio
-async def test_excluded_operation_create(sample_docx):
-    """'create' operation is excluded from batch mode."""
-    _, result = await mcp.call_tool(
-        "edit",
-        {"file_path": str(sample_docx), "ops": json.dumps([{"op": "create"}])},
-    )
-
-    assert result["success"] is False
-    assert "cannot be used in batch" in result["message"]
-    assert result["saved"] is False
-
-
-@pytest.mark.asyncio
 async def test_ops_limit_500(sample_docx):
     """Maximum 500 operations per batch."""
     ops = [{"op": "append", "content_data": f"para {i}"} for i in range(501)]
@@ -692,36 +675,44 @@ async def test_batch_comment_returns_comment_id(empty_docx):
 
 
 # =============================================================================
-# Create Tool (Separate from Batch)
+# Auto-create (edit on non-existent file)
 # =============================================================================
 
 
 @pytest.mark.asyncio
-async def test_create_tool_works():
-    """Separate create() tool creates new document."""
+async def test_edit_auto_creates_new_file():
+    """edit() auto-creates a new .docx file if it doesn't exist."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
+    path.unlink()  # ensure file doesn't exist
 
     try:
         _, result = await mcp.call_tool(
-            "create",
+            "edit",
             {
                 "file_path": str(path),
-                "content_type": "heading",
-                "content_data": "New Document",
-                "heading_level": 1,
+                "ops": json.dumps(
+                    [
+                        {
+                            "op": "append",
+                            "content_type": "heading",
+                            "content_data": "New Document",
+                            "heading_level": 1,
+                        }
+                    ]
+                ),
             },
         )
 
         assert result["success"] is True
-        assert result["element_id"] != ""
         assert path.exists()
 
         # Verify content
         _, read_result = await mcp.call_tool(
             "read", {"file_path": str(path), "scope": "outline"}
         )
-        assert read_result["block_count"] == 1
-        assert "New Document" in read_result["blocks"][0]["text"]
+        assert read_result["block_count"] >= 1
+        texts = [b["text"] for b in read_result["blocks"]]
+        assert any("New Document" in t for t in texts)
     finally:
         path.unlink(missing_ok=True)

@@ -309,6 +309,7 @@ def add_hyperlink(
     text: str,
     address: str = "",
     fragment: str = "",
+    replace: bool = False,
 ) -> None:
     """Add hyperlink to paragraph.
 
@@ -318,6 +319,8 @@ def add_hyperlink(
         text: Visible link text
         address: URL or file path (external link)
         fragment: Bookmark name (internal link) or URL anchor
+        replace: If True, remove all existing content (preserving only w:pPr)
+                 before adding the hyperlink. Prevents text duplication.
 
     Either address or fragment must be provided.
     For external links: address="https://example.com"
@@ -363,6 +366,13 @@ def add_hyperlink(
     run_text.text = text
     run.append(run_text)
     hyperlink.append(run)
+
+    # Optionally clear all content (preserve only pPr) before adding
+    if replace:
+        pPr_tag = qn("w:pPr")
+        for child in list(p_el):
+            if child.tag != pPr_tag:
+                p_el.remove(child)
 
     # Append hyperlink to paragraph
     p_el.append(hyperlink)

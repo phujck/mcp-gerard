@@ -2,7 +2,35 @@
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CustomPropertyInfo(BaseModel):
+    """A custom document property."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    value: str  # String representation
+    type: str  # "string", "datetime", "int", "bool", "float"
+
+
+class DocumentProperties(BaseModel):
+    """Document core and custom properties."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = ""
+    author: str = ""
+    subject: str = ""
+    keywords: str = ""
+    category: str = ""
+    comments: str = ""
+    created: str = ""
+    modified: str = ""
+    revision: int = 0
+    last_modified_by: str = ""
+    custom_properties: list[CustomPropertyInfo] = Field(default_factory=list)
 
 
 class SheetInfo(BaseModel):
@@ -151,6 +179,7 @@ class ExcelReadResult(BaseModel):
     print_settings: dict[str, Any] | None = None
     charts: list["ChartInfo"] | None = None
     pivots: list["PivotInfo"] | None = None
+    properties: DocumentProperties | None = None
 
 
 class NameInfo(BaseModel):
@@ -230,11 +259,28 @@ class PivotInfo(BaseModel):
     value_fields: list[str]  # Fields used for values (aggregated)
 
 
+class ExcelOpResult(BaseModel):
+    """Result from a single Excel batch operation."""
+
+    model_config = ConfigDict(exclude_none=True)
+
+    index: int
+    op: str
+    success: bool
+    element_id: str = ""  # For $prev chaining (cell_ref, range_ref, sheet_name, etc.)
+    message: str = ""
+    error: str = ""
+
+
 class ExcelEditResult(BaseModel):
-    """Result from Excel edit operation."""
+    """Result from Excel edit operation (batch mode)."""
 
     model_config = ConfigDict(exclude_none=True)
 
     success: bool
     message: str
-    affected_refs: list[str] | None = None
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    results: list[ExcelOpResult] = Field(default_factory=list)
+    saved: bool = False

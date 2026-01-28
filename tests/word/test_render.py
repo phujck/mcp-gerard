@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from mcp_handley_lab.microsoft.word.ops.render import render_to_images, render_to_pdf
+from mcp_handley_lab.microsoft.word.package import WordPackage
 from mcp_handley_lab.microsoft.word.tool import mcp
 
 
@@ -35,9 +36,8 @@ async def sample_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    # Create document with initial empty paragraph
-    await mcp.call_tool("create", {"file_path": str(path)})
-    # Append content
+    # Create document and append content
+    WordPackage.new().save(str(path))
     await mcp.call_tool(
         "edit",
         {
@@ -63,8 +63,8 @@ async def multi_page_docx():
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         path = Path(f.name)
 
-    # Create document with initial empty paragraph
-    await mcp.call_tool("create", {"file_path": str(path)})
+    # Create document and add content
+    WordPackage.new().save(str(path))
 
     # Add first heading and all page breaks with content in a single batch
     ops = [
@@ -161,11 +161,10 @@ async def test_render_page_images_differ(multi_page_docx):
 @requires_pdftoppm
 @pytest.mark.asyncio
 async def test_render_missing_page_error(sample_docx):
-    """Test that requesting a non-existent page raises CalledProcessError."""
-    import subprocess
-
+    """Test that requesting a non-existent page raises RuntimeError."""
     # sample_docx has only 1 page - pdftoppm errors on out-of-range pages
-    with pytest.raises(subprocess.CalledProcessError):
+    # Common render module wraps subprocess errors in RuntimeError
+    with pytest.raises(RuntimeError, match="pdftoppm failed"):
         render_to_images(str(sample_docx), pages=[999])
 
 

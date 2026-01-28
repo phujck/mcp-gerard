@@ -15,12 +15,10 @@ import re
 
 from lxml import etree
 
+# EMU per inch for unit conversions - import from common
 from mcp_handley_lab.microsoft.word.constants import qn
 from mcp_handley_lab.microsoft.word.enums import WdSection
 from mcp_handley_lab.microsoft.word.models import LineNumberingInfo, PageSetupInfo
-
-# EMU per inch for unit conversions
-_EMU_PER_INCH = 914400
 
 # =============================================================================
 # Constants

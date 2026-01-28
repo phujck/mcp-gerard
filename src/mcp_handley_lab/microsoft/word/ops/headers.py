@@ -14,6 +14,7 @@ import json
 
 from lxml import etree
 
+# EMU per inch for dimension calculations - import from common
 from mcp_handley_lab.microsoft.word.constants import qn
 from mcp_handley_lab.microsoft.word.models import HeaderFooterInfo
 from mcp_handley_lab.microsoft.word.ops.core import (
@@ -24,9 +25,6 @@ from mcp_handley_lab.microsoft.word.ops.fields import (
     insert_field,  # noqa: F401 - re-export
 )
 from mcp_handley_lab.microsoft.word.ops.tables import populate_table
-
-# EMU per inch for dimension calculations
-_EMU_PER_INCH = 914400
 
 
 def insert_page_x_of_y(pkg, section_index: int, location: str = "footer") -> None:
