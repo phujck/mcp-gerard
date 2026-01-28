@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Image
+from mcp.types import TextContent
 from pydantic import Field
 
 from mcp_handley_lab.common.pricing import calculate_cost
@@ -37,12 +38,27 @@ def _resolve_session_branch(branch: str) -> str:
     return f"_session_{client_id}"
 
 
+def _detect_image_format(data: bytes) -> str:
+    """Detect image format from magic bytes."""
+    if len(data) < 12:
+        return "png"  # Too short to detect, default
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
+    if data[:2] == b"\xff\xd8":
+        return "jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return "png"  # Default fallback
+
+
 @mcp.tool(
     description="Send a message to an LLM. Provider is auto-detected from model name. "
     "Supports Gemini, OpenAI, Claude, Mistral, Grok, and Groq. "
-    "Use conversation tool to manage branches and retrieve past responses. "
-    "For vision/image analysis, provide images parameter with local paths or data URIs. "
-    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch}."
+    "Each response includes commit_sha - use from_ref to fork from any point. "
+    "Use conversation(log/show) to browse history. "
+    "Returns: {content, usage: {input_tokens, output_tokens, cost, model_used}, branch, commit_sha}."
 )
 def chat(
     prompt: str = Field(
@@ -199,7 +215,8 @@ def conversation(
     "Supports Gemini (imagen-*, gemini-*-image), OpenAI (dall-e-*), and Grok (grok-*-image) models. "
     "Use list_models() to discover available image models. "
     "Nano Banana models (gemini-*-image) support input_images for editing/reference. "
-    "Returns: {file_path, file_size_bytes, model, provider, cost, enhanced_prompt?, original_prompt}."
+    "Returns: [TextContent(JSON metadata), Image(preview)]. "
+    "Metadata includes: file_path, file_size_bytes, model, provider, cost, detected_format, enhanced_prompt, original_prompt."
 )
 def generate_image(
     prompt: str = Field(
@@ -240,7 +257,7 @@ def generate_image(
         default="",
         description="Aspect ratio. Nano Banana supports: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9.",
     ),
-) -> dict[str, Any]:
+):  # No return type - allows mixed TextContent + Image content
     """Generate an image from a text prompt."""
     final_prompt = load_prompt_text(
         prompt or None, prompt_file or None, prompt_vars or None
@@ -271,7 +288,31 @@ def generate_image(
     response_data = generation_func(
         prompt=final_prompt, model=canonical_model, **kwargs
     )
+
+    # Defensive check for missing image_bytes
+    if "image_bytes" not in response_data:
+        raise ValueError(
+            f"Provider {provider} did not return image_bytes. "
+            f"Response keys: {list(response_data.keys())}"
+        )
+
+    # Ensure image_bytes is bytes (not base64 string)
     image_bytes = response_data["image_bytes"]
+    if isinstance(image_bytes, str):
+        import base64
+
+        try:
+            image_bytes = base64.b64decode(image_bytes, validate=True)
+        except Exception as e:
+            raise ValueError(f"Provider {provider} returned invalid base64: {e}") from e
+
+    # Validate image_bytes is valid
+    if not isinstance(image_bytes, bytes | bytearray) or len(image_bytes) == 0:
+        raise ValueError(
+            f"Provider {provider} returned invalid image_bytes: "
+            f"type={type(image_bytes).__name__}, len={len(image_bytes) if image_bytes else 0}"
+        )
+
     input_tokens = response_data.get("input_tokens", 0)
     output_tokens = response_data.get("output_tokens", 1)
 
@@ -283,15 +324,26 @@ def generate_image(
         canonical_model, input_tokens, output_tokens, provider, images_generated=1
     )
 
-    return {
+    # Detect actual format from bytes
+    detected_format = _detect_image_format(image_bytes)
+
+    # Build metadata dict
+    metadata = {
         "file_path": str(filepath),
         "file_size_bytes": len(image_bytes),
         "model": canonical_model,
         "provider": provider,
         "cost": cost,
+        "detected_format": detected_format,
         "enhanced_prompt": response_data.get("enhanced_prompt", ""),
         "original_prompt": final_prompt,
     }
+
+    # Return both metadata and image preview (matches word/render pattern)
+    return [
+        TextContent(type="text", text=json.dumps(metadata, indent=2)),
+        Image(data=image_bytes, format=detected_format),
+    ]
 
 
 @mcp.tool(
