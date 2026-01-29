@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import copy
-import json
-import os
-import re
 from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+from mcp_handley_lab.microsoft.common.batch import (
+    convert_custom_property_value,
+    run_batch_edit,
+)
 from mcp_handley_lab.microsoft.common.properties import get_core_properties
 from mcp_handley_lab.microsoft.visio.models import (
     DocumentProperties,
@@ -60,19 +60,11 @@ ReadScope = Literal[
     "properties",
 ]
 
-# Pattern to match $prev[N] references
-_PREV_PATTERN = re.compile(r"^\$prev\[(\d+)\]$")
-
-# Fields that can use $prev references
 _PREV_FIELDS = {"shape_key"}
 
-# Fields that should have text normalization (\\n -> \n, \\t -> \t)
 _TEXT_FIELDS: dict[str, set[str]] = {
     "set_text": {"text"},
 }
-
-# Maximum operations per batch
-_MAX_OPS = 500
 
 
 @mcp.tool()
@@ -236,48 +228,6 @@ def _read_properties(pkg: VisioPackage) -> VisioReadResult:
 # =============================================================================
 
 
-def _normalize_text(op: str, params: dict[str, Any]) -> dict[str, Any]:
-    """Normalize escaped characters in text fields."""
-    fields = _TEXT_FIELDS.get(op, set())
-    for field in fields:
-        if field in params and isinstance(params[field], str):
-            params[field] = params[field].replace("\\n", "\n").replace("\\t", "\t")
-    return params
-
-
-def _resolve_prev_refs(
-    params: dict[str, Any],
-    results: list[VisioOpResult],
-    index: int,
-) -> dict[str, Any]:
-    """Resolve $prev[N] references in operation parameters."""
-    resolved = copy.copy(params)
-    for field in _PREV_FIELDS:
-        if field not in resolved:
-            continue
-        value = resolved[field]
-        if not isinstance(value, str):
-            continue
-        match = _PREV_PATTERN.match(value)
-        if match:
-            ref_idx = int(match.group(1))
-            if ref_idx >= index:
-                raise ValueError(
-                    f"$prev[{ref_idx}] at index {index}: cannot reference future operation"
-                )
-            if ref_idx >= len(results):
-                raise ValueError(f"$prev[{ref_idx}]: index out of range")
-            prev_result = results[ref_idx]
-            if not prev_result.success:
-                raise ValueError(f"$prev[{ref_idx}]: referenced operation failed")
-            if not prev_result.element_id:
-                raise ValueError(
-                    f"$prev[{ref_idx}]: referenced operation has no element_id"
-                )
-            resolved[field] = prev_result.element_id
-    return resolved
-
-
 @mcp.tool()
 def edit(
     file_path: str = Field(description="Path to .vsdx file"),
@@ -327,133 +277,18 @@ def edit(
     Returns:
         VisioEditResult with success status, counts, and per-operation results
     """
-    # Handle direct calls
-    if not isinstance(mode, str):
-        mode = "atomic"
-
-    # Parse operations
-    try:
-        operations = json.loads(ops)
-    except json.JSONDecodeError as e:
-        return VisioEditResult(
-            success=False, message=f"Invalid JSON in ops: {e}"
-        ).model_dump(exclude_none=True)
-
-    if not isinstance(operations, list):
-        return VisioEditResult(
-            success=False, message="ops must be a JSON array"
-        ).model_dump(exclude_none=True)
-
-    if len(operations) == 0:
-        return VisioEditResult(success=False, message="ops array is empty").model_dump(
-            exclude_none=True
-        )
-
-    if len(operations) > _MAX_OPS:
-        return VisioEditResult(
-            success=False, message=f"ops array exceeds maximum of {_MAX_OPS} operations"
-        ).model_dump(exclude_none=True)
-
-    if mode not in ("atomic", "partial"):
-        return VisioEditResult(
-            success=False,
-            message=f"Invalid mode '{mode}': must be 'atomic' or 'partial'",
-        ).model_dump(exclude_none=True)
-
-    # Validate operations
-    for i, op_dict in enumerate(operations):
-        if not isinstance(op_dict, dict):
-            return VisioEditResult(
-                success=False, message=f"Operation at index {i} is not an object"
-            ).model_dump(exclude_none=True)
-        if "op" not in op_dict:
-            return VisioEditResult(
-                success=False, message=f"Operation at index {i} missing 'op' field"
-            ).model_dump(exclude_none=True)
-
-    # Open or create package
-    if os.path.exists(file_path):
-        pkg = VisioPackage.open(file_path)
-    else:
-        pkg = VisioPackage.new()
-
-    results: list[VisioOpResult] = []
-
-    # Execute operations
-    for i, op_dict in enumerate(operations):
-        op_name = op_dict["op"]
-        params = {k: v for k, v in op_dict.items() if k != "op"}
-
-        try:
-            params = _resolve_prev_refs(params, results, i)
-            params = _normalize_text(op_name, params)
-            result = _apply_op(pkg, op_name, params)
-            results.append(
-                VisioOpResult(
-                    index=i,
-                    op=op_name,
-                    success=True,
-                    element_id=result.get("element_id", ""),
-                    message=result.get("message", ""),
-                )
-            )
-        except Exception as e:
-            results.append(
-                VisioOpResult(
-                    index=i,
-                    op=op_name,
-                    success=False,
-                    error=str(e),
-                )
-            )
-            if mode == "atomic":
-                break
-
-    # Summary
-    succeeded = sum(1 for r in results if r.success)
-    failed = sum(1 for r in results if not r.success)
-    total = len(operations)
-
-    should_save = (failed == 0 and succeeded > 0) if mode == "atomic" else succeeded > 0
-
-    saved = False
-    if should_save:
-        try:
-            pkg.save(file_path)
-            saved = True
-        except Exception as e:
-            return VisioEditResult(
-                success=False,
-                message=f"Operations succeeded but save failed: {e}",
-                total=total,
-                succeeded=succeeded,
-                failed=failed,
-                results=results,
-                saved=False,
-            ).model_dump(exclude_none=True)
-
-    if mode == "atomic":
-        if failed > 0:
-            message = f"Batch failed: {failed} operation(s) failed, file unchanged"
-            success = False
-        else:
-            message = f"Batch completed: {succeeded}/{total} operation(s) succeeded"
-            success = True
-    else:
-        message = (
-            f"Batch completed: {succeeded}/{total} succeeded, {failed}/{total} failed"
-        )
-        success = succeeded > 0
-
-    return VisioEditResult(
-        success=success,
-        message=message,
-        total=total,
-        succeeded=succeeded,
-        failed=failed,
-        results=results,
-        saved=saved,
-    ).model_dump(exclude_none=True)
+    return run_batch_edit(
+        file_path=file_path,
+        ops=ops,
+        mode=mode,
+        open_pkg=VisioPackage.open,
+        new_pkg=VisioPackage.new,
+        apply_op=_apply_op,
+        make_op_result=VisioOpResult,
+        make_edit_result=VisioEditResult,
+        prev_fields=_PREV_FIELDS,
+        text_fields=_TEXT_FIELDS,
+    )
 
 
 # =============================================================================
@@ -601,8 +436,6 @@ def _op_set_property(pkg: VisioPackage, params: dict[str, Any]) -> dict[str, Any
 def _op_set_custom_property(
     pkg: VisioPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
-    from datetime import datetime, timezone
-
     name = params.get("property_name")
     value = params.get("property_value")
     prop_type = params.get("property_type", "string")
@@ -611,20 +444,7 @@ def _op_set_custom_property(
     if value is None:
         raise ValueError("property_value required for set_custom_property")
 
-    actual_value: Any = value
-    if prop_type in ("int", "i4"):
-        actual_value = int(value)
-    elif prop_type in ("float", "r8"):
-        actual_value = float(value)
-    elif prop_type == "bool":
-        actual_value = str(value).lower() in ("true", "1", "yes")
-    elif prop_type in ("datetime", "filetime"):
-        prop_type = "datetime"
-        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        actual_value = dt
-
+    actual_value, prop_type = convert_custom_property_value(value, prop_type)
     set_custom_property(pkg, name, actual_value, prop_type)
     return {"message": f"Set custom property '{name}'", "element_id": ""}
 

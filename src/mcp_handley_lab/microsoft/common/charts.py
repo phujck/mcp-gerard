@@ -40,25 +40,6 @@ def _qn_r(tag: str) -> str:
     return f"{{{CHART_NSMAP['r']}}}{tag}"
 
 
-def validate_chart_data(data: list[list]) -> None:
-    """Validate a 2D data array for chart creation.
-
-    Raises ValueError if data is invalid.
-    """
-    if not data:
-        raise ValueError("Data array must not be empty")
-    if len(data) < 2:
-        raise ValueError("Data must have at least 2 rows (header + 1 data row)")
-    if len(data[0]) < 2:
-        raise ValueError("Data must have at least 2 columns (categories + 1 series)")
-    row_len = len(data[0])
-    for i, row in enumerate(data):
-        if len(row) != row_len:
-            raise ValueError(
-                f"Row {i} has {len(row)} columns, expected {row_len} (data must be rectangular)"
-            )
-
-
 def compute_chart_refs(
     sheet_name: str, n_rows: int, n_cols: int
 ) -> tuple[str, list[tuple[str, str, str]]]:

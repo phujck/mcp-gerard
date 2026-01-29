@@ -185,14 +185,6 @@ def add_page(pkg: VisioPackage, name: str | None = None) -> int:
             n += 1
         page_name = f"Page-{n}"
 
-    # Find next available rId
-    pages_rels = pkg.get_rels(pages_path)
-    existing_rids = set(pages_rels.keys())
-    rid_num = 1
-    while f"rId{rid_num}" in existing_rids:
-        rid_num += 1
-    new_rid = f"rId{rid_num}"
-
     # Find next available page file number
     existing_partnames = {pn for _, _, pn in pkg.get_page_paths()}
     file_num = 1
@@ -200,8 +192,11 @@ def add_page(pkg: VisioPackage, name: str | None = None) -> int:
         file_num += 1
     new_partname = f"/visio/pages/page{file_num}.xml"
 
+    # Add relationship first to get the canonical rId
+    target = f"page{file_num}.xml"
+    new_rid = pkg.relate_to(pages_path, target, RT.PAGE)
+
     # Add Page element to pages.xml
-    # Use max existing ID + 1
     new_id = max((int(p.get("ID", "0")) for p in existing_pages), default=0) + 1
 
     page_el = etree.SubElement(
@@ -217,10 +212,6 @@ def add_page(pkg: VisioPackage, name: str | None = None) -> int:
     etree.SubElement(page_sheet, f"{{{NS}}}Cell", N="PageHeight", V="11", U="IN")
 
     pkg.mark_xml_dirty(pages_path)
-
-    # Add relationship
-    target = f"page{file_num}.xml"
-    pkg.relate_to(pages_path, target, RT.PAGE)
 
     # Create empty page XML
     page_contents = etree.Element(f"{{{NS}}}PageContents")

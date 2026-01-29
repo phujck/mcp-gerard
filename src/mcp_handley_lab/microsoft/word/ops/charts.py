@@ -18,9 +18,8 @@ from mcp_handley_lab.microsoft.common.charts import (
     _qn_r,
     compute_chart_refs,
     create_chart_xml,
-    validate_chart_data,
 )
-from mcp_handley_lab.microsoft.common.embedding import create_embedded_excel
+from mcp_handley_lab.microsoft.excel.embedding import create_embedded_excel
 from mcp_handley_lab.microsoft.word.constants import NSMAP, qn
 from mcp_handley_lab.microsoft.word.models import ChartInfo
 from mcp_handley_lab.microsoft.word.ops.core import (
@@ -115,7 +114,6 @@ def create_chart(
     Returns:
         chart_id string (chart_N)
     """
-    validate_chart_data(data)
 
     # 1. Resolve target paragraph
     target = resolve_target(pkg, target_id)
@@ -374,7 +372,6 @@ def update_chart_data(
         chart_id: Chart ID (e.g. 'chart_1')
         data: New 2D data array
     """
-    validate_chart_data(data)
 
     chart_num = chart_id.split("_")[-1]
     chart_partname = f"/word/charts/chart{chart_num}.xml"
