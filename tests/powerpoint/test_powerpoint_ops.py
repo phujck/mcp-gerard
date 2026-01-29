@@ -765,12 +765,12 @@ class TestRender:
 
         from mcp_handley_lab.microsoft.powerpoint.ops.render import render_to_images
 
-        # Empty slides list should raise
-        with pytest.raises(ValueError, match="slides is required"):
+        # Empty pages list should raise
+        with pytest.raises(ValueError, match="pages is required"):
             render_to_images("/tmp/test.pptx", [])
 
-        # Too many slides should raise
-        with pytest.raises(ValueError, match="max 5 slides"):
+        # Too many pages should raise
+        with pytest.raises(ValueError, match="max 5 pages"):
             render_to_images("/tmp/test.pptx", [1, 2, 3, 4, 5, 6])
 
 

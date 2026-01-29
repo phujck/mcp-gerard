@@ -768,7 +768,7 @@ def edit(
         - create_table: Create table {sheet, cell_ref, table_name}
         - delete_table: Delete table {table_name}
         - add_table_row: Add row {table_name, value} (value is JSON array)
-        - delete_table_row: Delete row {table_name, row_index}
+        - delete_table_row: Delete row {table_name, row}
         - add_conditional_format: Add conditional format {sheet, cell_ref, rule_type, operator, formula, style_index, priority}
         - protect_sheet/unprotect_sheet: {sheet, password}
         - protect_workbook/unprotect_workbook: {password}
@@ -788,7 +788,7 @@ def edit(
         - create_pivot: {sheet, data_range, position, row_fields, col_fields, value_fields, pivot_name, agg_func}
         - delete_pivot: {sheet, pivot_id}
         - refresh_pivot: {sheet, pivot_id}
-        - set_meta: {property_name, property_value}
+        - set_property: {property_name, property_value}
         - set_custom_property: {property_name, property_value, property_type}
         - delete_custom_property: {property_name}
 
@@ -1036,8 +1036,8 @@ def _apply_op(pkg: ExcelPackage, op: str, params: dict[str, Any]) -> dict[str, A
         return _op_delete_pivot(pkg, params)
     elif op == "refresh_pivot":
         return _op_refresh_pivot(pkg, params)
-    elif op == "set_meta":
-        return _op_set_meta(pkg, params)
+    elif op == "set_property":
+        return _op_set_property(pkg, params)
     elif op == "set_custom_property":
         return _op_set_custom_property(pkg, params)
     elif op == "delete_custom_property":
@@ -1276,7 +1276,7 @@ def _op_add_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 def _op_delete_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete row from table."""
     table_name = params.get("table_name", "")
-    row_index = params.get("row_index", 0)
+    row_index = params.get("row", 0)
 
     delete_table_row(pkg, table_name, row_index)
     return {
@@ -1567,7 +1567,7 @@ def _op_refresh_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
     return {"message": f"Refreshed pivot table '{pivot_id}'", "element_id": pivot_id}
 
 
-def _op_set_meta(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
+def _op_set_property(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set core document property."""
     name = params.get("property_name", "")
     value = params.get("property_value", "")

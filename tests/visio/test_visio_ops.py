@@ -2185,7 +2185,7 @@ class TestEditTool:
 
         result = edit(
             str(path),
-            ops='[{"op": "set_property", "name": "title", "value": "My Diagram"}]',
+            ops='[{"op": "set_property", "property_name": "title", "property_value": "My Diagram"}]',
         )
         assert result["success"]
 
@@ -2202,7 +2202,7 @@ class TestEditTool:
 
         result = edit(
             str(path),
-            ops='[{"op": "set_custom_property", "name": "Project", "value": "Alpha"}]',
+            ops='[{"op": "set_custom_property", "property_name": "Project", "property_value": "Alpha"}]',
         )
         assert result["success"]
 
@@ -2215,7 +2215,7 @@ class TestEditTool:
 
         result = edit(
             str(path),
-            ops='[{"op": "delete_custom_property", "name": "NonExistent"}]',
+            ops='[{"op": "delete_custom_property", "property_name": "NonExistent"}]',
         )
         assert not result["success"]
 

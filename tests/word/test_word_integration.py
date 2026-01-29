@@ -2586,7 +2586,7 @@ async def test_set_document_title(sample_docx):
                 _ops(
                     [
                         {
-                            "op": "set_meta",
+                            "op": "set_property",
                             "content_data": '{"title": "New Document Title"}',
                         }
                     ]
@@ -2615,7 +2615,7 @@ async def test_set_document_author(sample_docx):
                 _ops(
                     [
                         {
-                            "op": "set_meta",
+                            "op": "set_property",
                             "content_data": '{"author": "Test Author"}',
                         }
                     ]
@@ -2643,7 +2643,7 @@ async def test_set_multiple_metadata(sample_docx):
                 _ops(
                     [
                         {
-                            "op": "set_meta",
+                            "op": "set_property",
                             "content_data": '{"title": "Multi Test", "author": "Multi Author"}',
                         }
                     ]
@@ -10803,7 +10803,7 @@ async def test_new_document_has_page_dimensions():
 
 
 @pytest.mark.asyncio
-async def test_set_meta_on_new_document():
+async def test_set_property_on_new_document():
     """Test that set_meta persists title/author on new documents."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         new_path = Path(f.name)
@@ -10820,7 +10820,7 @@ async def test_set_meta_on_new_document():
                     _ops(
                         [
                             {
-                                "op": "set_meta",
+                                "op": "set_property",
                                 "content_data": json.dumps(
                                     {"title": "Test Title", "author": "Test Author"}
                                 ),
@@ -10842,7 +10842,7 @@ async def test_set_meta_on_new_document():
 
 
 @pytest.mark.asyncio
-async def test_set_meta_creates_core_xml_on_minimal_doc():
+async def test_set_property_creates_core_xml_on_minimal_doc():
     """Test set_meta works on documents without core.xml (roundtrip save/load)."""
     with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
         new_path = Path(f.name)
@@ -10859,7 +10859,7 @@ async def test_set_meta_creates_core_xml_on_minimal_doc():
                     _ops(
                         [
                             {
-                                "op": "set_meta",
+                                "op": "set_property",
                                 "content_data": json.dumps({"title": "Roundtrip Test"}),
                             }
                         ]

@@ -315,9 +315,9 @@ def edit(
         - rename_page: Rename page {page_num, name}
 
         Document properties:
-        - set_property: Set core property {name, value}
-        - set_custom_property: Set custom property {name, value, type?}
-        - delete_custom_property: Delete custom property {name}
+        - set_property: Set core property {property_name, property_value}
+        - set_custom_property: Set custom property {property_name, property_value, property_type?}
+        - delete_custom_property: Delete custom property {property_name}
 
     $prev chaining:
         Reference results of previous operations using $prev[N] where N is the
@@ -588,12 +588,12 @@ def _op_rename_page(pkg: VisioPackage, params: dict[str, Any]) -> dict[str, Any]
 
 
 def _op_set_property(pkg: VisioPackage, params: dict[str, Any]) -> dict[str, Any]:
-    name = params.get("name")
-    value = params.get("value")
+    name = params.get("property_name")
+    value = params.get("property_value")
     if name is None:
-        raise ValueError("name required for set_property")
+        raise ValueError("property_name required for set_property")
     if value is None:
-        raise ValueError("value required for set_property")
+        raise ValueError("property_value required for set_property")
     set_property(pkg, name, str(value))
     return {"message": f"Set core property '{name}'", "element_id": ""}
 
@@ -603,13 +603,13 @@ def _op_set_custom_property(
 ) -> dict[str, Any]:
     from datetime import datetime, timezone
 
-    name = params.get("name")
-    value = params.get("value")
-    prop_type = params.get("type", "string")
+    name = params.get("property_name")
+    value = params.get("property_value")
+    prop_type = params.get("property_type", "string")
     if name is None:
-        raise ValueError("name required for set_custom_property")
+        raise ValueError("property_name required for set_custom_property")
     if value is None:
-        raise ValueError("value required for set_custom_property")
+        raise ValueError("property_value required for set_custom_property")
 
     actual_value: Any = value
     if prop_type in ("int", "i4"):
@@ -632,9 +632,9 @@ def _op_set_custom_property(
 def _op_delete_custom_property(
     pkg: VisioPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
-    name = params.get("name")
+    name = params.get("property_name")
     if name is None:
-        raise ValueError("name required for delete_custom_property")
+        raise ValueError("property_name required for delete_custom_property")
     deleted = delete_custom_property(pkg, name)
     if deleted:
         return {"message": f"Deleted custom property '{name}'", "element_id": ""}

@@ -1191,7 +1191,10 @@ def _op_update_chart_data(
 @mcp.tool()
 def render(
     file_path: str,
-    slides: list[int] = Field(default_factory=list),
+    pages: list[int] = Field(
+        default_factory=list,
+        description="Slide numbers to render (1-based). Required for PNG (max 5). Ignored for PDF.",
+    ),
     dpi: int = 150,
     output: str = "png",
 ):
@@ -1204,7 +1207,7 @@ def render(
 
     Args:
         file_path: Path to .pptx file
-        slides: Slide numbers to render (1-based). Required for PNG output. Max 5 slides.
+        pages: Slide numbers to render (1-based). Required for PNG output. Max 5.
         dpi: Resolution for PNG (default 150, max 300)
         output: Output format: 'png' (images) or 'pdf' (full document)
 
@@ -1227,13 +1230,13 @@ def render(
         ]
 
     # PNG output (default)
-    if not slides:
-        raise ValueError("slides is required for PNG output")
+    if not pages:
+        raise ValueError("pages is required for PNG output")
     if dpi > 300:
         raise ValueError("dpi max is 300")
 
     result = []
-    for slide_num, png_bytes in render_to_images(file_path, slides, dpi):
+    for slide_num, png_bytes in render_to_images(file_path, pages, dpi):
         result.append(TextContent(type="text", text=f"Slide {slide_num}:"))
         result.append(
             ImageContent(
