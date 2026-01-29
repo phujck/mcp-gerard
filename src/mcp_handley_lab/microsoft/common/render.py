@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 # Supported file extensions (case-insensitive)
-SUPPORTED_EXTENSIONS = {".docx", ".docm", ".pptx", ".pptm", ".ppsx"}
+SUPPORTED_EXTENSIONS = {".docx", ".docm", ".pptx", ".pptm", ".ppsx", ".vsdx", ".vsdm"}
 
 
 def _validate_file(file_path: str) -> Path:
