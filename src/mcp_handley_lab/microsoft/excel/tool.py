@@ -1047,15 +1047,36 @@ def _apply_op(pkg: ExcelPackage, op: str, params: dict[str, Any]) -> dict[str, A
 
 
 # =============================================================================
+# Validation Helpers
+# =============================================================================
+
+
+def _require(params: dict, key: str, op: str) -> Any:
+    """Get required parameter or raise ValueError. Rejects None, empty str, empty collections."""
+    val = params.get(key)
+    if val is None or val == "" or val == [] or val == {}:
+        raise ValueError(f"{key} required for {op}")
+    return val
+
+
+def _require_any(params: dict, key: str, op: str) -> Any:
+    """Get required parameter, allowing empty string / zero / False / empty collections."""
+    val = params.get(key)
+    if val is None:
+        raise ValueError(f"{key} required for {op}")
+    return val
+
+
+# =============================================================================
 # Individual Operation Handlers
 # =============================================================================
 
 
 def _op_set_cell(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set a cell's value."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
-    value = params.get("value", "")
+    sheet = _require(params, "sheet", "set_cell")
+    cell_ref = _require(params, "cell_ref", "set_cell")
+    value = _require_any(params, "value", "set_cell")
 
     # Auto-detect type from value string
     parsed_value: Any = value
@@ -1081,9 +1102,9 @@ def _op_set_cell(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_set_formula(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set a cell's formula."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
-    formula = params.get("formula", "")
+    sheet = _require(params, "sheet", "set_formula")
+    cell_ref = _require(params, "cell_ref", "set_formula")
+    formula = _require(params, "formula", "set_formula")
 
     set_cell_formula(pkg, sheet, cell_ref, formula)
     return {"message": f"Set {cell_ref} formula to ={formula}", "element_id": cell_ref}
@@ -1091,9 +1112,9 @@ def _op_set_formula(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]
 
 def _op_set_range(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set range values from JSON 2D array."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
-    value = params.get("value", "")
+    sheet = _require(params, "sheet", "set_range")
+    cell_ref = _require(params, "cell_ref", "set_range")
+    value = _require(params, "value", "set_range")
 
     values = json.loads(value) if isinstance(value, str) else value
     set_range_values(pkg, sheet, cell_ref, values)
@@ -1102,8 +1123,8 @@ def _op_set_range(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_set_style(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Apply a style to a cell or range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "set_style")
+    cell_ref = _require(params, "cell_ref", "set_style")
     style_index = params.get("style_index", -1)
 
     if ":" in cell_ref:
@@ -1134,8 +1155,8 @@ def _op_set_style(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_insert_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Insert rows."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "insert_rows")
+    cell_ref = _require(params, "cell_ref", "insert_rows")
     count = params.get("count", 1)
 
     _, row, _, _ = parse_cell_ref(cell_ref)
@@ -1145,8 +1166,8 @@ def _op_insert_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]
 
 def _op_delete_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete rows."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "delete_rows")
+    cell_ref = _require(params, "cell_ref", "delete_rows")
     count = params.get("count", 1)
 
     _, row, _, _ = parse_cell_ref(cell_ref)
@@ -1159,8 +1180,8 @@ def _op_delete_rows(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]
 
 def _op_insert_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Insert columns."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "insert_columns")
+    cell_ref = _require(params, "cell_ref", "insert_columns")
     count = params.get("count", 1)
 
     col, _, _, _ = parse_cell_ref(cell_ref)
@@ -1171,8 +1192,8 @@ def _op_insert_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, A
 
 def _op_delete_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete columns."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "delete_columns")
+    cell_ref = _require(params, "cell_ref", "delete_columns")
     count = params.get("count", 1)
 
     col, _, _, _ = parse_cell_ref(cell_ref)
@@ -1186,8 +1207,8 @@ def _op_delete_columns(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, A
 
 def _op_merge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Merge cells in range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "merge_cells")
+    cell_ref = _require(params, "cell_ref", "merge_cells")
 
     merge_cells(pkg, sheet, cell_ref)
     return {"message": f"Merged cells {cell_ref}", "element_id": cell_ref}
@@ -1195,8 +1216,8 @@ def _op_merge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]
 
 def _op_unmerge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Unmerge cells in range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "unmerge_cells")
+    cell_ref = _require(params, "cell_ref", "unmerge_cells")
 
     unmerge_cells(pkg, sheet, cell_ref)
     return {"message": f"Unmerged cells {cell_ref}", "element_id": cell_ref}
@@ -1205,6 +1226,8 @@ def _op_unmerge_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 def _op_add_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Add new sheet."""
     name = params.get("new_name", "") or params.get("name", "")
+    if not name:
+        raise ValueError("new_name (or name) required for add_sheet")
 
     add_sheet(pkg, name)
     return {"message": f"Added sheet '{name}'", "element_id": name}
@@ -1212,8 +1235,8 @@ def _op_add_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_rename_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Rename existing sheet."""
-    old_name = params.get("sheet", "")
-    new_name = params.get("new_name", "")
+    old_name = _require(params, "sheet", "rename_sheet")
+    new_name = _require(params, "new_name", "rename_sheet")
 
     rename_sheet(pkg, old_name, new_name)
     return {
@@ -1224,7 +1247,7 @@ def _op_rename_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_delete_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete sheet."""
-    name = params.get("sheet", "")
+    name = _require(params, "sheet", "delete_sheet")
 
     delete_sheet(pkg, name)
     return {"message": f"Deleted sheet '{name}'", "element_id": ""}
@@ -1232,8 +1255,8 @@ def _op_delete_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_copy_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Copy sheet to new sheet."""
-    source = params.get("sheet", "")
-    new_name = params.get("new_name", "")
+    source = _require(params, "sheet", "copy_sheet")
+    new_name = _require(params, "new_name", "copy_sheet")
 
     copy_sheet(pkg, source, new_name)
     return {
@@ -1244,9 +1267,11 @@ def _op_copy_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_create_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Create table from range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "create_table")
+    cell_ref = _require(params, "cell_ref", "create_table")
     table_name = params.get("table_name", "") or params.get("new_name", "")
+    if not table_name:
+        raise ValueError("table_name (or new_name) required for create_table")
 
     create_table(pkg, sheet, cell_ref, table_name)
     return {
@@ -1257,7 +1282,7 @@ def _op_create_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_delete_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete table by name."""
-    table_name = params.get("table_name", "")
+    table_name = _require(params, "table_name", "delete_table")
 
     delete_table(pkg, table_name)
     return {"message": f"Deleted table '{table_name}'", "element_id": ""}
@@ -1265,8 +1290,8 @@ def _op_delete_table(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_add_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Add row to table."""
-    table_name = params.get("table_name", "")
-    value = params.get("value", "")
+    table_name = _require(params, "table_name", "add_table_row")
+    value = _require_any(params, "value", "add_table_row")
 
     row_data = json.loads(value) if isinstance(value, str) else value
     add_table_row(pkg, table_name, row_data)
@@ -1275,7 +1300,7 @@ def _op_add_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 
 def _op_delete_table_row(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete row from table."""
-    table_name = params.get("table_name", "")
+    table_name = _require(params, "table_name", "delete_table_row")
     row_index = params.get("row", 0)
 
     delete_table_row(pkg, table_name, row_index)
@@ -1289,9 +1314,9 @@ def _op_add_conditional_format(
     pkg: ExcelPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
     """Add conditional formatting."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
-    rule_type = params.get("rule_type", "")
+    sheet = _require(params, "sheet", "add_conditional_format")
+    cell_ref = _require(params, "cell_ref", "add_conditional_format")
+    rule_type = _require(params, "rule_type", "add_conditional_format")
     operator = params.get("operator", "")
     formula = params.get("formula", "")
     style_index = params.get("style_index", -1)
@@ -1308,7 +1333,7 @@ def _op_add_conditional_format(
 
 def _op_protect_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Protect sheet."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "protect_sheet")
     password = params.get("password", "")
 
     protect_sheet(pkg, sheet, password if password else None)
@@ -1317,7 +1342,7 @@ def _op_protect_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 
 def _op_unprotect_sheet(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Unprotect sheet."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "unprotect_sheet")
     password = params.get("password", "")
 
     unprotect_sheet(pkg, sheet, password if password else None)
@@ -1342,8 +1367,8 @@ def _op_unprotect_workbook(pkg: ExcelPackage, params: dict[str, Any]) -> dict[st
 
 def _op_lock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Lock cells in range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "lock_cells")
+    cell_ref = _require(params, "cell_ref", "lock_cells")
 
     lock_cells(pkg, sheet, cell_ref)
     return {"message": f"Locked cells {cell_ref}", "element_id": cell_ref}
@@ -1351,8 +1376,8 @@ def _op_lock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_unlock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Unlock cells in range."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "unlock_cells")
+    cell_ref = _require(params, "cell_ref", "unlock_cells")
 
     unlock_cells(pkg, sheet, cell_ref)
     return {"message": f"Unlocked cells {cell_ref}", "element_id": cell_ref}
@@ -1360,8 +1385,8 @@ def _op_unlock_cells(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_set_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set print area."""
-    sheet = params.get("sheet", "")
-    cell_ref = params.get("cell_ref", "")
+    sheet = _require(params, "sheet", "set_print_area")
+    cell_ref = _require(params, "cell_ref", "set_print_area")
 
     set_print_area(pkg, sheet, cell_ref)
     return {"message": f"Set print area to {cell_ref}", "element_id": ""}
@@ -1369,7 +1394,7 @@ def _op_set_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, A
 
 def _op_clear_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Clear print area."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "clear_print_area")
 
     clear_print_area(pkg, sheet)
     return {"message": f"Cleared print area for sheet '{sheet}'", "element_id": ""}
@@ -1377,7 +1402,7 @@ def _op_clear_print_area(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str,
 
 def _op_set_print_titles(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set print titles."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_print_titles")
     print_rows = params.get("print_rows", "")
     print_cols = params.get("print_cols", "")
 
@@ -1387,7 +1412,7 @@ def _op_set_print_titles(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str,
 
 def _op_set_page_margins(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set page margins."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_page_margins")
     left = params.get("margin_left", -1.0)
     right = params.get("margin_right", -1.0)
     top = params.get("margin_top", -1.0)
@@ -1408,7 +1433,7 @@ def _op_set_page_orientation(
     pkg: ExcelPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
     """Set page orientation."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_page_orientation")
     landscape = params.get("landscape", False)
 
     set_page_orientation(pkg, sheet, landscape)
@@ -1418,7 +1443,7 @@ def _op_set_page_orientation(
 
 def _op_set_page_size(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set page size."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_page_size")
     paper_size = params.get("paper_size", 1)
 
     set_page_size(pkg, sheet, paper_size)
@@ -1430,7 +1455,7 @@ def _op_set_page_size(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 
 def _op_set_scale(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set print scale."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_scale")
     scale_value = params.get("scale", 100)
 
     set_scale(pkg, sheet, scale_value)
@@ -1442,7 +1467,7 @@ def _op_set_scale(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
 
 def _op_set_fit_to_page(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set fit to page."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "set_fit_to_page")
     fit_width = params.get("fit_width", -1)
     fit_height = params.get("fit_height", -1)
 
@@ -1457,7 +1482,7 @@ def _op_set_fit_to_page(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, 
 
 def _op_add_page_break(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Add page break."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "add_page_break")
     break_type = params.get("break_type", "row")
     break_position = params.get("break_position", 0)
 
@@ -1477,7 +1502,7 @@ def _op_add_page_break(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, A
 
 def _op_clear_page_breaks(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Clear all page breaks."""
-    sheet = params.get("sheet", "")
+    sheet = _require(params, "sheet", "clear_page_breaks")
 
     clear_page_breaks(pkg, sheet)
     return {"message": f"Cleared all page breaks for sheet '{sheet}'", "element_id": ""}
@@ -1485,9 +1510,9 @@ def _op_clear_page_breaks(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str
 
 def _op_create_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Create chart."""
-    sheet = params.get("sheet", "")
-    chart_type = params.get("chart_type", "")
-    data_range = params.get("data_range", "")
+    sheet = _require(params, "sheet", "create_chart")
+    chart_type = _require(params, "chart_type", "create_chart")
+    data_range = _require(params, "data_range", "create_chart")
     position = params.get("position", "")
     title = params.get("title", "")
 
@@ -1500,8 +1525,8 @@ def _op_create_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_delete_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete chart."""
-    sheet = params.get("sheet", "")
-    chart_id = params.get("chart_id", "")
+    sheet = _require(params, "sheet", "delete_chart")
+    chart_id = _require(params, "chart_id", "delete_chart")
 
     delete_chart(pkg, sheet, chart_id)
     return {"message": f"Deleted chart '{chart_id}'", "element_id": ""}
@@ -1509,9 +1534,9 @@ def _op_delete_chart(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_update_chart_data(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Update chart data range."""
-    sheet = params.get("sheet", "")
-    chart_id = params.get("chart_id", "")
-    data_range = params.get("data_range", "")
+    sheet = _require(params, "sheet", "update_chart_data")
+    chart_id = _require(params, "chart_id", "update_chart_data")
+    data_range = _require(params, "data_range", "update_chart_data")
 
     update_chart_data(pkg, sheet, chart_id, data_range)
     return {
@@ -1522,9 +1547,9 @@ def _op_update_chart_data(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str
 
 def _op_create_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Create pivot table."""
-    sheet = params.get("sheet", "")
-    data_range = params.get("data_range", "")
-    position = params.get("position", "")
+    sheet = _require(params, "sheet", "create_pivot")
+    data_range = _require(params, "data_range", "create_pivot")
+    position = _require(params, "position", "create_pivot")
     row_fields_str = params.get("row_fields", "")
     col_fields_str = params.get("col_fields", "")
     value_fields_str = params.get("value_fields", "")
@@ -1551,8 +1576,8 @@ def _op_create_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_delete_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Delete pivot table."""
-    sheet = params.get("sheet", "")
-    pivot_id = params.get("pivot_id", "")
+    sheet = _require(params, "sheet", "delete_pivot")
+    pivot_id = _require(params, "pivot_id", "delete_pivot")
 
     delete_pivot(pkg, sheet, pivot_id)
     return {"message": f"Deleted pivot table '{pivot_id}'", "element_id": ""}
@@ -1560,8 +1585,8 @@ def _op_delete_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any
 
 def _op_refresh_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Refresh pivot table."""
-    sheet = params.get("sheet", "")
-    pivot_id = params.get("pivot_id", "")
+    sheet = _require(params, "sheet", "refresh_pivot")
+    pivot_id = _require(params, "pivot_id", "refresh_pivot")
 
     refresh_pivot(pkg, sheet, pivot_id)
     return {"message": f"Refreshed pivot table '{pivot_id}'", "element_id": pivot_id}
@@ -1569,8 +1594,8 @@ def _op_refresh_pivot(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, An
 
 def _op_set_property(pkg: ExcelPackage, params: dict[str, Any]) -> dict[str, Any]:
     """Set core document property."""
-    name = params.get("property_name", "")
-    value = params.get("property_value", "")
+    name = _require(params, "property_name", "set_property")
+    value = _require_any(params, "property_value", "set_property")
 
     set_core_properties(pkg, **{name: value})
     return {"message": f"Set core property '{name}' = '{value}'", "element_id": ""}
@@ -1582,8 +1607,8 @@ def _op_set_custom_property(
     """Set custom document property."""
     from datetime import datetime, timezone
 
-    name = params.get("property_name", "")
-    value = params.get("property_value", "")
+    name = _require(params, "property_name", "set_custom_property")
+    value = _require_any(params, "property_value", "set_custom_property")
     prop_type = params.get("property_type", "string")
 
     # Convert value to appropriate type
@@ -1613,7 +1638,7 @@ def _op_delete_custom_property(
     pkg: ExcelPackage, params: dict[str, Any]
 ) -> dict[str, Any]:
     """Delete custom document property."""
-    name = params.get("property_name", "")
+    name = _require(params, "property_name", "delete_custom_property")
 
     deleted = delete_custom_property(pkg, name)
     if deleted:

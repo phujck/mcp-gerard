@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
@@ -55,6 +55,22 @@ def _recalc_block_id(doc, t) -> str:
     return word_ops.make_block_id(block_kind, text, occurrence)
 
 
+def _require(params: dict, key: str, op: str) -> Any:
+    """Get required parameter or raise ValueError. Rejects None, empty str, empty collections."""
+    val = params.get(key)
+    if val is None or val == "" or val == [] or val == {}:
+        raise ValueError(f"{key} required for {op}")
+    return val
+
+
+def _require_any(params: dict, key: str, op: str) -> Any:
+    """Get required parameter, allowing empty string / zero / False / empty collections."""
+    val = params.get(key)
+    if val is None:
+        raise ValueError(f"{key} required for {op}")
+    return val
+
+
 def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult:
     """Apply a single operation to an open package. Does NOT save the file.
 
@@ -67,6 +83,9 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         OpResult with success status, element_id, and message/error
     """
     operation = params.get("op", "")
+    if not operation:
+        raise ValueError("op required")
+
     target_id = params.get("target_id", "")
     content_type = params.get("content_type", "paragraph")
     content_data = params.get("content_data", "") or params.get("content", "")
@@ -79,6 +98,103 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
     author = params.get("author", "")
     initials = params.get("initials", "")
     section_index = params.get("section_index", 0)
+
+    # --- Per-operation required parameter validation ---
+    # Operations that require target_id
+    _TARGET_OPS = {
+        "insert_before",
+        "insert_after",
+        "replace",
+        "delete",
+        "edit_cell",
+        "add_row",
+        "add_column",
+        "delete_row",
+        "delete_column",
+        "set_table_alignment",
+        "set_table_autofit",
+        "set_table_fixed_layout",
+        "set_row_height",
+        "set_cell_width",
+        "set_cell_vertical_alignment",
+        "set_cell_borders",
+        "set_cell_shading",
+        "set_header_row",
+        "style",
+        "edit_run",
+        "set_list_level",
+        "promote_list",
+        "demote_list",
+        "restart_numbering",
+        "remove_list",
+        "create_list",
+        "add_to_list",
+        "insert_image",
+        "insert_floating_image",
+        "delete_image",
+        "delete_chart",
+        "update_chart_data",
+        "insert_chart",
+        "add_tab_stop",
+        "clear_tab_stops",
+        "insert_field",
+        "insert_citation",
+        "insert_bibliography",
+        "accept_change",
+        "reject_change",
+        "add_break",
+        "edit_style",
+        "delete_style",
+        "add_comment",
+        "reply_comment",
+        "resolve_comment",
+        "unresolve_comment",
+        "add_hyperlink",
+        "merge_cells",
+    }
+    if operation in _TARGET_OPS and not target_id:
+        raise ValueError(f"target_id required for {operation}")
+
+    # Operations that require content_data
+    _CONTENT_OPS = {
+        "insert_before",
+        "insert_after",
+        "replace",
+        "set_table_alignment",
+        "set_table_autofit",
+        "set_table_fixed_layout",
+        "set_row_height",
+        "set_cell_width",
+        "set_cell_vertical_alignment",
+        "set_cell_borders",
+        "set_cell_shading",
+        "set_custom_property",
+        "set_property",
+        "create_style",
+        "insert_image",
+        "insert_floating_image",
+        "insert_chart",
+        "update_chart_data",
+        "add_source",
+        "delete_source",
+        "add_comment",
+        "add_hyperlink",
+        "insert_citation",
+        "merge_cells",
+    }
+    if operation in _CONTENT_OPS and not content_data:
+        raise ValueError(f"content_data required for {operation}")
+
+    # append needs content_data for headings/tables but not for empty paragraphs or page breaks
+    _APPEND_CONTENT_OPTIONAL = {"paragraph", "page_break"}
+    if (
+        operation == "append"
+        and not content_data
+        and content_type not in _APPEND_CONTENT_OPTIONAL
+    ):
+        raise ValueError(
+            f"content_data required for append with content_type={content_type}"
+        )
 
     element_id = target_id
     message = f"Completed {operation}"
