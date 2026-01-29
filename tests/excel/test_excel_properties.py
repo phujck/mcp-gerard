@@ -49,7 +49,7 @@ class TestReadProperties:
         assert props["custom_properties"] == []
 
 
-class TestSetMeta:
+class TestSetProperty:
     """Tests for setting core properties."""
 
     def test_set_title(self, workbook):
@@ -59,7 +59,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "title",
                         "property_value": "Test Workbook",
                     }
@@ -79,7 +79,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "author",
                         "property_value": "Test Author",
                     }
@@ -96,7 +96,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "subject",
                         "property_value": "Test Subject",
                     }
@@ -113,7 +113,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "keywords",
                         "property_value": "excel, test, mcp",
                     }
@@ -130,7 +130,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "title",
                         "property_value": "My Title",
                     }
@@ -142,7 +142,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "author",
                         "property_value": "My Author",
                     }
@@ -154,7 +154,7 @@ class TestSetMeta:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "subject",
                         "property_value": "My Subject",
                     }
@@ -481,7 +481,7 @@ class TestPropertiesPersistence:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "title",
                         "property_value": "Persistent Title",
                     }
@@ -493,7 +493,7 @@ class TestPropertiesPersistence:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "author",
                         "property_value": "Persistent Author",
                     }
@@ -529,8 +529,8 @@ class TestPropertiesPersistence:
         assert custom[0]["value"] == "Value"
 
 
-class TestSetMetaValidation:
-    """Tests for set_meta validation."""
+class TestSetPropertyValidation:
+    """Tests for set_property validation."""
 
     def test_invalid_property_name_returns_failure(self, workbook):
         """Test that invalid property names return a failed batch result."""
@@ -539,7 +539,7 @@ class TestSetMetaValidation:
             ops=json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "property_name": "invalid_property",
                         "property_value": "value",
                     }
@@ -565,7 +565,7 @@ class TestSetMetaValidation:
                 ops=json.dumps(
                     [
                         {
-                            "op": "set_meta",
+                            "op": "set_property",
                             "property_name": name,
                             "property_value": f"test_{name}",
                         }

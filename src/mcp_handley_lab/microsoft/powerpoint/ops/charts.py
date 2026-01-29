@@ -20,9 +20,8 @@ from mcp_handley_lab.microsoft.common.charts import (
     _qn_r,
     compute_chart_refs,
     create_chart_xml,
-    validate_chart_data,
 )
-from mcp_handley_lab.microsoft.common.embedding import create_embedded_excel
+from mcp_handley_lab.microsoft.excel.embedding import create_embedded_excel
 from mcp_handley_lab.microsoft.powerpoint.constants import NSMAP, qn
 from mcp_handley_lab.microsoft.powerpoint.models import ChartInfo
 from mcp_handley_lab.microsoft.powerpoint.ops.core import (
@@ -76,7 +75,6 @@ def create_chart(
     Returns:
         Shape key (slide_num:shape_id)
     """
-    validate_chart_data(data)
 
     slide_partname = pkg.get_slide_partname(slide_num)
     slide_xml = pkg.get_slide_xml(slide_num)
@@ -359,7 +357,6 @@ def update_chart_data(
         shape_key: Shape key of the chart
         data: New 2D data array
     """
-    validate_chart_data(data)
 
     target_slide, target_shape_id = parse_shape_key(shape_key)
     if target_slide != slide_num:

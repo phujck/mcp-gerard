@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from io import BytesIO
 
+from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_value
+from mcp_handley_lab.microsoft.excel.ops.core import index_to_column_letter
 from mcp_handley_lab.microsoft.excel.package import ExcelPackage
 
 
@@ -22,9 +24,6 @@ def create_embedded_excel(
     Returns:
         (xlsx_bytes, sheet_name, n_rows, n_cols)
     """
-    from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_value
-    from mcp_handley_lab.microsoft.excel.ops.core import index_to_column_letter
-
     pkg = ExcelPackage.new()
 
     for row_idx, row in enumerate(data):

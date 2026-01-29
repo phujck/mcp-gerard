@@ -12,9 +12,8 @@ from mcp_handley_lab.microsoft.common.charts import (
     _col_letter,
     compute_chart_refs,
     create_chart_xml,
-    validate_chart_data,
 )
-from mcp_handley_lab.microsoft.common.embedding import create_embedded_excel
+from mcp_handley_lab.microsoft.excel.embedding import create_embedded_excel
 from mcp_handley_lab.microsoft.excel.package import ExcelPackage
 
 
@@ -382,34 +381,6 @@ class TestCreateEmbeddedExcel:
         assert get_cell_value(pkg, sheet_name, "B1") == "Score"
         assert get_cell_value(pkg, sheet_name, "A2") == "Alice"
         assert get_cell_value(pkg, sheet_name, "B2") == 95
-
-
-class TestValidateChartData:
-    """Tests for validate_chart_data input validation."""
-
-    def test_empty_data(self):
-        with pytest.raises(ValueError, match="must not be empty"):
-            validate_chart_data([])
-
-    def test_single_row(self):
-        with pytest.raises(ValueError, match="at least 2 rows"):
-            validate_chart_data([["Cat", "S1"]])
-
-    def test_single_column(self):
-        with pytest.raises(ValueError, match="at least 2 columns"):
-            validate_chart_data([["Cat"], ["A"]])
-
-    def test_jagged_rows(self):
-        with pytest.raises(ValueError, match="rectangular"):
-            validate_chart_data([["Cat", "S1"], ["A"]])
-
-    def test_valid_data(self):
-        # Should not raise
-        validate_chart_data([["Cat", "S1"], ["A", 10]])
-
-    def test_valid_multi_series(self):
-        # Should not raise
-        validate_chart_data([["Cat", "S1", "S2"], ["A", 10, 20], ["B", 30, 40]])
 
 
 class TestCreateChartXmlValidation:
