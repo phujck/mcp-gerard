@@ -68,7 +68,7 @@ uv tool install -e .
 ```
 
 Alternatively:
-- `uv sync` for a local venv (run tools with `uv run mcp-llm-chat` or `source .venv/bin/activate`)
+- `uv sync` for a local venv (run tools with `uv run mcp-llm` or `source .venv/bin/activate`)
 - Traditional pip: `python3 -m venv venv && source venv/bin/activate && pip install -e .`
 
 ## Configuration
@@ -95,9 +95,7 @@ Register only the tools you need to avoid context bloat:
 
 ```bash
 # Unified LLM tools (one tool handles all providers via model inference)
-claude mcp add llm-chat --scope user mcp-llm-chat      # Chat with any LLM
-claude mcp add llm-image --scope user mcp-llm-image    # Image generation
-claude mcp add llm-models --scope user mcp-llm-models  # List available models
+claude mcp add llm --scope user mcp-llm                # Chat, vision, image gen, transcribe, OCR, models
 
 # Other essential tools
 claude mcp add arxiv --scope user mcp-arxiv
