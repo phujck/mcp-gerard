@@ -1,4 +1,4 @@
-"""Render Office documents (Word, PowerPoint) to PNG images or PDF using libreoffice."""
+"""Render Office documents (Word, PowerPoint, Visio) to PNG images or PDF using libreoffice."""
 
 import shutil
 import subprocess
@@ -67,9 +67,7 @@ def _check_pdftoppm() -> None:
         )
 
 
-def _convert_to_pdf(
-    file_path: Path, output_dir: Path, profile_dir: Path, timeout: int
-) -> Path:
+def _convert_to_pdf(file_path: Path, output_dir: Path, timeout: int) -> Path:
     """Convert an Office document to PDF using libreoffice."""
     _check_libreoffice()
     try:
@@ -80,7 +78,6 @@ def _convert_to_pdf(
                 "--nologo",
                 "--norestore",
                 "--nolockcheck",
-                f"-env:UserInstallation={profile_dir.as_uri()}",
                 "--convert-to",
                 "pdf",
                 "--outdir",
@@ -120,9 +117,7 @@ def convert_to_pdf(file_path: str, timeout: int = 120) -> bytes:
     doc_path = _validate_file(file_path)
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        profile_dir = tmp / "profile"
-        profile_dir.mkdir()
-        pdf_path = _convert_to_pdf(doc_path, tmp, profile_dir, timeout)
+        pdf_path = _convert_to_pdf(doc_path, tmp, timeout)
         return pdf_path.read_bytes()
 
 
@@ -166,10 +161,7 @@ def render_pages_to_images(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        profile_dir = tmp / "profile"
-        profile_dir.mkdir()
-
-        pdf_path = _convert_to_pdf(doc_path, tmp, profile_dir, timeout)
+        pdf_path = _convert_to_pdf(doc_path, tmp, timeout)
 
         result = []
         for page_num in unique_pages:

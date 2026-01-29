@@ -29,6 +29,18 @@ from mcp_handley_lab.microsoft.powerpoint.models import (
     TableCell,
     TableInfo,
 )
+from mcp_handley_lab.microsoft.powerpoint.ops.charts import (
+    create_chart as create_chart_op,
+)
+from mcp_handley_lab.microsoft.powerpoint.ops.charts import (
+    delete_chart as delete_chart_op,
+)
+from mcp_handley_lab.microsoft.powerpoint.ops.charts import (
+    list_charts as list_charts_op,
+)
+from mcp_handley_lab.microsoft.powerpoint.ops.charts import (
+    update_chart_data as update_chart_data_op,
+)
 from mcp_handley_lab.microsoft.powerpoint.ops.images import (
     add_image,
     delete_image,
@@ -89,6 +101,7 @@ ReadScope = Literal[
     "layouts",
     "images",
     "tables",
+    "charts",
     "properties",
 ]
 
@@ -118,7 +131,7 @@ _MAX_OPS = 500
 def read(
     file_path: str,
     scope: ReadScope = "slides",
-    slide_num: int | None = None,
+    slide_num: int = 0,
 ) -> dict:
     """Read from a PowerPoint presentation.
 
@@ -133,8 +146,9 @@ def read(
             - "layouts": List available slide layouts
             - "images": List images (all slides, or specific slide if slide_num given)
             - "tables": List tables with structure (requires slide_num)
+            - "charts": List charts on a slide (requires slide_num)
             - "properties": Document properties (title, author, custom properties)
-        slide_num: Required for shapes/text/notes/tables scopes; optional for images (1-based)
+        slide_num: Slide number (1-based). Required for shapes/text/notes/tables; optional for images (0 = all slides)
 
     Returns:
         PowerPointReadResult with scope-specific data
@@ -148,17 +162,17 @@ def read(
         return _read_slides(pkg).model_dump(exclude_none=True)
 
     elif scope == "shapes":
-        if slide_num is None:
+        if not slide_num:
             raise ValueError("slide_num required for shapes scope")
         return _read_shapes(pkg, slide_num).model_dump(exclude_none=True)
 
     elif scope == "text":
-        if slide_num is None:
+        if not slide_num:
             raise ValueError("slide_num required for text scope")
         return _read_text(pkg, slide_num).model_dump(exclude_none=True)
 
     elif scope == "notes":
-        if slide_num is None:
+        if not slide_num:
             raise ValueError("slide_num required for notes scope")
         return _read_notes(pkg, slide_num).model_dump(exclude_none=True)
 
@@ -166,12 +180,17 @@ def read(
         return _read_layouts(pkg).model_dump(exclude_none=True)
 
     elif scope == "images":
-        return _read_images(pkg, slide_num).model_dump(exclude_none=True)
+        return _read_images(pkg, slide_num or None).model_dump(exclude_none=True)
 
     elif scope == "tables":
-        if slide_num is None:
+        if not slide_num:
             raise ValueError("slide_num required for tables scope")
         return _read_tables(pkg, slide_num).model_dump(exclude_none=True)
+
+    elif scope == "charts":
+        if not slide_num:
+            raise ValueError("slide_num required for charts scope")
+        return _read_charts(pkg, slide_num).model_dump(exclude_none=True)
 
     elif scope == "properties":
         return _read_properties(pkg).model_dump(exclude_none=True)
@@ -305,6 +324,15 @@ def _read_tables(pkg: PowerPointPackage, slide_num: int) -> PowerPointReadResult
     )
 
 
+def _read_charts(pkg: PowerPointPackage, slide_num: int) -> PowerPointReadResult:
+    """Read charts from a slide."""
+    charts = list_charts_op(pkg, slide_num)
+    return PowerPointReadResult(
+        scope="charts",
+        charts=charts,
+    )
+
+
 def _normalize_text(op: str, params: dict[str, Any]) -> dict[str, Any]:
     """Normalize escaped characters in text fields.
 
@@ -415,6 +443,9 @@ def edit(
         - set_property: Core property {property_name, property_value}
         - set_custom_property: Custom property {property_name, property_value, property_type}
         - delete_custom_property: Delete property {property_name}
+        - add_chart: Add chart {slide_num, chart_type, data, x, y, width, height, title}
+        - delete_chart: Delete chart {slide_num, shape_key}
+        - update_chart_data: Update chart {slide_num, shape_key, data}
 
     $prev chaining:
         Reference results of previous operations using $prev[N] where N is the
@@ -639,6 +670,12 @@ def _apply_op(
         return _op_set_custom_property(pkg, params)
     elif op == "delete_custom_property":
         return _op_delete_custom_property(pkg, params)
+    elif op == "add_chart":
+        return _op_add_chart(pkg, params)
+    elif op == "delete_chart":
+        return _op_delete_chart(pkg, params)
+    elif op == "update_chart_data":
+        return _op_update_chart_data(pkg, params)
     else:
         raise ValueError(f"Unknown operation: {op}")
 
@@ -808,11 +845,12 @@ def _op_add_image(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, A
         raise ValueError("slide_num required for add_image")
     if image_path is None:
         raise ValueError("image_path required for add_image")
-    kwargs: dict[str, Any] = {}
-    for k in ("x", "y", "width", "height"):
-        if k in params:
-            kwargs[k] = params[k]
-    shape_key = add_image(pkg, slide_num, image_path, **kwargs)
+    shape_key = add_image(
+        pkg,
+        slide_num,
+        image_path,
+        **{k: params[k] for k in ("x", "y", "width", "height") if k in params},
+    )
     return {"message": f"Added image on slide {slide_num}", "element_id": shape_key}
 
 
@@ -837,11 +875,13 @@ def _op_add_table(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, A
         raise ValueError("slide_num required for add_table")
     if rows is None or cols is None:
         raise ValueError("rows and cols required for add_table")
-    kwargs: dict[str, Any] = {}
-    for k in ("x", "y", "width", "height"):
-        if k in params:
-            kwargs[k] = params[k]
-    shape_key = add_table(pkg, slide_num, rows, cols, **kwargs)
+    shape_key = add_table(
+        pkg,
+        slide_num,
+        rows,
+        cols,
+        **{k: params[k] for k in ("x", "y", "width", "height") if k in params},
+    )
     return {
         "message": f"Added {rows}x{cols} table on slide {slide_num}",
         "element_id": shape_key,
@@ -1082,6 +1122,67 @@ def _op_delete_custom_property(
         raise ValueError(f"Custom property '{property_name}' not found")
 
 
+def _op_add_chart(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Add a chart to a slide."""
+    slide_num = params.get("slide_num")
+    if not slide_num:
+        raise ValueError("slide_num required for add_chart")
+    chart_type = params.get("chart_type", "column")
+    data = params.get("data")
+    if not data:
+        raise ValueError("data required for add_chart (2D list)")
+    title = params.get("title")
+    x = float(params.get("x", 1.0))
+    y = float(params.get("y", 1.5))
+    width = float(params.get("width", 8.0))
+    height = float(params.get("height", 5.0))
+
+    shape_key = create_chart_op(
+        pkg,
+        slide_num,
+        chart_type,
+        data,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        title=title,
+    )
+    return {
+        "message": f"Added {chart_type} chart to slide {slide_num}",
+        "element_id": shape_key,
+    }
+
+
+def _op_delete_chart(pkg: PowerPointPackage, params: dict[str, Any]) -> dict[str, Any]:
+    """Delete a chart from a slide."""
+    slide_num = params.get("slide_num")
+    if not slide_num:
+        raise ValueError("slide_num required for delete_chart")
+    shape_key = params.get("shape_key")
+    if not shape_key:
+        raise ValueError("shape_key required for delete_chart")
+    delete_chart_op(pkg, slide_num, shape_key)
+    return {"message": f"Deleted chart {shape_key}", "element_id": ""}
+
+
+def _op_update_chart_data(
+    pkg: PowerPointPackage, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Update chart data."""
+    slide_num = params.get("slide_num")
+    if not slide_num:
+        raise ValueError("slide_num required for update_chart_data")
+    shape_key = params.get("shape_key")
+    if not shape_key:
+        raise ValueError("shape_key required for update_chart_data")
+    data = params.get("data")
+    if not data:
+        raise ValueError("data required for update_chart_data (2D list)")
+    update_chart_data_op(pkg, slide_num, shape_key, data)
+    return {"message": f"Updated chart data for {shape_key}", "element_id": shape_key}
+
+
 # =============================================================================
 # Render Tool
 # =============================================================================
@@ -1090,7 +1191,7 @@ def _op_delete_custom_property(
 @mcp.tool()
 def render(
     file_path: str,
-    slides: list[int] | None = None,
+    slides: list[int] = Field(default_factory=list),
     dpi: int = 150,
     output: str = "png",
 ):

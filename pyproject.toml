@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-handley-lab"
-version = "0.25.0b4"
+version = "0.25.12"
 description = "MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -62,14 +62,15 @@ dev = [
     "pre-commit>=3.0.0",
     "tomli>=2.0.0",
 ]
-semantic = [
-    "chromadb>=1.0.0",
-]
 
 [project.scripts]
 # Unified LLM tools
-mcp-llm = "mcp_handley_lab.llm.tool:mcp.run"
+mcp-llm-chat = "mcp_handley_lab.llm.chat.tool:mcp.run"
+mcp-llm-image = "mcp_handley_lab.llm.image.tool:mcp.run"
 mcp-llm-embeddings = "mcp_handley_lab.llm.embeddings.tool:mcp.run"
+mcp-llm-ocr = "mcp_handley_lab.llm.ocr.tool:mcp.run"
+mcp-llm-audio = "mcp_handley_lab.llm.audio.tool:mcp.run"
+mcp-llm-models = "mcp_handley_lab.llm.models.tool:mcp.run"
 # Other tools
 mcp-vim = "mcp_handley_lab.vim.tool:mcp.run"
 mcp-code2prompt = "mcp_handley_lab.code2prompt.tool:mcp.run"
@@ -84,8 +85,6 @@ mcp-repl = "mcp_handley_lab.repl.tool:mcp.run"
 mcp-screenshot = "mcp_handley_lab.screenshot.tool:mcp.run"
 mcp-word = "mcp_handley_lab.microsoft.word.tool:mcp.run"
 mcp-excel = "mcp_handley_lab.microsoft.excel.tool:mcp.run"
-mcp-powerpoint = "mcp_handley_lab.microsoft.powerpoint.tool:mcp.run"
-mcp-visio = "mcp_handley_lab.microsoft.visio.tool:mcp.run"
 mcp-mathematica = "mcp_handley_lab.mathematica.cli:main"
 mcp-handley-lab = "mcp_handley_lab.__main__:main"
 mcp-cli = "mcp_handley_lab.cli.main:cli"
@@ -129,7 +128,6 @@ ignore = ["E501", "B008"]  # Line too long, function call in default arguments (
 "src/mcp_handley_lab/microsoft/word/*.py" = ["N802", "N803", "N806", "E402", "SIM102", "SIM105", "SIM108", "SIM117", "B007", "B904"]  # OOXML naming conventions
 "src/mcp_handley_lab/microsoft/excel/*.py" = ["N802", "N803", "N806"]  # SpreadsheetML uses OOXML naming conventions
 "src/mcp_handley_lab/microsoft/powerpoint/*.py" = ["N802", "N803", "N806"]  # PresentationML uses OOXML naming conventions
-"src/mcp_handley_lab/microsoft/powerpoint/ops/*.py" = ["N802", "N803", "N806"]  # PresentationML ops use OOXML naming conventions
 "tests/word/*.py" = ["N806"]  # Allow OOXML element naming in tests
 "tests/excel/*.py" = ["N806"]  # Allow OOXML element naming in tests
 "tests/powerpoint/*.py" = ["N806"]  # Allow OOXML element naming in tests
