@@ -228,6 +228,7 @@ def _get_cell_shading(tc_el: etree._Element) -> str | None:
 _W_VALIGN = qn("w:vAlign")
 _W_W = qn("w:w")
 _W_TBL_PR = qn("w:tblPr")
+_W_TBL_STYLE = qn("w:tblStyle")
 _W_JC = qn("w:jc")
 _W_TBL_LAYOUT = qn("w:tblLayout")
 _W_TYPE = qn("w:type")
@@ -778,6 +779,29 @@ def set_table_alignment(tbl_el: etree._Element, alignment: str) -> None:
     if jc is None:
         jc = etree.SubElement(tblPr, _W_JC)
     jc.set(_W_VAL, alignment.lower())
+
+
+def set_table_style(tbl_el: etree._Element, style_id: str) -> None:
+    """Set table style by style ID.
+
+    Note: Use the style ID (e.g., 'TableGrid'), not the UI display name
+    (e.g., 'Table Grid'). Word ignores unknown style IDs gracefully.
+
+    Pure OOXML: Takes w:tbl element.
+
+    Args:
+        tbl_el: The table element
+        style_id: Style identifier (e.g., 'TableGrid', 'LightShading', 'GridTable1Light')
+    """
+    tblPr = tbl_el.find(_W_TBL_PR)
+    if tblPr is None:
+        tblPr = etree.Element(_W_TBL_PR)
+        tbl_el.insert(0, tblPr)
+
+    tblStyle = tblPr.find(_W_TBL_STYLE)
+    if tblStyle is None:
+        tblStyle = etree.SubElement(tblPr, _W_TBL_STYLE)
+    tblStyle.set(_W_VAL, style_id)
 
 
 def set_row_height(

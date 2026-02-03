@@ -51,6 +51,77 @@ _HF_APPEND_OPS = {"append_header": "header", "append_footer": "footer"}
 _HF_CLEAR_OPS = {"clear_header": "header", "clear_footer": "footer"}
 
 
+def _parse_json_param(
+    value: Any, field_name: str, expected_type: type | tuple = dict
+) -> Any:
+    """Parse parameter that may be JSON string or already-parsed object.
+
+    Args:
+        value: The parameter value (string, dict, list, or None)
+        field_name: Name for error messages
+        expected_type: Expected type(s) after parsing (default: dict)
+
+    Returns:
+        Parsed value if string, passthrough if already correct type,
+        None if falsy (caller handles default).
+
+    Raises:
+        ValueError: If value is wrong type or invalid JSON.
+    """
+    if not value:
+        return None  # Let caller handle default
+    if isinstance(value, expected_type):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{field_name} must be valid JSON: {e}")
+        if not isinstance(parsed, expected_type):
+            if isinstance(expected_type, tuple):
+                type_names = "/".join(t.__name__ for t in expected_type)
+            else:
+                type_names = expected_type.__name__
+            raise ValueError(
+                f"{field_name} must be {type_names}, got {type(parsed).__name__}"
+            )
+        return parsed
+    if isinstance(expected_type, tuple):
+        type_names = "/".join(t.__name__ for t in expected_type)
+    else:
+        type_names = expected_type.__name__
+    raise ValueError(
+        f"{field_name} must be {type_names} or JSON string, got {type(value).__name__}"
+    )
+
+
+def _parse_bool_param(value: Any, field_name: str) -> bool:
+    """Parse a boolean parameter that may be bool, string, or JSON.
+
+    Args:
+        value: The parameter value
+        field_name: Name for error messages
+
+    Returns:
+        Boolean value.
+
+    Raises:
+        ValueError: If value cannot be interpreted as boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lower = value.lower().strip()
+        if lower in ("true", "1", "yes"):
+            return True
+        if lower in ("false", "0", "no"):
+            return False
+        raise ValueError(
+            f"{field_name} must be boolean (true/false/yes/no/1/0), got '{value}'"
+        )
+    raise ValueError(f"{field_name} must be boolean, got {type(value).__name__}")
+
+
 def _recalc_table_id(doc, t) -> str:
     """Recalculate table element ID after modification. Requires base_kind == 'table'."""
     if t.base_kind != "table":
@@ -212,6 +283,19 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             style_name,
             heading_level,
         )
+        # Apply formatting if provided
+        fmt = _parse_json_param(formatting, "formatting") or {}
+        if fmt:
+            from mcp_handley_lab.microsoft.word.constants import qn as _qn
+
+            if el.tag == _qn("w:p"):  # paragraph or heading
+                if "style" in fmt:
+                    word_ops.set_paragraph_style_ooxml(el, fmt.pop("style"))
+                if fmt:  # remaining formatting keys
+                    word_ops.apply_paragraph_formatting(el, fmt)
+            elif el.tag == _qn("w:tbl"):  # table
+                if "style" in fmt:
+                    word_ops.set_table_style(el, fmt["style"])
         level = heading_level if content_type == "heading" else 0
         element_id = word_ops.get_element_id_ooxml(pkg, el, level)
         pkg.mark_xml_dirty("/word/document.xml")
@@ -221,13 +305,32 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         el = word_ops.append_content_ooxml(
             pkg, content_type, content_data, style_name, heading_level
         )
-        level = heading_level if content_type == "heading" else 0
+        # Apply formatting if provided
+        fmt = _parse_json_param(formatting, "formatting") or {}
+        style_override = False
+        if fmt:
+            from mcp_handley_lab.microsoft.word.constants import qn as _qn
+
+            if el.tag == _qn("w:p"):  # paragraph or heading
+                if "style" in fmt:
+                    word_ops.set_paragraph_style_ooxml(el, fmt.pop("style"))
+                    style_override = True
+                if fmt:  # remaining formatting keys
+                    word_ops.apply_paragraph_formatting(el, fmt)
+            elif el.tag == _qn("w:tbl"):  # table
+                if "style" in fmt:
+                    word_ops.set_table_style(el, fmt["style"])
+        # If style was overridden, use level=0 to let paragraph_kind_and_level
+        # determine the block type from the actual style
+        level = (
+            0 if style_override else (heading_level if content_type == "heading" else 0)
+        )
         element_id = word_ops.get_element_id_ooxml(pkg, el, level)
         pkg.mark_xml_dirty("/word/document.xml")
         message = f"Appended {content_type} to document"
 
     elif operation == "edit_style":
-        fmt = json.loads(formatting)
+        fmt = _parse_json_param(formatting, "formatting") or {}
         word_ops.edit_style(pkg, target_id, fmt)
         message = f"Modified style: {target_id}"
 
@@ -244,7 +347,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             word_ops.set_paragraph_text_ooxml(t.leaf_el, content_data)
             element_id = _recalc_block_id(pkg, t)
         elif t.leaf_kind == "table":
-            table_data = json.loads(content_data)
+            table_data = _parse_json_param(content_data, "content_data", list) or []
             new_tbl_el = word_ops.replace_table(t.leaf_el, table_data)
             table_content = word_ops.table_content_for_hash(new_tbl_el)
             occurrence = word_ops.count_occurrence(
@@ -265,7 +368,11 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "add_row":
         t = word_ops.resolve_target(pkg, target_id)
-        data = json.loads(content_data) if content_data else None
+        data = (
+            _parse_json_param(content_data, "content_data", list)
+            if content_data
+            else None
+        )
         row_idx = word_ops.add_table_row(t.leaf_el, data)
         pkg.mark_xml_dirty("/word/document.xml")
         element_id = _recalc_table_id(pkg, t)
@@ -273,10 +380,14 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "add_column":
         t = word_ops.resolve_target(pkg, target_id)
-        fmt = json.loads(formatting) if formatting else {}
+        fmt = _parse_json_param(formatting, "formatting") or {}
         width_inches = float(fmt.get("width", 1.0))
         width_twips = int(width_inches * 1440)  # 1440 twips per inch
-        data = json.loads(content_data) if content_data else None
+        data = (
+            _parse_json_param(content_data, "content_data", list)
+            if content_data
+            else None
+        )
         col_idx = word_ops.add_table_column(t.leaf_el, width_twips, data)
         pkg.mark_xml_dirty("/word/document.xml")
         element_id = _recalc_table_id(pkg, t)
@@ -302,9 +413,8 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             raise ValueError(
                 "merge_cells requires content_data JSON with end_row, end_col"
             )
-        try:
-            merge_data = json.loads(content_data)
-        except json.JSONDecodeError:
+        merge_data = _parse_json_param(content_data, "content_data")
+        if not merge_data:
             raise ValueError(
                 "merge_cells content_data must be valid JSON with end_row, end_col"
             )
@@ -329,21 +439,21 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "set_table_autofit":
         t = word_ops.resolve_target(pkg, target_id)
-        autofit_value = json.loads(content_data.lower())
+        autofit_value = _parse_bool_param(content_data, "content_data")
         word_ops.set_table_autofit(t.leaf_el, autofit_value)
         pkg.mark_xml_dirty("/word/document.xml")
         message = f"Set table autofit to {autofit_value}"
 
     elif operation == "set_table_fixed_layout":
         t = word_ops.resolve_target(pkg, target_id)
-        widths = json.loads(content_data)
+        widths = _parse_json_param(content_data, "content_data", list) or []
         word_ops.set_table_fixed_layout(t.leaf_el, widths)
         pkg.mark_xml_dirty("/word/document.xml")
         message = f"Set table fixed layout with {len(widths)} columns"
 
     elif operation == "set_row_height":
         t = word_ops.resolve_target(pkg, target_id)
-        height_data = json.loads(content_data)
+        height_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.set_row_height(
             t.leaf_el,
             row,
@@ -367,7 +477,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "set_cell_borders":
         t = word_ops.resolve_target(pkg, target_id)
-        border_data = json.loads(content_data)
+        border_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.set_cell_borders(
             t.leaf_el,
             row,
@@ -472,7 +582,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
         if t.leaf_el.tag != _qn("w:p"):
             raise ValueError("create_list requires a paragraph target")
-        data = json.loads(content_data) if content_data else {}
+        data = _parse_json_param(content_data, "content_data") if content_data else {}
         list_type = data.get("list_type", "bullet")
         level = data.get("level", 0)
         num_id = word_ops.create_list(pkg, t.leaf_el, list_type, level)
@@ -494,7 +604,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             "heading9",
         ):
             raise ValueError("add_to_list requires a paragraph target")
-        data = json.loads(content_data) if content_data else {}
+        data = _parse_json_param(content_data, "content_data") if content_data else {}
         text = data.get("text", "")
         position = data.get("position", "after")
         level = data.get("level")  # None = inherit
@@ -504,7 +614,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Added list item {position} target"
 
     elif operation == "set_custom_property":
-        prop_data = json.loads(content_data)
+        prop_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.set_custom_property(
             pkg,
             name=prop_data["name"],
@@ -524,7 +634,9 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             message = f"Custom property '{prop_name}' not found"
 
     elif operation == "set_property":
-        meta_data = json.loads(content_data) if content_data else {}
+        meta_data = (
+            _parse_json_param(content_data, "content_data") if content_data else {}
+        )
         word_ops.set_document_meta(
             pkg,
             title=meta_data.get("title"),
@@ -559,7 +671,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         if content_data:
             word_ops.edit_run_text(t.leaf_el, run_index, content_data)
         if formatting:
-            fmt = json.loads(formatting)
+            fmt = _parse_json_param(formatting, "formatting") or {}
             word_ops.edit_run_formatting(t.leaf_el, run_index, fmt)
         element_id = word_ops.get_element_id_ooxml(pkg, t.leaf_el, 0)
         pkg.mark_xml_dirty("/word/document.xml")
@@ -573,7 +685,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             element_id = target_id
         else:
             if formatting:
-                fmt = json.loads(formatting)
+                fmt = _parse_json_param(formatting, "formatting") or {}
                 word_ops.apply_paragraph_formatting(t.leaf_el, fmt)
             element_id = word_ops.get_element_id_ooxml(pkg, t.leaf_el, 0)
         pkg.mark_xml_dirty("/word/document.xml")
@@ -608,7 +720,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
                 "content_data (JSON with type and optional tag/alias/options) "
                 "required for create_content_control"
             )
-        data = json.loads(content_data)
+        data = _parse_json_param(content_data, "content_data") or {}
         sdt_type_val = data.get("type", "text")
         t = word_ops.resolve_target(pkg, target_id)
         from mcp_handley_lab.microsoft.word.constants import qn as _qn
@@ -644,7 +756,9 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Created {sdt_type_val} content control (id={created_id})"
 
     elif operation == "set_margins":
-        margins = json.loads(formatting)
+        margins = _parse_json_param(formatting, "formatting") or {}
+        if not any(margins.get(k) for k in ("top", "bottom", "left", "right")):
+            raise ValueError("set_margins requires at least one margin in formatting")
         word_ops.set_page_margins(
             pkg,
             section_index,
@@ -662,7 +776,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Set orientation to {content_data} for section {section_index}"
 
     elif operation == "set_columns":
-        col_data = json.loads(content_data)
+        col_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.set_section_columns(
             pkg,
             section_index,
@@ -674,7 +788,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Set {col_data['num_columns']} columns for section {section_index}"
 
     elif operation == "set_line_numbering":
-        ln_data = json.loads(content_data)
+        ln_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.set_line_numbering(
             pkg,
             section_index,
@@ -690,7 +804,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"{action} line numbering for section {section_index}"
 
     elif operation == "set_page_borders":
-        fmt = json.loads(formatting) if formatting else {}
+        fmt = _parse_json_param(formatting, "formatting") or {}
         word_ops.set_page_borders(
             pkg,
             section_index,
@@ -731,10 +845,14 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
     elif operation == "insert_caption":
         if not target_id:
             raise ValueError("target_id (block ID) required for insert_caption")
-        if content_data and content_data.strip().startswith("{"):
-            caption_data = json.loads(content_data)
-            if not isinstance(caption_data, dict):
-                raise ValueError("content_data must be a JSON object or plain text")
+        # content_data can be JSON object or plain text
+        caption_data = (
+            _parse_json_param(content_data, "content_data")
+            if content_data
+            and (isinstance(content_data, dict) or content_data.strip().startswith("{"))
+            else None
+        )
+        if caption_data:
             label = caption_data.get("label", "Figure")
             caption_text = caption_data.get("text", "")
             position = caption_data.get("position", "below")
@@ -754,7 +872,9 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
     elif operation == "insert_toc":
         if not target_id:
             raise ValueError("target_id (block ID) required for insert_toc")
-        toc_data = json.loads(content_data) if content_data else {}
+        toc_data = (
+            _parse_json_param(content_data, "content_data") if content_data else {}
+        )
         position = toc_data.get("position", "before")
         heading_levels = toc_data.get("heading_levels", "1-3")
         element_id = word_ops.insert_toc(pkg, target_id, position, heading_levels)
@@ -770,7 +890,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             raise ValueError("target_id (paragraph ID) required for add_footnote")
         if not content_data:
             raise ValueError("content_data (JSON with text) required for add_footnote")
-        fn_data = json.loads(content_data)
+        fn_data = _parse_json_param(content_data, "content_data") or {}
         fn_text = fn_data.get("text", "")
         note_type = fn_data.get("note_type", "footnote")
         position = fn_data.get("position", "after")
@@ -835,9 +955,8 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             raise ValueError("target_id required for add_hyperlink")
         if not content_data:
             raise ValueError("content_data (JSON with text, address/fragment) required")
-        try:
-            link_data = json.loads(content_data)
-        except json.JSONDecodeError:
+        link_data = _parse_json_param(content_data, "content_data")
+        if not link_data:
             raise ValueError(
                 "content_data must be valid JSON: {text, address?, fragment?}"
             )
@@ -892,8 +1011,8 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Inserted 'Page X of Y' in {location} of section {section_index}"
 
     elif operation == "create_style":
-        style_data = json.loads(content_data)
-        formatting_dict = json.loads(formatting) if formatting else None
+        style_data = _parse_json_param(content_data, "content_data") or {}
+        formatting_dict = _parse_json_param(formatting, "formatting")
         style_id = word_ops.create_style(
             pkg,
             name=style_data["name"],
@@ -913,7 +1032,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
             message = f"Style '{target_id}' not found or is builtin"
 
     elif operation == "insert_image":
-        fmt = json.loads(formatting) if formatting else {}
+        fmt = _parse_json_param(formatting, "formatting") or {}
         element_id = word_ops.insert_image(
             pkg,
             content_data,
@@ -930,7 +1049,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Deleted {target_id}"
 
     elif operation == "insert_floating_image":
-        fmt = json.loads(formatting) if formatting else {}
+        fmt = _parse_json_param(formatting, "formatting") or {}
         element_id = word_ops.insert_floating_image(
             pkg,
             content_data,
@@ -948,7 +1067,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "add_tab_stop":
         t = word_ops.resolve_target(pkg, target_id)
-        tab_data = json.loads(content_data)
+        tab_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.add_tab_stop(
             t.leaf_el,
             float(tab_data["position"]),
@@ -974,7 +1093,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Inserted {field_code} field"
 
     elif operation == "add_source":
-        data = json.loads(content_data)
+        data = _parse_json_param(content_data, "content_data") or {}
         tag = word_ops.add_source(
             pkg,
             tag=data["tag"],
@@ -1004,7 +1123,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
 
     elif operation == "insert_citation":
         t = word_ops.resolve_target(pkg, target_id)
-        data = json.loads(content_data) if content_data else {}
+        data = _parse_json_param(content_data, "content_data") if content_data else {}
         tag = data.get("tag", "")
         display_text = data.get("display_text", "")
         locale = int(data.get("locale", 1033))
@@ -1021,8 +1140,8 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = "Inserted bibliography field"
 
     elif operation == "insert_chart":
-        chart_data = json.loads(content_data)
-        fmt = json.loads(formatting) if formatting else {}
+        chart_data = _parse_json_param(content_data, "content_data") or {}
+        fmt = _parse_json_param(formatting, "formatting") or {}
         chart_id = word_ops.create_chart_op(
             pkg,
             target_id,
@@ -1041,7 +1160,7 @@ def _apply_operation(pkg: WordPackage, file_path: str, params: dict) -> OpResult
         message = f"Deleted chart {target_id}"
 
     elif operation == "update_chart_data":
-        chart_data = json.loads(content_data)
+        chart_data = _parse_json_param(content_data, "content_data") or {}
         word_ops.update_chart_data_op(pkg, target_id, chart_data["data"])
         element_id = target_id
         message = f"Updated chart data for {target_id}"

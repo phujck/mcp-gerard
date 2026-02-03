@@ -278,6 +278,7 @@ from mcp_handley_lab.microsoft.word.ops.tables import (  # noqa: F401
     set_table_alignment,
     set_table_autofit,
     set_table_fixed_layout,
+    set_table_style,
     table_to_markdown,
 )
 from mcp_handley_lab.microsoft.word.ops.toc import (  # noqa: F401

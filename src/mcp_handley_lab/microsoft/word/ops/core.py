@@ -802,7 +802,7 @@ def insert_content_ooxml(
     target_el: etree._Element,
     position: str,
     content_type: str,
-    content_data: str,
+    content_data: str | list | dict,
     style_name: str = "",
     heading_level: int = 0,
 ) -> etree._Element:
@@ -813,7 +813,11 @@ def insert_content_ooxml(
         target_el: Element to insert relative to
         position: 'before' or 'after'
         content_type: 'paragraph', 'heading', or 'table'
-        content_data: Text content or JSON for tables
+        content_data: Text content for paragraphs/headings, or for tables:
+            - 2D list of cell data (e.g., [["a", "b"], ["c", "d"]])
+            - JSON string of 2D list
+            - Dict with {"rows": N, "cols": M} for empty table
+            - JSON string of dict spec
         style_name: Style name to apply
         heading_level: Heading level (for headings)
 
@@ -828,7 +832,30 @@ def insert_content_ooxml(
         _insert_at(target_el, p, position)
         el = p
     elif content_type == "table":
-        table_data = json.loads(content_data)
+        # Parse content_data: accepts 2D list, dict spec, or JSON string of either
+        if isinstance(content_data, str):
+            table_data = json.loads(content_data)
+        else:
+            table_data = content_data
+
+        # Handle dict spec for empty table creation: {"rows": N, "cols": M}
+        if isinstance(table_data, dict):
+            rows = table_data.get("rows", 1)
+            cols = table_data.get("cols", 1)
+            if not isinstance(rows, int) or not isinstance(cols, int):
+                raise ValueError(
+                    f"Table rows and cols must be integers, got rows={type(rows).__name__}, cols={type(cols).__name__}"
+                )
+            if rows < 1 or cols < 1:
+                raise ValueError(
+                    f"Table must have at least 1 row and 1 column, got rows={rows}, cols={cols}"
+                )
+            if rows * cols > 10000:
+                raise ValueError(
+                    f"Table size exceeds maximum (10000 cells), got {rows}x{cols}={rows * cols}"
+                )
+            table_data = [[""] * cols for _ in range(rows)]
+
         el = insert_table_relative(target_el, table_data, position)
     else:
         raise ValueError(f"Unknown content_type: {content_type}")
@@ -840,7 +867,7 @@ def insert_content_ooxml(
 def append_content_ooxml(
     pkg,
     content_type: str,
-    content_data: str,
+    content_data: str | list | dict,
     style_name: str = "",
     heading_level: int = 0,
 ) -> etree._Element:
@@ -849,7 +876,11 @@ def append_content_ooxml(
     Args:
         pkg: WordPackage
         content_type: 'paragraph', 'heading', or 'table'
-        content_data: Text content or JSON for tables
+        content_data: Text content for paragraphs/headings, or for tables:
+            - 2D list of cell data (e.g., [["a", "b"], ["c", "d"]])
+            - JSON string of 2D list
+            - Dict with {"rows": N, "cols": M} for empty table
+            - JSON string of dict spec
         style_name: Style name to apply (for paragraphs)
         heading_level: Heading level (for headings)
 
@@ -865,7 +896,30 @@ def append_content_ooxml(
     elif content_type == "heading":
         return append_heading_ooxml(pkg, content_data, heading_level)
     elif content_type == "table":
-        table_data = json.loads(content_data)
+        # Parse content_data: accepts 2D list, dict spec, or JSON string of either
+        if isinstance(content_data, str):
+            table_data = json.loads(content_data)
+        else:
+            table_data = content_data
+
+        # Handle dict spec for empty table creation: {"rows": N, "cols": M}
+        if isinstance(table_data, dict):
+            rows = table_data.get("rows", 1)
+            cols = table_data.get("cols", 1)
+            if not isinstance(rows, int) or not isinstance(cols, int):
+                raise ValueError(
+                    f"Table rows and cols must be integers, got rows={type(rows).__name__}, cols={type(cols).__name__}"
+                )
+            if rows < 1 or cols < 1:
+                raise ValueError(
+                    f"Table must have at least 1 row and 1 column, got rows={rows}, cols={cols}"
+                )
+            if rows * cols > 10000:
+                raise ValueError(
+                    f"Table size exceeds maximum (10000 cells), got {rows}x{cols}={rows * cols}"
+                )
+            table_data = [[""] * cols for _ in range(rows)]
+
         rows = len(table_data)
         cols = max((len(r) for r in table_data), default=1)
         tbl = _create_table_element(rows, cols)
