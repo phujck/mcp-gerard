@@ -173,8 +173,9 @@ def chat(
 
 
 @mcp.tool(
-    description="Manage conversation branches created by chat. Actions: "
-    "'list' (all branches), 'log' (history with hashes), 'show' (content at ref), "
+    description="Retrieve past LLM responses and manage conversation history. "
+    "Use 'response' to get a previous assistant message from a branch (the primary way to retrieve results from chat). "
+    "Actions: 'list' (all branches), 'log' (history with hashes), 'show' (content at ref), "
     "'response' (get assistant message by index), "
     "'edit' (start editing session with worktree), 'done' (end editing session)."
 )
