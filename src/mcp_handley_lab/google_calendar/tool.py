@@ -198,7 +198,7 @@ def _fetch_calendars_text() -> str:
             break
 
     lines = []
-    for c in items[:10]:
+    for c in items:
         cid = c.get("id")
         if not cid:
             continue
@@ -208,8 +208,6 @@ def _fetch_calendars_text() -> str:
     if not lines:
         return "(No calendars found; use 'primary' or read calendar://list resource)"
 
-    if len(items) > 10:
-        lines.append("... and more (read calendar://list resource for full list)")
     return "\n".join(lines)
 
 
