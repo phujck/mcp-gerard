@@ -14,7 +14,8 @@ def _find_pdf_output(output_dir: Path, input_stem: str) -> Path:
     pdfs = list(output_dir.glob("*.pdf"))
     if len(pdfs) == 0:
         raise RuntimeError(
-            f"LibreOffice conversion failed: no PDF output found in {output_dir}"
+            "LibreOffice conversion produced no output. "
+            "The document may be corrupted or contain unsupported features."
         )
     if len(pdfs) > 1:
         raise RuntimeError(
@@ -25,24 +26,41 @@ def _find_pdf_output(output_dir: Path, input_stem: str) -> Path:
 
 def _convert_to_pdf(file_path: Path, output_dir: Path, timeout: int) -> Path:
     """Convert an Office document to PDF using libreoffice."""
-    subprocess.run(
-        [
-            "libreoffice",
-            "--headless",
-            "--nologo",
-            "--norestore",
-            "--nolockcheck",
-            "--convert-to",
-            "pdf",
-            "--outdir",
-            str(output_dir),
-            str(file_path),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "libreoffice",
+                "--headless",
+                "--nologo",
+                "--norestore",
+                "--nolockcheck",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                str(output_dir),
+                str(file_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=True,
+        )
+    except FileNotFoundError:
+        raise RuntimeError(
+            "libreoffice not found. Install LibreOffice and ensure 'libreoffice' is on PATH."
+        ) from None
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"PDF conversion timed out after {timeout}s. "
+            "Document may be too complex or contain large embedded images."
+        ) from None
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr or ""
+        if "compress" in stderr.lower() or "image" in stderr.lower():
+            hint = "Large embedded images may cause this. Try compressing images before insertion."
+        else:
+            hint = "Check document for corruption or unsupported features."
+        raise RuntimeError(f"PDF conversion failed: {stderr.strip()}\n{hint}") from None
     return _find_pdf_output(output_dir, file_path.stem)
 
 
@@ -126,7 +144,11 @@ def render_pages_to_images(
             # pdftoppm creates files like page1-1.png, page2-2.png
             expected_png = tmp / f"page{page_num}-{page_num}.png"
             if not expected_png.exists():
-                raise ValueError(f"Page {page_num} out of bounds")
+                raise ValueError(
+                    f"Page {page_num} not found in rendered output. "
+                    "The document may have fewer pages than expected, "
+                    "or PDF conversion may have partially failed."
+                )
             result.append((page_num, expected_png.read_bytes()))
 
         return result
