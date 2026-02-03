@@ -81,9 +81,9 @@ def resolve_files(files: list[str]) -> list[dict[str, Any]]:
     for file_item in files:
         # Handle unified format: strings or {"path": "..."} dicts
         if isinstance(file_item, str):
-            file_path = Path(file_item)
+            file_path = Path(file_item).expanduser()
         elif isinstance(file_item, dict) and "path" in file_item:
-            file_path = Path(file_item["path"])
+            file_path = Path(file_item["path"]).expanduser()
         else:
             raise ValueError(f"Invalid file item format: {file_item}")
 
@@ -218,7 +218,7 @@ def image_analysis_adapter(
         # Detect MIME type from path or default to jpeg
         mime_type = "image/jpeg"
         if isinstance(image_item, str) and not image_item.startswith("data:"):
-            guessed_type = determine_mime_type(Path(image_item))
+            guessed_type = determine_mime_type(Path(image_item).expanduser())
             if guessed_type.startswith("image/"):
                 mime_type = guessed_type
         content.append(
@@ -281,7 +281,7 @@ def ocr_adapter(document_path: str, include_images: bool = True) -> dict[str, An
         document_input = {"type": "document_url", "document_url": document_path}
     else:
         # Local file - convert to base64 data URI
-        file_path = Path(document_path)
+        file_path = Path(document_path).expanduser()
 
         # Read file and encode
         file_content = file_path.read_bytes()
@@ -357,7 +357,7 @@ def audio_transcription_adapter(
         transcription_params["file_url"] = audio_path
     else:
         # Local file
-        file_path = Path(audio_path)
+        file_path = Path(audio_path).expanduser()
         with open(file_path, "rb") as f:
             transcription_params["file"] = {
                 "content": f,
