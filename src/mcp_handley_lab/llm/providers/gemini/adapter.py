@@ -230,7 +230,11 @@ def generation_adapter(
     # Extract text, separating thinking from answer
     text_parts = []
     thinking_parts = []
-    if response.candidates and response.candidates[0].content:
+    if (
+        response.candidates
+        and response.candidates[0].content
+        and response.candidates[0].content.parts
+    ):
         for part in response.candidates[0].content.parts:
             if getattr(part, "thought", None):
                 # Thought parts contain reasoning content - extract the text
@@ -437,7 +441,11 @@ def _generate_with_nano_banana(prompt: str, model: str, **kwargs) -> dict:
     text_response = ""
     mime_type = "image/png"
 
-    if response.candidates and response.candidates[0].content:
+    if (
+        response.candidates
+        and response.candidates[0].content
+        and response.candidates[0].content.parts
+    ):
         for part in response.candidates[0].content.parts:
             if hasattr(part, "inline_data") and part.inline_data:
                 # SDK returns data as bytes or base64 string depending on version
