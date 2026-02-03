@@ -81,9 +81,9 @@ def resolve_files(files: list[str]) -> list[dict[str, Any]]:
     for file_item in files:
         # Handle unified format: strings or {"path": "..."} dicts
         if isinstance(file_item, str):
-            file_path = Path(file_item)
+            file_path = Path(file_item).expanduser()
         elif isinstance(file_item, dict) and "path" in file_item:
-            file_path = Path(file_item["path"])
+            file_path = Path(file_item["path"]).expanduser()
         else:
             raise ValueError(f"Invalid file item format: {file_item}")
 

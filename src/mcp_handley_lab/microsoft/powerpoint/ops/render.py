@@ -1,7 +1,6 @@
 """Render PowerPoint presentations to PNG images or PDF using libreoffice.
 
-This module provides thin wrappers around the common render utilities,
-with PowerPoint-specific terminology (slides vs pages).
+Thin wrappers around the common render utilities.
 """
 
 from mcp_handley_lab.microsoft.common.render import (
@@ -24,40 +23,37 @@ def render_to_pdf(file_path: str) -> bytes:
 
 def render_to_images(
     file_path: str,
-    slides: list[int],
+    pages: list[int],
     dpi: int = 150,
 ) -> list[tuple[int, bytes]]:
     """Render PowerPoint slides to PNG images.
 
     Args:
         file_path: Path to the PowerPoint file (.pptx, .pptm, .ppsx)
-        slides: List of 1-based slide numbers to render
+        pages: List of 1-based slide numbers to render
         dpi: Resolution in dots per inch (72-300, default: 150)
 
     Returns:
-        List of (slide_number, png_bytes) tuples
+        List of (page_number, png_bytes) tuples
 
     Raises:
-        ValueError: If slides list is empty, too many slides, DPI out of range,
+        ValueError: If pages list is empty, too many pages, DPI out of range,
                    or slide out of bounds
         RuntimeError: If libreoffice/pdftoppm not found or conversion fails
     """
-    # Validate with PowerPoint-specific error messages
-    if not slides:
-        raise ValueError("slides is required")
+    if not pages:
+        raise ValueError("pages is required")
 
-    unique_slides = sorted(set(slides))
-    if len(unique_slides) > 5:
-        raise ValueError(f"max 5 slides allowed; requested {len(unique_slides)}")
+    unique_pages = sorted(set(pages))
+    if len(unique_pages) > 5:
+        raise ValueError(f"max 5 pages allowed; requested {len(unique_pages)}")
 
-    # Delegate to common implementation
     try:
-        return render_pages_to_images(file_path, slides, dpi=dpi)
+        return render_pages_to_images(file_path, pages, dpi=dpi)
     except ValueError as e:
         # Translate generic "page" errors to "slide" terminology
         msg = str(e)
         if "Page " in msg and " out of bounds" in msg:
-            # Extract page number and rewrite message
             import re
 
             match = re.search(r"Page (\d+) out of bounds", msg)

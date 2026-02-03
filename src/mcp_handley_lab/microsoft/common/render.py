@@ -1,46 +1,16 @@
-"""Render Office documents (Word, PowerPoint) to PNG images or PDF using libreoffice."""
+"""Render Office documents (Word, PowerPoint, Visio) to PNG images or PDF using libreoffice."""
 
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
-# Supported file extensions (case-insensitive)
-SUPPORTED_EXTENSIONS = {".docx", ".docm", ".pptx", ".pptm", ".ppsx"}
-
-
-def _validate_file(file_path: str) -> Path:
-    """Validate file path and extension."""
-    path = Path(file_path).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
-    ext = path.suffix.lower()
-    if ext not in SUPPORTED_EXTENSIONS:
-        raise ValueError(
-            f"Unsupported file type: {ext}. "
-            f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
-        )
-    return path
-
-
-def _validate_dpi(dpi: int | float) -> int:
-    """Validate and normalize DPI value."""
-    dpi_int = round(dpi)
-    if dpi_int < 72:
-        raise ValueError(f"DPI must be at least 72, got {dpi_int}")
-    if dpi_int > 300:
-        raise ValueError(f"DPI must be at most 300, got {dpi_int}")
-    return dpi_int
-
 
 def _find_pdf_output(output_dir: Path, input_stem: str) -> Path:
     """Find the PDF output file in the output directory."""
-    # First, try to find by input stem
     expected_pdf = output_dir / f"{input_stem}.pdf"
     if expected_pdf.exists():
         return expected_pdf
 
-    # Fall back to finding the single PDF in the directory
     pdfs = list(output_dir.glob("*.pdf"))
     if len(pdfs) == 0:
         raise RuntimeError(
@@ -53,76 +23,35 @@ def _find_pdf_output(output_dir: Path, input_stem: str) -> Path:
     return pdfs[0]
 
 
-def _check_libreoffice() -> None:
-    """Check if libreoffice is available."""
-    if shutil.which("libreoffice") is None:
-        raise RuntimeError("libreoffice not found. Please install LibreOffice.")
-
-
-def _check_pdftoppm() -> None:
-    """Check if pdftoppm is available."""
-    if shutil.which("pdftoppm") is None:
-        raise RuntimeError(
-            "pdftoppm not found. Please install poppler-utils (provides pdftoppm)."
-        )
-
-
-def _convert_to_pdf(
-    file_path: Path, output_dir: Path, profile_dir: Path, timeout: int
-) -> Path:
+def _convert_to_pdf(file_path: Path, output_dir: Path, timeout: int) -> Path:
     """Convert an Office document to PDF using libreoffice."""
-    _check_libreoffice()
-    try:
-        result = subprocess.run(
-            [
-                "libreoffice",
-                "--headless",
-                "--nologo",
-                "--norestore",
-                "--nolockcheck",
-                f"-env:UserInstallation={profile_dir.as_uri()}",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                str(output_dir),
-                str(file_path),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"LibreOffice conversion failed: {result.stderr}")
-    except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"Conversion timed out after {timeout}s") from e
-    except FileNotFoundError as e:
-        raise RuntimeError("libreoffice not found") from e
-
+    subprocess.run(
+        [
+            "libreoffice",
+            "--headless",
+            "--nologo",
+            "--norestore",
+            "--nolockcheck",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(output_dir),
+            str(file_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=True,
+    )
     return _find_pdf_output(output_dir, file_path.stem)
 
 
 def convert_to_pdf(file_path: str, timeout: int = 120) -> bytes:
-    """Convert an Office document to PDF.
-
-    Args:
-        file_path: Path to the Office document (.docx, .docm, .pptx, .pptm, .ppsx)
-        timeout: Maximum time in seconds for conversion (default: 120)
-
-    Returns:
-        PDF file contents as bytes
-
-    Raises:
-        FileNotFoundError: If the file does not exist
-        ValueError: If the file type is not supported
-        RuntimeError: If libreoffice is not found or conversion fails
-    """
-    doc_path = _validate_file(file_path)
+    """Convert an Office document to PDF using libreoffice."""
+    doc_path = Path(file_path).resolve()
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        profile_dir = tmp / "profile"
-        profile_dir.mkdir()
-        pdf_path = _convert_to_pdf(doc_path, tmp, profile_dir, timeout)
+        pdf_path = _convert_to_pdf(doc_path, tmp, timeout)
         return pdf_path.read_bytes()
 
 
@@ -160,16 +89,12 @@ def render_pages_to_images(
             f"max {max_pages} pages allowed; requested {len(unique_pages)}"
         )
 
-    dpi_int = _validate_dpi(dpi)
-    doc_path = _validate_file(file_path)
-    _check_pdftoppm()
+    dpi_int = round(dpi)
+    doc_path = Path(file_path).resolve()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        profile_dir = tmp / "profile"
-        profile_dir.mkdir()
-
-        pdf_path = _convert_to_pdf(doc_path, tmp, profile_dir, timeout)
+        pdf_path = _convert_to_pdf(doc_path, tmp, timeout)
 
         result = []
         for page_num in unique_pages:

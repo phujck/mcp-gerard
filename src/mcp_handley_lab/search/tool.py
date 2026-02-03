@@ -22,7 +22,9 @@ def context(
     ),
     query: str = Field(
         default="",
-        description="FTS5 search query (supports AND, OR, NEAR, prefix*). Required for search action.",
+        description='FTS5 query. Syntax: word, prefix*, "exact phrase", '
+        "A AND B, A OR B, NEAR(a b, N), NOT term. "
+        "Invalid syntax auto-falls back to phrase search.",
     ),
     project: str = Field(
         default="",
@@ -42,7 +44,9 @@ def context(
     ),
     file_path: str = Field(
         default="",
-        description="Session identifier for slice (from SearchHit.file_path)",
+        description="Session identifier for slice/search scoping. "
+        "Accepts composite handle '{source}:{session_key}' from search results, "
+        "or raw session_key. Use session_id from search hits for slicing.",
     ),
     start: int = Field(
         default=0,
@@ -51,6 +55,10 @@ def context(
     end: int = Field(
         default=-1,
         description="End index for slice (exclusive, -1 = to end of session)",
+    ),
+    max_chars: int = Field(
+        default=0,
+        description="For slice: max chars per entry (0=no limit). Truncates at word boundary.",
     ),
     full: bool = Field(
         default=False,
@@ -63,17 +71,15 @@ def context(
 ) -> dict:
     """Search and slice AI conversation context.
 
-    Search returns hits with location metadata (index, session_length) for slicing.
-    Slice retrieves entries at specific positions within a session.
+    Search returns structured hits with session_id, entry_index, role, snippet, and BM25 score.
+    Use session_id from hits to slice for full context.
 
-    Example workflow:
-        1. Search to find relevant entries
-        2. Use file_path and index from hits to slice surrounding context
+    Workflow: search -> get session_id/entry_index -> slice with context window
     """
     # Convert -1 to None for end parameter
     end_val = None if end == -1 else end
 
-    result = _context(
+    return _context(
         action=action,
         source=source,
         query=query,
@@ -84,16 +90,10 @@ def context(
         file_path=file_path,
         start=start,
         end=end_val,
+        max_chars=max_chars,
         full=full,
         verbose=verbose,
     )
-
-    # Convert Pydantic models to dicts for JSON serialization
-    if hasattr(result, "model_dump"):
-        return result.model_dump()
-    if isinstance(result, list):
-        return [e.model_dump() if hasattr(e, "model_dump") else e for e in result]
-    return result
 
 
 @mcp.tool(description="[DEPRECATED] Use 'context' tool instead")
@@ -115,7 +115,7 @@ def transcript_search(
     ),
     type: str = Field(
         default="",
-        description="Filter by entry type: user, assistant, system, tool",
+        description="Filter by entry type: user, assistant, system, tool, prompt",
     ),
     limit: int = Field(
         default=20,

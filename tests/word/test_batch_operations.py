@@ -252,7 +252,7 @@ async def test_prev_reference_invalid_future_index(empty_docx):
 @pytest.mark.asyncio
 async def test_prev_reference_empty_element_id(sample_docx):
     """$prev[N] referencing an op with empty element_id fails."""
-    # set_meta returns empty element_id, then try to reference it
+    # set_property returns empty element_id, then try to reference it
     _, result = await mcp.call_tool(
         "edit",
         {
@@ -260,7 +260,7 @@ async def test_prev_reference_empty_element_id(sample_docx):
             "ops": json.dumps(
                 [
                     {
-                        "op": "set_meta",
+                        "op": "set_property",
                         "content_data": json.dumps({"title": "New Title"}),
                     },
                     {"op": "style", "target_id": "$prev[0]", "style_name": "Heading 1"},

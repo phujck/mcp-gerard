@@ -42,7 +42,7 @@ def get_shape_type(shape: etree._Element) -> str:
             return "table"
         chart = shape.find(
             ".//" + qn("c:chart"),
-            {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"},
+            NSMAP,
         )
         if chart is not None:
             return "chart"
@@ -419,17 +419,9 @@ def set_shape_transform(
         True if successful, False if shape not found
 
     Raises:
-        ValueError: If shape is inside a group, has inherited position, or
-                    invalid dimensions provided
+        ValueError: If shape is inside a group or has inherited position
     """
     slide_num, shape_id = parse_shape_key(shape_key)
-
-    # Validate dimensions if provided
-    if width is not None and width <= 0:
-        raise ValueError(f"Width must be > 0, got {width}")
-    if height is not None and height <= 0:
-        raise ValueError(f"Height must be > 0, got {height}")
-
     slide_xml = pkg.get_slide_xml(slide_num)
     slide_partname = pkg.get_slide_partname(slide_num)
 
