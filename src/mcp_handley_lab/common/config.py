@@ -9,7 +9,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Global settings for MCP Framework."""
 
-    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = ConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     # API Keys
     gemini_api_key: str = Field(
