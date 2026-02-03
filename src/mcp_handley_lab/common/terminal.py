@@ -2,9 +2,7 @@
 
 import contextlib
 import os
-import re
 import subprocess
-import time
 import uuid
 
 
@@ -38,11 +36,10 @@ def launch_interactive(
     if in_tmux and prefer_tmux:
         if wait:
             unique_id = str(uuid.uuid4())[:8]
-            window_name = f"task-{unique_id}"
-            done_name = f"done-{unique_id}"
+            channel = f"wait-{unique_id}"
 
-            sync_command = f"{command}; tmux rename-window '{done_name}'"
-            tmux_cmd = ["tmux", "new-window", "-n", window_name, sync_command]
+            sync_command = f"{command}; tmux wait-for -S {channel}"
+            tmux_cmd = ["tmux", "new-window", sync_command]
 
             current_window = subprocess.check_output(
                 ["tmux", "display-message", "-p", "#{window_index}"], text=True
@@ -51,13 +48,7 @@ def launch_interactive(
             subprocess.run(tmux_cmd, check=True)
             print(f"Waiting for user input from {window_title or 'tmux window'}...")
 
-            while True:
-                output = subprocess.check_output(["tmux", "list-windows"], text=True)
-                if re.search(rf"{done_name}", output):
-                    break
-                if not re.search(rf"{window_name}", output):
-                    break
-                time.sleep(0.1)
+            subprocess.run(["tmux", "wait-for", channel], check=True)
 
             if current_window:
                 with contextlib.suppress(subprocess.CalledProcessError):
