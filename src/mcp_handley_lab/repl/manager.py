@@ -1,5 +1,7 @@
+import os
 import re
 import subprocess
+import sys
 from datetime import datetime
 
 from mcp_handley_lab.repl.backends import BACKENDS
@@ -37,7 +39,23 @@ def create(backend, name=None, args=None):
 
     cfg = BACKENDS[backend]
     extra_args = args or cfg.default_args
-    command = cfg.command + (extra_args.split() if extra_args else [])
+    base_command = cfg.command + (extra_args.split() if extra_args else [])
+
+    # Strip venv from environment so tmux windows start clean
+    clean_path = os.pathsep.join(
+        p
+        for p in os.environ.get("PATH", "").split(os.pathsep)
+        if not p.startswith(sys.prefix)
+    )
+    command = [
+        "env",
+        "-u",
+        "VIRTUAL_ENV",
+        "-u",
+        "PYTHONPATH",
+        f"PATH={clean_path}",
+    ] + base_command
+
     name = f"{backend}-{name or datetime.now().strftime('%H%M%S')}"
     res = _run(
         ["new-window", "-t", TMUX, "-n", name, "-P", "-F", "#{pane_id}", *command]
