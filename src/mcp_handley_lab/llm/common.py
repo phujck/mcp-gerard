@@ -82,7 +82,7 @@ def load_prompt_text(
 
     # Load prompt text
     if prompt_file:
-        final_prompt = Path(prompt_file).read_text(encoding="utf-8")
+        final_prompt = Path(prompt_file).expanduser().read_text(encoding="utf-8")
     else:
         final_prompt = prompt  # type: ignore[assignment]  # XOR ensures non-None
 
@@ -202,12 +202,12 @@ def resolve_image_data(image_item: str | dict[str, str]) -> bytes:
             header, encoded = image_item.split(",", 1)
             return base64.b64decode(encoded)
         else:
-            return Path(image_item).read_bytes()
+            return Path(image_item).expanduser().read_bytes()
     elif isinstance(image_item, dict):
         if "data" in image_item:
             return base64.b64decode(image_item["data"])
         elif "path" in image_item:
-            return Path(image_item["path"]).read_bytes()
+            return Path(image_item["path"]).expanduser().read_bytes()
 
     raise ValueError(f"Invalid image format: {image_item}")
 
@@ -233,7 +233,7 @@ def resolve_images_for_multimodal_prompt(
         if isinstance(image_path, str) and image_path.startswith("data:image"):
             mime_type = image_path.split(";")[0].split(":")[1]
         else:
-            mime_type = determine_mime_type(Path(image_path))
+            mime_type = determine_mime_type(Path(image_path).expanduser())
             if not mime_type.startswith("image/"):
                 mime_type = "image/jpeg"
 
@@ -268,7 +268,7 @@ def resolve_files_for_llm(
 
     inline_content = []
     for file_path_str in files:
-        file_path = Path(file_path_str)
+        file_path = Path(file_path_str).expanduser()
         # Fail-fast: let ValueError propagate for files too large
         content, is_text = read_file_smart(file_path, max_file_size)
         inline_content.append(content)
