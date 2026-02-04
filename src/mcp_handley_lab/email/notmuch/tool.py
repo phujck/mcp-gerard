@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from mcp_handley_lab.common.process import run_command
-from mcp_handley_lab.email.common import mcp
+from mcp_handley_lab.email.common import _TOOL_CONFIGS, mcp
 from mcp_handley_lab.email.extraction import (
     EmailBodySegment,
     EmailPartInfo,
@@ -877,13 +877,15 @@ def email_accounts() -> list[str]:
 
 
 # ============================================================================
-# Unified Tools
+# Unified Tools (registered via _TOOL_CONFIGS for lifespan injection)
 # ============================================================================
 
+# Base descriptions (will have tags/folders appended at startup)
+_READ_DESCRIPTION = """Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Use email://tags, email://folders, email://accounts resources to discover available options. Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
 
-@mcp.tool(
-    description="""Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Use email://tags, email://folders, email://accounts resources to discover available options. Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
-)
+_UPDATE_DESCRIPTION = """Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder), 'archive' (move to Archive folder)."""
+
+
 def read(
     query: str = Field(
         default="",
@@ -941,9 +943,6 @@ def read(
     )
 
 
-@mcp.tool(
-    description="""Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder), 'archive' (move to Archive folder)."""
-)
 def update(
     message_ids: list[str] = Field(
         default_factory=list,
@@ -976,3 +975,17 @@ def update(
         remove_tags=remove_tags or None,
         destination_folder=destination_folder,
     )
+
+
+# =============================================================================
+# Tool Registration (explicit for lifespan-based description injection)
+# =============================================================================
+
+_TOOL_CONFIGS["read"] = {"fn": read, "description": _READ_DESCRIPTION}
+_TOOL_CONFIGS["update"] = {"fn": update, "description": _UPDATE_DESCRIPTION}
+
+for _name, _config in [
+    ("read", _TOOL_CONFIGS["read"]),
+    ("update", _TOOL_CONFIGS["update"]),
+]:
+    mcp.add_tool(_config["fn"], name=_name, description=_config["description"])
