@@ -81,21 +81,11 @@ def read(
     if "id:" in query or "mid:" in query:
         query = _resolve_id_in_query(query)
 
-    # For headers/summary mode, use lightweight search
-    if mode in ("headers", "summary"):
-        results = _search_emails(query, limit, offset, include_excluded)
-        if mode == "headers":
-            return results
-        # For summary, get truncated content
-        return _show_email(
-            query,
-            mode="summary",
-            limit=limit,
-            include_excluded=include_excluded,
-            save_to=save_attachments_to,
-        )
+    # Headers mode: lightweight search (no body parsing)
+    if mode == "headers":
+        return _search_emails(query, limit, offset, include_excluded)
 
-    # Full content display
+    # Summary and full modes: parse email content
     return _show_email(
         query,
         mode=mode,
