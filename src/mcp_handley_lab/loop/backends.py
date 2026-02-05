@@ -269,6 +269,8 @@ class TmuxBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new REPL. Returns (loop_id, pane_id).
 
@@ -278,6 +280,8 @@ class TmuxBackend:
             args: Extra arguments for the backend
             child_allowed_tools: Tools the loop can use (for Claude backend)
             socket_path: Daemon socket path to inject as MCP_LOOP_SOCKET
+            cwd: Working directory (unused for tmux backend)
+            prompt: System prompt (unused for tmux backend)
         """
         # Create session if it doesn't exist
         default_window = None
@@ -426,12 +430,22 @@ class ClaudeBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Claude session. Returns (loop_id, loop_id).
 
-        Note: socket_path is accepted for API consistency but not used
-        (Claude Code has its own MCP integration).
+        Args:
+            label: Human-readable label
+            name: Optional name suffix for loop_id
+            args: Extra CLI arguments for claude
+            child_allowed_tools: Tools the loop can use (--allowedTools)
+            socket_path: Accepted for API consistency (unused)
+            cwd: Working directory for the Claude process
+            prompt: System prompt (passed as --system-prompt)
         """
+        import shlex
+
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"claude-{name or timestamp}"
 
@@ -445,13 +459,17 @@ class ClaudeBackend:
             "--verbose",
         ]
 
+        # Add system prompt if specified
+        if prompt:
+            cmd.extend(["--system-prompt", prompt])
+
         # Add allowed tools if specified
         if child_allowed_tools:
             cmd.extend(["--allowedTools", ",".join(child_allowed_tools)])
 
         # Add any extra args
         if args:
-            cmd.extend(args.split())
+            cmd.extend(shlex.split(args))
 
         proc = subprocess.Popen(
             cmd,
@@ -460,6 +478,7 @@ class ClaudeBackend:
             stderr=subprocess.DEVNULL,  # Avoid deadlock from unbuffered stderr
             text=True,
             bufsize=1,  # Line buffered
+            cwd=cwd or None,
         )
 
         # Don't wait for init - Claude only sends it after first user message
@@ -599,6 +618,8 @@ class GeminiBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
         # Validate API key upfront
@@ -710,6 +731,8 @@ class OpenAIBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new OpenAI session. Returns (loop_id, loop_id)."""
         # Validate API key upfront

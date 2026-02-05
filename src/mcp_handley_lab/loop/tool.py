@@ -95,7 +95,9 @@ class ManageArgs(BaseModel):
     label: str = ""  # for spawn: optional tag for tmux window naming
     backend: str = ""
     name: str = ""
-    args: str = ""
+    args: str = ""  # backend-specific args
+    cwd: str = ""  # for spawn: working directory
+    prompt: str = ""  # for spawn: system prompt (claude backend)
     descendants_of: str = ""  # for list: filter to subtree
     child_allowed_tools: list[str] = Field(default_factory=list)
 
@@ -282,7 +284,9 @@ def manage(params: ManageArgs) -> ManageResult:
         backend=params.backend,
         name=params.name,
         args=params.args,
+        cwd=params.cwd,
         child_allowed_tools=params.child_allowed_tools,
+        prompt=params.prompt,
         descendants_of=params.descendants_of,
         current_session_id=session_id if params.action == "list" else "",
     )

@@ -79,6 +79,9 @@ def spawn(
     name: str = "",
     args: str = "",
     parent_id: str = "",
+    cwd: str = "",
+    prompt: str = "",
+    child_allowed_tools: list[str] | None = None,
 ) -> str:
     """Spawn a child loop.
 
@@ -88,17 +91,23 @@ def spawn(
         name: Optional name suffix for loop_id
         args: Extra arguments for the backend
         parent_id: Override parent_id (default: current loop from env)
+        cwd: Working directory for the spawned loop
+        prompt: System prompt (for claude backend)
+        child_allowed_tools: Tools the loop can use (for claude backend)
 
     Returns:
         loop_id of spawned child
     """
-    request = {
+    request: dict[str, Any] = {
         "action": "spawn",
         "backend": backend,
         "label": label or backend,
         "name": name,
         "args": args,
         "parent_id": parent_id or _get_parent_id(),
+        "cwd": cwd,
+        "prompt": prompt,
+        "child_allowed_tools": child_allowed_tools or [],
     }
     response = _send_request(request)
     return response["loop_id"]
