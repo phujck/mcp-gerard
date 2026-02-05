@@ -269,6 +269,7 @@ class TmuxBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
     ) -> tuple[str, str]:
         """Spawn a new REPL. Returns (loop_id, pane_id).
 
@@ -278,6 +279,7 @@ class TmuxBackend:
             args: Extra arguments for the backend
             child_allowed_tools: Tools the loop can use (for Claude backend)
             socket_path: Daemon socket path to inject as MCP_LOOP_SOCKET
+            venv: Path to venv (created with --system-site-packages if missing)
         """
         # Create session if it doesn't exist
         default_window = None
@@ -300,14 +302,41 @@ class TmuxBackend:
             for p in os.environ.get("PATH", "").split(os.pathsep)
             if not p.startswith(sys.prefix)
         )
+
+        # Handle venv: create if missing, then activate
+        venv_path = None
+        if venv:
+            from pathlib import Path
+
+            venv_path = Path(venv).expanduser().resolve()
+            if not (venv_path / "bin" / "activate").exists():
+                # Create venv with system site-packages access
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "venv",
+                        "--system-site-packages",
+                        str(venv_path),
+                    ],
+                    check=True,
+                )
+            # Prepend venv bin to PATH and set VIRTUAL_ENV
+            clean_path = f"{venv_path}/bin:{clean_path}"
+
         env_cmd = [
             "env",
-            "-u",
-            "VIRTUAL_ENV",
             "-u",
             "PYTHONPATH",
             f"PATH={clean_path}",
         ]
+
+        # Set VIRTUAL_ENV if using venv, otherwise unset it
+        if venv_path:
+            env_cmd.append(f"VIRTUAL_ENV={venv_path}")
+        else:
+            env_cmd.extend(["-u", "VIRTUAL_ENV"])
+
         # Inject loop env vars for client library
         if socket_path:
             env_cmd.append(f"MCP_LOOP_SOCKET={socket_path}")
@@ -426,11 +455,12 @@ class ClaudeBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Claude session. Returns (loop_id, loop_id).
 
-        Note: socket_path is accepted for API consistency but not used
-        (Claude Code has its own MCP integration).
+        Note: socket_path and venv are accepted for API consistency but not used
+        (Claude Code has its own MCP integration and environment management).
         """
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"claude-{name or timestamp}"
@@ -599,8 +629,12 @@ class GeminiBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
     ) -> tuple[str, str]:
-        """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
+        """Spawn a new Gemini session. Returns (loop_id, loop_id).
+
+        Note: socket_path and venv are accepted for API consistency but not used.
+        """
         # Validate API key upfront
         if not os.environ.get("GEMINI_API_KEY"):
             raise ValueError("GEMINI_API_KEY environment variable required")
@@ -710,8 +744,12 @@ class OpenAIBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
     ) -> tuple[str, str]:
-        """Spawn a new OpenAI session. Returns (loop_id, loop_id)."""
+        """Spawn a new OpenAI session. Returns (loop_id, loop_id).
+
+        Note: socket_path and venv are accepted for API consistency but not used.
+        """
         # Validate API key upfront
         if not os.environ.get("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY environment variable required")

@@ -189,6 +189,7 @@ class LoopDaemon:
                 request.args,
                 request.child_allowed_tools,
                 str(SOCKET_PATH),  # For client library env injection
+                request.venv,  # Venv path (created with --system-site-packages if missing)
             )
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)

@@ -98,6 +98,9 @@ class ManageArgs(BaseModel):
     args: str = ""
     descendants_of: str = ""  # for list: filter to subtree
     child_allowed_tools: list[str] = Field(default_factory=list)
+    venv: str = (
+        ""  # for spawn: path to venv (created with --system-site-packages if missing)
+    )
 
 
 def _get_session_id() -> str:
@@ -285,6 +288,7 @@ def manage(params: ManageArgs) -> ManageResult:
         child_allowed_tools=params.child_allowed_tools,
         descendants_of=params.descendants_of,
         current_session_id=session_id if params.action == "list" else "",
+        venv=params.venv,
     )
 
     response = _send_request(request)
