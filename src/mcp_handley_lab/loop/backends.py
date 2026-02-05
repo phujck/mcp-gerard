@@ -483,6 +483,10 @@ class ClaudeBackend:
         if args:
             cmd.extend(args.split())
 
+        # Strip ANTHROPIC_API_KEY so Claude uses OAuth token (subscription)
+        # rather than per-token API billing
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -490,6 +494,7 @@ class ClaudeBackend:
             stderr=subprocess.DEVNULL,  # Avoid deadlock from unbuffered stderr
             text=True,
             bufsize=1,  # Line buffered
+            env=env,
         )
 
         # Don't wait for init - Claude only sends it after first user message
