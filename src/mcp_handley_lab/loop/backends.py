@@ -295,10 +295,12 @@ class TmuxBackend:
         loop_id = f"{self.config.name}-{name or timestamp}"
 
         # Strip venv from environment so tmux windows start clean
+        # Only filter if actually in a venv (sys.prefix != sys.base_prefix)
+        in_venv = sys.prefix != sys.base_prefix
         clean_path = os.pathsep.join(
             p
             for p in os.environ.get("PATH", "").split(os.pathsep)
-            if not p.startswith(sys.prefix)
+            if not (in_venv and p.startswith(sys.prefix))
         )
         env_cmd = [
             "env",
