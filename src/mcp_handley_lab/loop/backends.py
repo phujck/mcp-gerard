@@ -664,8 +664,8 @@ class GeminiBackend:
 
         # Update state
         with _gemini_lock:
-            state["history"].append({"role": "user", "parts": [code]})
-            state["history"].append({"role": "model", "parts": [output]})
+            state["history"].append({"role": "user", "parts": [{"text": code}]})
+            state["history"].append({"role": "model", "parts": [{"text": output}]})
             cell_index = len(state["cells"])
             state["cells"].append(
                 {"index": cell_index, "input": code, "output": output}
