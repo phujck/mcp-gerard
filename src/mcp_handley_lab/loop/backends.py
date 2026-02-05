@@ -440,31 +440,14 @@ class TmuxBackend:
 
 
 def _claude_oauth_env() -> dict[str, str]:
-    """Build subprocess env that uses OAuth token instead of API key.
+    """Build subprocess env that uses OAuth (subscription) instead of API key.
 
-    Reads ~/.claude/.credentials.json for the OAuth token and strips
-    ANTHROPIC_API_KEY (which takes precedence in the CLI and causes
-    per-token billing instead of subscription usage).
+    ANTHROPIC_API_KEY takes precedence in Claude Code's auth system, causing
+    per-token billing.  Stripping it lets Claude Code fall through to its own
+    OAuth credential store (~/.claude/.credentials.json) and handle refresh
+    internally.
     """
-    creds_path = Path.home() / ".claude" / ".credentials.json"
-    with open(creds_path) as f:
-        creds = json.load(f)
-
-    oauth = creds.get("claudeAiOauth", {})
-    token = oauth.get("accessToken", "")
-    expires_at = oauth.get("expiresAt", 0)
-    if not token:
-        raise RuntimeError(f"No claudeAiOauth.accessToken in {creds_path}")
-
-    now_ms = int(time.time() * 1000)
-    if expires_at and now_ms > expires_at:
-        raise RuntimeError(
-            "Claude OAuth token expired. Run 'claude' to refresh, then retry."
-        )
-
-    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
-    env["CLAUDE_CODE_OAUTH_TOKEN"] = token
-    return env
+    return {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
 
 
 # Claude subprocess state - keyed by loop_id
