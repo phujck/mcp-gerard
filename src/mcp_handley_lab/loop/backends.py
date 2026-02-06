@@ -271,6 +271,8 @@ class TmuxBackend:
         child_allowed_tools: list[str],
         socket_path: str = "",
         venv: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new REPL. Returns (loop_id, pane_id).
 
@@ -281,6 +283,8 @@ class TmuxBackend:
             child_allowed_tools: Tools the loop can use (for Claude backend)
             socket_path: Daemon socket path to inject as MCP_LOOP_SOCKET
             venv: Path to venv (created with --system-site-packages if missing)
+            cwd: Working directory (unused for tmux backend)
+            prompt: System prompt (unused for tmux backend)
         """
         # Create session if it doesn't exist
         default_window = None
@@ -474,12 +478,23 @@ class ClaudeBackend:
         child_allowed_tools: list[str],
         socket_path: str = "",
         venv: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Claude session. Returns (loop_id, loop_id).
 
-        Note: socket_path and venv are accepted for API consistency but not used
-        (Claude Code has its own MCP integration and environment management).
+        Args:
+            label: Human-readable label
+            name: Optional name suffix for loop_id
+            args: Extra CLI arguments for claude
+            child_allowed_tools: Tools the loop can use (--allowedTools)
+            socket_path: Accepted for API consistency (unused)
+            venv: Accepted for API consistency (unused)
+            cwd: Working directory for the Claude process
+            prompt: System prompt (passed as --system-prompt)
         """
+        import shlex
+
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"claude-{name or timestamp}"
 
@@ -493,13 +508,17 @@ class ClaudeBackend:
             "--verbose",
         ]
 
+        # Add system prompt if specified
+        if prompt:
+            cmd.extend(["--system-prompt", prompt])
+
         # Add allowed tools if specified
         if child_allowed_tools:
             cmd.extend(["--allowedTools", ",".join(child_allowed_tools)])
 
         # Add any extra args
         if args:
-            cmd.extend(args.split())
+            cmd.extend(shlex.split(args))
 
         env = _subscription_env()
 
@@ -511,6 +530,7 @@ class ClaudeBackend:
             text=True,
             bufsize=1,  # Line buffered
             env=env,
+            cwd=cwd or None,
         )
 
         # Don't wait for init - Claude only sends it after first user message
@@ -651,6 +671,8 @@ class GeminiBackend:
         child_allowed_tools: list[str],
         socket_path: str = "",
         venv: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
@@ -821,6 +843,8 @@ class OpenAIBackend:
         child_allowed_tools: list[str],
         socket_path: str = "",
         venv: str = "",
+        cwd: str = "",
+        prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Codex session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")

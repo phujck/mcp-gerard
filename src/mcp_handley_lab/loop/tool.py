@@ -4,31 +4,21 @@ Uses Unix process model: each loop has loop_id (like PID) and parent_id (like PP
 No access control - if you know the loop_id, you can operate on it.
 """
 
-import fcntl
 import hashlib
 import json
 import os
-import socket
 import subprocess
-import sys
-import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
+from mcp_handley_lab.loop.client import _socket_connect
 from mcp_handley_lab.loop.protocol import Request, Response
 
-# Daemon paths
-RUN_DIR = Path.home() / ".local" / "run"
+# Session tracking paths
 STATE_DIR = Path.home() / ".local" / "state" / "mcp-loop"
 SESSION_DIR = STATE_DIR / "sessions"
-SOCKET_PATH = RUN_DIR / "mcp-loop.sock"
-PID_PATH = RUN_DIR / "mcp-loop.pid"
-LOCK_PATH = RUN_DIR / "mcp-loop.lock"
-
-STARTUP_TIMEOUT = 2.0
-SOCKET_TIMEOUT = 3600.0  # 1 hour - generous for long evals
 
 
 class LoopInfo(BaseModel):
@@ -95,7 +85,9 @@ class ManageArgs(BaseModel):
     label: str = ""  # for spawn: optional tag for tmux window naming
     backend: str = ""
     name: str = ""
-    args: str = ""
+    args: str = ""  # backend-specific args
+    cwd: str = ""  # for spawn: working directory
+    prompt: str = ""  # for spawn: system prompt (claude backend)
     descendants_of: str = ""  # for list: filter to subtree
     child_allowed_tools: list[str] = Field(default_factory=list)
     venv: str = (
@@ -120,109 +112,10 @@ def _get_session_id() -> str:
         if session_file.exists():
             return session_file.read_text().strip()
     except Exception as e:
-        # Session tracking is optional - log but don't fail
         import sys
 
         print(f"mcp-loop: warning: could not read session_id: {e}", file=sys.stderr)
     return ""
-
-
-def _socket_connectable() -> bool:
-    """Check if socket exists and is connectable."""
-    if not SOCKET_PATH.exists():
-        return False
-    try:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(str(SOCKET_PATH))
-        sock.close()
-        return True
-    except (ConnectionRefusedError, FileNotFoundError):
-        return False
-
-
-def _socket_connect() -> socket.socket:
-    """Connect to daemon socket, starting daemon if needed."""
-
-    def new_socket() -> socket.socket:
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(SOCKET_TIMEOUT)
-        return sock
-
-    # Try to connect
-    sock = new_socket()
-    try:
-        sock.connect(str(SOCKET_PATH))
-        return sock
-    except (ConnectionRefusedError, FileNotFoundError):
-        sock.close()
-
-    # Need to start daemon
-    _start_daemon()
-
-    # Poll for connection - new socket per attempt
-    start = time.time()
-    while time.time() - start < STARTUP_TIMEOUT:
-        sock = new_socket()
-        try:
-            sock.connect(str(SOCKET_PATH))
-            return sock
-        except (ConnectionRefusedError, FileNotFoundError):
-            sock.close()
-            time.sleep(0.1)
-
-    raise RuntimeError(f"daemon failed to start; check {STATE_DIR / 'daemon.log'}")
-
-
-def _start_daemon() -> None:
-    """Start the daemon process or verify it's running.
-
-    Raises RuntimeError if daemon cannot be started/verified.
-    """
-    RUN_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Use lockfile to prevent double-spawn
-    lock_fd = os.open(str(LOCK_PATH), os.O_CREAT | os.O_RDWR)
-    try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except (BlockingIOError, OSError):
-        # Another process is starting the daemon - wait for socket
-        os.close(lock_fd)
-        start = time.time()
-        while time.time() - start < STARTUP_TIMEOUT:
-            if _socket_connectable():
-                return
-            time.sleep(0.1)
-        raise RuntimeError(
-            f"daemon startup lock held; timed out waiting for socket; check {STATE_DIR / 'daemon.log'}"
-        ) from None
-
-    try:
-        # Check if daemon already running
-        if SOCKET_PATH.exists() and PID_PATH.exists():
-            try:
-                pid = int(PID_PATH.read_text().strip())
-                os.kill(pid, 0)
-                # Process exists - verify socket is connectable
-                if _socket_connectable():
-                    return
-            except (ValueError, ProcessLookupError, PermissionError):
-                pass
-            # Stale socket/PID, clean up
-            SOCKET_PATH.unlink(missing_ok=True)
-
-        # Spawn daemon - redirect stderr to log for debugging
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        log_path = STATE_DIR / "daemon.log"
-        with open(log_path, "a") as log_file:
-            subprocess.Popen(
-                [sys.executable, "-m", "mcp_handley_lab.loop.daemon"],
-                start_new_session=True,
-                stdout=log_file,
-                stderr=log_file,
-            )
-    finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        os.close(lock_fd)
 
 
 def _send_request(request: Request) -> Response:
@@ -285,7 +178,9 @@ def manage(params: ManageArgs) -> ManageResult:
         backend=params.backend,
         name=params.name,
         args=params.args,
+        cwd=params.cwd,
         child_allowed_tools=params.child_allowed_tools,
+        prompt=params.prompt,
         descendants_of=params.descendants_of,
         current_session_id=session_id if params.action == "list" else "",
         venv=params.venv,

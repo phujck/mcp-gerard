@@ -33,5 +33,6 @@ paths = [
     '''tests/integration/.*/cassettes/.*\.yaml$''',
     '''tests/integration/test_.*\.py$''',
     '''scripts/scrub_vcr_tokens\.py$''',
-    '''tests/conftest\.py$'''
+    '''tests/conftest\.py$''',
+    '''\.env\.example$'''
 ]
