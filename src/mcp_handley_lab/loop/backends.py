@@ -327,6 +327,12 @@ class TmuxBackend:
             "env",
             "-u",
             "PYTHONPATH",
+            "-u",
+            "ANTHROPIC_API_KEY",
+            "-u",
+            "OPENAI_API_KEY",
+            "-u",
+            "GEMINI_API_KEY",
             f"PATH={clean_path}",
         ]
 
@@ -439,15 +445,17 @@ class TmuxBackend:
         _run(["kill-pane", "-t", pane_id])
 
 
-def _claude_oauth_env() -> dict[str, str]:
-    """Build subprocess env that uses OAuth (subscription) instead of API key.
+_API_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"}
 
-    ANTHROPIC_API_KEY takes precedence in Claude Code's auth system, causing
-    per-token billing.  Stripping it lets Claude Code fall through to its own
-    OAuth credential store (~/.claude/.credentials.json) and handle refresh
-    internally.
+
+def _subscription_env() -> dict[str, str]:
+    """Build subprocess env that uses subscription auth instead of API keys.
+
+    API keys take precedence in CLI auth systems (Claude, Gemini, Codex),
+    causing per-token billing.  Stripping them lets CLIs fall through to
+    their cached OAuth credentials and use subscription billing.
     """
-    return {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    return {k: v for k, v in os.environ.items() if k not in _API_KEYS}
 
 
 # Claude subprocess state - keyed by loop_id
@@ -493,7 +501,7 @@ class ClaudeBackend:
         if args:
             cmd.extend(args.split())
 
-        env = _claude_oauth_env()
+        env = _subscription_env()
 
         proc = subprocess.Popen(
             cmd,
@@ -627,13 +635,13 @@ class ClaudeBackend:
                     pipe.close()
 
 
-# Gemini SDK state - keyed by loop_id
+# Gemini CLI state - keyed by loop_id
 _gemini_state: dict[str, dict[str, Any]] = {}
 _gemini_lock = threading.Lock()
 
 
 class GeminiBackend:
-    """Backend for Google Gemini via Python SDK."""
+    """Backend for Gemini CLI in stream-json mode (uses Google OAuth subscription)."""
 
     def spawn(
         self,
@@ -644,19 +652,12 @@ class GeminiBackend:
         socket_path: str = "",
         venv: str = "",
     ) -> tuple[str, str]:
-        """Spawn a new Gemini session. Returns (loop_id, loop_id).
-
-        Note: socket_path and venv are accepted for API consistency but not used.
-        """
-        # Validate API key upfront
-        if not os.environ.get("GEMINI_API_KEY"):
-            raise ValueError("GEMINI_API_KEY environment variable required")
-
+        """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"gemini-{name or timestamp}"
 
-        # Parse model from args if provided (e.g., "--model gemini-2.0-flash")
-        model = "gemini-2.0-flash"
+        # Parse model from args if provided
+        model = ""
         if args:
             import shlex
 
@@ -669,9 +670,10 @@ class GeminiBackend:
 
         with _gemini_lock:
             _gemini_state[loop_id] = {
-                "history": [],
+                "session_id": "",
                 "model": model,
                 "cells": [],
+                "proc": None,
             }
 
         return loop_id, loop_id
@@ -679,40 +681,86 @@ class GeminiBackend:
     def eval(
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
-        """Send message to Gemini and wait for response."""
-        import google.genai as genai
-
+        """Send message to Gemini CLI and wait for response."""
         with _gemini_lock:
             state = _gemini_state.get(pane_id)
             if not state:
                 raise RuntimeError(f"Gemini session not found: {pane_id}")
-            history = list(state["history"])  # Copy for thread safety
+            session_id = state["session_id"]
             model = state["model"]
 
-        # Create client and chat
-        client = genai.Client()
-        chat = client.chats.create(model=model, history=history)
+        # Build command
+        cmd = ["gemini", "--output-format", "stream-json"]
+        if session_id:
+            cmd.extend(["--resume", session_id])
+        if model:
+            cmd.extend(["--model", model])
 
-        # Stream response
+        env = _subscription_env()
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+
+        with _gemini_lock:
+            state["proc"] = proc
+
+        # Send prompt via stdin and close
+        proc.stdin.write(code + "\n")
+        proc.stdin.close()
+
+        # Read NDJSON response
         output_parts: list[str] = []
         try:
-            for chunk in chat.send_message_stream(code):
+            while True:
                 if check_cancelled():
+                    proc.send_signal(signal.SIGINT)
+                    with _gemini_lock:
+                        state["proc"] = None
                     return {
                         "output": "".join(output_parts) + "\n[cancelled]",
                         "cell_index": len(state["cells"]),
                     }
-                if hasattr(chunk, "text") and chunk.text:
-                    output_parts.append(chunk.text)
-        except Exception as e:
-            raise RuntimeError(f"Gemini API error: {e}") from e
+
+                line = proc.stdout.readline()
+                if not line:
+                    break
+
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = data.get("type")
+
+                if msg_type == "init" and not session_id:
+                    session_id = data.get("session_id", "")
+                    with _gemini_lock:
+                        state["session_id"] = session_id
+
+                elif msg_type == "message" and data.get("role") == "assistant":
+                    text = data.get("content", "")
+                    if text:
+                        output_parts.append(text)
+
+                elif msg_type == "result":
+                    if data.get("status") != "success":
+                        raise RuntimeError(f"Gemini error: {data}")
+                    break
+        finally:
+            with _gemini_lock:
+                state["proc"] = None
+            if proc.poll() is None:
+                proc.terminate()
 
         output = "".join(output_parts)
 
-        # Update state
         with _gemini_lock:
-            state["history"].append({"role": "user", "parts": [{"text": code}]})
-            state["history"].append({"role": "model", "parts": [{"text": output}]})
             cell_index = len(state["cells"])
             state["cells"].append(
                 {"index": cell_index, "input": code, "output": output}
@@ -733,22 +781,37 @@ class GeminiBackend:
             return json.dumps(state["cells"], indent=2) if state else "[]"
 
     def terminate(self, pane_id: str) -> None:
-        """Terminate is a no-op for SDK backends (cancellation via check_cancelled)."""
-        pass
+        """Send SIGINT to interrupt running eval."""
+        with _gemini_lock:
+            state = _gemini_state.get(pane_id)
+            proc = state["proc"] if state else None
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
 
     def kill(self, pane_id: str) -> None:
-        """Remove session state."""
+        """Force-kill and remove session state."""
         with _gemini_lock:
-            _gemini_state.pop(pane_id, None)
+            state = _gemini_state.pop(pane_id, None)
+        if state:
+            proc = state.get("proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                for pipe in (proc.stdin, proc.stdout):
+                    if pipe:
+                        pipe.close()
 
 
-# OpenAI SDK state - keyed by loop_id
+# Codex CLI state - keyed by loop_id
 _openai_state: dict[str, dict[str, Any]] = {}
 _openai_lock = threading.Lock()
 
 
 class OpenAIBackend:
-    """Backend for OpenAI via Python SDK."""
+    """Backend for Codex CLI (uses ChatGPT subscription)."""
 
     def spawn(
         self,
@@ -759,19 +822,12 @@ class OpenAIBackend:
         socket_path: str = "",
         venv: str = "",
     ) -> tuple[str, str]:
-        """Spawn a new OpenAI session. Returns (loop_id, loop_id).
-
-        Note: socket_path and venv are accepted for API consistency but not used.
-        """
-        # Validate API key upfront
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("OPENAI_API_KEY environment variable required")
-
+        """Spawn a new Codex session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"openai-{name or timestamp}"
 
         # Parse model from args if provided
-        model = "gpt-4o"
+        model = ""
         if args:
             import shlex
 
@@ -784,9 +840,10 @@ class OpenAIBackend:
 
         with _openai_lock:
             _openai_state[loop_id] = {
-                "messages": [],
+                "thread_id": "",
                 "model": model,
                 "cells": [],
+                "proc": None,
             }
 
         return loop_id, loop_id
@@ -794,46 +851,86 @@ class OpenAIBackend:
     def eval(
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
-        """Send message to OpenAI and wait for response."""
-        from openai import OpenAI
-
+        """Send message to Codex CLI and wait for response."""
         with _openai_lock:
             state = _openai_state.get(pane_id)
             if not state:
-                raise RuntimeError(f"OpenAI session not found: {pane_id}")
-            messages = list(state["messages"])  # Copy for thread safety
+                raise RuntimeError(f"Codex session not found: {pane_id}")
+            thread_id = state["thread_id"]
             model = state["model"]
 
-        messages.append({"role": "user", "content": code})
+        # Build command
+        if thread_id:
+            cmd = ["codex", "exec", "resume", thread_id, "--json", code]
+        else:
+            cmd = ["codex", "exec", "--json", code]
+        if model:
+            cmd.extend(["--model", model])
 
-        # Create client with timeout
-        client = OpenAI(timeout=60.0)
+        env = _subscription_env()
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
 
-        # Stream response
+        with _openai_lock:
+            state["proc"] = proc
+
+        # Read JSONL response
         output_parts: list[str] = []
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                stream=True,
-            )
-            for chunk in response:
+            while True:
                 if check_cancelled():
+                    proc.send_signal(signal.SIGINT)
+                    with _openai_lock:
+                        state["proc"] = None
                     return {
                         "output": "".join(output_parts) + "\n[cancelled]",
                         "cell_index": len(state["cells"]),
                     }
-                if chunk.choices and chunk.choices[0].delta.content:
-                    output_parts.append(chunk.choices[0].delta.content)
-        except Exception as e:
-            raise RuntimeError(f"OpenAI API error: {e}") from e
+
+                line = proc.stdout.readline()
+                if not line:
+                    break
+
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = data.get("type")
+
+                if msg_type == "thread.started" and not thread_id:
+                    thread_id = data.get("thread_id", "")
+                    with _openai_lock:
+                        state["thread_id"] = thread_id
+
+                elif msg_type == "item.completed":
+                    item = data.get("item", {})
+                    if item.get("type") == "agent_message":
+                        text = item.get("text", "")
+                        if text:
+                            output_parts.append(text)
+
+                elif msg_type == "turn.completed":
+                    break
+
+                elif msg_type in ("turn.failed", "error"):
+                    raise RuntimeError(f"Codex error: {data}")
+        finally:
+            with _openai_lock:
+                state["proc"] = None
+            if proc.poll() is None:
+                proc.terminate()
 
         output = "".join(output_parts)
 
-        # Update state
         with _openai_lock:
-            state["messages"].append({"role": "user", "content": code})
-            state["messages"].append({"role": "assistant", "content": output})
             cell_index = len(state["cells"])
             state["cells"].append(
                 {"index": cell_index, "input": code, "output": output}
@@ -854,10 +951,25 @@ class OpenAIBackend:
             return json.dumps(state["cells"], indent=2) if state else "[]"
 
     def terminate(self, pane_id: str) -> None:
-        """Terminate is a no-op for SDK backends (cancellation via check_cancelled)."""
-        pass
+        """Send SIGINT to interrupt running eval."""
+        with _openai_lock:
+            state = _openai_state.get(pane_id)
+            proc = state["proc"] if state else None
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
 
     def kill(self, pane_id: str) -> None:
-        """Remove session state."""
+        """Force-kill and remove session state."""
         with _openai_lock:
-            _openai_state.pop(pane_id, None)
+            state = _openai_state.pop(pane_id, None)
+        if state:
+            proc = state.get("proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                for pipe in (proc.stdin, proc.stdout):
+                    if pipe:
+                        pipe.close()
