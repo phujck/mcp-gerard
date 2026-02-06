@@ -254,8 +254,9 @@ class ChatActor:
                 self._send(output)
                 return
             except RuntimeError as e:
-                # client.py raises "not_found: loop not found: {id}"
-                if attempt == 1 and "not_found" in str(e):
+                # Stale loop: "not_found: loop not found: {id}"
+                # Dead tmux pane: "backend_error: Claude session not found: {id}"
+                if attempt == 1 and "not found" in str(e):
                     self._clear_state()
                     continue
                 raise
