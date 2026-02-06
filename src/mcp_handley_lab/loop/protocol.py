@@ -27,6 +27,7 @@ class Request:
     prompt: str = ""  # for spawn (claude)
     name: str = ""  # optional name for spawn
     args: str = ""  # backend-specific args
+    cwd: str = ""  # working directory for spawn
     child_allowed_tools: list[str] = field(default_factory=list)
     sync_timeout: float = 1.0  # seconds to wait before returning async
     descendants_of: str = ""  # for list: filter to subtree of this parent
@@ -45,6 +46,7 @@ class Request:
             "prompt": self.prompt,
             "name": self.name,
             "args": self.args,
+            "cwd": self.cwd,
             "child_allowed_tools": self.child_allowed_tools,
             "sync_timeout": self.sync_timeout,
             "descendants_of": self.descendants_of,
@@ -63,6 +65,7 @@ class Request:
             prompt=d.get("prompt", ""),
             name=d.get("name", ""),
             args=d.get("args", ""),
+            cwd=d.get("cwd", ""),
             child_allowed_tools=d.get("child_allowed_tools", []),
             sync_timeout=d.get("sync_timeout", 1.0),
             descendants_of=d.get("descendants_of", ""),
