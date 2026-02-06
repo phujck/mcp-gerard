@@ -17,6 +17,7 @@ Some tools require additional system packages:
 - **email tools**: `mutt`, `notmuch`, `offlineimap` for email management
 - **repl tool**: `tmux` for session management
 - **screenshot tool**: `maim`, `wmctrl` for X11 window capture
+- **messenger**: `claude` CLI (Claude Code) for WhatsApp/Telegram bridge
 
 ## Quick Start
 
@@ -109,7 +110,7 @@ claude mcp add google-maps --scope user mcp-google-maps
 # claude mcp add word --scope user mcp-word                        # Word document editing
 # claude mcp add excel --scope user mcp-excel                      # Excel spreadsheet editing
 # claude mcp add mathematica --scope user mcp-mathematica
-# claude mcp add repl --scope user mcp-repl
+# claude mcp add loop --scope user mcp-loop
 # claude mcp add screenshot --scope user mcp-screenshot
 # claude mcp add search --scope user mcp-search                    # Transcript search
 ```
@@ -195,13 +196,24 @@ Comprehensive Word document manipulation via pure OOXML
   - **Other**: Content controls, equations, hyperlinks, custom properties
   - _Claude example_: `> read the outline of my thesis, then add a citation to Smith2020 in the introduction`
 
-### 🖥️ **REPL Sessions** (`repl`)
-Manage interactive REPL sessions for various interpreters
-  - Create persistent sessions (bash, python, ipython, aichat, ollama, mathematica)
-  - Execute code and retrieve output with cell indexing (In[N]/Out[N])
+### 🖥️ **Loop Sessions** (`loop`)
+Manage persistent REPL and LLM sessions via a background daemon
+  - Terminal REPLs: bash, python, ipython, julia, R, clojure, apl, maple, mathematica (via tmux)
+  - LLM backends: claude, gemini, openai (via CLI subprocesses with subscription auth)
+  - Execute code or chat and retrieve output with cell indexing
   - Pass extra arguments to interpreters (e.g., `--matplotlib` for ipython)
   - _Claude example_: `> start an ipython session with matplotlib, create a plot, and show me the figure`
-  - **Requires**: `tmux` and the desired interpreter installed
+  - **Requires**: `tmux` for terminal REPLs; `claude`, `gemini`, `codex` CLIs for LLM backends
+
+### 💬 **Messenger** (`messenger`)
+Bridge WhatsApp and Telegram to Claude via persistent loop sessions
+  - One Claude session per conversation, with automatic session resume across restarts
+  - WhatsApp support via webhook (requires Meta Business API setup)
+  - Telegram support via long-polling (requires Bot API token)
+  - Commands: `/reset` or `/new` to start a fresh session
+  - Sessions stored in `~/messenger/{platform}/{id}/`
+  - **Requires**: `claude` CLI installed and authenticated
+  - **Not an MCP tool** — runs as a standalone server: `messenger [port]` (default: 8080)
 
 ### 📸 **Screenshot Capture** (`screenshot`)
 Capture screenshots of windows or the full screen
