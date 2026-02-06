@@ -209,11 +209,33 @@ Manage persistent REPL and LLM sessions via a background daemon
 Bridge WhatsApp and Telegram to Claude via persistent loop sessions
   - One Claude session per conversation, with automatic session resume across restarts
   - WhatsApp support via webhook (requires Meta Business API setup)
-  - Telegram support via long-polling (requires Bot API token)
+  - Telegram support via long-polling (requires Bot API token from [@BotFather](https://t.me/BotFather))
   - Commands: `/reset` or `/new` to start a fresh session
   - Sessions stored in `~/messenger/{platform}/{id}/`
-  - **Requires**: `claude` CLI installed and authenticated
   - **Not an MCP tool** — runs as a standalone server: `messenger [port]` (default: 8080)
+  - **Requires**: `claude` CLI ([Claude Code](https://claude.ai/code)) installed and authenticated
+
+  **Setup:**
+  1. Install this package (provides the `messenger` command)
+  2. Install and authenticate the `claude` CLI
+  3. Set environment variables (see `src/mcp_handley_lab/messenger/.env.example`):
+     ```bash
+     # Telegram (easiest — just need a bot token)
+     export TELEGRAM_BOT_TOKEN="123456:ABC..."
+     export TELEGRAM_ALLOWED_CHAT_IDS="12345,67890"  # comma-separated, optional allowlist
+
+     # WhatsApp (requires Meta Business API app + webhook)
+     export WHATSAPP_VERIFY_TOKEN="your-verify-token"
+     export WHATSAPP_ACCESS_TOKEN="your-access-token"
+     export WHATSAPP_PHONE_NUMBER_ID="your-phone-number-id"
+     export WHATSAPP_APP_SECRET="your-app-secret"
+
+     # Optional
+     export CLAUDE_PERMISSION_MODE="acceptEdits"  # default
+     export CLAUDE_SYSTEM_PROMPT="You are a personal assistant."  # default
+     ```
+  4. Run `messenger` (or `messenger 9090` for a custom port)
+  5. For WhatsApp: point your webhook URL to `http://your-server:8080/webhook`
 
 ### 📸 **Screenshot Capture** (`screenshot`)
 Capture screenshots of windows or the full screen
