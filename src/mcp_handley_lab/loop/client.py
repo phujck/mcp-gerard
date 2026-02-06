@@ -1,40 +1,43 @@
-"""MCP Loop client - for spawning child loops from within Python REPLs.
+"""MCP Loop client - for spawning and managing loops.
 
-This module allows Python code running inside an mcp-loop to spawn and manage
-child loops. Environment variables are injected by the daemon on spawn.
+Provides daemon autostart and a simple dict-based API for loop operations.
+Used by both the MCP tool (tool.py) and standalone consumers (messenger).
 
 Usage from within a Python loop:
-    from mcp_handley_lab.loop.client import spawn, eval_code, list_loops
+    from mcp_handley_lab.loop.client import spawn, run, list_loops
 
-    # Spawn a child loop (parent_id auto-set to current loop)
     child_id = spawn("python", label="worker")
-
-    # Eval code in child
-    result = eval_code(child_id, "2 + 2")
+    result = run(child_id, "2 + 2")
     print(result)  # "4"
-
-    # List children
-    children = list_loops()
 """
 
+import fcntl
 import json
 import os
 import socket
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
-# Default socket path (same as daemon)
-RUN_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "mcp-loop"
-DEFAULT_SOCKET = RUN_DIR / "mcp-loop.sock"
+# Daemon paths (matches daemon.py)
+RUN_DIR = Path.home() / ".local" / "run"
+STATE_DIR = Path.home() / ".local" / "state" / "mcp-loop"
+SOCKET_PATH = RUN_DIR / "mcp-loop.sock"
+PID_PATH = RUN_DIR / "mcp-loop.pid"
+LOCK_PATH = RUN_DIR / "mcp-loop.lock"
 
-# Environment variables injected by daemon
+STARTUP_TIMEOUT = 2.0
+
+# Environment variables injected by daemon on spawn
 ENV_SOCKET = "MCP_LOOP_SOCKET"
 ENV_PARENT_ID = "MCP_LOOP_PARENT_ID"
 
 
 def _get_socket_path() -> Path:
     """Get socket path from env or use default."""
-    return Path(os.environ.get(ENV_SOCKET, str(DEFAULT_SOCKET)))
+    return Path(os.environ.get(ENV_SOCKET, str(SOCKET_PATH)))
 
 
 def _get_parent_id() -> str:
@@ -42,28 +45,105 @@ def _get_parent_id() -> str:
     return os.environ.get(ENV_PARENT_ID, "")
 
 
-def _send_request(request: dict[str, Any]) -> dict[str, Any]:
-    """Send request to daemon and return response."""
-    socket_path = _get_socket_path()
-    if not socket_path.exists():
-        raise RuntimeError(f"Daemon not running (socket not found: {socket_path})")
+def _socket_connectable() -> bool:
+    """Check if socket exists and is connectable."""
+    path = _get_socket_path()
+    if not path.exists():
+        return False
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(str(path))
+        sock.close()
+        return True
+    except (ConnectionRefusedError, FileNotFoundError):
+        return False
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+def _start_daemon() -> None:
+    """Start the daemon process or verify it's running."""
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+
+    lock_fd = os.open(str(LOCK_PATH), os.O_CREAT | os.O_RDWR)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (BlockingIOError, OSError):
+        os.close(lock_fd)
+        start = time.time()
+        while time.time() - start < STARTUP_TIMEOUT:
+            if _socket_connectable():
+                return
+            time.sleep(0.1)
+        raise RuntimeError(
+            f"daemon startup lock held; timed out waiting for socket; check {STATE_DIR / 'daemon.log'}"
+        ) from None
+
+    try:
+        socket_path = _get_socket_path()
+        if socket_path.exists() and PID_PATH.exists():
+            try:
+                pid = int(PID_PATH.read_text().strip())
+                os.kill(pid, 0)
+                if _socket_connectable():
+                    return
+            except (ValueError, ProcessLookupError, PermissionError):
+                pass
+            socket_path.unlink(missing_ok=True)
+
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = STATE_DIR / "daemon.log"
+        with open(log_path, "a") as log_file:
+            subprocess.Popen(
+                [sys.executable, "-m", "mcp_handley_lab.loop.daemon"],
+                start_new_session=True,
+                stdout=log_file,
+                stderr=log_file,
+            )
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+def _socket_connect() -> socket.socket:
+    """Connect to daemon socket, starting daemon if needed."""
+    socket_path = _get_socket_path()
+
+    def new_socket() -> socket.socket:
+        return socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+    sock = new_socket()
     try:
         sock.connect(str(socket_path))
-        sock.sendall(json.dumps(request).encode() + b"\n")
+        return sock
+    except (ConnectionRefusedError, FileNotFoundError):
+        sock.close()
 
-        # Read response
+    _start_daemon()
+
+    start = time.time()
+    while time.time() - start < STARTUP_TIMEOUT:
+        sock = new_socket()
+        try:
+            sock.connect(str(socket_path))
+            return sock
+        except (ConnectionRefusedError, FileNotFoundError):
+            sock.close()
+            time.sleep(0.1)
+
+    raise RuntimeError(f"daemon failed to start; check {STATE_DIR / 'daemon.log'}")
+
+
+def _send_request(request: dict[str, Any]) -> dict[str, Any]:
+    """Send request to daemon and return response."""
+    sock = _socket_connect()
+    try:
+        sock.sendall(json.dumps(request).encode() + b"\n")
         data = b""
-        while True:
+        while b"\n" not in data:
             chunk = sock.recv(4096)
             if not chunk:
-                break
+                raise RuntimeError("daemon closed connection")
             data += chunk
-            if b"\n" in data:
-                break
-
-        response = json.loads(data.decode().strip())
+        response = json.loads(data.decode())
         if not response.get("ok"):
             raise RuntimeError(
                 f"{response.get('error_code', 'ERROR')}: {response.get('error', 'Unknown error')}"
@@ -201,7 +281,6 @@ def kill(loop_id: str) -> bool:
     return response.get("ok", False)
 
 
-# Convenience: expose current loop's ID
 def my_loop_id() -> str:
     """Get the loop_id of the current loop (from env)."""
     return _get_parent_id()
