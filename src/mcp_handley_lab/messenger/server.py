@@ -28,25 +28,8 @@ from urllib.request import Request, urlopen
 from mcp_handley_lab.loop.client import kill, run, spawn
 
 # ---------------------------------------------------------------------------
-# Environment
+# Environment (set via systemd EnvironmentFile or shell exports)
 # ---------------------------------------------------------------------------
-
-
-def load_env(path=".env"):
-    """Load key=value pairs from .env file into os.environ."""
-    try:
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                key, _, value = line.partition("=")
-                os.environ.setdefault(key.strip(), value.strip())
-    except FileNotFoundError:
-        pass
-
-
-load_env(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
 ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
