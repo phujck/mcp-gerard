@@ -10,6 +10,7 @@ import threading
 import time
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import Any, NamedTuple
 
 TMUX_SESSION = "mcp-loop"
@@ -269,6 +270,7 @@ class TmuxBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
         cwd: str = "",
         prompt: str = "",
     ) -> tuple[str, str]:
@@ -280,6 +282,7 @@ class TmuxBackend:
             args: Extra arguments for the backend
             child_allowed_tools: Tools the loop can use (for Claude backend)
             socket_path: Daemon socket path to inject as MCP_LOOP_SOCKET
+            venv: Path to venv (created with --system-site-packages if missing)
             cwd: Working directory (unused for tmux backend)
             prompt: System prompt (unused for tmux backend)
         """
@@ -304,14 +307,45 @@ class TmuxBackend:
             for p in os.environ.get("PATH", "").split(os.pathsep)
             if not p.startswith(sys.prefix)
         )
+
+        # Handle venv: create if missing, then activate
+        venv_path = None
+        if venv:
+            venv_path = Path(venv).expanduser().resolve()
+            if not (venv_path / "bin" / "activate").exists():
+                # Create venv with system site-packages access
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "venv",
+                        "--system-site-packages",
+                        str(venv_path),
+                    ],
+                    check=True,
+                )
+            # Prepend venv bin to PATH and set VIRTUAL_ENV
+            clean_path = f"{venv_path}/bin:{clean_path}"
+
         env_cmd = [
             "env",
             "-u",
-            "VIRTUAL_ENV",
-            "-u",
             "PYTHONPATH",
+            "-u",
+            "ANTHROPIC_API_KEY",
+            "-u",
+            "OPENAI_API_KEY",
+            "-u",
+            "GEMINI_API_KEY",
             f"PATH={clean_path}",
         ]
+
+        # Set VIRTUAL_ENV if using venv, otherwise unset it
+        if venv_path:
+            env_cmd.append(f"VIRTUAL_ENV={venv_path}")
+        else:
+            env_cmd.extend(["-u", "VIRTUAL_ENV"])
+
         # Inject loop env vars for client library
         if socket_path:
             env_cmd.append(f"MCP_LOOP_SOCKET={socket_path}")
@@ -415,6 +449,19 @@ class TmuxBackend:
         _run(["kill-pane", "-t", pane_id])
 
 
+_API_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"}
+
+
+def _subscription_env() -> dict[str, str]:
+    """Build subprocess env that uses subscription auth instead of API keys.
+
+    API keys take precedence in CLI auth systems (Claude, Gemini, Codex),
+    causing per-token billing.  Stripping them lets CLIs fall through to
+    their cached OAuth credentials and use subscription billing.
+    """
+    return {k: v for k, v in os.environ.items() if k not in _API_KEYS}
+
+
 # Claude subprocess state - keyed by loop_id
 _claude_processes: dict[str, dict[str, Any]] = {}
 _claude_lock = threading.Lock()
@@ -430,6 +477,7 @@ class ClaudeBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
         cwd: str = "",
         prompt: str = "",
     ) -> tuple[str, str]:
@@ -441,6 +489,7 @@ class ClaudeBackend:
             args: Extra CLI arguments for claude
             child_allowed_tools: Tools the loop can use (--allowedTools)
             socket_path: Accepted for API consistency (unused)
+            venv: Accepted for API consistency (unused)
             cwd: Working directory for the Claude process
             prompt: System prompt (passed as --system-prompt)
         """
@@ -471,6 +520,8 @@ class ClaudeBackend:
         if args:
             cmd.extend(shlex.split(args))
 
+        env = _subscription_env()
+
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -478,6 +529,7 @@ class ClaudeBackend:
             stderr=subprocess.DEVNULL,  # Avoid deadlock from unbuffered stderr
             text=True,
             bufsize=1,  # Line buffered
+            env=env,
             cwd=cwd or None,
         )
 
@@ -603,13 +655,13 @@ class ClaudeBackend:
                     pipe.close()
 
 
-# Gemini SDK state - keyed by loop_id
+# Gemini CLI state - keyed by loop_id
 _gemini_state: dict[str, dict[str, Any]] = {}
 _gemini_lock = threading.Lock()
 
 
 class GeminiBackend:
-    """Backend for Google Gemini via Python SDK."""
+    """Backend for Gemini CLI in stream-json mode (uses Google OAuth subscription)."""
 
     def spawn(
         self,
@@ -618,19 +670,16 @@ class GeminiBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
         cwd: str = "",
         prompt: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
-        # Validate API key upfront
-        if not os.environ.get("GEMINI_API_KEY"):
-            raise ValueError("GEMINI_API_KEY environment variable required")
-
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"gemini-{name or timestamp}"
 
-        # Parse model from args if provided (e.g., "--model gemini-2.0-flash")
-        model = "gemini-2.0-flash"
+        # Parse model from args if provided
+        model = ""
         if args:
             import shlex
 
@@ -643,9 +692,10 @@ class GeminiBackend:
 
         with _gemini_lock:
             _gemini_state[loop_id] = {
-                "history": [],
+                "session_id": "",
                 "model": model,
                 "cells": [],
+                "proc": None,
             }
 
         return loop_id, loop_id
@@ -653,40 +703,86 @@ class GeminiBackend:
     def eval(
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
-        """Send message to Gemini and wait for response."""
-        import google.genai as genai
-
+        """Send message to Gemini CLI and wait for response."""
         with _gemini_lock:
             state = _gemini_state.get(pane_id)
             if not state:
                 raise RuntimeError(f"Gemini session not found: {pane_id}")
-            history = list(state["history"])  # Copy for thread safety
+            session_id = state["session_id"]
             model = state["model"]
 
-        # Create client and chat
-        client = genai.Client()
-        chat = client.chats.create(model=model, history=history)
+        # Build command
+        cmd = ["gemini", "--output-format", "stream-json"]
+        if session_id:
+            cmd.extend(["--resume", session_id])
+        if model:
+            cmd.extend(["--model", model])
 
-        # Stream response
+        env = _subscription_env()
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+
+        with _gemini_lock:
+            state["proc"] = proc
+
+        # Send prompt via stdin and close
+        proc.stdin.write(code + "\n")
+        proc.stdin.close()
+
+        # Read NDJSON response
         output_parts: list[str] = []
         try:
-            for chunk in chat.send_message_stream(code):
+            while True:
                 if check_cancelled():
+                    proc.send_signal(signal.SIGINT)
+                    with _gemini_lock:
+                        state["proc"] = None
                     return {
                         "output": "".join(output_parts) + "\n[cancelled]",
                         "cell_index": len(state["cells"]),
                     }
-                if hasattr(chunk, "text") and chunk.text:
-                    output_parts.append(chunk.text)
-        except Exception as e:
-            raise RuntimeError(f"Gemini API error: {e}") from e
+
+                line = proc.stdout.readline()
+                if not line:
+                    break
+
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = data.get("type")
+
+                if msg_type == "init" and not session_id:
+                    session_id = data.get("session_id", "")
+                    with _gemini_lock:
+                        state["session_id"] = session_id
+
+                elif msg_type == "message" and data.get("role") == "assistant":
+                    text = data.get("content", "")
+                    if text:
+                        output_parts.append(text)
+
+                elif msg_type == "result":
+                    if data.get("status") != "success":
+                        raise RuntimeError(f"Gemini error: {data}")
+                    break
+        finally:
+            with _gemini_lock:
+                state["proc"] = None
+            if proc.poll() is None:
+                proc.terminate()
 
         output = "".join(output_parts)
 
-        # Update state
         with _gemini_lock:
-            state["history"].append({"role": "user", "parts": [code]})
-            state["history"].append({"role": "model", "parts": [output]})
             cell_index = len(state["cells"])
             state["cells"].append(
                 {"index": cell_index, "input": code, "output": output}
@@ -707,22 +803,37 @@ class GeminiBackend:
             return json.dumps(state["cells"], indent=2) if state else "[]"
 
     def terminate(self, pane_id: str) -> None:
-        """Terminate is a no-op for SDK backends (cancellation via check_cancelled)."""
-        pass
+        """Send SIGINT to interrupt running eval."""
+        with _gemini_lock:
+            state = _gemini_state.get(pane_id)
+            proc = state["proc"] if state else None
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
 
     def kill(self, pane_id: str) -> None:
-        """Remove session state."""
+        """Force-kill and remove session state."""
         with _gemini_lock:
-            _gemini_state.pop(pane_id, None)
+            state = _gemini_state.pop(pane_id, None)
+        if state:
+            proc = state.get("proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                for pipe in (proc.stdin, proc.stdout):
+                    if pipe:
+                        pipe.close()
 
 
-# OpenAI SDK state - keyed by loop_id
+# Codex CLI state - keyed by loop_id
 _openai_state: dict[str, dict[str, Any]] = {}
 _openai_lock = threading.Lock()
 
 
 class OpenAIBackend:
-    """Backend for OpenAI via Python SDK."""
+    """Backend for Codex CLI (uses ChatGPT subscription)."""
 
     def spawn(
         self,
@@ -731,19 +842,16 @@ class OpenAIBackend:
         args: str | None,
         child_allowed_tools: list[str],
         socket_path: str = "",
+        venv: str = "",
         cwd: str = "",
         prompt: str = "",
     ) -> tuple[str, str]:
-        """Spawn a new OpenAI session. Returns (loop_id, loop_id)."""
-        # Validate API key upfront
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("OPENAI_API_KEY environment variable required")
-
+        """Spawn a new Codex session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
         loop_id = f"openai-{name or timestamp}"
 
         # Parse model from args if provided
-        model = "gpt-4o"
+        model = ""
         if args:
             import shlex
 
@@ -756,9 +864,10 @@ class OpenAIBackend:
 
         with _openai_lock:
             _openai_state[loop_id] = {
-                "messages": [],
+                "thread_id": "",
                 "model": model,
                 "cells": [],
+                "proc": None,
             }
 
         return loop_id, loop_id
@@ -766,46 +875,86 @@ class OpenAIBackend:
     def eval(
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
-        """Send message to OpenAI and wait for response."""
-        from openai import OpenAI
-
+        """Send message to Codex CLI and wait for response."""
         with _openai_lock:
             state = _openai_state.get(pane_id)
             if not state:
-                raise RuntimeError(f"OpenAI session not found: {pane_id}")
-            messages = list(state["messages"])  # Copy for thread safety
+                raise RuntimeError(f"Codex session not found: {pane_id}")
+            thread_id = state["thread_id"]
             model = state["model"]
 
-        messages.append({"role": "user", "content": code})
+        # Build command
+        if thread_id:
+            cmd = ["codex", "exec", "resume", thread_id, "--json", code]
+        else:
+            cmd = ["codex", "exec", "--json", code]
+        if model:
+            cmd.extend(["--model", model])
 
-        # Create client with timeout
-        client = OpenAI(timeout=60.0)
+        env = _subscription_env()
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
 
-        # Stream response
+        with _openai_lock:
+            state["proc"] = proc
+
+        # Read JSONL response
         output_parts: list[str] = []
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                stream=True,
-            )
-            for chunk in response:
+            while True:
                 if check_cancelled():
+                    proc.send_signal(signal.SIGINT)
+                    with _openai_lock:
+                        state["proc"] = None
                     return {
                         "output": "".join(output_parts) + "\n[cancelled]",
                         "cell_index": len(state["cells"]),
                     }
-                if chunk.choices and chunk.choices[0].delta.content:
-                    output_parts.append(chunk.choices[0].delta.content)
-        except Exception as e:
-            raise RuntimeError(f"OpenAI API error: {e}") from e
+
+                line = proc.stdout.readline()
+                if not line:
+                    break
+
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = data.get("type")
+
+                if msg_type == "thread.started" and not thread_id:
+                    thread_id = data.get("thread_id", "")
+                    with _openai_lock:
+                        state["thread_id"] = thread_id
+
+                elif msg_type == "item.completed":
+                    item = data.get("item", {})
+                    if item.get("type") == "agent_message":
+                        text = item.get("text", "")
+                        if text:
+                            output_parts.append(text)
+
+                elif msg_type == "turn.completed":
+                    break
+
+                elif msg_type in ("turn.failed", "error"):
+                    raise RuntimeError(f"Codex error: {data}")
+        finally:
+            with _openai_lock:
+                state["proc"] = None
+            if proc.poll() is None:
+                proc.terminate()
 
         output = "".join(output_parts)
 
-        # Update state
         with _openai_lock:
-            state["messages"].append({"role": "user", "content": code})
-            state["messages"].append({"role": "assistant", "content": output})
             cell_index = len(state["cells"])
             state["cells"].append(
                 {"index": cell_index, "input": code, "output": output}
@@ -826,10 +975,25 @@ class OpenAIBackend:
             return json.dumps(state["cells"], indent=2) if state else "[]"
 
     def terminate(self, pane_id: str) -> None:
-        """Terminate is a no-op for SDK backends (cancellation via check_cancelled)."""
-        pass
+        """Send SIGINT to interrupt running eval."""
+        with _openai_lock:
+            state = _openai_state.get(pane_id)
+            proc = state["proc"] if state else None
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
 
     def kill(self, pane_id: str) -> None:
-        """Remove session state."""
+        """Force-kill and remove session state."""
         with _openai_lock:
-            _openai_state.pop(pane_id, None)
+            state = _openai_state.pop(pane_id, None)
+        if state:
+            proc = state.get("proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                for pipe in (proc.stdin, proc.stdout):
+                    if pipe:
+                        pipe.close()

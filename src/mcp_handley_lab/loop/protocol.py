@@ -34,6 +34,9 @@ class Request:
     current_session_id: str = (
         ""  # for list: caller's session_id for context in response
     )
+    venv: str = (
+        ""  # for spawn: venv path (created with --system-site-packages if missing)
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +54,7 @@ class Request:
             "sync_timeout": self.sync_timeout,
             "descendants_of": self.descendants_of,
             "current_session_id": self.current_session_id,
+            "venv": self.venv,
         }
 
     @classmethod
@@ -70,6 +74,7 @@ class Request:
             sync_timeout=d.get("sync_timeout", 1.0),
             descendants_of=d.get("descendants_of", ""),
             current_session_id=d.get("current_session_id", ""),
+            venv=d.get("venv", ""),
         )
 
 

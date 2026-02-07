@@ -609,29 +609,8 @@ class TelegramPlatform:
 # Directory mapping
 # ---------------------------------------------------------------------------
 
-_conversations_file = MESSENGER_DIR / "conversations.json"
-_conversation_map: dict[str, str] = {}
-
-
-def _load_conversation_map():
-    global _conversation_map
-    try:
-        _conversation_map = json.loads(_conversations_file.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
-        _conversation_map = {}
-
-
-def _save_conversation_map():
-    _conversations_file.parent.mkdir(parents=True, exist_ok=True)
-    tmp = _conversations_file.with_suffix(".tmp")
-    tmp.write_text(json.dumps(_conversation_map, indent=2))
-    tmp.rename(_conversations_file)
-
 
 def _cwd_for_conversation(conversation_id: str) -> Path:
-    mapped = _conversation_map.get(conversation_id)
-    if mapped:
-        return Path(mapped)
     parts = conversation_id.split(":", 2)
     if len(parts) == 3:
         return MESSENGER_DIR / parts[0] / parts[1] / parts[2]
@@ -842,9 +821,6 @@ async def _dispatch(event: IncomingEvent):
                 "Session reset. Send a new message to start fresh.",
             )
             return
-        if cmd.startswith("/project"):
-            _handle_project_command(event)
-            return
 
     actor = _get_or_create_actor(event.conversation_id, event.platform)
     try:
@@ -853,40 +829,6 @@ async def _dispatch(event: IncomingEvent):
         event.platform.send_text(
             event.conversation_id, "Too many pending messages. Please wait."
         )
-
-
-def _handle_project_command(event: IncomingEvent):
-    parts = event.text.strip().split(None, 1)
-    if len(parts) < 2:
-        event.platform.send_text(
-            event.conversation_id,
-            "Usage: /project <path>\nExample: /project ~/projects/my-repo",
-        )
-        return
-
-    raw_path = parts[1]
-    path = Path(raw_path).expanduser().resolve()
-
-    # Restrict to home directory to prevent arbitrary writes
-    if not path.is_relative_to(Path.home()):
-        event.platform.send_text(
-            event.conversation_id,
-            f"Path must be under {Path.home()}",
-        )
-        return
-
-    _conversation_map[event.conversation_id] = str(path)
-    _save_conversation_map()
-
-    actor = _actors.get(event.conversation_id)
-    if actor:
-        actor.reset()
-        del _actors[event.conversation_id]
-
-    event.platform.send_text(
-        event.conversation_id,
-        f"Project set to {path}\nSession reset. Send a message to start.",
-    )
 
 
 def _post_to_loop(event: IncomingEvent):
@@ -915,9 +857,7 @@ def _classify_wa_event(wa_msg: WAMessage) -> IncomingEvent:
     conversation_id = f"whatsapp:{wa_msg.sender}"
     text = wa_msg.text or wa_msg.caption or ""
     cmd = text.strip().lower().split("@")[0]
-    kind = (
-        "command" if cmd in ("/reset", "/new") or cmd.startswith("/project") else "text"
-    )
+    kind = "command" if cmd in ("/reset", "/new") else "text"
     return IncomingEvent(
         conversation_id,
         kind=kind,
@@ -1110,10 +1050,7 @@ def _handle_tg_message(msg: dict):
         return
 
     cmd = text.strip().lower().split("@")[0]
-    if cmd in ("/reset", "/new") or cmd.startswith("/project"):
-        kind = "command"
-    else:
-        kind = "text"
+    kind = "command" if cmd in ("/reset", "/new") else "text"
 
     event = IncomingEvent(
         conversation_id,
@@ -1216,7 +1153,6 @@ def main():
 
     MESSENGER_DIR.mkdir(parents=True, exist_ok=True)
     _migrate_old_dirs()
-    _load_conversation_map()
 
     _wa_platform = WhatsAppPlatform()
 
