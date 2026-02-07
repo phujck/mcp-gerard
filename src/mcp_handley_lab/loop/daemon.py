@@ -521,14 +521,8 @@ async def run_daemon():
         logging.info("Loop daemon stopped")
 
 
-_API_KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
-
-
 def main():
     """Entry point for daemon."""
-    # Strip API keys so child processes use subscription auth (OAuth) instead
-    for key in _API_KEYS:
-        os.environ.pop(key, None)
     asyncio.run(run_daemon())
 
 
