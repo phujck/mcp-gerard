@@ -47,11 +47,10 @@ TELEGRAM_ALLOWED_CHAT_IDS: set[int] | None = (
 )
 
 CLAUDE_PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
-CLAUDE_SYSTEM_PROMPT = os.environ.get(
-    "CLAUDE_SYSTEM_PROMPT",
-    "You are a personal assistant. Keep responses concise for mobile. "
-    "To send a file to the user, output send:<filename> on its own line (e.g. send:media/chart.png). "
-    "Files must be under the current working directory.",
+_APPEND_SYSTEM_PROMPT = (
+    "Keep responses concise for mobile. "
+    "To send a file to the user, output send:<filename> on its own line "
+    "(e.g. send:media/chart.png). Files must be under the current working directory."
 )
 
 MESSENGER_DIR = Path.home() / "messenger"
@@ -122,10 +121,17 @@ def _extract_send_files(text: str, cwd: Path) -> tuple[list[Path], str]:
     for line in text.splitlines():
         m = re.match(r"^send:(.+)$", line.strip())
         if m:
-            p = (cwd / m.group(1).strip()).resolve()
-            if p.is_relative_to(cwd_resolved) and p.is_file() and p not in seen:
-                files.append(p)
-                seen.add(p)
+            raw = m.group(1).strip()
+            # Try relative to cwd first, then absolute/home-relative
+            matched = False
+            for candidate in (cwd / raw, Path(raw).expanduser()):
+                p = candidate.resolve()
+                if p.is_relative_to(cwd_resolved) and p.is_file() and p not in seen:
+                    files.append(p)
+                    seen.add(p)
+                    matched = True
+                    break
+            if matched:
                 continue
         clean_lines.append(line)
     return files, "\n".join(clean_lines)
@@ -759,7 +765,7 @@ class ChatActor:
                 "claude",
                 label=f"msg-{self.conversation_id[:20]}",
                 cwd=str(self.cwd),
-                prompt=CLAUDE_SYSTEM_PROMPT,
+                prompt=_APPEND_SYSTEM_PROMPT,
                 args=f"--permission-mode {CLAUDE_PERMISSION_MODE}",
             )
             self._save_state()
@@ -1135,7 +1141,8 @@ for session continuity. Data is not shared with third parties.</p>
 
         for wa_msg in extract_messages(data):
             event = _classify_wa_event(wa_msg)
-            print(f"[WA {event.kind}] {wa_msg.sender}: {event.text[:100]}", flush=True)
+            kind_label = wa_msg.media_type or event.kind
+            print(f"[WA {kind_label}] {wa_msg.sender}: {event.text[:100]}", flush=True)
             _post_to_loop(event)
 
     def log_message(self, format, *args):

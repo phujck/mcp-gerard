@@ -491,7 +491,7 @@ class ClaudeBackend:
             socket_path: Accepted for API consistency (unused)
             venv: Accepted for API consistency (unused)
             cwd: Working directory for the Claude process
-            prompt: System prompt (passed as --system-prompt)
+            prompt: System prompt (passed as --append-system-prompt)
         """
         import shlex
 
@@ -508,9 +508,9 @@ class ClaudeBackend:
             "--verbose",
         ]
 
-        # Add system prompt if specified
+        # Append to default system prompt if specified
         if prompt:
-            cmd.extend(["--system-prompt", prompt])
+            cmd.extend(["--append-system-prompt", prompt])
 
         # Add allowed tools if specified
         if child_allowed_tools:
