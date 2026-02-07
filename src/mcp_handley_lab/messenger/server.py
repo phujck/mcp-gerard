@@ -13,7 +13,9 @@ import contextlib
 import hashlib
 import hmac
 import json
+import mimetypes
 import os
+import re
 import sys
 import threading
 import time
@@ -23,7 +25,8 @@ from pathlib import Path
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+from uuid import uuid4
 
 from mcp_handley_lab.loop.client import kill, run, spawn
 
@@ -46,7 +49,9 @@ TELEGRAM_ALLOWED_CHAT_IDS: set[int] | None = (
 CLAUDE_PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
 CLAUDE_SYSTEM_PROMPT = os.environ.get(
     "CLAUDE_SYSTEM_PROMPT",
-    "You are a personal assistant. Keep responses concise for mobile.",
+    "You are a personal assistant. Keep responses concise for mobile. "
+    "To send a file to the user, output send:<filename> on its own line (e.g. send:media/chart.png). "
+    "Files must be under the current working directory.",
 )
 
 MESSENGER_DIR = Path.home() / "messenger"
@@ -65,6 +70,70 @@ def _truncate(text: str, max_len: int) -> str:
     return text[: max_len - 3] + "..."
 
 
+_TG_ESCAPE_CHARS = r"_*[]()~`>#+-=|{}.!"
+_TG_ESCAPE_RE = re.compile(r"([" + re.escape(_TG_ESCAPE_CHARS) + r"])")
+# URL chars that need escaping in MarkdownV2
+_TG_URL_ESCAPE_RE = re.compile(r"([\\)`(])")
+# Link regex that handles balanced parentheses in URLs (e.g. Wikipedia)
+_TG_LINK_RE = re.compile(r"\[([^\]]+)\]\(((?:[^()]*|\([^()]*\))*)\)")
+
+
+def _md_to_tg(text: str) -> str:
+    """Convert markdown text to Telegram MarkdownV2 format.
+
+    Preserves fenced code blocks and inline code as-is (Telegram handles them),
+    escapes special chars in everything else.
+    """
+    parts = re.split(r"(```[\s\S]*?```|`[^`]+`)", text)
+    result = []
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            result.append(part)
+        else:
+            result.append(_escape_tg_text(part))
+    return "".join(result)
+
+
+def _escape_tg_text(text: str) -> str:
+    """Escape MarkdownV2 special chars in plain text, preserving links."""
+
+    def _replace_link(m: re.Match) -> str:
+        link_text = _TG_ESCAPE_RE.sub(r"\\\1", m.group(1))
+        url = _TG_URL_ESCAPE_RE.sub(r"\\\1", m.group(2))
+        return f"[{link_text}]({url})"
+
+    # Replace links first, then escape remaining text
+    result: list[str] = []
+    last_end = 0
+    for m in _TG_LINK_RE.finditer(text):
+        result.append(_TG_ESCAPE_RE.sub(r"\\\1", text[last_end : m.start()]))
+        result.append(_replace_link(m))
+        last_end = m.end()
+    result.append(_TG_ESCAPE_RE.sub(r"\\\1", text[last_end:]))
+    return "".join(result)
+
+
+def _extract_send_files(text: str, cwd: Path) -> tuple[list[Path], str]:
+    """Extract send:<path> markers and return (files, cleaned_text)."""
+    cwd_resolved = cwd.resolve()
+    files: list[Path] = []
+    seen: set[Path] = set()
+    clean_lines: list[str] = []
+    for line in text.splitlines():
+        m = re.match(r"^send:(.+)$", line.strip())
+        if m:
+            p = (cwd / m.group(1).strip()).resolve()
+            if p.is_relative_to(cwd_resolved) and p.is_file() and p not in seen:
+                files.append(p)
+                seen.add(p)
+                continue
+        clean_lines.append(line)
+    return files, "\n".join(clean_lines)
+
+
+_MESSAGE_LOG_MAX = 200
+
+
 # ---------------------------------------------------------------------------
 # Types
 # ---------------------------------------------------------------------------
@@ -73,7 +142,17 @@ def _truncate(text: str, max_len: int) -> str:
 class Platform(Protocol):
     """Messaging platform abstraction."""
 
-    def send_text(self, conversation_id: str, text: str) -> None: ...
+    def send_text(
+        self, conversation_id: str, text: str, reply_to: str | None = None
+    ) -> str | None: ...
+    def send_media(
+        self,
+        conversation_id: str,
+        path: Path,
+        caption: str = "",
+        reply_to: str | None = None,
+    ) -> str | None: ...
+    def send_typing(self, conversation_id: str) -> None: ...
 
 
 @dataclass
@@ -82,7 +161,32 @@ class IncomingEvent:
     kind: str  # "text", "command"
     text: str
     platform: Platform
+    message_id: str | None = None
+    reply_to_id: str | None = None
+    media_type: str | None = None  # "image", "video", "audio", "document", etc.
+    media_id: str | None = None  # WA media_id or TG file_id
+    media_mime: str | None = None
 
+
+@dataclass
+class WAMessage:
+    """Parsed WhatsApp incoming message."""
+
+    sender: str
+    text: str | None = None
+    media_type: str | None = None
+    media_id: str | None = None
+    caption: str | None = None
+    mime_type: str | None = None
+    message_id: str | None = None
+    reply_to_id: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50 MB
 
 # ---------------------------------------------------------------------------
 # WhatsApp platform
@@ -91,13 +195,101 @@ class IncomingEvent:
 _WA_TEXT_MAX = 4096
 
 
+_WA_MEDIA_TYPES = {
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".webp": "image",
+    ".mp4": "video",
+    ".3gp": "video",
+    ".mp3": "audio",
+    ".ogg": "audio",
+    ".amr": "audio",
+    ".aac": "audio",
+}
+
+
 class WhatsAppPlatform:
-    def send_text(self, conversation_id: str, text: str) -> None:
+    def send_text(
+        self, conversation_id: str, text: str, reply_to: str | None = None
+    ) -> str | None:
         text = _truncate(text, _WA_TEXT_MAX)
-        _send_whatsapp(conversation_id, {"text": {"body": text}})
+        payload: dict = {"type": "text", "text": {"body": text}}
+        if reply_to:
+            payload["context"] = {"message_id": reply_to}
+        return _send_whatsapp(conversation_id, payload)
+
+    def send_media(
+        self,
+        conversation_id: str,
+        path: Path,
+        caption: str = "",
+        reply_to: str | None = None,
+    ) -> str | None:
+        media_type = _WA_MEDIA_TYPES.get(path.suffix.lower(), "document")
+        media_id = _upload_wa_media(path)
+        if not media_id:
+            return None
+        media_payload: dict = {"id": media_id}
+        if caption:
+            media_payload["caption"] = _truncate(caption, _WA_TEXT_MAX)
+        payload: dict = {"type": media_type, media_type: media_payload}
+        if reply_to:
+            payload["context"] = {"message_id": reply_to}
+        return _send_whatsapp(conversation_id, payload)
+
+    def send_typing(self, conversation_id: str) -> None:
+        pass  # WhatsApp Cloud API has no typing indicator
 
 
-def _send_whatsapp(to: str, payload: dict) -> None:
+def _upload_wa_media(path: Path) -> str | None:
+    """Upload a file to WhatsApp and return the media_id."""
+    if path.stat().st_size > _MAX_MEDIA_BYTES:
+        print(
+            f"WA upload rejected: {path.name} exceeds {_MAX_MEDIA_BYTES} bytes",
+            flush=True,
+        )
+        return None
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    boundary = uuid4().hex
+    body = bytearray()
+    # messaging_product field
+    body += f"--{boundary}\r\n".encode()
+    body += (
+        b'Content-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n'
+    )
+    # type field
+    body += f"--{boundary}\r\n".encode()
+    body += f'Content-Disposition: form-data; name="type"\r\n\r\n{mime}\r\n'.encode()
+    # file field
+    body += f"--{boundary}\r\n".encode()
+    body += f'Content-Disposition: form-data; name="file"; filename="{path.name}"\r\n'.encode()
+    body += f"Content-Type: {mime}\r\n\r\n".encode()
+    body += path.read_bytes()
+    body += f"\r\n--{boundary}--\r\n".encode()
+
+    upload_url = f"https://graph.facebook.com/v21.0/{PHONE_NUMBER_ID}/media"
+    req = Request(
+        upload_url,
+        data=bytes(body),
+        headers={
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+    )
+    try:
+        with urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
+            return data.get("id")
+    except HTTPError as e:
+        print(
+            f"WA media upload error {e.code}: {e.read().decode(errors='replace')}",
+            flush=True,
+        )
+        return None
+
+
+def _send_whatsapp(to: str, payload: dict) -> str | None:
     payload["messaging_product"] = "whatsapp"
     payload["to"] = to
     req = Request(
@@ -109,12 +301,168 @@ def _send_whatsapp(to: str, payload: dict) -> None:
         },
     )
     try:
-        with urlopen(req) as resp:
+        with urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read())
             print(f"WA sent to {to}: {resp.status}", flush=True)
+            msgs = data.get("messages", [])
+            return msgs[0]["id"] if msgs else None
     except HTTPError as e:
         body = e.read().decode(errors="replace")
         print(f"WhatsApp API error {e.code}: {body}", flush=True)
-        raise
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Media download helpers (SSRF-safe, size-limited, streaming)
+# ---------------------------------------------------------------------------
+
+_CHUNK_SIZE = 65536
+
+_WA_CDN_DOMAINS = {
+    "lookaside.fbsbx.com",
+    "scontent.whatsapp.net",
+    "mmg.whatsapp.net",
+    "fbcdn.net",
+}
+
+_EXT_NORMALIZE = {".jpe": ".jpg", ".jpeg": ".jpg"}
+
+
+_MAX_REDIRECTS = 5
+
+
+def _validate_url(url: str) -> None:
+    """Reject non-HTTPS and private/reserved IPs (SSRF defense)."""
+    import ipaddress
+    import socket
+
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Only HTTPS URLs allowed, got {parsed.scheme}")
+    host = parsed.hostname or ""
+
+    # Check against WA CDN allowlist
+    normalized = host.lower().rstrip(".")
+    for domain in _WA_CDN_DOMAINS:
+        if normalized == domain or normalized.endswith("." + domain):
+            return
+
+    # Resolve all IPs and check for private ranges
+    for info in socket.getaddrinfo(host, None):
+        addr = ipaddress.ip_address(info[4][0])
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+        ):
+            raise ValueError(f"URL resolves to non-public IP: {addr}")
+
+
+class _SafeRedirectHandler(HTTPRedirectHandler):
+    """Validates each redirect hop against SSRF checks."""
+
+    def __init__(self):
+        self._redirect_count = 0
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        self._redirect_count += 1
+        if self._redirect_count > _MAX_REDIRECTS:
+            raise ValueError(f"Too many redirects (>{_MAX_REDIRECTS})")
+        # Reject scheme downgrade (https → http)
+        if urlparse(newurl).scheme != "https":
+            raise ValueError(f"Redirect scheme downgrade rejected: {newurl}")
+        _validate_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _safe_urlopen(req: Request, timeout: int = 30):
+    """urlopen with redirect validation for SSRF defense."""
+    handler = _SafeRedirectHandler()
+    opener = build_opener(handler)
+    return opener.open(req, timeout=timeout)
+
+
+def _download_media(
+    url: str,
+    dest_dir: Path,
+    media_type: str,
+    mime_type: str | None,
+    max_bytes: int = _MAX_MEDIA_BYTES,
+    headers: dict | None = None,
+) -> Path:
+    """Download media to dest_dir with safe naming. Returns the saved path."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    ext = mimetypes.guess_extension(mime_type or "") or ".bin"
+    ext = _EXT_NORMALIZE.get(ext, ext)
+    filename = f"{media_type}_{int(time.time())}_{uuid4().hex[:8]}{ext}"
+    dest = dest_dir / filename
+    tmp = dest.with_suffix(".tmp")
+
+    req = Request(url, headers=headers or {})
+    with _safe_urlopen(req, timeout=30) as resp:
+        downloaded = 0
+        with open(tmp, "wb") as f:
+            while True:
+                chunk = resp.read(_CHUNK_SIZE)
+                if not chunk:
+                    break
+                downloaded += len(chunk)
+                if downloaded > max_bytes:
+                    tmp.unlink(missing_ok=True)
+                    raise ValueError(f"File exceeds {max_bytes} byte limit")
+                f.write(chunk)
+    tmp.rename(dest)
+    return dest
+
+
+def _download_wa_media(media_id: str, dest_dir: Path) -> tuple[Path, str]:
+    """Download WhatsApp media by ID. Returns (path, mime_type)."""
+    # Step 1: get media URL
+    url = f"https://graph.facebook.com/v21.0/{media_id}"
+    req = Request(url, headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+    with urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read())
+    media_url = data["url"]
+    mime_type = data.get("mime_type", "application/octet-stream")
+    file_size = data.get("file_size", 0)
+    if file_size > _MAX_MEDIA_BYTES:
+        raise ValueError(f"WhatsApp media too large: {file_size} bytes")
+    _validate_url(media_url)
+
+    # Step 2: download
+    path = _download_media(
+        media_url,
+        dest_dir,
+        "media",
+        mime_type,
+        headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+    )
+    return path, mime_type
+
+
+def _download_tg_media(file_id: str, dest_dir: Path, media_type: str) -> Path:
+    """Download Telegram media by file_id. Returns the saved path."""
+    # Step 1: getFile
+    payload = json.dumps({"file_id": file_id}).encode()
+    req = Request(
+        f"{TELEGRAM_API}/getFile",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urlopen(req, timeout=30) as resp:
+        data = json.loads(resp.read())
+    file_info = data["result"]
+    file_path = file_info["file_path"]
+    file_size = file_info.get("file_size", 0)
+    if file_size > _MAX_MEDIA_BYTES:
+        raise ValueError(f"Telegram media too large: {file_size} bytes")
+
+    # Step 2: download
+    download_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+    mime_type = mimetypes.guess_type(file_path)[0]
+    return _download_media(download_url, dest_dir, media_type, mime_type)
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +470,11 @@ def _send_whatsapp(to: str, payload: dict) -> None:
 # ---------------------------------------------------------------------------
 
 _TG_TEXT_MAX = 4096
+
+
+_TG_CAPTION_MAX = 1024
+
+_TG_PHOTO_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 class TelegramPlatform:
@@ -140,20 +493,116 @@ class TelegramPlatform:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urlopen(req) as resp:
+            with urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read())
         except HTTPError as e:
             body = e.read().decode(errors="replace")
             print(f"Telegram API error {e.code} ({method}): {body}", flush=True)
             raise
 
-    def send_text(self, conversation_id: str, text: str) -> None:
+    def _call_multipart(
+        self, method: str, fields: dict, file_field: str, file_path: Path
+    ) -> dict:
+        """Send a multipart/form-data request with a file upload."""
+        boundary = uuid4().hex
+        body = bytearray()
+        for k, v in fields.items():
+            body += f"--{boundary}\r\n".encode()
+            body += (
+                f'Content-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode()
+            )
+        mime = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
+        body += f"--{boundary}\r\n".encode()
+        body += f'Content-Disposition: form-data; name="{file_field}"; filename="{file_path.name}"\r\n'.encode()
+        body += f"Content-Type: {mime}\r\n\r\n".encode()
+        body += file_path.read_bytes()
+        body += f"\r\n--{boundary}--\r\n".encode()
+
+        url = f"{TELEGRAM_API}/{method}"
+        req = Request(
+            url,
+            data=bytes(body),
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        )
+        try:
+            with urlopen(req, timeout=30) as resp:
+                return json.loads(resp.read())
+        except HTTPError as e:
+            print(
+                f"Telegram API error {e.code} ({method}): {e.read().decode(errors='replace')}",
+                flush=True,
+            )
+            raise
+
+    def send_text(
+        self, conversation_id: str, text: str, reply_to: str | None = None
+    ) -> str | None:
         chat_id, topic_id = self._parse_conversation_id(conversation_id)
-        text = _truncate(text, _TG_TEXT_MAX)
-        payload = {"chat_id": chat_id, "text": text}
+        formatted = _md_to_tg(text)
+        formatted = _truncate(formatted, _TG_TEXT_MAX)
+        payload: dict = {
+            "chat_id": chat_id,
+            "text": formatted,
+            "parse_mode": "MarkdownV2",
+        }
         if topic_id:
             payload["message_thread_id"] = int(topic_id)
-        self._call("sendMessage", payload)
+        if reply_to:
+            payload["reply_parameters"] = {"message_id": int(reply_to)}
+        try:
+            result = self._call("sendMessage", payload)
+        except HTTPError:
+            # Fallback: retry as plain text without formatting
+            payload["text"] = _truncate(text, _TG_TEXT_MAX)
+            payload.pop("parse_mode", None)
+            result = self._call("sendMessage", payload)
+        msg_id = result.get("result", {}).get("message_id")
+        return str(msg_id) if msg_id else None
+
+    def send_media(
+        self,
+        conversation_id: str,
+        path: Path,
+        caption: str = "",
+        reply_to: str | None = None,
+    ) -> str | None:
+        chat_id, topic_id = self._parse_conversation_id(conversation_id)
+        ext = path.suffix.lower()
+        if ext in _TG_PHOTO_EXTS:
+            method, file_field = "sendPhoto", "photo"
+        elif ext == ".gif":
+            method, file_field = "sendAnimation", "animation"
+        else:
+            method, file_field = "sendDocument", "document"
+
+        fields: dict = {"chat_id": chat_id}
+        if topic_id:
+            fields["message_thread_id"] = topic_id
+        if reply_to:
+            fields["reply_parameters"] = json.dumps({"message_id": int(reply_to)})
+        if caption:
+            formatted_caption = _md_to_tg(caption)
+            fields["caption"] = _truncate(formatted_caption, _TG_CAPTION_MAX)
+            fields["parse_mode"] = "MarkdownV2"
+
+        try:
+            result = self._call_multipart(method, fields, file_field, path)
+        except HTTPError:
+            # Fallback: send as text reference
+            self.send_text(
+                conversation_id, f"[File: {path.name} ({path.stat().st_size} bytes)]"
+            )
+            return None
+        msg_id = result.get("result", {}).get("message_id")
+        return str(msg_id) if msg_id else None
+
+    def send_typing(self, conversation_id: str) -> None:
+        chat_id, topic_id = self._parse_conversation_id(conversation_id)
+        payload: dict = {"chat_id": chat_id, "action": "typing"}
+        if topic_id:
+            payload["message_thread_id"] = int(topic_id)
+        with contextlib.suppress(HTTPError):
+            self._call("sendChatAction", payload)
 
 
 # ---------------------------------------------------------------------------
@@ -227,35 +676,98 @@ class ChatActor:
         self.cwd = _cwd_for_conversation(conversation_id)
         self.loop_id: str | None = None
         self._state_file = self.cwd / "loop_state.json"
+        self._msg_log_file = self.cwd / "message_log.json"
+        self._message_log: dict[str, dict] = {}
         self._task: asyncio.Task | None = None
 
     async def start(self):
         self.cwd.mkdir(parents=True, exist_ok=True)
         self._load_state()
+        self._load_message_log()
         self._task = asyncio.create_task(self._run())
 
     async def _run(self):
         while True:
             event = await self.queue.get()
             try:
-                await self._handle(event.text)
+                await self._handle(event)
             except Exception as e:
                 print(f"Chat {self.conversation_id} error: {e}", flush=True)
-                self._send(f"Error: {e}")
+                try:
+                    self._send_text(f"Error: {e}")
+                except Exception:
+                    print(f"Failed to send error to {self.conversation_id}", flush=True)
 
-    def _send(self, text: str) -> None:
+    def _log_message(self, msg_id: str | None, role: str, text: str) -> None:
+        if not msg_id:
+            return
+        self._message_log[msg_id] = {"role": role, "text": text[:200]}
+        # Cap at max entries
+        if len(self._message_log) > _MESSAGE_LOG_MAX:
+            keys = list(self._message_log)
+            for k in keys[: len(keys) - _MESSAGE_LOG_MAX]:
+                del self._message_log[k]
+        self._save_message_log()
+
+    def _send_text(self, text: str, reply_to: str | None = None) -> None:
         print(f"Reply to {self.conversation_id}: {text[:200]}", flush=True)
-        self.platform.send_text(self.conversation_id, text)
+        msg_id = self.platform.send_text(self.conversation_id, text, reply_to=reply_to)
+        self._log_message(msg_id, "assistant", text)
 
-    async def _handle(self, text: str) -> None:
+    def _send_response(self, text: str, reply_to: str | None = None) -> None:
+        """Send response, extracting any send:<file> markers for media."""
+        files, clean_text = _extract_send_files(text, self.cwd)
+        if clean_text.strip():
+            self._send_text(clean_text, reply_to=reply_to)
+        for f in files:
+            msg_id = self.platform.send_media(self.conversation_id, f)
+            self._log_message(msg_id, "assistant", f"[file: {f.name}]")
+
+    def _prepare_text(self, event: IncomingEvent) -> str:
+        """Build query text from event, downloading media if present."""
+        text = event.text
+        if event.media_id and event.media_type:
+            media_dir = self.cwd / "media"
+            try:
+                if event.conversation_id.startswith("whatsapp:"):
+                    path, _ = _download_wa_media(event.media_id, media_dir)
+                else:
+                    path = _download_tg_media(
+                        event.media_id, media_dir, event.media_type
+                    )
+                media_ref = (
+                    f"[User sent {event.media_type}: {path.relative_to(self.cwd)}]"
+                )
+                text = f"{media_ref}\n{text}" if text else media_ref
+            except Exception as e:
+                print(f"Media download failed: {e}", flush=True)
+                text = (
+                    f"[Media download failed: {e}]\n{text}"
+                    if text
+                    else f"[Media download failed: {e}]"
+                )
+
+        # Inject reply-to context
+        if event.reply_to_id and event.reply_to_id in self._message_log:
+            ref = self._message_log[event.reply_to_id]
+            text = f"[Replying to {ref['role']}'s message: {ref['text'][:200]}]\n{text}"
+
+        return text
+
+    async def _handle(self, event: IncomingEvent) -> None:
+        # Log inbound message
+        self._log_message(event.message_id, "user", event.text)
+
+        # Send typing indicator
+        self.platform.send_typing(self.conversation_id)
+
+        text = await asyncio.to_thread(self._prepare_text, event)
         for attempt in (1, 2):
             try:
                 output = await asyncio.to_thread(self._query, text)
-                self._send(output)
+                self._send_response(output, reply_to=event.message_id)
                 return
             except RuntimeError as e:
-                # Stale loop: "not_found: loop not found: {id}"
-                # Dead tmux pane: "backend_error: Claude session not found: {id}"
                 if attempt == 1 and "not found" in str(e):
                     self._clear_state()
                     continue
@@ -290,6 +802,15 @@ class ChatActor:
     def _clear_state(self):
         self.loop_id = None
         self._state_file.unlink(missing_ok=True)
+
+    def _load_message_log(self):
+        with contextlib.suppress(FileNotFoundError, json.JSONDecodeError):
+            self._message_log = json.loads(self._msg_log_file.read_text())
+
+    def _save_message_log(self):
+        tmp = self._msg_log_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self._message_log))
+        tmp.rename(self._msg_log_file)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +867,14 @@ def _handle_project_command(event: IncomingEvent):
     raw_path = parts[1]
     path = Path(raw_path).expanduser().resolve()
 
+    # Restrict to home directory to prevent arbitrary writes
+    if not path.is_relative_to(Path.home()):
+        event.platform.send_text(
+            event.conversation_id,
+            f"Path must be under {Path.home()}",
+        )
+        return
+
     _conversation_map[event.conversation_id] = str(path)
     _save_conversation_map()
 
@@ -382,13 +911,24 @@ def _post_to_loop(event: IncomingEvent):
 _wa_platform: WhatsAppPlatform | None = None
 
 
-def _classify_wa_event(sender: str, text: str) -> IncomingEvent:
-    conversation_id = f"whatsapp:{sender}"
-    if text.strip().lower().split("@")[0] in ("/reset", "/new", "/project"):
-        return IncomingEvent(
-            conversation_id, kind="command", text=text, platform=_wa_platform
-        )
-    return IncomingEvent(conversation_id, kind="text", text=text, platform=_wa_platform)
+def _classify_wa_event(wa_msg: WAMessage) -> IncomingEvent:
+    conversation_id = f"whatsapp:{wa_msg.sender}"
+    text = wa_msg.text or wa_msg.caption or ""
+    cmd = text.strip().lower().split("@")[0]
+    kind = (
+        "command" if cmd in ("/reset", "/new") or cmd.startswith("/project") else "text"
+    )
+    return IncomingEvent(
+        conversation_id,
+        kind=kind,
+        text=text,
+        platform=_wa_platform,
+        message_id=wa_msg.message_id,
+        reply_to_id=wa_msg.reply_to_id,
+        media_type=wa_msg.media_type,
+        media_id=wa_msg.media_id,
+        media_mime=wa_msg.mime_type,
+    )
 
 
 def verify_signature(payload: bytes, signature_header: str) -> bool:
@@ -400,15 +940,54 @@ def verify_signature(payload: bytes, signature_header: str) -> bool:
     return hmac.compare_digest(expected, signature_header[7:])
 
 
-def extract_messages(data: dict) -> list[tuple[str, str]]:
-    """Extract (sender, text) pairs from webhook payload."""
+_WA_MEDIA_MSG_TYPES = {"image", "video", "audio", "document", "sticker"}
+
+
+def extract_messages(data: dict) -> list[WAMessage]:
+    """Extract WAMessage objects from webhook payload."""
     messages = []
     for entry in data.get("entry", []):
         for change in entry.get("changes", []):
             value = change.get("value", {})
             for msg in value.get("messages", []):
-                if msg.get("type") == "text":
-                    messages.append((msg["from"], msg["text"]["body"]))
+                sender = msg.get("from")
+                if not sender:
+                    continue
+                msg_id = msg.get("id")
+                reply_to = msg.get("context", {}).get("id")
+                msg_type = msg.get("type")
+
+                if msg_type == "text":
+                    messages.append(
+                        WAMessage(
+                            sender=sender,
+                            text=msg.get("text", {}).get("body", ""),
+                            message_id=msg_id,
+                            reply_to_id=reply_to,
+                        )
+                    )
+                elif msg_type in _WA_MEDIA_MSG_TYPES:
+                    media_data = msg.get(msg_type, {})
+                    messages.append(
+                        WAMessage(
+                            sender=sender,
+                            media_type=msg_type,
+                            media_id=media_data.get("id"),
+                            caption=media_data.get("caption") or msg.get("caption"),
+                            mime_type=media_data.get("mime_type"),
+                            message_id=msg_id,
+                            reply_to_id=reply_to,
+                        )
+                    )
+                else:
+                    messages.append(
+                        WAMessage(
+                            sender=sender,
+                            text=f"[Unsupported WhatsApp message type: {msg_type}]",
+                            message_id=msg_id,
+                            reply_to_id=reply_to,
+                        )
+                    )
     return messages
 
 
@@ -481,6 +1060,17 @@ def _telegram_poll():
             backoff = min(backoff * 2, 30)
 
 
+_TG_MEDIA_KEYS = {
+    "photo": "image",
+    "document": "document",
+    "audio": "audio",
+    "video": "video",
+    "voice": "audio",
+    "sticker": "sticker",
+    "animation": "image",
+}
+
+
 def _handle_tg_message(msg: dict):
     chat_id = msg["chat"]["id"]
     if (
@@ -490,21 +1080,51 @@ def _handle_tg_message(msg: dict):
         print(f"[TG blocked] chat_id={chat_id}", flush=True)
         return
 
-    text = msg.get("text")
-    if not text:
-        return
+    text = msg.get("text") or msg.get("caption") or ""
     thread_id = msg.get("message_thread_id")
     conversation_id = _tg_conversation_id(chat_id, thread_id)
 
+    # Extract message_id and reply_to_id
+    message_id = str(msg.get("message_id", "")) or None
+    reply_to_msg = msg.get("reply_to_message")
+    reply_to_id = (
+        str(reply_to_msg["message_id"])
+        if reply_to_msg and "message_id" in reply_to_msg
+        else None
+    )
+
+    # Detect media
+    media_type = None
+    media_id = None
+    for key, mtype in _TG_MEDIA_KEYS.items():
+        if key in msg:
+            media_type = mtype
+            media_obj = msg[key]
+            if key == "photo":
+                media_id = media_obj[-1]["file_id"]  # Largest size
+            elif isinstance(media_obj, dict):
+                media_id = media_obj.get("file_id")
+            break
+
+    if not text and not media_id:
+        return
+
     cmd = text.strip().lower().split("@")[0]
     if cmd in ("/reset", "/new") or cmd.startswith("/project"):
-        event = IncomingEvent(
-            conversation_id, kind="command", text=text, platform=_tg_platform
-        )
+        kind = "command"
     else:
-        event = IncomingEvent(
-            conversation_id, kind="text", text=text, platform=_tg_platform
-        )
+        kind = "text"
+
+    event = IncomingEvent(
+        conversation_id,
+        kind=kind,
+        text=text,
+        platform=_tg_platform,
+        message_id=message_id,
+        reply_to_id=reply_to_id,
+        media_type=media_type,
+        media_id=media_id,
+    )
 
     print(f"[TG {event.kind}] {chat_id}: {text[:100]}", flush=True)
     _post_to_loop(event)
@@ -520,8 +1140,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
 <html><head><title>Privacy Policy - handley-lab</title></head>
 <body><h1>Privacy Policy</h1>
 <p>This WhatsApp integration is a personal project by Handley Lab.
-No user data is stored, shared, or sold. Messages are processed
-in real time and not retained.</p>
+Conversation data and media files are stored locally on the server
+for session continuity. Data is not shared with third parties.</p>
 <p>Contact: handleylab@gmail.com</p>
 </body></html>"""
 
@@ -576,9 +1196,9 @@ in real time and not retained.</p>
         except json.JSONDecodeError:
             return
 
-        for sender, text in extract_messages(data):
-            event = _classify_wa_event(sender, text)
-            print(f"[WA {event.kind}] {sender}: {text}", flush=True)
+        for wa_msg in extract_messages(data):
+            event = _classify_wa_event(wa_msg)
+            print(f"[WA {event.kind}] {wa_msg.sender}: {event.text[:100]}", flush=True)
             _post_to_loop(event)
 
     def log_message(self, format, *args):
