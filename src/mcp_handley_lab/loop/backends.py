@@ -331,12 +331,6 @@ class TmuxBackend:
             "env",
             "-u",
             "PYTHONPATH",
-            "-u",
-            "ANTHROPIC_API_KEY",
-            "-u",
-            "OPENAI_API_KEY",
-            "-u",
-            "GEMINI_API_KEY",
             f"PATH={clean_path}",
         ]
 
@@ -449,17 +443,19 @@ class TmuxBackend:
         _run(["kill-pane", "-t", pane_id])
 
 
-_API_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"}
+def _subscription_env(own_key: str) -> dict[str, str]:
+    """Build subprocess env stripping only the CLI's own API key.
 
-
-def _subscription_env() -> dict[str, str]:
-    """Build subprocess env that uses subscription auth instead of API keys.
-
-    API keys take precedence in CLI auth systems (Claude, Gemini, Codex),
-    causing per-token billing.  Stripping them lets CLIs fall through to
-    their cached OAuth credentials and use subscription billing.
+    Each CLI checks its own API key at startup to decide auth method.
+    Stripping only that key forces subscription/OAuth auth for the CLI,
+    while preserving other keys for MCP servers and child processes.
+    The stripped key is saved as _<KEY> so MCP servers can restore it.
     """
-    return {k: v for k, v in os.environ.items() if k not in _API_KEYS}
+    env = dict(os.environ)
+    val = env.pop(own_key, None)
+    if val is not None:
+        env[f"_{own_key}"] = val
+    return env
 
 
 # Claude subprocess state - keyed by loop_id
@@ -491,7 +487,7 @@ class ClaudeBackend:
             socket_path: Accepted for API consistency (unused)
             venv: Accepted for API consistency (unused)
             cwd: Working directory for the Claude process
-            prompt: System prompt (passed as --system-prompt)
+            prompt: System prompt (passed as --append-system-prompt)
         """
         import shlex
 
@@ -508,9 +504,9 @@ class ClaudeBackend:
             "--verbose",
         ]
 
-        # Add system prompt if specified
+        # Append to default system prompt if specified
         if prompt:
-            cmd.extend(["--system-prompt", prompt])
+            cmd.extend(["--append-system-prompt", prompt])
 
         # Add allowed tools if specified
         if child_allowed_tools:
@@ -520,7 +516,7 @@ class ClaudeBackend:
         if args:
             cmd.extend(shlex.split(args))
 
-        env = _subscription_env()
+        env = _subscription_env("ANTHROPIC_API_KEY")
 
         proc = subprocess.Popen(
             cmd,
@@ -718,7 +714,7 @@ class GeminiBackend:
         if model:
             cmd.extend(["--model", model])
 
-        env = _subscription_env()
+        env = _subscription_env("GEMINI_API_KEY")
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -891,7 +887,7 @@ class OpenAIBackend:
         if model:
             cmd.extend(["--model", model])
 
-        env = _subscription_env()
+        env = _subscription_env("OPENAI_API_KEY")
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
