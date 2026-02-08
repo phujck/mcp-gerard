@@ -44,6 +44,7 @@ When you encounter a bug or issue in an MCP tool, file a GitHub issue with `gh i
 | `mcp-email` | `src/mcp_handley_lab/email/tool.py` (entry); `email/notmuch/tool.py` (read/update), `email/mutt/tool.py` (send), `email/offlineimap/tool.py` (sync) | Email read/send/update/sync |
 | `mcp-google-calendar` | `src/mcp_handley_lab/google_calendar/tool.py` | Calendar CRUD & search |
 | `mcp-google-maps` | `src/mcp_handley_lab/google_maps/tool.py` | Directions & routes |
+| `mcp-google-photos` | `src/mcp_handley_lab/google_photos/tool.py` | Photo search, browse, detail, download |
 | `mcp-repl` | `src/mcp_handley_lab/repl/tool.py` | REPL session management |
 | `mcp-mathematica` | `src/mcp_handley_lab/mathematica/tool.py` | Wolfram Language evaluation |
 | `mcp-word` | `src/mcp_handley_lab/microsoft/word/tool.py` | Word document read/edit |

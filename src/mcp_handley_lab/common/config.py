@@ -55,6 +55,12 @@ class Settings(BaseSettings):
         description="Path to Google Calendar OAuth2 token cache file.",
     )
 
+    # Google Photos (reverse-engineered API, session-based auth)
+    google_photos_session_file: str = Field(
+        default="~/.local/share/gphotos/session.json",
+        description="Path to Google Photos session file with cookies and WIZ tokens.",
+    )
+
     @property
     def google_credentials_path(self) -> Path:
         """Get resolved path for Google credentials."""
@@ -64,6 +70,11 @@ class Settings(BaseSettings):
     def google_token_path(self) -> Path:
         """Get resolved path for Google token."""
         return Path(self.google_token_file).expanduser()
+
+    @property
+    def google_photos_session_path(self) -> Path:
+        """Get resolved path for Google Photos session."""
+        return Path(self.google_photos_session_file).expanduser()
 
 
 settings = Settings()
