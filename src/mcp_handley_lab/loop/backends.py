@@ -553,8 +553,10 @@ class ClaudeBackend:
         if proc.poll() is not None:
             raise RuntimeError(f"Claude process has exited (code {proc.returncode})")
 
-        # Send user message
-        msg = {"type": "user", "message": {"role": "user", "content": code}}
+        # Tag message as loop-generated (persists in JSONL for search filtering)
+        meta = json.dumps({"source": "mcp_loop", "loop_id": pane_id})
+        tagged = f"{code}\n\n<!-- mcp_meta: {meta} -->"
+        msg = {"type": "user", "message": {"role": "user", "content": tagged}}
         proc.stdin.write(json.dumps(msg) + "\n")
         proc.stdin.flush()
 
