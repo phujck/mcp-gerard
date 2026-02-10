@@ -36,6 +36,7 @@ class Cell(BaseModel):
     index: int
     input: str
     output: str
+    in_progress: bool = False
 
 
 class ManageResult(BaseModel):

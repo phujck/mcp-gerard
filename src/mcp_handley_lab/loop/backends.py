@@ -461,12 +461,97 @@ def _subscription_env(own_key: str) -> dict[str, str]:
     return env
 
 
-# Claude subprocess state - keyed by loop_id
-_claude_processes: dict[str, dict[str, Any]] = {}
-_claude_lock = threading.Lock()
+class LLMBackend:
+    """Base for subprocess-based LLM backends with cell tracking.
+
+    Subclass state dicts must include: cells, current_input,
+    current_output_parts, current_events, plus backend-specific keys.
+    """
+
+    def __init__(self):
+        self._state: dict[str, dict[str, Any]] = {}
+        self._lock = threading.Lock()
+
+    def read(self, pane_id: str) -> list[dict[str, Any]]:
+        """Read cells, projected to {index, input, output, in_progress}."""
+        with self._lock:
+            state = self._state.get(pane_id)
+            if not state:
+                return []
+            cells = [
+                {
+                    "index": c["index"],
+                    "input": c["input"],
+                    "output": c["output"],
+                    "in_progress": False,
+                }
+                for c in state["cells"]
+            ]
+            if state["current_input"]:
+                cells.append(
+                    {
+                        "index": len(state["cells"]),
+                        "input": state["current_input"],
+                        "output": "".join(state["current_output_parts"]),
+                        "in_progress": True,
+                    }
+                )
+            return cells
+
+    def read_raw(self, pane_id: str) -> str:
+        """Read cells with raw events as JSON string."""
+        with self._lock:
+            state = self._state.get(pane_id)
+            if not state:
+                return "[]"
+            cells = [
+                {
+                    "index": c["index"],
+                    "input": c["input"],
+                    "output": c["output"],
+                    "events": c.get("events", []),
+                    "in_progress": False,
+                }
+                for c in state["cells"]
+            ]
+            if state["current_input"]:
+                cells.append(
+                    {
+                        "index": len(state["cells"]),
+                        "input": state["current_input"],
+                        "output": "".join(state["current_output_parts"]),
+                        "events": list(state["current_events"]),
+                        "in_progress": True,
+                    }
+                )
+            return json.dumps(cells, indent=2)
+
+    def terminate(self, pane_id: str) -> None:
+        """Send SIGINT to interrupt running eval."""
+        with self._lock:
+            state = self._state.get(pane_id)
+            proc = state.get("proc") if state else None
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGINT)
+
+    def kill(self, pane_id: str) -> None:
+        """Force-kill and remove session state."""
+        with self._lock:
+            state = self._state.pop(pane_id, None)
+        if state:
+            proc = state.get("proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                for pipe in (proc.stdin, proc.stdout):
+                    if pipe:
+                        pipe.close()
 
 
-class ClaudeBackend:
+class ClaudeBackend(LLMBackend):
     """Backend for Claude Code in stream-json mode."""
 
     def spawn(
@@ -544,11 +629,14 @@ class ClaudeBackend:
         )
 
         # Don't wait for init - Claude only sends it after first user message
-        with _claude_lock:
-            _claude_processes[loop_id] = {
+        with self._lock:
+            self._state[loop_id] = {
                 "proc": proc,
                 "cells": [],
                 "session_id": "",
+                "current_input": "",
+                "current_output_parts": [],
+                "current_events": [],
             }
 
         return loop_id, loop_id  # loop_id serves as both identifiers
@@ -557,12 +645,14 @@ class ClaudeBackend:
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
         """Send message to Claude and wait for response."""
-        with _claude_lock:
-            state = _claude_processes.get(pane_id)
+        with self._lock:
+            state = self._state.get(pane_id)
             if not state:
                 raise RuntimeError(f"Claude session not found: {pane_id}")
             proc = state["proc"]
-            cells = state["cells"]
+            state["current_input"] = code
+            state["current_output_parts"] = []
+            state["current_events"] = []
 
         if proc.poll() is not None:
             raise RuntimeError(f"Claude process has exited (code {proc.returncode})")
@@ -574,105 +664,110 @@ class ClaudeBackend:
         proc.stdin.write(json.dumps(msg) + "\n")
         proc.stdin.flush()
 
-        # Collect response (no lock needed - proc is per-session)
-        output_parts: list[str] = []
         result = None
+        try:
+            while True:
+                if check_cancelled():
+                    self.terminate(pane_id)
+                    with self._lock:
+                        if pane_id not in self._state:
+                            return {"output": "[killed]", "cell_index": 0}
+                        output = (
+                            "".join(state["current_output_parts"]) + "\n[cancelled]"
+                        )
+                        cell_index = len(state["cells"])
+                        return {"output": output, "cell_index": cell_index}
 
-        while True:
-            if check_cancelled():
-                self.terminate(pane_id)
-                with _claude_lock:
-                    return {
-                        "output": "".join(output_parts) + "\n[cancelled]",
-                        "cell_index": len(cells),
-                    }
+                line = proc.stdout.readline()
+                if not line:
+                    break
 
-            line = proc.stdout.readline()
-            if not line:
-                break
-
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            msg_type = data.get("type")
-
-            if msg_type == "system":
-                # Init message - capture session_id
-                if data.get("subtype") == "init":
-                    with _claude_lock:
-                        state["session_id"] = data.get("session_id", "")
-                continue
-
-            if msg_type == "assistant":
-                # Extract text content
-                message = data.get("message", {})
-                for content in message.get("content", []):
-                    if content.get("type") == "text":
-                        output_parts.append(content.get("text", ""))
-
-            elif msg_type == "result":
-                result = data
-                break
-
-        output = (
-            result.get("result", "".join(output_parts))
-            if result
-            else "".join(output_parts)
-        )
-
-        # Store as cell
-        with _claude_lock:
-            cell_index = len(cells)
-            cells.append({"index": cell_index, "input": code, "output": output})
-
-        return {"output": output, "cell_index": cell_index}
-
-    def read(self, pane_id: str) -> list[dict[str, Any]]:
-        """Read conversation cells."""
-        with _claude_lock:
-            state = _claude_processes.get(pane_id)
-            return list(state["cells"]) if state else []
-
-    def read_raw(self, pane_id: str) -> str:
-        """Read raw output (returns JSON of cells for Claude backend)."""
-        with _claude_lock:
-            state = _claude_processes.get(pane_id)
-            return json.dumps(state["cells"], indent=2) if state else "[]"
-
-    def terminate(self, pane_id: str) -> None:
-        """Send SIGINT to interrupt running eval."""
-        with _claude_lock:
-            state = _claude_processes.get(pane_id)
-            proc = state["proc"] if state else None
-        if proc and proc.poll() is None:
-            proc.send_signal(signal.SIGINT)
-
-    def kill(self, pane_id: str) -> None:
-        """Force-kill the Claude process."""
-        with _claude_lock:
-            state = _claude_processes.pop(pane_id, None)
-        if state:
-            proc = state["proc"]
-            if proc.poll() is None:
-                proc.terminate()
                 try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-            # Close pipes to release FDs
-            for pipe in (proc.stdin, proc.stdout):
-                if pipe:
-                    pipe.close()
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg_type = data.get("type")
+
+                with self._lock:
+                    if pane_id not in self._state:
+                        return {"output": "[killed]", "cell_index": 0}
+                    state["current_events"].append(data)
+
+                if msg_type == "system":
+                    if data.get("subtype") == "init":
+                        with self._lock:
+                            state["session_id"] = data.get("session_id", "")
+                    continue
+
+                if msg_type == "assistant":
+                    message = data.get("message", {})
+                    for content in message.get("content", []):
+                        ctype = content.get("type")
+                        if ctype == "text":
+                            with self._lock:
+                                state["current_output_parts"].append(
+                                    content.get("text", "")
+                                )
+                        elif ctype == "thinking":
+                            text = content.get("thinking", "")
+                            summary = text[:200] + "..." if len(text) > 200 else text
+                            with self._lock:
+                                state["current_output_parts"].append(
+                                    f"\n[THINKING: {summary}]\n"
+                                )
+                        elif ctype == "tool_use":
+                            name = content.get("name", "?")
+                            inp = content.get("input", {})
+                            parts = []
+                            for k, v in inp.items():
+                                s = str(v)
+                                parts.append(
+                                    f"{k}={s[:80]}{'...' if len(s) > 80 else ''}"
+                                )
+                            with self._lock:
+                                state["current_output_parts"].append(
+                                    f"\n[TOOL: {name}({', '.join(parts)})]\n"
+                                )
+                        elif ctype == "tool_result":
+                            text = str(content.get("content", ""))
+                            summary = text[:200] + "..." if len(text) > 200 else text
+                            with self._lock:
+                                state["current_output_parts"].append(
+                                    f"\n[RESULT: {summary}]\n"
+                                )
+
+                elif msg_type == "result":
+                    result = data
+                    break
+
+            with self._lock:
+                if pane_id not in self._state:
+                    return {"output": "[killed]", "cell_index": 0}
+                output = (
+                    result.get("result", "".join(state["current_output_parts"]))
+                    if result
+                    else "".join(state["current_output_parts"])
+                )
+                cell_index = len(state["cells"])
+                state["cells"].append(
+                    {
+                        "index": cell_index,
+                        "input": code,
+                        "output": output,
+                        "events": list(state["current_events"]),
+                    }
+                )
+                return {"output": output, "cell_index": cell_index}
+        finally:
+            with self._lock:
+                if pane_id in self._state:
+                    state["current_input"] = ""
+                    state["current_output_parts"] = []
+                    state["current_events"] = []
 
 
-# Gemini CLI state - keyed by loop_id
-_gemini_state: dict[str, dict[str, Any]] = {}
-_gemini_lock = threading.Lock()
-
-
-class GeminiBackend:
+class GeminiBackend(LLMBackend):
     """Backend for Gemini CLI in stream-json mode (uses Google OAuth subscription)."""
 
     def spawn(
@@ -704,14 +799,17 @@ class GeminiBackend:
                 elif arg.startswith("--model="):
                     model = arg.split("=", 1)[1]
 
-        with _gemini_lock:
-            _gemini_state[loop_id] = {
+        with self._lock:
+            self._state[loop_id] = {
                 "session_id": "",
                 "model": model,
                 "cells": [],
                 "proc": None,
                 "sandbox": sandbox or {},
                 "cwd": cwd,
+                "current_input": "",
+                "current_output_parts": [],
+                "current_events": [],
             }
 
         return loop_id, loop_id
@@ -720,14 +818,17 @@ class GeminiBackend:
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
         """Send message to Gemini CLI and wait for response."""
-        with _gemini_lock:
-            state = _gemini_state.get(pane_id)
+        with self._lock:
+            state = self._state.get(pane_id)
             if not state:
                 raise RuntimeError(f"Gemini session not found: {pane_id}")
             session_id = state["session_id"]
             model = state["model"]
             loop_sandbox = state.get("sandbox", {})
             loop_cwd = state.get("cwd", "")
+            state["current_input"] = code
+            state["current_output_parts"] = []
+            state["current_events"] = []
 
         # Build command
         cmd = ["gemini", "--output-format", "stream-json"]
@@ -757,25 +858,26 @@ class GeminiBackend:
             cwd=popen_cwd,
         )
 
-        with _gemini_lock:
+        with self._lock:
             state["proc"] = proc
 
         # Send prompt via stdin and close
         proc.stdin.write(code + "\n")
         proc.stdin.close()
 
-        # Read NDJSON response
-        output_parts: list[str] = []
         try:
             while True:
                 if check_cancelled():
                     proc.send_signal(signal.SIGINT)
-                    with _gemini_lock:
+                    with self._lock:
+                        if pane_id not in self._state:
+                            return {"output": "[killed]", "cell_index": 0}
                         state["proc"] = None
-                    return {
-                        "output": "".join(output_parts) + "\n[cancelled]",
-                        "cell_index": len(state["cells"]),
-                    }
+                        output = (
+                            "".join(state["current_output_parts"]) + "\n[cancelled]"
+                        )
+                        cell_index = len(state["cells"])
+                    return {"output": output, "cell_index": cell_index}
 
                 line = proc.stdout.readline()
                 if not line:
@@ -788,79 +890,54 @@ class GeminiBackend:
 
                 msg_type = data.get("type")
 
+                with self._lock:
+                    if pane_id not in self._state:
+                        return {"output": "[killed]", "cell_index": 0}
+                    state["current_events"].append(data)
+
                 if msg_type == "init" and not session_id:
                     session_id = data.get("session_id", "")
-                    with _gemini_lock:
+                    with self._lock:
                         state["session_id"] = session_id
 
                 elif msg_type == "message" and data.get("role") == "assistant":
                     text = data.get("content", "")
                     if text:
-                        output_parts.append(text)
+                        with self._lock:
+                            state["current_output_parts"].append(text)
 
                 elif msg_type == "result":
                     if data.get("status") != "success":
                         raise RuntimeError(f"Gemini error: {data}")
                     break
-        finally:
-            with _gemini_lock:
+
+            with self._lock:
+                if pane_id not in self._state:
+                    return {"output": "[killed]", "cell_index": 0}
                 state["proc"] = None
+                output = "".join(state["current_output_parts"])
+                cell_index = len(state["cells"])
+                state["cells"].append(
+                    {
+                        "index": cell_index,
+                        "input": code,
+                        "output": output,
+                        "events": list(state["current_events"]),
+                    }
+                )
+                return {"output": output, "cell_index": cell_index}
+        finally:
             if proc.poll() is None:
                 proc.terminate()
-
-        output = "".join(output_parts)
-
-        with _gemini_lock:
-            cell_index = len(state["cells"])
-            state["cells"].append(
-                {"index": cell_index, "input": code, "output": output}
-            )
-
-        return {"output": output, "cell_index": cell_index}
-
-    def read(self, pane_id: str) -> list[dict[str, Any]]:
-        """Read conversation cells."""
-        with _gemini_lock:
-            state = _gemini_state.get(pane_id)
-            return list(state["cells"]) if state else []
-
-    def read_raw(self, pane_id: str) -> str:
-        """Read raw output (returns JSON of cells)."""
-        with _gemini_lock:
-            state = _gemini_state.get(pane_id)
-            return json.dumps(state["cells"], indent=2) if state else "[]"
-
-    def terminate(self, pane_id: str) -> None:
-        """Send SIGINT to interrupt running eval."""
-        with _gemini_lock:
-            state = _gemini_state.get(pane_id)
-            proc = state["proc"] if state else None
-        if proc and proc.poll() is None:
-            proc.send_signal(signal.SIGINT)
-
-    def kill(self, pane_id: str) -> None:
-        """Force-kill and remove session state."""
-        with _gemini_lock:
-            state = _gemini_state.pop(pane_id, None)
-        if state:
-            proc = state.get("proc")
-            if proc and proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                for pipe in (proc.stdin, proc.stdout):
-                    if pipe:
-                        pipe.close()
+            with self._lock:
+                if pane_id in self._state:
+                    state["proc"] = None
+                    state["current_input"] = ""
+                    state["current_output_parts"] = []
+                    state["current_events"] = []
 
 
-# Codex CLI state - keyed by loop_id
-_openai_state: dict[str, dict[str, Any]] = {}
-_openai_lock = threading.Lock()
-
-
-class OpenAIBackend:
+class OpenAIBackend(LLMBackend):
     """Backend for Codex CLI (uses ChatGPT subscription)."""
 
     def spawn(
@@ -892,14 +969,17 @@ class OpenAIBackend:
                 elif arg.startswith("--model="):
                     model = arg.split("=", 1)[1]
 
-        with _openai_lock:
-            _openai_state[loop_id] = {
+        with self._lock:
+            self._state[loop_id] = {
                 "thread_id": "",
                 "model": model,
                 "cells": [],
                 "proc": None,
                 "sandbox": sandbox or {},
                 "cwd": cwd,
+                "current_input": "",
+                "current_output_parts": [],
+                "current_events": [],
             }
 
         return loop_id, loop_id
@@ -908,14 +988,17 @@ class OpenAIBackend:
         self, pane_id: str, code: str, check_cancelled: Callable[[], bool]
     ) -> dict[str, Any]:
         """Send message to Codex CLI and wait for response."""
-        with _openai_lock:
-            state = _openai_state.get(pane_id)
+        with self._lock:
+            state = self._state.get(pane_id)
             if not state:
                 raise RuntimeError(f"Codex session not found: {pane_id}")
             thread_id = state["thread_id"]
             model = state["model"]
             loop_sandbox = state.get("sandbox", {})
             loop_cwd = state.get("cwd", "")
+            state["current_input"] = code
+            state["current_output_parts"] = []
+            state["current_events"] = []
 
         # Build command
         if thread_id:
@@ -946,21 +1029,22 @@ class OpenAIBackend:
             cwd=popen_cwd,
         )
 
-        with _openai_lock:
+        with self._lock:
             state["proc"] = proc
 
-        # Read JSONL response
-        output_parts: list[str] = []
         try:
             while True:
                 if check_cancelled():
                     proc.send_signal(signal.SIGINT)
-                    with _openai_lock:
+                    with self._lock:
+                        if pane_id not in self._state:
+                            return {"output": "[killed]", "cell_index": 0}
                         state["proc"] = None
-                    return {
-                        "output": "".join(output_parts) + "\n[cancelled]",
-                        "cell_index": len(state["cells"]),
-                    }
+                        output = (
+                            "".join(state["current_output_parts"]) + "\n[cancelled]"
+                        )
+                        cell_index = len(state["cells"])
+                    return {"output": output, "cell_index": cell_index}
 
                 line = proc.stdout.readline()
                 if not line:
@@ -973,9 +1057,14 @@ class OpenAIBackend:
 
                 msg_type = data.get("type")
 
+                with self._lock:
+                    if pane_id not in self._state:
+                        return {"output": "[killed]", "cell_index": 0}
+                    state["current_events"].append(data)
+
                 if msg_type == "thread.started" and not thread_id:
                     thread_id = data.get("thread_id", "")
-                    with _openai_lock:
+                    with self._lock:
                         state["thread_id"] = thread_id
 
                 elif msg_type == "item.completed":
@@ -983,61 +1072,36 @@ class OpenAIBackend:
                     if item.get("type") == "agent_message":
                         text = item.get("text", "")
                         if text:
-                            output_parts.append(text)
+                            with self._lock:
+                                state["current_output_parts"].append(text)
 
                 elif msg_type == "turn.completed":
                     break
 
                 elif msg_type in ("turn.failed", "error"):
                     raise RuntimeError(f"Codex error: {data}")
-        finally:
-            with _openai_lock:
+
+            with self._lock:
+                if pane_id not in self._state:
+                    return {"output": "[killed]", "cell_index": 0}
                 state["proc"] = None
+                output = "".join(state["current_output_parts"])
+                cell_index = len(state["cells"])
+                state["cells"].append(
+                    {
+                        "index": cell_index,
+                        "input": code,
+                        "output": output,
+                        "events": list(state["current_events"]),
+                    }
+                )
+                return {"output": output, "cell_index": cell_index}
+        finally:
             if proc.poll() is None:
                 proc.terminate()
-
-        output = "".join(output_parts)
-
-        with _openai_lock:
-            cell_index = len(state["cells"])
-            state["cells"].append(
-                {"index": cell_index, "input": code, "output": output}
-            )
-
-        return {"output": output, "cell_index": cell_index}
-
-    def read(self, pane_id: str) -> list[dict[str, Any]]:
-        """Read conversation cells."""
-        with _openai_lock:
-            state = _openai_state.get(pane_id)
-            return list(state["cells"]) if state else []
-
-    def read_raw(self, pane_id: str) -> str:
-        """Read raw output (returns JSON of cells)."""
-        with _openai_lock:
-            state = _openai_state.get(pane_id)
-            return json.dumps(state["cells"], indent=2) if state else "[]"
-
-    def terminate(self, pane_id: str) -> None:
-        """Send SIGINT to interrupt running eval."""
-        with _openai_lock:
-            state = _openai_state.get(pane_id)
-            proc = state["proc"] if state else None
-        if proc and proc.poll() is None:
-            proc.send_signal(signal.SIGINT)
-
-    def kill(self, pane_id: str) -> None:
-        """Force-kill and remove session state."""
-        with _openai_lock:
-            state = _openai_state.pop(pane_id, None)
-        if state:
-            proc = state.get("proc")
-            if proc and proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                for pipe in (proc.stdin, proc.stdout):
-                    if pipe:
-                        pipe.close()
+            with self._lock:
+                if pane_id in self._state:
+                    state["proc"] = None
+                    state["current_input"] = ""
+                    state["current_output_parts"] = []
+                    state["current_events"] = []
