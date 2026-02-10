@@ -535,6 +535,8 @@ class ClaudeBackend:
                 "proc": proc,
                 "cells": [],
                 "session_id": "",
+                "current_input": "",
+                "current_output_parts": [],
             }
 
         return loop_id, loop_id  # loop_id serves as both identifiers
@@ -560,16 +562,22 @@ class ClaudeBackend:
         proc.stdin.write(json.dumps(msg) + "\n")
         proc.stdin.flush()
 
-        # Collect response (no lock needed - proc is per-session)
-        output_parts: list[str] = []
+        # Track current input and reset partial output for live reading
+        with _claude_lock:
+            state["current_input"] = code
+            state["current_output_parts"] = []
+
         result = None
 
         while True:
             if check_cancelled():
                 self.terminate(pane_id)
                 with _claude_lock:
+                    output = "".join(state["current_output_parts"]) + "\n[cancelled]"
+                    state["current_input"] = ""
+                    state["current_output_parts"] = []
                     return {
-                        "output": "".join(output_parts) + "\n[cancelled]",
+                        "output": output,
                         "cell_index": len(cells),
                     }
 
@@ -592,40 +600,77 @@ class ClaudeBackend:
                 continue
 
             if msg_type == "assistant":
-                # Extract text content
+                # Extract text and tool_use content
                 message = data.get("message", {})
                 for content in message.get("content", []):
                     if content.get("type") == "text":
-                        output_parts.append(content.get("text", ""))
+                        with _claude_lock:
+                            state["current_output_parts"].append(content.get("text", ""))
+                    elif content.get("type") == "tool_use":
+                        name = content.get("name", "?")
+                        inp = content.get("input", {})
+                        # Compact summary of tool input
+                        parts = []
+                        for k, v in inp.items():
+                            s = str(v)
+                            parts.append(f"{k}={s[:80]}{'...' if len(s) > 80 else ''}")
+                        summary = ", ".join(parts) if parts else ""
+                        with _claude_lock:
+                            state["current_output_parts"].append(
+                                f"\n[TOOL: {name}({summary})]\n"
+                            )
 
             elif msg_type == "result":
                 result = data
                 break
 
-        output = (
-            result.get("result", "".join(output_parts))
-            if result
-            else "".join(output_parts)
-        )
-
-        # Store as cell
         with _claude_lock:
+            output = (
+                result.get("result", "".join(state["current_output_parts"]))
+                if result
+                else "".join(state["current_output_parts"])
+            )
+
+            # Store as completed cell and clear partial state
             cell_index = len(cells)
             cells.append({"index": cell_index, "input": code, "output": output})
+            state["current_input"] = ""
+            state["current_output_parts"] = []
 
         return {"output": output, "cell_index": cell_index}
 
     def read(self, pane_id: str) -> list[dict[str, Any]]:
-        """Read conversation cells."""
+        """Read conversation cells, including in-progress partial cell."""
         with _claude_lock:
             state = _claude_processes.get(pane_id)
-            return list(state["cells"]) if state else []
+            if not state:
+                return []
+            cells = list(state["cells"])
+            # Append live partial cell if eval is in progress
+            if state["current_output_parts"]:
+                cells.append({
+                    "index": len(state["cells"]),
+                    "input": state["current_input"],
+                    "output": "".join(state["current_output_parts"]),
+                    "in_progress": True,
+                })
+            return cells
 
     def read_raw(self, pane_id: str) -> str:
         """Read raw output (returns JSON of cells for Claude backend)."""
         with _claude_lock:
             state = _claude_processes.get(pane_id)
-            return json.dumps(state["cells"], indent=2) if state else "[]"
+            if not state:
+                return "[]"
+            cells = list(state["cells"])
+            if state["current_output_parts"]:
+                cells.append({
+                    "index": len(state["cells"]),
+                    "input": state["current_input"],
+                    "output": "".join(state["current_output_parts"]),
+                    "in_progress": True,
+                })
+            return json.dumps(cells, indent=2)
 
     def terminate(self, pane_id: str) -> None:
         """Send SIGINT to interrupt running eval."""
