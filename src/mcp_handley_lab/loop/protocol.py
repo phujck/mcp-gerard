@@ -18,7 +18,7 @@ ERROR_CANCELLED = "cancelled"
 class Request:
     """Request to the loop daemon."""
 
-    action: str  # spawn, run, read, read_raw, list, status, terminate, kill
+    action: str  # spawn, run, read, read_raw, list, status, terminate, kill, prune
     loop_id: str = ""  # for operations on existing loops
     parent_id: str = ""  # for spawn: session_id or parent loop_id
     label: str = ""  # for spawn: optional human-readable tag for tmux window

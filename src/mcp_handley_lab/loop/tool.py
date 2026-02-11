@@ -28,6 +28,7 @@ class LoopInfo(BaseModel):
     backend: str
     parent_id: str
     label: str
+    orphaned: bool = False
 
 
 class Cell(BaseModel):
@@ -142,7 +143,7 @@ mcp = FastMCP("Loop Tool")
 @mcp.tool()
 def manage(params: ManageArgs) -> ManageResult:
     """
-    Manage loops: spawn, list, read, read_raw, status, terminate, kill.
+    Manage loops: spawn, list, read, read_raw, status, terminate, kill, prune.
 
     Loops are persistent REPL sessions (Python, Bash, Julia, etc.) that run in tmux.
     Uses Unix process model: each loop has loop_id (like PID) and parent_id (like PPID).
@@ -150,12 +151,13 @@ def manage(params: ManageArgs) -> ManageResult:
 
     Actions:
     - spawn: Create new loop. Params: backend (required), parent_id (optional), label (optional)
-    - list: List loops. Params: parent_id (direct children), descendants_of (subtree)
+    - list: List loops. Params: parent_id (direct children), descendants_of (subtree). Each loop includes orphaned flag.
     - read: Get cells from loop. Params: loop_id
     - read_raw: Get raw terminal capture. Params: loop_id
     - status: Check if run is in progress. Params: loop_id
     - terminate: Send Ctrl-C to interrupt. Params: loop_id
     - kill: Force-kill loop. Params: loop_id
+    - prune: Kill a loop only if orphaned (safe kill). Params: loop_id
 
     Available backends: bash, zsh, python, ipython, julia, R, clojure, apl, maple, ollama, mathematica, claude, gemini, openai
 

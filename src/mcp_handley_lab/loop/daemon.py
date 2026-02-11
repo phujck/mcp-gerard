@@ -11,6 +11,7 @@ import os
 import re
 import signal
 import socket
+import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -142,6 +143,32 @@ class LoopDaemon:
             result.extend(self._get_descendants(child.loop_id, _visited))
         return result
 
+    def _is_session_alive(self, session_id: str) -> bool:
+        """Check if a Claude Code session is still running via its task lock file."""
+        lock_path = Path.home() / ".claude" / "tasks" / session_id / ".lock"
+        if not lock_path.exists():
+            return False
+        try:
+            result = subprocess.run(["lsof", str(lock_path)], capture_output=True)
+        except FileNotFoundError:
+            return True  # lsof not available — assume alive (conservative)
+        return result.returncode == 0
+
+    def _is_orphaned(
+        self, loop: LoopState, session_cache: dict[str, bool] | None = None
+    ) -> bool:
+        """Check if a loop's parent is dead."""
+        pid = loop.parent_id
+        if not pid:
+            return False  # intentionally parentless
+        if pid in self.loops:
+            return False  # parent is a living loop
+        if session_cache is not None:
+            if pid not in session_cache:
+                session_cache[pid] = self._is_session_alive(pid)
+            return not session_cache[pid]
+        return not self._is_session_alive(pid)
+
     async def handle_request(self, request: Request) -> Response:
         """Handle a single request."""
         self.last_activity = time.time()
@@ -166,6 +193,8 @@ class LoopDaemon:
             return await self._terminate(request)
         elif action == "kill":
             return await self._kill(request)
+        elif action == "prune":
+            return await self._prune(request)
         else:
             return Response.error_response(f"unknown action: {action}")
 
@@ -338,6 +367,7 @@ class LoopDaemon:
             # Show all loops
             loops_to_show = list(self.loops.values())
 
+        session_cache: dict[str, bool] = {}
         for loop in loops_to_show:
             visible.append(
                 {
@@ -345,6 +375,7 @@ class LoopDaemon:
                     "backend": loop.backend,
                     "parent_id": loop.parent_id,
                     "label": loop.label,
+                    "orphaned": self._is_orphaned(loop, session_cache),
                 }
             )
         # Echo caller's session_id back for context (daemon is stateless re: sessions)
@@ -408,6 +439,19 @@ class LoopDaemon:
         del self.loops[request.loop_id]
         self.save_state()
         return Response(ok=True)
+
+    async def _prune(self, request: Request) -> Response:
+        """Kill a loop, but only if it's orphaned."""
+        loop = self._get_loop(request.loop_id)
+        if not loop:
+            return Response.error_response(
+                f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
+            )
+        if not self._is_orphaned(loop):
+            return Response.error_response(
+                f"loop {request.loop_id} is not orphaned", ERROR_INVALID_REQUEST
+            )
+        return await self._kill(request)
 
     def _get_backend(self, name: str) -> Any:
         """Get or create backend instance."""
