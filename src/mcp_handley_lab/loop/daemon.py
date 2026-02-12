@@ -53,6 +53,7 @@ class LoopState:
     parent_id: str  # session_id or loop_id of spawner
     label: str  # human-readable tag for tmux window naming
     pane_id: str = ""  # for tmux backend
+    sandbox_pid: int = 0  # PID of sandboxed process (for nsenter)
     cancelled: bool = False
     eval_running: bool = False
     eval_started_at: float = 0.0
@@ -65,6 +66,7 @@ class LoopState:
             "parent_id": self.parent_id,
             "label": self.label,
             "pane_id": self.pane_id,
+            "sandbox_pid": self.sandbox_pid,
         }
 
     @classmethod
@@ -90,6 +92,7 @@ class LoopState:
             parent_id=d.get("parent_id", ""),
             label=d.get("label", d.get("backend", "")),
             pane_id=d.get("pane_id", ""),
+            sandbox_pid=d.get("sandbox_pid", 0),
         )
 
 
@@ -195,6 +198,8 @@ class LoopDaemon:
             return await self._kill(request)
         elif action == "prune":
             return await self._prune(request)
+        elif action == "mount":
+            return await self._mount(request)
         else:
             return Response.error_response(f"unknown action: {action}")
 
@@ -226,12 +231,22 @@ class LoopDaemon:
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
+        # Get sandbox PID if available (for dynamic mounts via nsenter)
+        sandbox_pid = 0
+        if request.sandbox:
+            try:
+                proc = backend._state[pane_id]["proc"]
+                sandbox_pid = proc.pid
+            except (KeyError, AttributeError):
+                pass
+
         state = LoopState(
             loop_id=loop_id,
             backend=request.backend,
             parent_id=request.parent_id,
             label=label,
             pane_id=pane_id,
+            sandbox_pid=sandbox_pid,
         )
         self.loops[loop_id] = state
         self.save_state()
@@ -452,6 +467,29 @@ class LoopDaemon:
                 f"loop {request.loop_id} is not orphaned", ERROR_INVALID_REQUEST
             )
         return await self._kill(request)
+
+    async def _mount(self, request: Request) -> Response:
+        """Bind-mount a path inside a sandboxed loop's namespace."""
+        loop = self._get_loop(request.loop_id)
+        if not loop:
+            return Response.error_response(
+                f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
+            )
+        if not loop.sandbox_pid:
+            return Response.error_response(
+                "loop has no sandbox (not spawned with sandbox)", ERROR_INVALID_REQUEST
+            )
+
+        from mcp_handley_lab.loop.sandbox import sandbox_mount
+
+        try:
+            await asyncio.to_thread(
+                sandbox_mount, loop.sandbox_pid, request.source, request.target
+            )
+        except Exception as e:
+            return Response.error_response(str(e), ERROR_BACKEND_ERROR)
+
+        return Response(ok=True)
 
     def _get_backend(self, name: str) -> Any:
         """Get or create backend instance."""

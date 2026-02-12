@@ -264,3 +264,16 @@ def sandbox_cmd(
 
     launcher_path = STATE_DIR / "sandbox_launcher.py"
     return [sys.executable, str(launcher_path), config_path], None
+
+
+def sandbox_mount(pid: int, source: str, target: str) -> None:
+    """Bind-mount source to target inside a sandboxed process's mount namespace.
+
+    Both source and target are guest paths (inside the namespace).
+    Uses nsenter to enter the process's user + mount namespaces.
+    """
+    import subprocess
+
+    nsenter = ["nsenter", "-U", "-m", "-t", str(pid), "--"]
+    subprocess.run([*nsenter, "mkdir", "-p", target], check=True)
+    subprocess.run([*nsenter, "mount", "--bind", source, target], check=True)

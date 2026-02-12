@@ -18,7 +18,9 @@ ERROR_CANCELLED = "cancelled"
 class Request:
     """Request to the loop daemon."""
 
-    action: str  # spawn, run, read, read_raw, list, status, terminate, kill, prune
+    action: (
+        str  # spawn, run, read, read_raw, list, status, terminate, kill, prune, mount
+    )
     loop_id: str = ""  # for operations on existing loops
     parent_id: str = ""  # for spawn: session_id or parent loop_id
     label: str = ""  # for spawn: optional human-readable tag for tmux window
@@ -40,6 +42,8 @@ class Request:
     sandbox: dict[str, list[str]] = field(
         default_factory=dict
     )  # for spawn: {guest_path: [host_path, mode]}
+    source: str = ""  # for mount: guest source path
+    target: str = ""  # for mount: guest target path
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +63,8 @@ class Request:
             "current_session_id": self.current_session_id,
             "venv": self.venv,
             "sandbox": self.sandbox,
+            "source": self.source,
+            "target": self.target,
         }
 
     @classmethod
@@ -80,6 +86,8 @@ class Request:
             current_session_id=d.get("current_session_id", ""),
             venv=d.get("venv", ""),
             sandbox=d.get("sandbox", {}),
+            source=d.get("source", ""),
+            target=d.get("target", ""),
         )
 
 
