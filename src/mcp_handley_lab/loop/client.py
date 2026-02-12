@@ -285,6 +285,21 @@ def kill(loop_id: str) -> bool:
     return response.get("ok", False)
 
 
+def mount(loop_id: str, source: str, target: str) -> None:
+    """Bind-mount source to target inside a sandboxed loop's namespace.
+
+    Both source and target are guest paths (inside the namespace).
+    """
+    _send_request(
+        {
+            "action": "mount",
+            "loop_id": loop_id,
+            "source": source,
+            "target": target,
+        }
+    )
+
+
 def my_loop_id() -> str:
     """Get the loop_id of the current loop (from env)."""
     return _get_parent_id()
