@@ -274,6 +274,10 @@ def sandbox_mount(pid: int, source: str, target: str) -> None:
     """
     import subprocess
 
-    nsenter = ["nsenter", "-U", "-m", "-t", str(pid), "--"]
-    subprocess.run([*nsenter, "mkdir", "-p", target], check=True)
-    subprocess.run([*nsenter, "mount", "--bind", source, target], check=True)
+    nsenter = ["nsenter", "-U", "-m", "-r", "-t", str(pid), "--"]
+    subprocess.run([*nsenter, "mkdir", "-p", target], check=True, capture_output=True)
+    subprocess.run(
+        [*nsenter, "mount", "--bind", source, target],
+        check=True,
+        capture_output=True,
+    )
