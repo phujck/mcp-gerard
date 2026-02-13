@@ -274,7 +274,16 @@ def sandbox_mount(pid: int, source: str, target: str) -> None:
     """
     import subprocess
 
-    nsenter = ["nsenter", "-U", "-m", "-r", "-t", str(pid), "--"]
+    nsenter = [
+        "nsenter",
+        "-U",
+        "--preserve-credentials",
+        "-m",
+        "-r",
+        "-t",
+        str(pid),
+        "--",
+    ]
     for cmd in (
         [*nsenter, "mkdir", "-p", target],
         [*nsenter, "mount", "--bind", source, target],
