@@ -284,12 +284,9 @@ def sandbox_mount(pid: int, source: str, target: str) -> None:
         str(pid),
         "--",
     ]
-    for cmd in (
-        [*nsenter, "mkdir", "-p", target],
+    subprocess.run([*nsenter, "mkdir", "-p", target], check=True, capture_output=True)
+    subprocess.run(
         [*nsenter, "mount", "--bind", source, target],
-    ):
-        r = subprocess.run(cmd, capture_output=True)
-        if r.returncode:
-            raise RuntimeError(
-                f"{cmd}: exit {r.returncode}: {r.stderr.decode().strip()}"
-            )
+        check=True,
+        capture_output=True,
+    )
