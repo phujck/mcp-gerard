@@ -90,6 +90,7 @@ class ManageArgs(BaseModel):
     args: str = ""  # backend-specific args
     cwd: str = ""  # for spawn: working directory
     prompt: str = ""  # for spawn: system prompt (claude backend)
+    session_id: str = ""  # for spawn: resume a previous session (claude backend)
     descendants_of: str = ""  # for list: filter to subtree
     child_allowed_tools: list[str] = Field(default_factory=list)
     venv: str = (
@@ -187,6 +188,7 @@ def manage(params: ManageArgs) -> ManageResult:
         cwd=params.cwd,
         child_allowed_tools=params.child_allowed_tools,
         prompt=params.prompt,
+        session_id=params.session_id,
         descendants_of=params.descendants_of,
         current_session_id=session_id if params.action == "list" else "",
         venv=params.venv,

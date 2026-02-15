@@ -29,6 +29,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from uuid import uuid4
 
 from mcp_handley_lab.loop.client import kill, run, spawn
+from mcp_handley_lab.loop.client import session_id as get_session_id
 
 # ---------------------------------------------------------------------------
 # Environment (set via systemd EnvironmentFile or shell exports)
@@ -660,6 +661,7 @@ class ChatActor:
         self.queue: asyncio.Queue[IncomingEvent] = asyncio.Queue(maxsize=50)
         self.cwd = _cwd_for_conversation(conversation_id)
         self.loop_id: str | None = None
+        self.session_id: str = ""
         self._state_file = self.cwd / "loop_state.json"
         self._msg_log_file = self.cwd / "message_log.json"
         self._message_log: dict[str, dict] = {}
@@ -767,26 +769,41 @@ class ChatActor:
                 cwd=str(self.cwd),
                 prompt=_APPEND_SYSTEM_PROMPT,
                 args=f"--permission-mode {CLAUDE_PERMISSION_MODE}",
+                session_id=self.session_id,
             )
             self._save_state()
-        return run(self.loop_id, text, sync_timeout=-1)
+        output = run(self.loop_id, text, sync_timeout=-1)
+        # Capture session_id for resume after kill/restart
+        if not self.session_id and self.loop_id:
+            sid = get_session_id(self.loop_id)
+            if sid:
+                self.session_id = sid
+                self._save_state()
+        return output
 
     def reset(self):
         if self.loop_id:
             with contextlib.suppress(RuntimeError):
                 kill(self.loop_id)
-        self._clear_state()
+        self.loop_id = None
+        self.session_id = ""
+        self._state_file.unlink(missing_ok=True)
 
     def _load_state(self):
         with contextlib.suppress(FileNotFoundError, json.JSONDecodeError):
-            self.loop_id = json.loads(self._state_file.read_text()).get("loop_id")
+            data = json.loads(self._state_file.read_text())
+            self.loop_id = data.get("loop_id")
+            self.session_id = data.get("session_id", "")
 
     def _save_state(self):
-        self._state_file.write_text(json.dumps({"loop_id": self.loop_id}))
+        self._state_file.write_text(
+            json.dumps({"loop_id": self.loop_id, "session_id": self.session_id})
+        )
 
     def _clear_state(self):
         self.loop_id = None
-        self._state_file.unlink(missing_ok=True)
+        # Preserve session_id for resume on next spawn
+        self._save_state()
 
     def _load_message_log(self):
         with contextlib.suppress(FileNotFoundError, json.JSONDecodeError):

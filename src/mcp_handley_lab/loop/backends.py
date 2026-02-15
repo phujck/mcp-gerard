@@ -275,6 +275,7 @@ class TmuxBackend:
         prompt: str = "",
         *,
         sandbox: dict[str, list[str]] | None = None,
+        session_id: str = "",
     ) -> tuple[str, str]:
         """Spawn a new REPL. Returns (loop_id, pane_id).
 
@@ -566,6 +567,7 @@ class ClaudeBackend(LLMBackend):
         prompt: str = "",
         *,
         sandbox: dict[str, list[str]] | None = None,
+        session_id: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Claude session. Returns (loop_id, loop_id).
 
@@ -579,6 +581,7 @@ class ClaudeBackend(LLMBackend):
             cwd: Working directory for the Claude process
             prompt: System prompt (passed as --append-system-prompt)
             sandbox: Mount spec for namespace isolation
+            session_id: Resume a previous session (passed as --resume)
         """
         import shlex
 
@@ -594,6 +597,10 @@ class ClaudeBackend(LLMBackend):
             "stream-json",
             "--verbose",
         ]
+
+        # Resume previous session if session_id provided
+        if session_id:
+            cmd.extend(["--resume", session_id])
 
         # Append to default system prompt if specified
         if prompt:
@@ -758,7 +765,11 @@ class ClaudeBackend(LLMBackend):
                         "events": list(state["current_events"]),
                     }
                 )
-                return {"output": output, "cell_index": cell_index}
+                return {
+                    "output": output,
+                    "cell_index": cell_index,
+                    "session_id": state.get("session_id", ""),
+                }
         finally:
             with self._lock:
                 if pane_id in self._state:
@@ -782,6 +793,7 @@ class GeminiBackend(LLMBackend):
         prompt: str = "",
         *,
         sandbox: dict[str, list[str]] | None = None,
+        session_id: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Gemini session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
@@ -952,6 +964,7 @@ class OpenAIBackend(LLMBackend):
         prompt: str = "",
         *,
         sandbox: dict[str, list[str]] | None = None,
+        session_id: str = "",
     ) -> tuple[str, str]:
         """Spawn a new Codex session. Returns (loop_id, loop_id)."""
         timestamp = datetime.now().strftime("%H%M%S")
