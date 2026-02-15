@@ -158,6 +158,8 @@ def _parse_response(text: str):
         if line.startswith('[["wrb.fr"'):
             outer = json.loads(line)
             inner_str = outer[0][2]
+            if inner_str is None:
+                return None
             return json.loads(inner_str)
     return None
 
@@ -181,14 +183,19 @@ def _execute_rpc(client: httpx.Client, wiz_data: dict, rpcid: str, args: list):
     resp.raise_for_status()
 
     try:
-        return _parse_response(resp.text)
+        result = _parse_response(resp.text)
     except RuntimeError:
+        result = None
+
+    if result is None:
         _clear_session_cache()
         client, wiz_data = _get_session(force_reload=True)
         url, body = _build_request(wiz_data, rpcid, args)
         resp = client.post(url, content=body, headers={"Content-Type": CONTENT_TYPE})
         resp.raise_for_status()
         return _parse_response(resp.text)
+
+    return result
 
 
 def _parse_item(item: list) -> PhotoItem | None:
