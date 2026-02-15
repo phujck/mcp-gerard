@@ -9,7 +9,7 @@ from mcp_handley_lab.google_photos.shared import (
     get_photo_detail,
     list_recent_photos,
     search_photos,
-    server_info,
+    show_photo,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "get_photo_detail",
     "list_recent_photos",
     "search_photos",
-    "server_info",
+    "show_photo",
 ]
