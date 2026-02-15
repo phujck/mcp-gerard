@@ -13,7 +13,6 @@ from mcp_handley_lab.google_maps.tool import (
     _parse_flexible_datetime,
     _parse_route,
 )
-from mcp_handley_lab.shared.models import ServerInfo
 
 
 def get_directions(
@@ -112,27 +111,4 @@ def get_directions(
         mode=mode,
         departure_time=departure_time,
         maps_url=maps_url,
-    )
-
-
-def server_info() -> ServerInfo:
-    """Get Google Maps Tool server information and capabilities.
-
-    Returns:
-        ServerInfo with name, version, status, and capabilities.
-    """
-    return ServerInfo(
-        name="Google Maps Tool",
-        version="0.4.0",
-        status="active",
-        capabilities=[
-            "get_directions",
-            "server_info",
-            "directions",
-            "multiple_transport_modes",
-            "waypoint_support",
-            "traffic_aware_routing",
-            "alternative_routes",
-        ],
-        dependencies={"googlemaps": "4.0.0+", "pydantic": "2.0.0+", "mcp": "1.0.0+"},
     )

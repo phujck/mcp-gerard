@@ -7,7 +7,7 @@ network failures, and edge cases not covered by basic integration tests.
 import httpx
 import pytest
 
-from mcp_handley_lab.arxiv.tool import download, server_info
+from mcp_handley_lab.arxiv.tool import download
 
 
 @pytest.mark.integration
@@ -269,29 +269,3 @@ class TestArxivEdgeCases:
         # Test empty output path (should use default)
         result = download(arxiv_id=valid_arxiv_id, format="src", output_path="")
         assert result.arxiv_id == valid_arxiv_id
-
-
-@pytest.mark.integration
-class TestArxivServerInfoErrors:
-    """Test server_info error scenarios."""
-
-    def test_server_info_reliability(self):
-        """Test that server_info provides consistent, reliable information."""
-        # Test multiple calls to ensure consistency
-        responses = []
-
-        for _ in range(3):
-            response = server_info()
-            responses.append(response)
-
-        # All responses should be consistent
-        for response in responses:
-            assert response.status == "active"
-            assert response.name == "ArXiv Tool"
-            assert response.version is not None
-            assert response.capabilities is not None
-
-        # Responses should be identical
-        assert all(r == responses[0] for r in responses), (
-            "Server info responses should be consistent"
-        )

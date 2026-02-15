@@ -12,7 +12,6 @@ from mcp_handley_lab.google_maps.tool import (
     _parse_leg,
     _parse_route,
     _parse_step,
-    server_info,
 )
 
 
@@ -217,21 +216,3 @@ class TestDataParsing:
         assert route.polyline == route_data["overview_polyline"]["points"]
         assert len(route.warnings) == expected_warnings_count
         assert len(route.legs) == 1
-
-
-class TestServerInfo:
-    """Test server information functionality."""
-
-    def test_server_info(self):
-        """Test server info returns expected data."""
-        info = server_info()
-
-        assert info.name == "Google Maps Tool"
-        assert info.version == "0.4.0"
-        assert info.status == "active"
-        assert "directions" in info.capabilities
-        assert "multiple_transport_modes" in info.capabilities
-        assert "waypoint_support" in info.capabilities
-        assert "traffic_aware_routing" in info.capabilities
-        assert "alternative_routes" in info.capabilities
-        assert "googlemaps" in info.dependencies

@@ -15,8 +15,6 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-from mcp_handley_lab.shared.models import ServerInfo
-
 
 class DownloadResult(BaseModel):
     """Result of downloading an ArXiv paper."""
@@ -540,20 +538,3 @@ def search(
         results.append(ArxivPaper(**final_paper_dict))
 
     return results
-
-
-@mcp.tool(
-    description="Checks ArXiv tool status and lists available functions. Use this to discover server capabilities."
-)
-def server_info() -> ServerInfo:
-    return ServerInfo(
-        name="ArXiv Tool",
-        version="1.0.0",
-        status="active",
-        capabilities=["search", "download", "server_info"],
-        dependencies={
-            "httpx": "latest",
-            "pydantic": "latest",
-            "supported_formats": "src,pdf,tex,bibtex",
-        },
-    )

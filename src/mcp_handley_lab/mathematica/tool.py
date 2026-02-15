@@ -25,7 +25,7 @@ from wolframclient.evaluation import WolframLanguageSession
 from wolframclient.exception import WolframKernelException
 from wolframclient.language import wlexpr
 
-from mcp_handley_lab.shared.models import OperationResult, ServerInfo
+from mcp_handley_lab.shared.models import OperationResult
 
 logger = logging.getLogger(__name__)
 
@@ -962,41 +962,6 @@ Print["Variables available: ", Names["Global`*"]];
 """
 
     Path(filepath).write_text(content)
-
-
-@mcp.tool()
-def server_info() -> ServerInfo:
-    """
-    Get comprehensive information about the Mathematica MCP server.
-
-    Returns server status, capabilities, version information, and dependency status.
-    Useful for debugging and verifying server health.
-    """
-    dependencies = {
-        "wolframclient": "required",
-        "wolfram_kernel": f"configured at {_kernel_path}",
-    }
-
-    status = "active"
-
-    capabilities = [
-        "evaluate - Evaluate Wolfram Language expressions with persistent session",
-        "apply_to_last - Apply operations to the last evaluation result (alternative to % references)",
-        "session_info - Get detailed session information and statistics",
-        "clear_session - Clear user-defined variables while keeping kernel alive",
-        "restart_kernel - Completely restart the Wolfram kernel process",
-        "convert_latex - Convert LaTeX mathematical expressions to Wolfram Language",
-        "save_notebook - Save session history as markdown or Wolfram script",
-        "server_info - Get server status and capability information",
-    ]
-
-    return ServerInfo(
-        name="Mathematica Tool",
-        version="1.0.0",
-        status=status,
-        capabilities=capabilities,
-        dependencies=dependencies,
-    )
 
 
 # Session will be initialized lazily on first use

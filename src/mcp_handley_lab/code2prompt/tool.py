@@ -6,7 +6,6 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from mcp_handley_lab.common.process import run_command
-from mcp_handley_lab.shared.models import ServerInfo
 
 
 class GenerationResult(BaseModel):
@@ -162,20 +161,4 @@ def generate_prompt(
         message="Code2prompt Generation Successful",
         output_file_path=output_file,
         file_size_bytes=file_size,
-    )
-
-
-@mcp.tool(
-    description="Checks the status of the Code2Prompt server and its CLI dependency. Returns version info and available functions."
-)
-def server_info() -> ServerInfo:
-    """Get server status and code2prompt version."""
-    version = _run_code2prompt(["--version"])
-
-    return ServerInfo(
-        name="Code2Prompt Tool",
-        version=version.strip(),
-        status="active",
-        capabilities=["generate_prompt", "server_info"],
-        dependencies={"code2prompt": version.strip()},
     )
