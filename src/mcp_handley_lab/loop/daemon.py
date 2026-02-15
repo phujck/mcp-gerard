@@ -341,7 +341,12 @@ class LoopDaemon:
     async def _background_run_cleanup(self, loop: LoopState, task: asyncio.Task):
         """Wait for background run to complete and update state."""
         try:
-            await task
+            result = await task
+            # Capture session_id from backend (same logic as sync path)
+            backend_session_id = result.get("session_id", "")
+            if backend_session_id and backend_session_id != loop.session_id:
+                loop.session_id = backend_session_id
+                self.save_state()
         except Exception as e:
             logging.error(f"Background run error on {loop.loop_id}: {e}")
         finally:
