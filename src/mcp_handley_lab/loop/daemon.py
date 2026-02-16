@@ -53,6 +53,7 @@ class LoopState:
     parent_id: str  # session_id or loop_id of spawner
     label: str  # human-readable tag for tmux window naming
     pane_id: str = ""  # for tmux backend
+    session_id: str = ""  # for claude/gemini: resume token
     sandbox_pid: int = 0  # PID of sandboxed process (for nsenter)
     cancelled: bool = False
     eval_running: bool = False
@@ -66,6 +67,7 @@ class LoopState:
             "parent_id": self.parent_id,
             "label": self.label,
             "pane_id": self.pane_id,
+            "session_id": self.session_id,
             "sandbox_pid": self.sandbox_pid,
         }
 
@@ -92,6 +94,7 @@ class LoopState:
             parent_id=d.get("parent_id", ""),
             label=d.get("label", d.get("backend", "")),
             pane_id=d.get("pane_id", ""),
+            session_id=d.get("session_id", ""),
             sandbox_pid=d.get("sandbox_pid", 0),
         )
 
@@ -227,6 +230,7 @@ class LoopDaemon:
                 request.cwd,
                 request.prompt,
                 sandbox=request.sandbox,
+                session_id=request.session_id,
             )
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
@@ -252,7 +256,11 @@ class LoopDaemon:
         self.save_state()
 
         return Response(
-            ok=True, loop_id=loop_id, parent_id=request.parent_id, label=label
+            ok=True,
+            loop_id=loop_id,
+            parent_id=request.parent_id,
+            label=label,
+            session_id=request.session_id,
         )
 
     async def _run(self, request: Request) -> Response:
@@ -300,6 +308,12 @@ class LoopDaemon:
             if loop.cancelled:
                 return Response.error_response("cancelled by user", ERROR_CANCELLED)
 
+            # Capture session_id from backend (for resume on respawn)
+            backend_session_id = result.get("session_id", "")
+            if backend_session_id and backend_session_id != loop.session_id:
+                loop.session_id = backend_session_id
+                self.save_state()
+
             elapsed = time.time() - loop.eval_started_at
             loop.eval_running = False
             loop.eval_started_at = 0.0
@@ -307,6 +321,7 @@ class LoopDaemon:
                 ok=True,
                 output=result["output"],
                 cell_index=result.get("cell_index", 0),
+                session_id=loop.session_id,
                 elapsed_seconds=elapsed,
             )
         except asyncio.TimeoutError:
@@ -326,7 +341,12 @@ class LoopDaemon:
     async def _background_run_cleanup(self, loop: LoopState, task: asyncio.Task):
         """Wait for background run to complete and update state."""
         try:
-            await task
+            result = await task
+            # Capture session_id from backend (same logic as sync path)
+            backend_session_id = result.get("session_id", "")
+            if backend_session_id and backend_session_id != loop.session_id:
+                loop.session_id = backend_session_id
+                self.save_state()
         except Exception as e:
             logging.error(f"Background run error on {loop.loop_id}: {e}")
         finally:
@@ -384,15 +404,16 @@ class LoopDaemon:
 
         session_cache: dict[str, bool] = {}
         for loop in loops_to_show:
-            visible.append(
-                {
-                    "loop_id": loop.loop_id,
-                    "backend": loop.backend,
-                    "parent_id": loop.parent_id,
-                    "label": loop.label,
-                    "orphaned": self._is_orphaned(loop, session_cache),
-                }
-            )
+            info: dict[str, Any] = {
+                "loop_id": loop.loop_id,
+                "backend": loop.backend,
+                "parent_id": loop.parent_id,
+                "label": loop.label,
+                "orphaned": self._is_orphaned(loop, session_cache),
+            }
+            if loop.session_id:
+                info["session_id"] = loop.session_id
+            visible.append(info)
         # Echo caller's session_id back for context (daemon is stateless re: sessions)
         return Response(
             ok=True, loops=visible, current_session_id=request.current_session_id
@@ -451,9 +472,10 @@ class LoopDaemon:
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
+        session_id = loop.session_id
         del self.loops[request.loop_id]
         self.save_state()
-        return Response(ok=True)
+        return Response(ok=True, session_id=session_id)
 
     async def _prune(self, request: Request) -> Response:
         """Kill a loop, but only if it's orphaned."""

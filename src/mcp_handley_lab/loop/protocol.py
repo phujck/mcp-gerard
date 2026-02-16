@@ -42,6 +42,7 @@ class Request:
     sandbox: dict[str, list[str]] = field(
         default_factory=dict
     )  # for spawn: {guest_path: [host_path, mode]}
+    session_id: str = ""  # for spawn: resume a previous session
     source: str = ""  # for mount: guest source path
     target: str = ""  # for mount: guest target path
 
@@ -63,6 +64,7 @@ class Request:
             "current_session_id": self.current_session_id,
             "venv": self.venv,
             "sandbox": self.sandbox,
+            "session_id": self.session_id,
             "source": self.source,
             "target": self.target,
         }
@@ -86,6 +88,7 @@ class Request:
             current_session_id=d.get("current_session_id", ""),
             venv=d.get("venv", ""),
             sandbox=d.get("sandbox", {}),
+            session_id=d.get("session_id", ""),
             source=d.get("source", ""),
             target=d.get("target", ""),
         )
@@ -109,6 +112,7 @@ class Response:
     running: bool = False
     started_at: str = ""
     raw_output: str = ""
+    session_id: str = ""  # for spawn/run: the backend's session_id
     current_session_id: str = ""  # for list: the caller's session_id for context
 
     def to_dict(self) -> dict[str, Any]:
@@ -128,6 +132,7 @@ class Response:
             "running": self.running,
             "started_at": self.started_at,
             "raw_output": self.raw_output,
+            "session_id": self.session_id,
             "current_session_id": self.current_session_id,
         }
 
@@ -148,6 +153,7 @@ class Response:
             running=d.get("running", False),
             started_at=d.get("started_at", ""),
             raw_output=d.get("raw_output", ""),
+            session_id=d.get("session_id", ""),
             current_session_id=d.get("current_session_id", ""),
         )
 

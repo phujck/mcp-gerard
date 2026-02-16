@@ -163,6 +163,7 @@ def spawn(
     prompt: str = "",
     child_allowed_tools: list[str] | None = None,
     sandbox: dict[str, list[str]] | None = None,
+    session_id: str = "",
 ) -> str:
     """Spawn a child loop.
 
@@ -176,6 +177,7 @@ def spawn(
         prompt: System prompt (for claude backend)
         child_allowed_tools: Tools the loop can use (for claude backend)
         sandbox: Mount spec {guest_path: [host_path, mode]} for namespace isolation
+        session_id: Resume a previous session (for claude backend)
 
     Returns:
         loop_id of spawned child
@@ -193,6 +195,8 @@ def spawn(
     }
     if sandbox:
         request["sandbox"] = sandbox
+    if session_id:
+        request["session_id"] = session_id
     response = _send_request(request)
     return response["loop_id"]
 
@@ -240,6 +244,19 @@ def list_loops(
     }
     response = _send_request(request)
     return response.get("loops", [])
+
+
+def session_id(loop_id: str) -> str:
+    """Get the session_id for a loop (for resume after kill).
+
+    Returns:
+        Session ID string, or empty string if not available.
+    """
+    response = _send_request({"action": "list"})
+    for loop in response.get("loops", []):
+        if loop.get("loop_id") == loop_id:
+            return loop.get("session_id", "")
+    return ""
 
 
 def status(loop_id: str) -> dict[str, Any]:
