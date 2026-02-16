@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from mcp_handley_lab.common.config import settings
-from mcp_handley_lab.shared.models import ServerInfo
 
 # Default timezone for time parsing
 DEFAULT_TIMEZONE = "Europe/London"
@@ -417,11 +416,3 @@ def get_directions(
         transit_mode=transit_mode or None,
         transit_routing_preference=transit_routing_preference,
     )
-
-
-@mcp.tool(description="Get Google Maps Tool server information and capabilities.")
-def server_info() -> ServerInfo:
-    """Get Google Maps Tool server information and capabilities."""
-    from mcp_handley_lab.google_maps.shared import server_info as _server_info
-
-    return _server_info()

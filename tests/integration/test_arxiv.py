@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from mcp_handley_lab.arxiv.tool import download, search, server_info
+from mcp_handley_lab.arxiv.tool import download, search
 
 
 class TestArxivIntegration:
@@ -270,18 +270,6 @@ class TestArxivIntegration:
                 content = f.read()
             assert "@misc{" in content or "@article{" in content
             assert arxiv_id in content
-
-    def test_server_info(self):
-        """Test server info function (no VCR needed for local function)."""
-        info = server_info()
-
-        assert info.name == "ArXiv Tool"
-        assert info.version == "1.0.0"
-        assert info.status == "active"
-        assert "search" in str(info.capabilities)
-        assert "download" in str(info.capabilities)
-        assert "server_info" in str(info.capabilities)
-        assert info.dependencies["supported_formats"] == "src,pdf,tex,bibtex"
 
     def test_download_invalid_format(self):
         """Test download with invalid format (no VCR needed for validation)."""

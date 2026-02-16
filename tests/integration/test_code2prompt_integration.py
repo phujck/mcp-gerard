@@ -227,20 +227,6 @@ def format_output(text):
             )
 
     @pytest.mark.asyncio
-    async def test_server_info_real_cli(self):
-        """Test server_info with real code2prompt CLI."""
-        try:
-            _, response = await mcp.call_tool("server_info", {})
-            assert "error" not in response, response.get("error")
-            result = response
-
-            assert result["status"] == "active"
-            assert "Code2Prompt Tool" in result["name"]
-            assert "generate_prompt" in result["capabilities"]
-        except FileNotFoundError:
-            pytest.skip("code2prompt CLI not installed")
-
-    @pytest.mark.asyncio
     async def test_generate_prompt_complex_options(self, sample_project):
         """Test code2prompt with multiple complex options."""
         output_file = sample_project / "complex.md"

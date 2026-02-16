@@ -3,27 +3,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-class ServerInfo(BaseModel):
-    """Standardized server information across all tools."""
-
-    name: str = Field(..., description="The name of the MCP tool server.")
-    version: str = Field(
-        ..., description="The version of the tool or its primary dependency."
-    )
-    status: str = Field(
-        ...,
-        description="The operational status of the server (e.g., 'active', 'error').",
-    )
-    capabilities: list[str] = Field(
-        default_factory=list,
-        description="A list of functions or features the tool provides.",
-    )
-    dependencies: dict[str, str] = Field(
-        default_factory=dict,
-        description="A dictionary of dependencies and their versions or statuses.",
-    )
-
-
 class UsageStats(BaseModel):
     """LLM usage statistics."""
 

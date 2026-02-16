@@ -13,7 +13,6 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from mcp_handley_lab.common.config import settings
-from mcp_handley_lab.shared.models import ServerInfo
 
 BATCHEXECUTE_URL = "https://photos.google.com/_/PhotosUi/data/batchexecute"
 CONTENT_TYPE = "application/x-www-form-urlencoded;charset=utf-8"
@@ -158,6 +157,8 @@ def _parse_response(text: str):
         if line.startswith('[["wrb.fr"'):
             outer = json.loads(line)
             inner_str = outer[0][2]
+            if inner_str is None:
+                return None
             return json.loads(inner_str)
     return None
 
@@ -181,14 +182,19 @@ def _execute_rpc(client: httpx.Client, wiz_data: dict, rpcid: str, args: list):
     resp.raise_for_status()
 
     try:
-        return _parse_response(resp.text)
+        result = _parse_response(resp.text)
     except RuntimeError:
+        result = None
+
+    if result is None:
         _clear_session_cache()
         client, wiz_data = _get_session(force_reload=True)
         url, body = _build_request(wiz_data, rpcid, args)
         resp = client.post(url, content=body, headers={"Content-Type": CONTENT_TYPE})
         resp.raise_for_status()
         return _parse_response(resp.text)
+
+    return result
 
 
 def _parse_item(item: list) -> PhotoItem | None:
@@ -361,17 +367,30 @@ def download_photos(
     return DownloadResult(downloaded=downloaded, failed=failed, output_dir=output_dir)
 
 
-def server_info() -> ServerInfo:
-    """Get server info and session status."""
-    session_path = settings.google_photos_session_path
-    session_exists = session_path.exists()
-    return ServerInfo(
-        name="Google Photos Tool",
-        version="0.1.0",
-        status="active" if session_exists else "no_session",
-        capabilities=["search", "list_recent", "detail", "download", "server_info"],
-        dependencies={"session_file": str(session_path)},
-    )
+def show_photo(media_key: str) -> list:
+    """Download photo and return as image content for visual display."""
+    from mcp.server.fastmcp import Image
+    from mcp.types import TextContent
+
+    detail = get_photo_detail(media_key)
+    if not detail.download_url:
+        raise ValueError(f"No download URL for {media_key}")
+    if detail.is_video:
+        raise ValueError(f"{media_key} is a video, cannot show")
+
+    client, _ = _get_session()
+    resp = client.get(detail.download_url, follow_redirects=True)
+    resp.raise_for_status()
+
+    label = detail.filename or media_key[:20]
+    meta = f"{label} ({detail.width}x{detail.height})"
+    if detail.camera_make:
+        meta += f" — {detail.camera_make} {detail.camera_model}"
+
+    return [
+        TextContent(type="text", text=meta),
+        Image(data=resp.content, format="jpeg"),
+    ]
 
 
 # --- Internal helpers ---

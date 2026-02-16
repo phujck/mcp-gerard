@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from mcp_handley_lab.google_photos.shared import GooglePhotosResult
-from mcp_handley_lab.shared.models import ServerInfo
 
 mcp = FastMCP("Google Photos Tool")
 
@@ -27,17 +26,21 @@ Actions:
   Optional: days (default 14), camera_make, camera_model, limit (default 50).
 - detail: Full metadata for one photo (dimensions, camera EXIF, filename, download URL).
   Required: media_key.
+- show: Display a photo visually (returns image content Claude can see). Skips videos.
+  Required: media_key.
 - download: Download photo(s) to disk. Skips videos.
   Required: media_keys (list). Optional: output_dir (default /tmp/photos-live).
 """
 )
 def fetch(
-    action: Literal["search", "list_recent", "detail", "download"] = Field(
+    action: Literal["search", "list_recent", "detail", "show", "download"] = Field(
         ...,
         description="Operation to perform.",
     ),
     query: str = Field(default="", description="Search query (for 'search')."),
-    media_key: str = Field(default="", description="Single media key (for 'detail')."),
+    media_key: str = Field(
+        default="", description="Single media key (for 'detail'/'show')."
+    ),
     media_keys: list[str] = Field(
         default_factory=list, description="Media keys (for 'download')."
     ),
@@ -54,13 +57,14 @@ def fetch(
     limit: int = Field(
         default=50, description="Max results (for 'search'/'list_recent')."
     ),
-) -> GooglePhotosResult:
+):
     """Dispatch to the appropriate Google Photos operation."""
     from mcp_handley_lab.google_photos.shared import (
         download_photos,
         get_photo_detail,
         list_recent_photos,
         search_photos,
+        show_photo,
     )
 
     if action == "search":
@@ -75,16 +79,12 @@ def fetch(
         if not media_key:
             raise ValueError("'media_key' is required for detail action")
         return GooglePhotosResult(detail=get_photo_detail(media_key))
+    elif action == "show":
+        if not media_key:
+            raise ValueError("'media_key' is required for show action")
+        return show_photo(media_key)
     elif action == "download":
         if not media_keys:
             raise ValueError("'media_keys' is required for download action")
         return GooglePhotosResult(download=download_photos(media_keys, output_dir))
     raise ValueError(f"Unknown action: {action}")
-
-
-@mcp.tool(description="Get Google Photos Tool server information and capabilities.")
-def server_info() -> ServerInfo:
-    """Get server information."""
-    from mcp_handley_lab.google_photos.shared import server_info as _server_info
-
-    return _server_info()
