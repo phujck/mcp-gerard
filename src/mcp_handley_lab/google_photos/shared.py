@@ -34,10 +34,6 @@ class PhotoItem(BaseModel):
     )
     width: int = Field(default=0, description="Image width in pixels.")
     height: int = Field(default=0, description="Image height in pixels.")
-    is_video: bool | None = Field(
-        default=None,
-        description="Whether this is a video. None if unknown (use detail action to check).",
-    )
 
 
 class PhotoDetail(BaseModel):
@@ -138,16 +134,18 @@ def _build_request(wiz_data: dict, rpcid: str, args: list) -> tuple[str, str]:
     return url, body
 
 
-def _parse_response(text: str):
+def _parse_response(resp: httpx.Response):
     """Parse batchexecute response: strip XSSI prefix, extract JSON payload.
 
     Detects HTML login redirects and raises RuntimeError.
     """
-    if "<html" in text[:500].lower() or "accounts.google.com" in text[:1000]:
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" in content_type:
         raise RuntimeError(
             "Session expired (redirected to login). Run gphotos-refresh-session."
         )
 
+    text = resp.text
     if text.startswith(")]}'"):
         text = text[4:]
     text = text.strip()
@@ -182,19 +180,14 @@ def _execute_rpc(client: httpx.Client, wiz_data: dict, rpcid: str, args: list):
     resp.raise_for_status()
 
     try:
-        result = _parse_response(resp.text)
+        return _parse_response(resp)
     except RuntimeError:
-        result = None
-
-    if result is None:
         _clear_session_cache()
         client, wiz_data = _get_session(force_reload=True)
         url, body = _build_request(wiz_data, rpcid, args)
         resp = client.post(url, content=body, headers={"Content-Type": CONTENT_TYPE})
         resp.raise_for_status()
-        return _parse_response(resp.text)
-
-    return result
+        return _parse_response(resp)
 
 
 def _parse_item(item: list) -> PhotoItem | None:
@@ -203,9 +196,10 @@ def _parse_item(item: list) -> PhotoItem | None:
         media_key = item[0]
         if not isinstance(media_key, str):
             return None
-        url = item[1][0] if isinstance(item[1], list) and len(item[1]) >= 3 else ""
-        width = item[1][1] if isinstance(item[1], list) and len(item[1]) >= 3 else 0
-        height = item[1][2] if isinstance(item[1], list) and len(item[1]) >= 3 else 0
+        info = item[1] if isinstance(item[1], list) else []
+        url = info[0] if len(info) > 0 else ""
+        width = info[1] if len(info) > 1 else 0
+        height = info[2] if len(info) > 2 else 0
         timestamp = int(item[2]) // 1000 if isinstance(item[2], int | float) else 0
         return PhotoItem(
             media_key=media_key,
@@ -327,16 +321,14 @@ def download_photos(
 ) -> DownloadResult:
     """Download photos by media key. Skips videos."""
     os.makedirs(output_dir, exist_ok=True)
+    client, _ = _get_session()
     downloaded = []
-    failed = []
+    skipped = []
 
     for key in media_keys:
         detail = get_photo_detail(key)
-        if not detail.download_url:
-            failed.append(key)
-            continue
-        if detail.is_video:
-            failed.append(key)
+        if not detail.download_url or detail.is_video:
+            skipped.append(key)
             continue
 
         filename = detail.filename or f"{key[:20]}.jpg"
@@ -348,23 +340,19 @@ def download_photos(
         safe_name = f"{ts_prefix}_{key[:8]}_{filename}"
         output_path = os.path.join(output_dir, safe_name)
 
-        client, _ = _get_session()
+        resp = client.get(detail.download_url, follow_redirects=True)
+        resp.raise_for_status()
+        fd, tmp_path = tempfile.mkstemp(dir=output_dir, suffix=".tmp")
         try:
-            resp = client.get(detail.download_url, follow_redirects=True)
-            resp.raise_for_status()
-            fd, tmp_path = tempfile.mkstemp(dir=output_dir, suffix=".tmp")
-            try:
-                with os.fdopen(fd, "wb") as f:
-                    f.write(resp.content)
-                os.rename(tmp_path, output_path)
-                downloaded.append(output_path)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
+            with os.fdopen(fd, "wb") as f:
+                f.write(resp.content)
+            os.rename(tmp_path, output_path)
         except Exception:
-            failed.append(key)
+            os.unlink(tmp_path)
+            raise
+        downloaded.append(output_path)
 
-    return DownloadResult(downloaded=downloaded, failed=failed, output_dir=output_dir)
+    return DownloadResult(downloaded=downloaded, failed=skipped, output_dir=output_dir)
 
 
 def show_photo(media_key: str) -> list:
@@ -387,9 +375,14 @@ def show_photo(media_key: str) -> list:
     if detail.camera_make:
         meta += f" — {detail.camera_make} {detail.camera_model}"
 
+    content_type = resp.headers.get("content-type", "image/jpeg")
+    fmt = content_type.split("/")[-1].split(";")[0]
+    if fmt not in {"jpeg", "png", "webp", "gif"}:
+        fmt = "jpeg"
+
     return [
         TextContent(type="text", text=meta),
-        Image(data=resp.content, format="jpeg"),
+        Image(data=resp.content, format=fmt),
     ]
 
 
