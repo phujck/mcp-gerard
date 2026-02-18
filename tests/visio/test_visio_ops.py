@@ -2267,10 +2267,10 @@ class TestRenderTool:
         ):
             result = render(str(path), output="pdf")
 
-        assert len(result) == 2
+        assert len(result) == 1
         assert result[0].type == "text"
-        assert "PDF" in result[0].text
-        assert result[1].mimeType == "application/pdf"
+        assert "PDF saved to" in result[0].text
+        assert str(tmp_path / "test.pdf") in result[0].text
 
     def test_render_png_requires_pages(self, tmp_path):
         from mcp_handley_lab.microsoft.visio.tool import render
