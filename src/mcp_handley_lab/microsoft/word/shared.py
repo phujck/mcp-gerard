@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp import Image
@@ -1429,9 +1430,13 @@ def render(
     """
     if output == "pdf":
         pdf_bytes = word_ops.render_to_pdf(file_path)
+        pdf_path = Path(file_path).with_suffix(".pdf")
+        pdf_path.write_bytes(pdf_bytes)
         return [
-            TextContent(type="text", text=f"PDF ({len(pdf_bytes):,} bytes)"),
-            Image(data=pdf_bytes, format="pdf"),
+            TextContent(
+                type="text",
+                text=f"PDF saved to {pdf_path} ({len(pdf_bytes):,} bytes)",
+            ),
         ]
     # PNG output (default)
     if not pages:
