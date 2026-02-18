@@ -94,7 +94,8 @@ def chat(
         default="gemini",
         description="Model or provider name. Provider is inferred automatically. "
         "Use provider names (gemini, openai, claude) for latest defaults, "
-        "or specific model IDs. Use model://list resource or list_models() to see available options.",
+        "or specific model IDs. Aliases: 'deep-research' (autonomous web research). "
+        "Use model://list resource or list_models() to see available options.",
     ),
     temperature: float = Field(
         default=1.0,
@@ -204,6 +205,10 @@ def conversation(
         default=False,
         description="For done action: force removal even if lock not held by this process.",
     ),
+    output_file: str = Field(
+        default="",
+        description="For response action: save content to this file path instead of returning inline.",
+    ),
 ) -> dict[str, Any]:
     """Git interface for conversation management."""
     resolved_branch = _resolve_session_branch(branch) if branch else branch
@@ -214,6 +219,7 @@ def conversation(
         index=index,
         limit=limit,
         force=force,
+        output_file=output_file,
     )
 
 
