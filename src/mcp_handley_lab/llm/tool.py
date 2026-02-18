@@ -102,9 +102,9 @@ def chat(
     ),
     files: list[str] = Field(
         default_factory=list,
-        description="Files to include as context. Accepts: local paths, URLs, "
-        "or data URIs (data:mime/type;base64,...). Text content inlined, "
-        "binary files base64-encoded.",
+        description="Files to include as extra context (recommended for large content like code summaries). "
+        "Accepts local paths. Text is inlined, binary is base64-encoded. "
+        "Per-call only — not retained in branch history; re-pass on follow-up calls if needed.",
     ),
     images: list[str] = Field(
         default_factory=list,
