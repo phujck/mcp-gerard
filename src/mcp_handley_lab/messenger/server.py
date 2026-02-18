@@ -50,6 +50,9 @@ TELEGRAM_ALLOWED_CHAT_IDS: set[int] | None = (
 CLAUDE_PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
 _APPEND_SYSTEM_PROMPT = (
     "Keep responses concise for mobile. "
+    "When a user sends an image, sticker, video, or document, "
+    "ALWAYS use the Read tool to view the file before responding. "
+    "Never guess or assume the contents of media files. "
     "To send a file to the user, output send:<filename> on its own line "
     "(e.g. send:media/chart.png). Files must be under the current working directory."
 )
@@ -743,8 +746,10 @@ class ChatActor:
                     self._last_transcription = result["text"]
                     media_ref = f"[Voice message transcription: {result['text']}]"
                 else:
+                    rel = path.relative_to(self.cwd)
                     media_ref = (
-                        f"[User sent {event.media_type}: {path.relative_to(self.cwd)}]"
+                        f"[User sent {event.media_type}: {rel} — "
+                        f"use the Read tool on {rel} to view it]"
                     )
                 text = f"{media_ref}\n{text}" if text else media_ref
             except Exception as e:
