@@ -473,6 +473,7 @@ def conversation(
     index: int = -1,
     limit: int = 20,
     force: bool = False,
+    output_file: str = "",
 ) -> dict[str, Any]:
     """Manage conversation branches. Identical interface to MCP conversation() tool.
 
@@ -483,6 +484,7 @@ def conversation(
         index: For response action: assistant message index (-1=last, 0=first)
         limit: For log action: maximum entries to return
         force: For done action: force removal even if lock not held
+        output_file: For response action: save content to file (omits content from result)
 
     Returns:
         Dict with action-specific results
@@ -512,7 +514,14 @@ def conversation(
     elif action == "response":
         if not branch:
             raise ValueError("branch required for 'response' action")
-        return memory.get_response(project_dir, branch, index)
+        result = memory.get_response(project_dir, branch, index)
+        if output_file and "content" in result:
+            output_path = Path(output_file).expanduser()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(result["content"], encoding="utf-8")
+            result["output_file"] = str(output_path)
+            del result["content"]
+        return result
 
     elif action == "edit":
         return memory.start_edit(project_dir)
