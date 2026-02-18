@@ -142,6 +142,35 @@ class TestOtterIntegration:
         segments = response["transcript"]["segments"]
         assert len(segments) <= 3
 
+    @otter_vcr.use_cassette("test_transcript.yaml", allow_playback_repeats=True)
+    @pytest.mark.asyncio
+    async def test_transcript_since_offset(self, mock_session):
+        """Get a transcript with since_offset_ms filtering."""
+        # First get all segments to know the total
+        _, full_response = await mcp.call_tool(
+            "otter",
+            {"action": "transcript", "otid": "AOJlmcqnR1OC6ZhzTYmO2J0c5ak"},
+        )
+        all_segments = full_response["transcript"]["segments"]
+        assert len(all_segments) > 0
+
+        # Pick a mid-point offset and fetch only newer segments
+        mid_offset = all_segments[len(all_segments) // 2]["start_offset_ms"]
+
+        _, filtered_response = await mcp.call_tool(
+            "otter",
+            {
+                "action": "transcript",
+                "otid": "AOJlmcqnR1OC6ZhzTYmO2J0c5ak",
+                "since_offset_ms": mid_offset,
+            },
+        )
+        filtered_segments = filtered_response["transcript"]["segments"]
+        assert len(filtered_segments) < len(all_segments)
+        # All returned segments must have offset > mid_offset
+        for seg in filtered_segments:
+            assert seg["start_offset_ms"] > mid_offset
+
 
 @pytest.mark.integration
 class TestOtterValidation:

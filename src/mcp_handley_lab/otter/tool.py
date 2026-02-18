@@ -22,7 +22,7 @@ Actions:
 - live: List currently live meetings (title, otid, status).
   No required params.
 - transcript: Get full transcript for a meeting (live or recent).
-  Required: otid. Optional: max_segments (0=all, default 0).
+  Required: otid. Optional: max_segments (0=all, default 0), since_offset_ms (0=all, for incremental reads).
 - recent: List recent meetings.
   Optional: limit (default 10).
 - search: Filter recent meetings by title (client-side).
@@ -45,6 +45,10 @@ def otter(
         default=0,
         description="Return last N segments (most recent), 0=all (for 'transcript').",
     ),
+    since_offset_ms: int = Field(
+        default=0,
+        description="Only return segments after this offset in ms. Track max start_offset_ms from previous call for incremental reading (for 'transcript').",
+    ),
 ) -> OtterResult:
     """Dispatch to the appropriate Otter.ai operation."""
     from mcp_handley_lab.otter.shared import (
@@ -60,7 +64,9 @@ def otter(
     elif action == "transcript":
         if not otid:
             raise ValueError("'otid' is required for transcript action")
-        return OtterResult(transcript=get_transcript(otid, max_segments))
+        return OtterResult(
+            transcript=get_transcript(otid, max_segments, since_offset_ms)
+        )
     elif action == "recent":
         return OtterResult(meetings=list_recent_meetings(limit))
     elif action == "search":
