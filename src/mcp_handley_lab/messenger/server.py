@@ -193,7 +193,8 @@ class WAMessage:
 # Constants
 # ---------------------------------------------------------------------------
 
-_MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50 MB
+_MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50 MB (Telegram bot limit)
+_WA_MAX_MEDIA_BYTES = 16 * 1024 * 1024  # 16 MB (WhatsApp Cloud API limit)
 
 # ---------------------------------------------------------------------------
 # WhatsApp platform
@@ -251,9 +252,11 @@ class WhatsAppPlatform:
 
 def _upload_wa_media(path: Path) -> str | None:
     """Upload a file to WhatsApp and return the media_id."""
-    if path.stat().st_size > _MAX_MEDIA_BYTES:
+    file_size = path.stat().st_size
+    if file_size > _WA_MAX_MEDIA_BYTES:
+        mb = file_size / (1024 * 1024)
         print(
-            f"WA upload rejected: {path.name} exceeds {_MAX_MEDIA_BYTES} bytes",
+            f"WA upload rejected: {path.name} is {mb:.1f} MB (limit 16 MB)",
             flush=True,
         )
         return None
@@ -708,7 +711,17 @@ class ChatActor:
             self._send_text(clean_text, reply_to=reply_to)
         for f in files:
             msg_id = self.platform.send_media(self.conversation_id, f)
-            self._log_message(msg_id, "assistant", f"[file: {f.name}]")
+            if msg_id:
+                self._log_message(msg_id, "assistant", f"[file: {f.name}]")
+            else:
+                try:
+                    mb = f.stat().st_size / (1024 * 1024)
+                    detail = f" ({mb:.1f} MB)"
+                except OSError:
+                    detail = ""
+                self._send_text(
+                    f"Failed to send {f.name}{detail} — upload rejected by platform."
+                )
 
     def _prepare_text(self, event: IncomingEvent) -> str:
         """Build query text from event, downloading media if present."""
