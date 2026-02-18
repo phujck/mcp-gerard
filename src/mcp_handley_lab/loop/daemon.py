@@ -1,19 +1,20 @@
-"""Loop daemon - asyncio Unix socket server.
+"""Loop daemon - threaded Unix socket server.
 
 Uses Unix process model: each loop has loop_id (like PID) and parent_id (like PPID).
 No access control - if you know the loop_id, you can operate on it.
 """
 
-import asyncio
 import json
 import logging
 import os
 import re
 import signal
 import socket
+import socketserver
 import subprocess
+import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +59,9 @@ class LoopState:
     cancelled: bool = False
     eval_running: bool = False
     eval_started_at: float = 0.0
-    eval_task: asyncio.Task | None = None
+    eval_thread: threading.Thread | None = None
+    run_seq: int = 0  # generation counter for background eval guard
+    lock: threading.Lock = field(default_factory=threading.Lock)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +110,7 @@ class LoopDaemon:
         self.last_activity = time.time()
         self.running = True
         self.backends: dict[str, Any] = {}  # backend name -> backend instance
+        self._lock = threading.Lock()  # protects self.loops and self.backends
 
     def load_state(self):
         """Load persisted state. Re-adoption deferred to Phase 2."""
@@ -119,7 +123,7 @@ class LoopDaemon:
             logging.info(f"Loaded loop {state.loop_id}")
 
     def save_state(self):
-        """Persist state to disk atomically."""
+        """Persist state to disk atomically. Caller must hold self._lock."""
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         data = {"loops": [s.to_dict() for s in self.loops.values()]}
         tmp_path = STATE_PATH.with_suffix(".tmp")
@@ -127,8 +131,9 @@ class LoopDaemon:
         tmp_path.rename(STATE_PATH)
 
     def _get_loop(self, loop_id: str) -> LoopState | None:
-        """Get loop by ID (Unix philosophy: if you have the ID, you can use it)."""
-        return self.loops.get(loop_id)
+        """Get loop by ID. Acquires and releases _lock."""
+        with self._lock:
+            return self.loops.get(loop_id)
 
     def _get_descendants(
         self, parent_id: str, _visited: set[str] | None = None
@@ -140,9 +145,13 @@ class LoopDaemon:
             return []  # Cycle detected - stop recursion
         _visited.add(parent_id)
 
+        # Snapshot under lock
+        with self._lock:
+            all_loops = list(self.loops.values())
+
         result = []
         # Direct children
-        direct = [loop for loop in self.loops.values() if loop.parent_id == parent_id]
+        direct = [loop for loop in all_loops if loop.parent_id == parent_id]
         result.extend(direct)
         # Recurse for grandchildren
         for child in direct:
@@ -167,46 +176,45 @@ class LoopDaemon:
         pid = loop.parent_id
         if not pid:
             return False  # intentionally parentless
-        if pid in self.loops:
-            return False  # parent is a living loop
+        with self._lock:
+            if pid in self.loops:
+                return False  # parent is a living loop
         if session_cache is not None:
             if pid not in session_cache:
                 session_cache[pid] = self._is_session_alive(pid)
             return not session_cache[pid]
         return not self._is_session_alive(pid)
 
-    async def handle_request(self, request: Request) -> Response:
+    def handle_request(self, request: Request) -> Response:
         """Handle a single request."""
         self.last_activity = time.time()
 
         action = request.action
 
-        # No namespace check - Unix philosophy: operations just need loop_id
-
         if action == "spawn":
-            return await self._spawn(request)
+            return self._spawn(request)
         elif action == "run":
-            return await self._run(request)
+            return self._run(request)
         elif action == "read":
-            return await self._read(request)
+            return self._read(request)
         elif action == "read_raw":
-            return await self._read_raw(request)
+            return self._read_raw(request)
         elif action == "list":
-            return await self._list(request)
+            return self._list(request)
         elif action == "status":
-            return await self._status(request)
+            return self._status(request)
         elif action == "terminate":
-            return await self._terminate(request)
+            return self._terminate(request)
         elif action == "kill":
-            return await self._kill(request)
+            return self._kill(request)
         elif action == "prune":
-            return await self._prune(request)
+            return self._prune(request)
         elif action == "mount":
-            return await self._mount(request)
+            return self._mount(request)
         else:
             return Response.error_response(f"unknown action: {action}")
 
-    async def _spawn(self, request: Request) -> Response:
+    def _spawn(self, request: Request) -> Response:
         """Spawn a new loop."""
         if not request.backend:
             return Response.error_response("backend required", ERROR_INVALID_REQUEST)
@@ -219,14 +227,13 @@ class LoopDaemon:
 
         try:
             backend = self._get_backend(request.backend)
-            loop_id, pane_id = await asyncio.to_thread(
-                backend.spawn,
-                label,  # Use label for tmux window naming
+            loop_id, pane_id = backend.spawn(
+                label,
                 request.name,
                 request.args,
                 request.child_allowed_tools,
-                str(SOCKET_PATH),  # For client library env injection
-                request.venv,  # Venv path (created with --system-site-packages if missing)
+                str(SOCKET_PATH),
+                request.venv,
                 request.cwd,
                 request.prompt,
                 sandbox=request.sandbox,
@@ -252,8 +259,9 @@ class LoopDaemon:
             pane_id=pane_id,
             sandbox_pid=sandbox_pid,
         )
-        self.loops[loop_id] = state
-        self.save_state()
+        with self._lock:
+            self.loops[loop_id] = state
+            self.save_state()
 
         return Response(
             ok=True,
@@ -263,7 +271,7 @@ class LoopDaemon:
             session_id=request.session_id,
         )
 
-    async def _run(self, request: Request) -> Response:
+    def _run(self, request: Request) -> Response:
         """Run input through a loop. Returns immediately if takes longer than sync_timeout."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -271,52 +279,76 @@ class LoopDaemon:
                 f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
             )
 
-        # Reject if already running (no queuing)
-        if loop.eval_running:
-            return Response.error_response(
-                f"run already in progress on {request.loop_id}", ERROR_INVALID_REQUEST
-            )
-
-        loop.cancelled = False
-        loop.eval_running = True
-        loop.eval_started_at = time.time()
+        with loop.lock:
+            if loop.eval_running:
+                return Response.error_response(
+                    f"run already in progress on {request.loop_id}",
+                    ERROR_INVALID_REQUEST,
+                )
+            loop.cancelled = False
+            loop.eval_running = True
+            loop.eval_started_at = time.time()
+            started_at = loop.eval_started_at
+            loop.run_seq += 1
+            current_seq = loop.run_seq
 
         backend = self._get_backend(loop.backend)
-        task = asyncio.create_task(
-            asyncio.to_thread(
-                backend.eval,
-                loop.pane_id,
-                request.input,
-                lambda: loop.cancelled,
-            )
-        )
-        loop.eval_task = task
+        result_holder: dict[str, Any] = {}
+        done_event = threading.Event()
 
-        # sync_timeout >= 0: wait that long (0 = return immediately)
-        # sync_timeout < 0: wait indefinitely (block until done)
-        sync_timeout = request.sync_timeout
+        def _eval_worker():
+            def is_cancelled():
+                with loop.lock:
+                    return loop.cancelled
 
-        try:
-            if sync_timeout < 0:
-                # Block until done
-                result = await asyncio.shield(task)
-            else:
-                result = await asyncio.wait_for(
-                    asyncio.shield(task), timeout=sync_timeout
+            try:
+                result_holder["result"] = backend.eval(
+                    loop.pane_id, request.input, is_cancelled
                 )
+            except Exception as e:
+                result_holder["error"] = e
+            finally:
+                with loop.lock:
+                    if loop.run_seq == current_seq:
+                        loop.eval_running = False
+                        loop.eval_started_at = 0.0
+                        loop.eval_thread = None
+                done_event.set()
 
-            if loop.cancelled:
+        thread = threading.Thread(target=_eval_worker, daemon=True)
+        with loop.lock:
+            loop.eval_thread = thread
+        thread.start()
+
+        sync_timeout = request.sync_timeout
+        if sync_timeout < 0:
+            done_event.wait()
+        else:
+            done_event.wait(timeout=sync_timeout if sync_timeout > 0 else 0.001)
+
+        if done_event.is_set():
+            with loop.lock:
+                cancelled = loop.cancelled
+            if cancelled:
                 return Response.error_response("cancelled by user", ERROR_CANCELLED)
 
-            # Capture session_id from backend (for resume on respawn)
+            if "error" in result_holder:
+                return Response.error_response(
+                    str(result_holder["error"]), ERROR_BACKEND_ERROR
+                )
+
+            result = result_holder["result"]
+
+            # Update session_id if changed
             backend_session_id = result.get("session_id", "")
             if backend_session_id and backend_session_id != loop.session_id:
-                loop.session_id = backend_session_id
-                self.save_state()
+                with self._lock:
+                    with loop.lock:
+                        if loop.run_seq == current_seq:
+                            loop.session_id = backend_session_id
+                    self.save_state()
 
-            elapsed = time.time() - loop.eval_started_at
-            loop.eval_running = False
-            loop.eval_started_at = 0.0
+            elapsed = time.time() - started_at
             return Response(
                 ok=True,
                 output=result["output"],
@@ -324,38 +356,17 @@ class LoopDaemon:
                 session_id=loop.session_id,
                 elapsed_seconds=elapsed,
             )
-        except asyncio.TimeoutError:
-            # Still running - return immediately, task continues in background
-            asyncio.create_task(self._background_run_cleanup(loop, task))
-            elapsed = time.time() - loop.eval_started_at
+        else:
+            # Still running - return immediately, worker continues in background
+            elapsed = time.time() - started_at
             return Response(
                 ok=True,
                 running=True,
                 elapsed_seconds=elapsed,
             )
-        except Exception as e:
-            loop.eval_running = False
-            loop.eval_started_at = 0.0
-            return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
-    async def _background_run_cleanup(self, loop: LoopState, task: asyncio.Task):
-        """Wait for background run to complete and update state."""
-        try:
-            result = await task
-            # Capture session_id from backend (same logic as sync path)
-            backend_session_id = result.get("session_id", "")
-            if backend_session_id and backend_session_id != loop.session_id:
-                loop.session_id = backend_session_id
-                self.save_state()
-        except Exception as e:
-            logging.error(f"Background run error on {loop.loop_id}: {e}")
-        finally:
-            loop.eval_running = False
-            loop.eval_started_at = 0.0
-            loop.eval_task = None
-
-    async def _read(self, request: Request) -> Response:
-        """Read cells from a loop (does not acquire lock)."""
+    def _read(self, request: Request) -> Response:
+        """Read cells from a loop."""
         loop = self._get_loop(request.loop_id)
         if not loop:
             return Response.error_response(
@@ -364,12 +375,12 @@ class LoopDaemon:
 
         try:
             backend = self._get_backend(loop.backend)
-            cells = await asyncio.to_thread(backend.read, loop.pane_id)
+            cells = backend.read(loop.pane_id)
             return Response(ok=True, cells=cells)
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
-    async def _read_raw(self, request: Request) -> Response:
+    def _read_raw(self, request: Request) -> Response:
         """Read raw terminal output from a loop."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -379,28 +390,27 @@ class LoopDaemon:
 
         try:
             backend = self._get_backend(loop.backend)
-            raw = await asyncio.to_thread(backend.read_raw, loop.pane_id)
+            raw = backend.read_raw(loop.pane_id)
             return Response(ok=True, raw_output=raw)
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
-    async def _list(self, request: Request) -> Response:
+    def _list(self, request: Request) -> Response:
         """List loops, optionally filtered by parent_id or descendants_of."""
         visible = []
 
         if request.descendants_of:
-            # Get full subtree under this parent
             loops_to_show = self._get_descendants(request.descendants_of)
         elif request.parent_id:
-            # Get direct children only
-            loops_to_show = [
-                loop
-                for loop in self.loops.values()
-                if loop.parent_id == request.parent_id
-            ]
+            with self._lock:
+                loops_to_show = [
+                    loop
+                    for loop in self.loops.values()
+                    if loop.parent_id == request.parent_id
+                ]
         else:
-            # Show all loops
-            loops_to_show = list(self.loops.values())
+            with self._lock:
+                loops_to_show = list(self.loops.values())
 
         session_cache: dict[str, bool] = {}
         for loop in loops_to_show:
@@ -414,12 +424,11 @@ class LoopDaemon:
             if loop.session_id:
                 info["session_id"] = loop.session_id
             visible.append(info)
-        # Echo caller's session_id back for context (daemon is stateless re: sessions)
         return Response(
             ok=True, loops=visible, current_session_id=request.current_session_id
         )
 
-    async def _status(self, request: Request) -> Response:
+    def _status(self, request: Request) -> Response:
         """Get status of a loop."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -427,21 +436,25 @@ class LoopDaemon:
                 f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
             )
 
-        elapsed = time.time() - loop.eval_started_at if loop.eval_running else 0.0
+        with loop.lock:
+            running = loop.eval_running
+            eval_started = loop.eval_started_at
+
+        elapsed = time.time() - eval_started if running else 0.0
         started_at = (
-            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(loop.eval_started_at))
-            if loop.eval_running
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(eval_started))
+            if running
             else ""
         )
 
         return Response(
             ok=True,
-            running=loop.eval_running,
+            running=running,
             started_at=started_at,
             elapsed_seconds=elapsed,
         )
 
-    async def _terminate(self, request: Request) -> Response:
+    def _terminate(self, request: Request) -> Response:
         """Terminate (Ctrl-C) a loop's running eval."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -449,35 +462,41 @@ class LoopDaemon:
                 f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
             )
 
-        loop.cancelled = True
+        with loop.lock:
+            loop.cancelled = True
         try:
             backend = self._get_backend(loop.backend)
-            await asyncio.to_thread(backend.terminate, loop.pane_id)
+            backend.terminate(loop.pane_id)
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
         return Response(ok=True)
 
-    async def _kill(self, request: Request) -> Response:
+    def _kill(self, request: Request) -> Response:
         """Force-kill a loop."""
-        loop = self._get_loop(request.loop_id)
-        if not loop:
-            return Response.error_response(
-                f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
-            )
+        with self._lock:
+            loop = self.loops.get(request.loop_id)
+            if not loop:
+                return Response.error_response(
+                    f"loop not found: {request.loop_id}", ERROR_NOT_FOUND
+                )
 
-        try:
-            backend = self._get_backend(loop.backend)
-            await asyncio.to_thread(backend.kill, loop.pane_id)
-        except Exception as e:
-            return Response.error_response(str(e), ERROR_BACKEND_ERROR)
+            with loop.lock:
+                loop.run_seq += 1  # invalidate any in-flight worker
 
-        session_id = loop.session_id
-        del self.loops[request.loop_id]
-        self.save_state()
+            try:
+                backend = self._get_backend(loop.backend)
+                backend.kill(loop.pane_id)
+            except Exception as e:
+                return Response.error_response(str(e), ERROR_BACKEND_ERROR)
+
+            session_id = loop.session_id
+            del self.loops[request.loop_id]
+            self.save_state()
+
         return Response(ok=True, session_id=session_id)
 
-    async def _prune(self, request: Request) -> Response:
+    def _prune(self, request: Request) -> Response:
         """Kill a loop, but only if it's orphaned."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -488,9 +507,9 @@ class LoopDaemon:
             return Response.error_response(
                 f"loop {request.loop_id} is not orphaned", ERROR_INVALID_REQUEST
             )
-        return await self._kill(request)
+        return self._kill(request)
 
-    async def _mount(self, request: Request) -> Response:
+    def _mount(self, request: Request) -> Response:
         """Bind-mount a path inside a sandboxed loop's namespace."""
         loop = self._get_loop(request.loop_id)
         if not loop:
@@ -505,9 +524,7 @@ class LoopDaemon:
         from mcp_handley_lab.loop.sandbox import sandbox_mount
 
         try:
-            await asyncio.to_thread(
-                sandbox_mount, loop.sandbox_pid, request.source, request.target
-            )
+            sandbox_mount(loop.sandbox_pid, request.source, request.target)
         except Exception as e:
             return Response.error_response(str(e), ERROR_BACKEND_ERROR)
 
@@ -515,51 +532,57 @@ class LoopDaemon:
 
     def _get_backend(self, name: str) -> Any:
         """Get or create backend instance."""
-        if name not in self.backends:
-            from mcp_handley_lab.loop.backends import get_backend
+        with self._lock:
+            if name not in self.backends:
+                from mcp_handley_lab.loop.backends import get_backend
 
-            self.backends[name] = get_backend(name)
-        return self.backends[name]
+                self.backends[name] = get_backend(name)
+            return self.backends[name]
 
 
-async def handle_client(
-    reader: asyncio.StreamReader, writer: asyncio.StreamWriter, daemon: LoopDaemon
-):
-    """Handle a single client connection."""
-    try:
-        while True:
-            line = await reader.readline()
-            if not line:
+class _UnixStreamServer(socketserver.TCPServer):
+    address_family = socket.AF_UNIX
+
+
+class LoopServer(socketserver.ThreadingMixIn, _UnixStreamServer):
+    daemon_threads = True
+
+    def __init__(self, path: str, handler, loop_daemon: LoopDaemon):
+        self.loop_daemon = loop_daemon
+        super().__init__(path, handler)
+
+
+class LoopHandler(socketserver.StreamRequestHandler):
+    """Handle a single client connection (one thread per connection)."""
+
+    server: LoopServer
+
+    def handle(self):
+        for line in self.rfile:
+            if not line.strip():
                 break
-
             try:
                 data = json.loads(line.decode())
                 request = Request.from_dict(data)
-                response = await daemon.handle_request(request)
+                response = self.server.loop_daemon.handle_request(request)
             except json.JSONDecodeError as e:
                 response = Response.error_response(f"invalid JSON: {e}")
             except Exception as e:
                 response = Response.error_response(f"internal error: {e}")
 
-            writer.write(json.dumps(response.to_dict()).encode() + b"\n")
-            await writer.drain()
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logging.error(f"Client handler error: {e}")
-    finally:
-        writer.close()
-        await writer.wait_closed()
+            self.wfile.write(json.dumps(response.to_dict()).encode() + b"\n")
+            self.wfile.flush()
 
 
-async def idle_shutdown(daemon: LoopDaemon):
+def _idle_monitor(loop_daemon: LoopDaemon, server: LoopServer):
     """Shutdown daemon after idle timeout with no loops."""
-    while daemon.running:
-        await asyncio.sleep(60)
-        idle_time = time.time() - daemon.last_activity
-        if idle_time > IDLE_TIMEOUT and not daemon.loops:
+    while loop_daemon.running:
+        time.sleep(60)
+        idle_time = time.time() - loop_daemon.last_activity
+        if idle_time > IDLE_TIMEOUT and not loop_daemon.loops:
             logging.info("Idle timeout reached with no loops, shutting down")
-            daemon.running = False
+            loop_daemon.running = False
+            server.shutdown()
 
 
 def _socket_connectable(path: Path) -> bool:
@@ -575,7 +598,7 @@ def _socket_connectable(path: Path) -> bool:
         return False
 
 
-async def run_daemon():
+def run_daemon():
     """Run the loop daemon."""
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
@@ -603,29 +626,31 @@ async def run_daemon():
     pid_tmp.write_text(str(os.getpid()))
     pid_tmp.rename(PID_PATH)
 
-    daemon = LoopDaemon()
-    daemon.load_state()
+    loop_daemon = LoopDaemon()
+    loop_daemon.load_state()
 
-    server = await asyncio.start_unix_server(
-        lambda r, w: handle_client(r, w, daemon), path=str(SOCKET_PATH)
-    )
+    server = LoopServer(str(SOCKET_PATH), LoopHandler, loop_daemon)
     SOCKET_PATH.chmod(0o600)
 
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda: setattr(daemon, "running", False))
+    def _shutdown(*_args):
+        loop_daemon.running = False
+        server.shutdown()
 
-    idle_task = asyncio.create_task(idle_shutdown(daemon))
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
+    threading.Thread(
+        target=_idle_monitor, args=(loop_daemon, server), daemon=True
+    ).start()
+
     logging.info(f"Loop daemon listening on {SOCKET_PATH}")
 
     try:
-        while daemon.running:
-            await asyncio.sleep(1)
+        server.serve_forever(poll_interval=1.0)
     finally:
-        idle_task.cancel()
-        server.close()
-        await server.wait_closed()
-        daemon.save_state()
+        server.server_close()
+        with loop_daemon._lock:
+            loop_daemon.save_state()
         SOCKET_PATH.unlink(missing_ok=True)
         PID_PATH.unlink(missing_ok=True)
         logging.info("Loop daemon stopped")
@@ -633,7 +658,7 @@ async def run_daemon():
 
 def main():
     """Entry point for daemon."""
-    asyncio.run(run_daemon())
+    run_daemon()
 
 
 if __name__ == "__main__":
