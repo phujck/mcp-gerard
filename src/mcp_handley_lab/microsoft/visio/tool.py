@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
@@ -629,7 +630,7 @@ def render(
 
     Use read to get diagram structure, render to see it visually.
     output='png' (default) returns labeled images for Claude to see.
-    output='pdf' returns PDF bytes for sharing.
+    output='pdf' saves PDF to disk alongside the source file.
     Requires libreoffice (and pdftoppm for PNG).
 
     Args:
@@ -652,12 +653,12 @@ def render(
 
     if output == "pdf":
         pdf_bytes = render_to_pdf(file_path)
+        pdf_path = Path(file_path).with_suffix(".pdf")
+        pdf_path.write_bytes(pdf_bytes)
         return [
-            TextContent(type="text", text=f"PDF ({len(pdf_bytes):,} bytes)"),
-            ImageContent(
-                type="image",
-                data=base64.b64encode(pdf_bytes).decode(),
-                mimeType="application/pdf",
+            TextContent(
+                type="text",
+                text=f"PDF saved to {pdf_path} ({len(pdf_bytes):,} bytes)",
             ),
         ]
 
