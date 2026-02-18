@@ -346,3 +346,84 @@ class TestWordChartMcpTool:
             assert data["charts"][0]["title"] == "Test Chart"
         finally:
             path.unlink(missing_ok=True)
+
+
+class TestChartSeriesShapeProperties:
+    """Integration test: chart XML parts have explicit spPr on series."""
+
+    def test_bar_chart_series_has_sppr(self):
+
+        from mcp_handley_lab.microsoft.common.charts import CHART_NSMAP
+
+        pkg = _make_doc_with_paragraph()
+        target = _get_first_para_id(pkg)
+        create_chart(pkg, target, "bar", SAMPLE_DATA)
+
+        # Find the chart XML part
+        chart_parts = [p for p in pkg.iter_partnames() if "/word/charts/chart" in p]
+        assert len(chart_parts) >= 1
+
+        chart_xml = pkg.get_xml(chart_parts[0])
+        c_ns = CHART_NSMAP["c"]
+        a_ns = CHART_NSMAP["a"]
+
+        # Navigate to series
+        chart = chart_xml.find(f"{{{c_ns}}}chart")
+        plot = chart.find(f"{{{c_ns}}}plotArea")
+        bar = plot.find(f"{{{c_ns}}}barChart")
+        ser = bar.find(f"{{{c_ns}}}ser")
+        sp_pr = ser.find(f"{{{c_ns}}}spPr")
+        assert sp_pr is not None
+        # Has solid fill with RGB color
+        solid_fill = sp_pr.find(f"{{{a_ns}}}solidFill")
+        assert solid_fill is not None
+        srgb_clr = solid_fill.find(f"{{{a_ns}}}srgbClr")
+        assert srgb_clr is not None
+
+
+class TestChartInlineDataCaches:
+    """Integration test: chart XML parts have inline data caches."""
+
+    def test_column_chart_has_inline_caches(self):
+        from mcp_handley_lab.microsoft.common.charts import CHART_NSMAP
+
+        pkg = _make_doc_with_paragraph()
+        target = _get_first_para_id(pkg)
+        create_chart(pkg, target, "column", SAMPLE_DATA, title="Revenue")
+
+        chart_parts = [p for p in pkg.iter_partnames() if "/word/charts/chart" in p]
+        assert len(chart_parts) >= 1
+
+        chart_xml = pkg.get_xml(chart_parts[0])
+        c_ns = CHART_NSMAP["c"]
+
+        chart = chart_xml.find(f"{{{c_ns}}}chart")
+        plot = chart.find(f"{{{c_ns}}}plotArea")
+        bar = plot.find(f"{{{c_ns}}}barChart")
+        ser = bar.find(f"{{{c_ns}}}ser")
+
+        # Category strCache
+        cat = ser.find(f"{{{c_ns}}}cat")
+        str_ref = cat.find(f"{{{c_ns}}}strRef")
+        str_cache = str_ref.find(f"{{{c_ns}}}strCache")
+        assert str_cache is not None
+        pts = str_cache.findall(f"{{{c_ns}}}pt")
+        values = [pt.find(f"{{{c_ns}}}v").text for pt in pts]
+        assert values == ["A", "B", "C"]
+
+        # Value numCache
+        val = ser.find(f"{{{c_ns}}}val")
+        num_ref = val.find(f"{{{c_ns}}}numRef")
+        num_cache = num_ref.find(f"{{{c_ns}}}numCache")
+        assert num_cache is not None
+        num_pts = num_cache.findall(f"{{{c_ns}}}pt")
+        num_values = [pt.find(f"{{{c_ns}}}v").text for pt in num_pts]
+        assert num_values == ["10", "20", "15"]
+
+        # Series name strCache
+        tx = ser.find(f"{{{c_ns}}}tx")
+        tx_str_ref = tx.find(f"{{{c_ns}}}strRef")
+        tx_cache = tx_str_ref.find(f"{{{c_ns}}}strCache")
+        assert tx_cache is not None
+        name_pts = tx_cache.findall(f"{{{c_ns}}}pt")
+        assert name_pts[0].find(f"{{{c_ns}}}v").text == "S1"

@@ -27,6 +27,11 @@ CT_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 VALID_CHART_TYPES = {"bar", "column", "line", "pie", "scatter", "area"}
 
+# Series colors as explicit RGB hex (Office default theme accent colors).
+# Using srgbClr instead of schemeClr because LibreOffice cannot resolve
+# theme references in embedded chart parts.
+SERIES_COLORS = ["4472C4", "ED7D31", "A5A5A5", "FFC000", "5B9BD5", "70AD47"]
+
 
 def _qn_c(tag: str) -> str:
     return f"{{{CHART_NSMAP['c']}}}{tag}"
@@ -38,6 +43,26 @@ def _qn_a(tag: str) -> str:
 
 def _qn_r(tag: str) -> str:
     return f"{{{CHART_NSMAP['r']}}}{tag}"
+
+
+def _add_str_cache(str_ref: etree._Element, values: list[str]) -> None:
+    """Append <c:strCache> as child of a <c:strRef> element, sibling of <c:f>."""
+    cache = etree.SubElement(str_ref, _qn_c("strCache"))
+    etree.SubElement(cache, _qn_c("ptCount"), val=str(len(values)))
+    for i, v in enumerate(values):
+        pt = etree.SubElement(cache, _qn_c("pt"), idx=str(i))
+        etree.SubElement(pt, _qn_c("v")).text = str(v)
+
+
+def _add_num_cache(num_ref: etree._Element, values: list) -> None:
+    """Append <c:numCache> as child of a <c:numRef> element, sibling of <c:f>."""
+    cache = etree.SubElement(num_ref, _qn_c("numCache"))
+    etree.SubElement(cache, _qn_c("formatCode")).text = "General"
+    non_none = [(i, v) for i, v in enumerate(values) if v is not None]
+    etree.SubElement(cache, _qn_c("ptCount"), val=str(len(non_none)))
+    for i, v in non_none:
+        pt = etree.SubElement(cache, _qn_c("pt"), idx=str(i))
+        etree.SubElement(pt, _qn_c("v")).text = str(v)
 
 
 def compute_chart_refs(
@@ -93,6 +118,9 @@ def create_chart_xml(
     series: list[tuple[str, str, str]],
     title: str | None = None,
     external_data_rid: str | None = None,
+    n_categories: int | None = None,
+    *,
+    data: list[list] | None = None,
 ) -> etree._Element:
     """Create a c:chartSpace XML element.
 
@@ -105,6 +133,10 @@ def create_chart_xml(
             name_ref can be empty string to omit c:serTx.
         title: Optional chart title
         external_data_rid: rId for c:externalData (Word/PPT charts only)
+        data: Raw data array for inline caches (LibreOffice compatibility).
+            When provided, strCache/numCache elements are added as siblings of
+            cell reference formulas so LibreOffice can render without resolving
+            the embedded xlsx.
 
     Returns:
         c:chartSpace lxml element
@@ -117,6 +149,23 @@ def create_chart_xml(
         )
     if not series:
         raise ValueError("At least one data series is required")
+
+    # Extract inline cache arrays from raw data
+    cat_data: list[str] | None = None
+    x_data: list | None = None
+    series_names: list[str] | None = None
+    series_values: list[list] | None = None
+    if data is not None and len(data) > 1:
+        n_cols = len(data[0])
+        if chart_type == "scatter":
+            x_data = [row[0] if len(row) > 0 else None for row in data[1:]]
+        else:
+            cat_data = [str(row[0]) if len(row) > 0 else "" for row in data[1:]]
+        series_names = [str(data[0][c]) for c in range(1, n_cols)]
+        series_values = [
+            [row[c] if c < len(row) else None for row in data[1:]]
+            for c in range(1, n_cols)
+        ]
 
     chart_space = etree.Element(
         _qn_c("chartSpace"),
@@ -137,18 +186,32 @@ def create_chart_xml(
     plot_area = etree.SubElement(chart, _qn_c("plotArea"))
     etree.SubElement(plot_area, _qn_c("layout"))
 
+    cache_kw = {
+        "cat_data": cat_data,
+        "series_names": series_names,
+        "series_values": series_values,
+    }
     if chart_type == "bar":
-        _add_bar_chart(plot_area, categories_range, series, bar_dir="bar")
+        _add_bar_chart(plot_area, categories_range, series, bar_dir="bar", **cache_kw)
     elif chart_type == "column":
-        _add_bar_chart(plot_area, categories_range, series, bar_dir="col")
+        _add_bar_chart(plot_area, categories_range, series, bar_dir="col", **cache_kw)
     elif chart_type == "line":
-        _add_line_chart(plot_area, categories_range, series)
+        _add_line_chart(plot_area, categories_range, series, **cache_kw)
     elif chart_type == "pie":
-        _add_pie_chart(plot_area, categories_range, series)
+        _add_pie_chart(
+            plot_area, categories_range, series, n_categories=n_categories, **cache_kw
+        )
     elif chart_type == "scatter":
-        _add_scatter_chart(plot_area, categories_range, series)
+        _add_scatter_chart(
+            plot_area,
+            categories_range,
+            series,
+            x_data=x_data,
+            series_names=series_names,
+            series_values=series_values,
+        )
     elif chart_type == "area":
-        _add_area_chart(plot_area, categories_range, series)
+        _add_area_chart(plot_area, categories_range, series, **cache_kw)
 
     if chart_type != "pie":
         _add_axes(plot_area, chart_type)
@@ -206,8 +269,16 @@ def _add_series_common(
     parent: etree._Element,
     idx: int,
     name_ref: str,
+    fill_type: str = "fill",
+    name_cache: str | None = None,
 ) -> etree._Element:
-    """Add common series elements (idx, order, serTx). Returns the c:ser element."""
+    """Add common series elements (idx, order, serTx, spPr). Returns the c:ser element.
+
+    Args:
+        fill_type: "fill" for solid fill + outline (bar/column/area/pie),
+                   "stroke" for no fill + line stroke (line/scatter).
+        name_cache: Series name string for inline strCache (LibreOffice compat).
+    """
     ser = etree.SubElement(parent, _qn_c("ser"))
     etree.SubElement(ser, _qn_c("idx"), val=str(idx))
     etree.SubElement(ser, _qn_c("order"), val=str(idx))
@@ -218,11 +289,32 @@ def _add_series_common(
         str_ref = etree.SubElement(ser_tx, _qn_c("strRef"))
         f = etree.SubElement(str_ref, _qn_c("f"))
         f.text = name_ref
+        if name_cache is not None:
+            _add_str_cache(str_ref, [name_cache])
+
+    # Shape properties with explicit RGB colors
+    color = SERIES_COLORS[idx % len(SERIES_COLORS)]
+    sp_pr = etree.SubElement(ser, _qn_c("spPr"))
+    if fill_type == "fill":
+        solid_fill = etree.SubElement(sp_pr, _qn_a("solidFill"))
+        etree.SubElement(solid_fill, _qn_a("srgbClr"), val=color)
+        ln = etree.SubElement(sp_pr, _qn_a("ln"))
+        ln_fill = etree.SubElement(ln, _qn_a("solidFill"))
+        etree.SubElement(ln_fill, _qn_a("srgbClr"), val=color)
+    else:
+        etree.SubElement(sp_pr, _qn_a("noFill"))
+        ln = etree.SubElement(sp_pr, _qn_a("ln"), w="28575")
+        ln_fill = etree.SubElement(ln, _qn_a("solidFill"))
+        etree.SubElement(ln_fill, _qn_a("srgbClr"), val=color)
 
     return ser
 
 
-def _add_cat_ref(ser: etree._Element, categories_range: str | None) -> None:
+def _add_cat_ref(
+    ser: etree._Element,
+    categories_range: str | None,
+    cat_data: list[str] | None = None,
+) -> None:
     """Add c:cat element with strRef to a series. No-op if categories_range is None."""
     if categories_range is None:
         return
@@ -230,14 +322,20 @@ def _add_cat_ref(ser: etree._Element, categories_range: str | None) -> None:
     str_ref = etree.SubElement(cat, _qn_c("strRef"))
     f = etree.SubElement(str_ref, _qn_c("f"))
     f.text = categories_range
+    if cat_data is not None:
+        _add_str_cache(str_ref, cat_data)
 
 
-def _add_val_ref(ser: etree._Element, values_range: str) -> None:
+def _add_val_ref(
+    ser: etree._Element, values_range: str, val_data: list | None = None
+) -> None:
     """Add c:val element with numRef to a series."""
     val = etree.SubElement(ser, _qn_c("val"))
     num_ref = etree.SubElement(val, _qn_c("numRef"))
     f = etree.SubElement(num_ref, _qn_c("f"))
     f.text = values_range
+    if val_data is not None:
+        _add_num_cache(num_ref, val_data)
 
 
 def _add_data_labels(parent: etree._Element) -> None:
@@ -259,6 +357,9 @@ def _add_bar_chart(
     categories_range: str | None,
     series: list[tuple[str, str, str]],
     bar_dir: str = "col",
+    cat_data: list[str] | None = None,
+    series_names: list[str] | None = None,
+    series_values: list[list] | None = None,
 ) -> None:
     """Add bar/column chart with categories and multiple series."""
     bar_chart = etree.SubElement(plot_area, _qn_c("barChart"))
@@ -267,9 +368,19 @@ def _add_bar_chart(
     etree.SubElement(bar_chart, _qn_c("varyColors"), val="0")
 
     for idx, (name_ref, _name_text, values_range) in enumerate(series):
-        ser = _add_series_common(bar_chart, idx, name_ref)
-        _add_cat_ref(ser, categories_range)
-        _add_val_ref(ser, values_range)
+        ser = _add_series_common(
+            bar_chart,
+            idx,
+            name_ref,
+            fill_type="fill",
+            name_cache=series_names[idx] if series_names else None,
+        )
+        _add_cat_ref(ser, categories_range, cat_data=cat_data)
+        _add_val_ref(
+            ser,
+            values_range,
+            val_data=series_values[idx] if series_values else None,
+        )
 
     _add_data_labels(bar_chart)
     etree.SubElement(bar_chart, _qn_c("gapWidth"), val="150")
@@ -281,6 +392,9 @@ def _add_line_chart(
     plot_area: etree._Element,
     categories_range: str | None,
     series: list[tuple[str, str, str]],
+    cat_data: list[str] | None = None,
+    series_names: list[str] | None = None,
+    series_values: list[list] | None = None,
 ) -> None:
     """Add line chart with categories and multiple series."""
     line_chart = etree.SubElement(plot_area, _qn_c("lineChart"))
@@ -288,11 +402,21 @@ def _add_line_chart(
     etree.SubElement(line_chart, _qn_c("varyColors"), val="0")
 
     for idx, (name_ref, _name_text, values_range) in enumerate(series):
-        ser = _add_series_common(line_chart, idx, name_ref)
+        ser = _add_series_common(
+            line_chart,
+            idx,
+            name_ref,
+            fill_type="stroke",
+            name_cache=series_names[idx] if series_names else None,
+        )
         marker = etree.SubElement(ser, _qn_c("marker"))
         etree.SubElement(marker, _qn_c("symbol"), val="none")
-        _add_cat_ref(ser, categories_range)
-        _add_val_ref(ser, values_range)
+        _add_cat_ref(ser, categories_range, cat_data=cat_data)
+        _add_val_ref(
+            ser,
+            values_range,
+            val_data=series_values[idx] if series_values else None,
+        )
 
     _add_data_labels(line_chart)
     etree.SubElement(line_chart, _qn_c("smooth"), val="0")
@@ -304,6 +428,10 @@ def _add_pie_chart(
     plot_area: etree._Element,
     categories_range: str | None,
     series: list[tuple[str, str, str]],
+    n_categories: int | None = None,
+    cat_data: list[str] | None = None,
+    series_names: list[str] | None = None,
+    series_values: list[list] | None = None,
 ) -> None:
     """Add pie chart with categories and single value series."""
     pie_chart = etree.SubElement(plot_area, _qn_c("pieChart"))
@@ -312,9 +440,30 @@ def _add_pie_chart(
     # Pie charts use only the first series
     if series:
         name_ref, _name_text, values_range = series[0]
-        ser = _add_series_common(pie_chart, 0, name_ref)
-        _add_cat_ref(ser, categories_range)
-        _add_val_ref(ser, values_range)
+        ser = _add_series_common(
+            pie_chart,
+            0,
+            name_ref,
+            fill_type="fill",
+            name_cache=series_names[0] if series_names else None,
+        )
+
+        # Per-data-point fills for LibreOffice compatibility
+        if n_categories is not None:
+            for i in range(n_categories):
+                dpt = etree.SubElement(ser, _qn_c("dPt"))
+                etree.SubElement(dpt, _qn_c("idx"), val=str(i))
+                sp_pr = etree.SubElement(dpt, _qn_c("spPr"))
+                solid_fill = etree.SubElement(sp_pr, _qn_a("solidFill"))
+                color = SERIES_COLORS[i % len(SERIES_COLORS)]
+                etree.SubElement(solid_fill, _qn_a("srgbClr"), val=color)
+
+        _add_cat_ref(ser, categories_range, cat_data=cat_data)
+        _add_val_ref(
+            ser,
+            values_range,
+            val_data=series_values[0] if series_values else None,
+        )
 
     _add_data_labels(pie_chart)
     etree.SubElement(pie_chart, _qn_c("firstSliceAng"), val="0")
@@ -324,6 +473,9 @@ def _add_scatter_chart(
     plot_area: etree._Element,
     categories_range: str | None,
     series: list[tuple[str, str, str]],
+    x_data: list | None = None,
+    series_names: list[str] | None = None,
+    series_values: list[list] | None = None,
 ) -> None:
     """Add scatter chart with xVal/yVal per series.
 
@@ -334,7 +486,13 @@ def _add_scatter_chart(
     etree.SubElement(scatter_chart, _qn_c("varyColors"), val="0")
 
     for idx, (name_ref, _name_text, values_range) in enumerate(series):
-        ser = _add_series_common(scatter_chart, idx, name_ref)
+        ser = _add_series_common(
+            scatter_chart,
+            idx,
+            name_ref,
+            fill_type="stroke",
+            name_cache=series_names[idx] if series_names else None,
+        )
 
         marker = etree.SubElement(ser, _qn_c("marker"))
         etree.SubElement(marker, _qn_c("symbol"), val="circle")
@@ -346,12 +504,16 @@ def _add_scatter_chart(
             num_ref_x = etree.SubElement(x_val, _qn_c("numRef"))
             f_x = etree.SubElement(num_ref_x, _qn_c("f"))
             f_x.text = categories_range
+            if x_data is not None:
+                _add_num_cache(num_ref_x, x_data)
 
         # Y values from series column
         y_val = etree.SubElement(ser, _qn_c("yVal"))
         num_ref_y = etree.SubElement(y_val, _qn_c("numRef"))
         f_y = etree.SubElement(num_ref_y, _qn_c("f"))
         f_y.text = values_range
+        if series_values is not None:
+            _add_num_cache(num_ref_y, series_values[idx])
 
         etree.SubElement(ser, _qn_c("smooth"), val="0")
 
@@ -364,6 +526,9 @@ def _add_area_chart(
     plot_area: etree._Element,
     categories_range: str | None,
     series: list[tuple[str, str, str]],
+    cat_data: list[str] | None = None,
+    series_names: list[str] | None = None,
+    series_values: list[list] | None = None,
 ) -> None:
     """Add area chart with categories and multiple series."""
     area_chart = etree.SubElement(plot_area, _qn_c("areaChart"))
@@ -371,9 +536,19 @@ def _add_area_chart(
     etree.SubElement(area_chart, _qn_c("varyColors"), val="0")
 
     for idx, (name_ref, _name_text, values_range) in enumerate(series):
-        ser = _add_series_common(area_chart, idx, name_ref)
-        _add_cat_ref(ser, categories_range)
-        _add_val_ref(ser, values_range)
+        ser = _add_series_common(
+            area_chart,
+            idx,
+            name_ref,
+            fill_type="fill",
+            name_cache=series_names[idx] if series_names else None,
+        )
+        _add_cat_ref(ser, categories_range, cat_data=cat_data)
+        _add_val_ref(
+            ser,
+            values_range,
+            val_data=series_values[idx] if series_values else None,
+        )
 
     _add_data_labels(area_chart)
     etree.SubElement(area_chart, _qn_c("axId"), val="100")
@@ -385,17 +560,24 @@ def _add_axes(plot_area: etree._Element, chart_type: str) -> None:
     if chart_type == "scatter":
         _add_scatter_axes(plot_area)
     else:
-        _add_category_axes(plot_area)
+        _add_category_axes(plot_area, is_horizontal=(chart_type == "bar"))
 
 
-def _add_category_axes(plot_area: etree._Element) -> None:
-    """Add catAx (X) + valAx (Y) for non-scatter charts."""
+def _add_category_axes(plot_area: etree._Element, is_horizontal: bool = False) -> None:
+    """Add catAx + valAx for non-scatter charts.
+
+    For horizontal bar charts (is_horizontal=True), category axis is on left
+    and value axis is on bottom.
+    """
+    cat_pos = "l" if is_horizontal else "b"
+    val_pos = "b" if is_horizontal else "l"
+
     cat_ax = etree.SubElement(plot_area, _qn_c("catAx"))
     etree.SubElement(cat_ax, _qn_c("axId"), val="100")
     scaling = etree.SubElement(cat_ax, _qn_c("scaling"))
     etree.SubElement(scaling, _qn_c("orientation"), val="minMax")
     etree.SubElement(cat_ax, _qn_c("delete"), val="0")
-    etree.SubElement(cat_ax, _qn_c("axPos"), val="b")
+    etree.SubElement(cat_ax, _qn_c("axPos"), val=cat_pos)
     etree.SubElement(cat_ax, _qn_c("majorTickMark"), val="out")
     etree.SubElement(cat_ax, _qn_c("minorTickMark"), val="none")
     etree.SubElement(cat_ax, _qn_c("tickLblPos"), val="nextTo")
@@ -405,13 +587,15 @@ def _add_category_axes(plot_area: etree._Element) -> None:
     etree.SubElement(cat_ax, _qn_c("lblAlgn"), val="ctr")
     etree.SubElement(cat_ax, _qn_c("lblOffset"), val="100")
 
-    _add_val_ax(plot_area, ax_id="200", cross_ax="100", position="l")
+    _add_val_ax(
+        plot_area, ax_id="200", cross_ax="100", position=val_pos, gridlines=True
+    )
 
 
 def _add_scatter_axes(plot_area: etree._Element) -> None:
     """Add two valAx (X + Y) for scatter charts. No catAx-specific properties."""
-    _add_val_ax(plot_area, ax_id="100", cross_ax="200", position="b")
-    _add_val_ax(plot_area, ax_id="200", cross_ax="100", position="l")
+    _add_val_ax(plot_area, ax_id="100", cross_ax="200", position="b", gridlines=False)
+    _add_val_ax(plot_area, ax_id="200", cross_ax="100", position="l", gridlines=True)
 
 
 def _add_val_ax(
@@ -419,6 +603,7 @@ def _add_val_ax(
     ax_id: str,
     cross_ax: str,
     position: str,
+    gridlines: bool = False,
 ) -> None:
     """Add a single c:valAx element."""
     val_ax = etree.SubElement(plot_area, _qn_c("valAx"))
@@ -427,7 +612,7 @@ def _add_val_ax(
     etree.SubElement(scaling, _qn_c("orientation"), val="minMax")
     etree.SubElement(val_ax, _qn_c("delete"), val="0")
     etree.SubElement(val_ax, _qn_c("axPos"), val=position)
-    if position == "l":
+    if gridlines:
         etree.SubElement(val_ax, _qn_c("majorGridlines"))
     etree.SubElement(val_ax, _qn_c("numFmt"), formatCode="General", sourceLinked="1")
     etree.SubElement(val_ax, _qn_c("majorTickMark"), val="out")

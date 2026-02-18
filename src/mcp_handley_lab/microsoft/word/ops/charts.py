@@ -139,6 +139,8 @@ def create_chart(
         series_list,
         title=title,
         external_data_rid=embed_rid,
+        n_categories=n_rows - 1,
+        data=data,
     )
     pkg.set_xml(chart_partname, chart_xml, CT_CHART)
 
@@ -436,5 +438,7 @@ def update_chart_data(
         series_list,
         title=title,
         external_data_rid=embed_rid,
+        n_categories=n_rows - 1,
+        data=data,
     )
     pkg.set_xml(chart_partname, new_chart, CT_CHART)
