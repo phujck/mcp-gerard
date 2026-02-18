@@ -888,9 +888,11 @@ def _post_to_loop(event: IncomingEvent):
         return
     fut = asyncio.run_coroutine_threadsafe(_dispatch(event), _loop)
     fut.add_done_callback(
-        lambda f: print(f"Dispatch error: {f.exception()}", flush=True)
-        if f.exception()
-        else None
+        lambda f: (
+            print(f"Dispatch error: {f.exception()}", flush=True)
+            if f.exception()
+            else None
+        )
     )
 
 
