@@ -1,10 +1,13 @@
 """Unit tests for Otter.ai transcript formatting and parsing logic."""
 
+from unittest.mock import patch
+
 from mcp_handley_lab.otter.shared import (
     MeetingSummary,
     OtterResult,
     _format_transcript,
     _parse_meeting,
+    get_transcript,
 )
 
 
@@ -144,3 +147,87 @@ class TestOtterResultSerialization:
         data = result.model_dump()
         assert "meetings" in data
         assert data["meetings"] == []
+
+
+# Mock data for get_transcript tests
+_MOCK_SPEECH = {
+    "speech": {
+        "title": "Test Meeting",
+        "live_status": "ended",
+        "created_at": 1700000000,
+        "transcripts": [
+            {"transcript": "First", "start_offset": 1000, "speaker_id": 1},
+            {"transcript": "Second", "start_offset": 5000, "speaker_id": 1},
+            {"transcript": "Third", "start_offset": 10000, "speaker_id": 2},
+            {"transcript": "Fourth", "start_offset": 20000, "speaker_id": 2},
+            {"transcript": "Fifth", "start_offset": 30000, "speaker_id": 1},
+        ],
+    }
+}
+_MOCK_SPEAKERS = {
+    "speakers": [{"id": 1, "speaker_name": "Alice"}, {"id": 2, "speaker_name": "Bob"}]
+}
+
+
+def _patch_api(speech=_MOCK_SPEECH, speakers=_MOCK_SPEAKERS):
+    """Patch _api_get to return mock data for get_transcript tests."""
+
+    def fake_api_get(path, params=None):
+        if path == "speech":
+            return speech
+        if path == "speakers":
+            return speakers
+        raise ValueError(f"Unexpected path: {path}")
+
+    return patch("mcp_handley_lab.otter.shared._api_get", side_effect=fake_api_get)
+
+
+class TestGetTranscriptSinceOffset:
+    """Test since_offset_ms filtering in get_transcript."""
+
+    def test_default_returns_all(self):
+        with _patch_api():
+            result = get_transcript("test-otid")
+        assert len(result.segments) == 5
+
+    def test_since_offset_filters(self):
+        with _patch_api():
+            result = get_transcript("test-otid", since_offset_ms=5000)
+        # Should exclude segments at offset <= 5000 (1000 and 5000)
+        assert len(result.segments) == 3
+        assert result.segments[0].text == "Third"
+        assert result.segments[0].start_offset_ms == 10000
+
+    def test_since_offset_zero_returns_all(self):
+        with _patch_api():
+            result = get_transcript("test-otid", since_offset_ms=0)
+        assert len(result.segments) == 5
+
+    def test_since_offset_beyond_all_returns_empty(self):
+        with _patch_api():
+            result = get_transcript("test-otid", since_offset_ms=99999)
+        assert len(result.segments) == 0
+        assert result.formatted_text == ""
+
+    def test_negative_offset_returns_all(self):
+        with _patch_api():
+            result = get_transcript("test-otid", since_offset_ms=-100)
+        assert len(result.segments) == 5
+
+    def test_since_offset_with_max_segments(self):
+        """Filter first, then truncate."""
+        with _patch_api():
+            result = get_transcript("test-otid", max_segments=2, since_offset_ms=5000)
+        # After filtering: Third(10000), Fourth(20000), Fifth(30000)
+        # After max_segments=2: Fourth(20000), Fifth(30000)
+        assert len(result.segments) == 2
+        assert result.segments[0].text == "Fourth"
+        assert result.segments[1].text == "Fifth"
+
+    def test_since_offset_exact_boundary(self):
+        """Passing exact offset of a segment excludes it (strictly >)."""
+        with _patch_api():
+            result = get_transcript("test-otid", since_offset_ms=10000)
+        # Excludes segments at 1000, 5000, 10000; keeps 20000 and 30000
+        assert len(result.segments) == 2
+        assert result.segments[0].text == "Fourth"

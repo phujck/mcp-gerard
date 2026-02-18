@@ -231,7 +231,9 @@ def find_live_meetings() -> list[MeetingSummary]:
     return results
 
 
-def get_transcript(otid: str, max_segments: int = 0) -> TranscriptResult:
+def get_transcript(
+    otid: str, max_segments: int = 0, since_offset_ms: int = 0
+) -> TranscriptResult:
     """Get full transcript for a meeting."""
     data = _api_get("speech", {"otid": otid})
     speech = data.get("speech", data)
@@ -239,11 +241,18 @@ def get_transcript(otid: str, max_segments: int = 0) -> TranscriptResult:
     speakers = _get_speakers(otid)
     transcripts = speech.get("transcripts", [])
 
+    # Sort with stable tiebreaker for consistent filtering and truncation
+    indexed = list(enumerate(transcripts))
+    indexed.sort(key=lambda x: (x[1].get("start_offset", 0), x[0]))
+    transcripts = [t for _, t in indexed]
+
+    if since_offset_ms > 0:
+        transcripts = [
+            t for t in transcripts if t.get("start_offset", 0) > since_offset_ms
+        ]
+
     if max_segments > 0:
-        # Sort with stable tiebreaker (matching _format_transcript), keep last N
-        indexed = list(enumerate(transcripts))
-        indexed.sort(key=lambda x: (x[1].get("start_offset", 0), x[0]))
-        transcripts = [t for _, t in indexed[-max_segments:]]
+        transcripts = transcripts[-max_segments:]
 
     formatted_text, segments = _format_transcript(transcripts, speakers)
 
