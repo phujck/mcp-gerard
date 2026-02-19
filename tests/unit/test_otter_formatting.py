@@ -5,6 +5,7 @@ from unittest.mock import patch
 from mcp_handley_lab.otter.shared import (
     MeetingSummary,
     OtterResult,
+    TranscriptResult,
     _format_transcript,
     _parse_meeting,
     get_transcript,
@@ -149,6 +150,26 @@ class TestOtterResultSerialization:
         assert data["meetings"] == []
 
 
+class TestTranscriptResultSerialization:
+    """Test TranscriptResult omits None formatted_text."""
+
+    def test_formatted_text_none_omitted(self):
+        result = TranscriptResult(otid="abc", formatted_text=None)
+        data = result.model_dump()
+        assert "formatted_text" not in data
+
+    def test_formatted_text_present_included(self):
+        result = TranscriptResult(otid="abc", formatted_text="some text")
+        data = result.model_dump()
+        assert data["formatted_text"] == "some text"
+
+    def test_formatted_text_empty_string_included(self):
+        result = TranscriptResult(otid="abc", formatted_text="")
+        data = result.model_dump()
+        assert "formatted_text" in data
+        assert data["formatted_text"] == ""
+
+
 # Mock data for get_transcript tests
 _MOCK_SPEECH = {
     "speech": {
@@ -208,6 +229,21 @@ class TestGetTranscriptSinceOffset:
             result = get_transcript("test-otid", since_offset_ms=99999)
         assert len(result.segments) == 0
         assert result.formatted_text == ""
+
+    def test_include_formatted_text_false(self):
+        with _patch_api():
+            result = get_transcript("test-otid", include_formatted_text=False)
+        assert len(result.segments) == 5
+        data = result.model_dump()
+        assert "formatted_text" not in data
+
+    def test_include_formatted_text_true(self):
+        with _patch_api():
+            result = get_transcript("test-otid", include_formatted_text=True)
+        assert len(result.segments) == 5
+        data = result.model_dump()
+        assert "formatted_text" in data
+        assert "Alice" in data["formatted_text"]
 
     def test_negative_offset_returns_all(self):
         with _patch_api():
