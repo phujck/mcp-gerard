@@ -32,7 +32,7 @@ class TestLoadModelConfig:
         assert "imagen-4.0-generate-001" in config["models"]
 
         # Verify default model
-        assert config["default_model"] == "gemini-3-pro-preview"
+        assert config["default_model"] == "gemini-3.1-pro-preview"
 
     def test_load_model_config_openai(self):
         """Test loading OpenAI model configuration."""
@@ -197,10 +197,10 @@ class TestFormatModelListing:
         # Check summary section
         assert "Gemini Model Summary" in listing
         assert "Total Models:" in listing
-        assert "Default Model: gemini-3-pro-preview" in listing
+        assert "Default Model: gemini-3.1-pro-preview" in listing
 
         # Check model categories
-        assert "🌟 Gemini 3 Series" in listing
+        assert "🌟 Gemini 3.1 Series" in listing
         assert "🚀 Gemini 2.5 Series" in listing
         assert "🎨 Image Generation" in listing
 
