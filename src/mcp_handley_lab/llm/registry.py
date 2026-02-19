@@ -57,8 +57,8 @@ PROVIDER_OPTIONS = {
         "grounding": {"type": "bool", "description": "Enable Google Search grounding"},
         "thinking_level": {
             "type": "str",
-            "values": ["low", "high"],
-            "description": "Thinking effort level for Gemini 3 models",
+            "values": ["low", "medium", "high"],
+            "description": "Thinking effort level for Gemini 3+ models",
         },
         "thinking_budget": {
             "type": "int",

@@ -30,6 +30,8 @@ class TestModelConfiguration:
     def test_model_configs_all_present(self):
         """Test that all expected models are in MODEL_CONFIGS."""
         expected_models = {
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-pro-preview-customtools",
             "gemini-3-pro-preview",
             "gemini-3-flash-preview",
             "gemini-3-pro-image-preview",
@@ -60,8 +62,8 @@ class TestModelConfiguration:
     def test_get_model_config_unknown_model(self):
         """Test get_model_config falls back to default for unknown models."""
         config = get_model_config("unknown-model")
-        # Should default to gemini-3-pro-preview
-        assert config["output_tokens"] == 64000
+        # Should default to gemini-3.1-pro-preview
+        assert config["output_tokens"] == 65536
 
 
 class TestGeminiHelpers:

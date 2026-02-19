@@ -1,9 +1,63 @@
 models:
+  gemini-3.1-pro-preview:
+    # Model metadata
+    description: "Most intelligent Gemini model with advanced reasoning and precise tool usage"
+    capabilities: "🌟 Best for: Complex problem-solving, agentic workflows, multi-step execution, precise tool usage"
+    tags: ["gemini-3.1", "pro", "latest", "multimodal", "reasoning"]
+    context_window: "1,000,000 tokens"
+    output_tokens: 65536
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: true
+    supports_thinking_level: true
+    supports_media_resolution: true
+    supports_thought_signatures: true
+
+    # Pricing (tiered based on token count) - same as 3 Pro for now
+    input_tiers:
+      - threshold: 200000
+        price: 2.00
+      - threshold: .inf
+        price: 4.00
+    output_tiers:
+      - threshold: 200000
+        price: 12.00
+      - threshold: .inf
+        price: 18.00
+
+  gemini-3.1-pro-preview-customtools:
+    # Model metadata
+    description: "Gemini 3.1 Pro optimized for custom tools and bash execution"
+    capabilities: "🛠️ Best for: Custom tool usage, bash execution, agentic coding"
+    tags: ["gemini-3.1", "pro", "tools", "multimodal"]
+    context_window: "1,000,000 tokens"
+    output_tokens: 65536
+
+    # Capabilities
+    supports_vision: true
+    supports_grounding: true
+    supports_thinking_level: true
+    supports_media_resolution: true
+    supports_thought_signatures: true
+
+    # Pricing (same as 3.1 Pro)
+    input_tiers:
+      - threshold: 200000
+        price: 2.00
+      - threshold: .inf
+        price: 4.00
+    output_tiers:
+      - threshold: 200000
+        price: 12.00
+      - threshold: .inf
+        price: 18.00
+
   gemini-3-pro-preview:
     # Model metadata
     description: "Most intelligent model with state-of-the-art reasoning and multimodal understanding"
     capabilities: "🌟 Best for: Agentic workflows, autonomous coding, complex multimodal tasks, advanced reasoning"
-    tags: ["gemini-3", "pro", "latest", "multimodal", "reasoning"]
+    tags: ["gemini-3", "pro", "multimodal", "reasoning"]
     context_window: "1,000,000 tokens"
     output_tokens: 64000
 
@@ -242,9 +296,12 @@ models:
 
 # Display categories (how to group models by tags for presentation)
 display_categories:
-  - name: "🌟 Gemini 3 Series"
+  - name: "🌟 Gemini 3.1 Series"
+    tags: ["gemini-3.1"]
+    description: "Latest generation with advanced reasoning and precise tool usage (recommended)"
+  - name: "⭐ Gemini 3 Series"
     tags: ["gemini-3"]
-    description: "Most advanced generation with state-of-the-art reasoning (recommended)"
+    description: "Previous generation with strong reasoning and multimodal capabilities"
   - name: "🚀 Gemini 2.5 Series"
     tags: ["gemini-2.5"]
     description: "Powerful generation with free tiers available"
@@ -259,18 +316,19 @@ display_categories:
     description: "Autonomous deep research agents for complex investigations"
 
 # Default model
-default_model: "gemini-3-pro-preview"
+default_model: "gemini-3.1-pro-preview"
 
 # Usage notes
 usage_notes:
-  - "Gemini 3 Pro Preview is the recommended default for best performance"
-  - "Gemini 3 Pro supports thinking_level (low/high) for controlling reasoning depth"
-  - "Gemini 3 Pro supports media_resolution for multimodal vision control"
-  - "Gemini 3 Pro uses thought signatures for maintaining reasoning context"
+  - "Gemini 3.1 Pro Preview is the recommended default for best performance"
+  - "Gemini 3.1 Pro supports thinking_level (low/medium/high) for controlling reasoning depth"
+  - "Gemini 3.1 Pro supports media_resolution for multimodal vision control"
+  - "Gemini 3.1 Pro uses thought signatures for maintaining reasoning context"
+  - "Gemini 3.1 Pro Preview has a customtools variant optimized for tool use and bash"
   - "Gemini 3 Flash Preview offers fast inference with Gemini 3 capabilities"
   - "Gemini 3 Pro Image Preview supports native multimodal image generation"
-  - "All Gemini 3 models have 1M token context window, 64k output tokens"
-  - "Gemini 3 models default to temperature 1.0 (strongly recommended per documentation)"
+  - "All Gemini 3+ models have 1M token context window"
+  - "Gemini 3+ models default to temperature 1.0 (strongly recommended per documentation)"
   - "Gemini 2.5 Pro, Flash, and Flash-Lite have free tiers available"
   - "Pro models have large context windows (1M-2M tokens)"
   - "Flash models balance speed and capability with lower costs"
