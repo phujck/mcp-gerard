@@ -47,6 +47,8 @@ class TranscriptSegment(BaseModel):
 class TranscriptResult(BaseModel):
     """Full transcript for a meeting."""
 
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(default="", description="Meeting title.")
     otid: str = Field(..., description="Unique meeting identifier.")
     live_status: str = Field(default="", description="Meeting status.")
@@ -56,7 +58,14 @@ class TranscriptResult(BaseModel):
     segments: list[TranscriptSegment] = Field(
         default_factory=list, description="Transcript segments."
     )
-    formatted_text: str = Field(default="", description="Formatted transcript text.")
+    formatted_text: str | None = Field(
+        default=None, description="Formatted transcript text."
+    )
+
+    @model_serializer
+    def serialize(self) -> dict:
+        """Exclude None fields from serialization."""
+        return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 class RefreshResult(BaseModel):
@@ -181,39 +190,51 @@ def _get_speakers(otid: str) -> dict[int, str]:
     return mapping
 
 
-def _format_transcript(
+def _build_segments(
     transcripts: list, speakers: dict[int, str]
-) -> tuple[str, list[TranscriptSegment]]:
-    """Format transcript segments into readable text and structured segments."""
-    indexed = list(enumerate(transcripts))
-    indexed.sort(key=lambda x: (x[1].get("start_offset", 0), x[0]))
-
-    lines = []
+) -> list[TranscriptSegment]:
+    """Build structured segments from raw transcript data (assumes pre-sorted)."""
     segments = []
-    for _, t in indexed:
+    for t in transcripts:
         text = t.get("transcript", "")
         if not text.strip():
             continue
-        start = t.get("start_offset", 0)
-        total_secs = start // 1000
-        mins = total_secs // 60
-        secs = total_secs % 60
         speaker_id = t.get("speaker_id")
         speaker = (
             speakers.get(speaker_id, f"Speaker {speaker_id}")
             if speaker_id is not None
             else "Unknown"
         )
-        lines.append(f"[{mins:02d}:{secs:02d}] **{speaker}**: {text}")
         segments.append(
             TranscriptSegment(
                 speaker_name=speaker,
-                start_offset_ms=start,
+                start_offset_ms=t.get("start_offset", 0),
                 text=text,
             )
         )
+    return segments
 
-    return "\n\n".join(lines), segments
+
+def _format_segments(segments: list[TranscriptSegment]) -> str:
+    """Render segments as human-readable markdown text."""
+    lines = []
+    for seg in segments:
+        total_secs = seg.start_offset_ms // 1000
+        mins = total_secs // 60
+        secs = total_secs % 60
+        lines.append(f"[{mins:02d}:{secs:02d}] **{seg.speaker_name}**: {seg.text}")
+    return "\n\n".join(lines)
+
+
+def _format_transcript(
+    transcripts: list, speakers: dict[int, str]
+) -> tuple[str, list[TranscriptSegment]]:
+    """Format transcript segments into readable text and structured segments."""
+    indexed = list(enumerate(transcripts))
+    indexed.sort(key=lambda x: (x[1].get("start_offset", 0), x[0]))
+    transcripts = [t for _, t in indexed]
+    segments = _build_segments(transcripts, speakers)
+    return _format_segments(segments), segments
 
 
 # --- Public operations ---
@@ -232,7 +253,10 @@ def find_live_meetings() -> list[MeetingSummary]:
 
 
 def get_transcript(
-    otid: str, max_segments: int = 0, since_offset_ms: int = 0
+    otid: str,
+    max_segments: int = 0,
+    since_offset_ms: int = 0,
+    include_formatted_text: bool = True,
 ) -> TranscriptResult:
     """Get full transcript for a meeting."""
     data = _api_get("speech", {"otid": otid})
@@ -254,7 +278,7 @@ def get_transcript(
     if max_segments > 0:
         transcripts = transcripts[-max_segments:]
 
-    formatted_text, segments = _format_transcript(transcripts, speakers)
+    segments = _build_segments(transcripts, speakers)
 
     return TranscriptResult(
         title=speech.get("title", ""),
@@ -264,7 +288,7 @@ def get_transcript(
         url=f"https://otter.ai/u/{otid}",
         speakers=sorted({seg.speaker_name for seg in segments}),
         segments=segments,
-        formatted_text=formatted_text,
+        formatted_text=_format_segments(segments) if include_formatted_text else None,
     )
 
 
