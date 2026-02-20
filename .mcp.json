@@ -11,6 +11,12 @@
       "command": "mcp-mathematica",
       "args": [],
       "env": {}
+    },
+    "keynote": {
+      "type": "stdio",
+      "command": "mcp-keynote",
+      "args": [],
+      "env": {}
     }
   }
 }

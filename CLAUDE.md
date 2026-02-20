@@ -267,6 +267,44 @@ Provider-agnostic LLM tools supporting Gemini, OpenAI, Claude, Grok, Mistral, an
 - **Location**: `src/mcp_handley_lab/arxiv/`
 - **Functions**: `download` (formats: src, pdf, tex, bibtex), `search`
 
+### Pages Tool ✓
+- **Location**: `src/mcp_handley_lab/pages/`
+- **Functions**: `list_files`, `extract_text`, `analyze_document`, `convert_to_text`, `extract_preview`, `create_document`, `get_body_text`, `set_body_text`, `find_replace`, `append_text`, `insert_text`, `get_word_count`, `export_document`, `get_document_info`, `server_info`
+
+#### Pages Tool Usage Notes
+
+**Reading Operations** (safe, no side effects):
+- `analyze_document` - Full document analysis including metadata, text, equations, structure
+- `get_body_text` - Get text via AppleScript (opens Pages briefly)
+- `get_word_count` - Word/character/paragraph counts via AppleScript
+- `get_document_info` - Document name, page count, modification status
+- `extract_text` - Extract text by parsing IWA protobuf (no Pages app needed)
+- `list_files` - List files inside the .pages archive
+
+**Writing Operations** (use with caution):
+- `append_text` - Add text to end of document
+- `insert_text` - Insert text at specific character position
+- `find_replace` - Find and replace text throughout document
+- `set_body_text` - Replace entire document text
+- `create_document` - Create new Pages document from template
+
+**CRITICAL: Formatting Limitation**
+
+AppleScript's `body text` property is **plain text only**. Any editing operation (`append_text`, `insert_text`, `find_replace`, `set_body_text`) will **strip all formatting**:
+- Text alignment (left/center/right) is lost
+- Paragraph styles are removed
+- Character formatting (bold, italic, etc.) is lost
+- The document becomes plain text with default styling
+
+**Recommended Workflow**:
+1. For documents with important formatting, **do not edit with these tools**
+2. For plain text documents or new documents, editing is safe
+3. Use `create_document` with the Blank template for documents you plan to edit programmatically
+4. If you need to preserve formatting, export to text, edit externally, then recreate
+
+**Export Capabilities**:
+- `export_document` - Export to PDF, Word (.docx), plain text, or EPUB
+
 ## Running Tools
 
 ### Unified Entry Point
@@ -690,6 +728,162 @@ Example structure:
   - Sub-task 3: Verification step
 
 Always test your implementations before marking tasks as complete.
+
+## Multi-Agent Orchestration (Swarm System)
+
+For complex tasks, use the swarm system to coordinate multiple Claude agents working in parallel. This architecture solves context forgetting, enables parallelism, and makes progress observable.
+
+### Architecture Overview
+
+```
+Orchestrator (You)                    GTD                           Worker Agents
+       │                               │                                  │
+       │──── create task cards ───────>│                                  │
+       │──── spawn agents ─────────────│───────────────────────────────>│
+       │                               │<──── agent reads task ───────────│
+       │                               │<──── agent updates result ───────│
+       │<─── poll for completion ──────│                                  │
+       │──── verify & plan next ──────>│                                  │
+```
+
+**Key Components:**
+- **GTD**: Shared state layer - all coordination happens through GTD cards
+- **Swarm MCP Server**: Process management - spawn, list, kill, logs
+- **Worker Agents**: Separate Claude processes executing atomic tasks
+
+### GTD Task Card Schema for Swarm
+
+```yaml
+title: "Implement error handling in parser.rs"
+tags:
+  - swarm              # Marks as swarm-managed
+  - swarm.pending      # State: pending → claimed → done → verified
+  - agent.coder        # Agent type hint
+data:
+  swarm:
+    instruction: "Add Result return types to parse_filter()"
+    context:
+      - "Read gtd-core/src/filter/parsing.rs"
+      - "Follow error patterns in gtd-core/src/card.rs"
+    success_criteria: "Function returns Result, tests pass"
+    parent_task: <uuid>       # Links to orchestrator's planning task
+    result: null              # Agent fills this in
+    files_changed: []         # Agent reports what it touched
+```
+
+### Orchestration Workflow
+
+1. **Plan**: Break down the task into atomic units
+   ```
+   mcp__gtd__create with mode="batch" and cards=[
+     { title: "Research existing patterns", tags: ["swarm", "swarm.pending", "agent.researcher"] },
+     { title: "Implement feature X", tags: ["swarm", "swarm.pending", "agent.coder"], depends: [<research-uuid>] },
+     { title: "Review implementation", tags: ["swarm", "swarm.pending", "agent.reviewer"], depends: [<impl-uuid>] },
+   ]
+   ```
+
+2. **Spawn**: Launch agents on ready tasks
+   ```
+   mcp__swarm__spawn with task_id="<uuid>", agent_type="researcher"
+   ```
+
+3. **Monitor**: Check progress
+   ```
+   mcp__swarm__list                    # See running agents
+   mcp__gtd__read filters="+swarm +swarm.done"  # See completed tasks
+   swarm-status --watch               # Terminal UI for monitoring
+   ```
+
+4. **Verify & Iterate**: Review results, spawn follow-ups
+
+### Agent Types
+
+| Type | Can Edit | Can Bash | Model | Use For |
+|------|----------|----------|-------|---------|
+| `worker` | Yes | Yes | sonnet | General tasks |
+| `coder` | Yes | Yes | sonnet | Implementation |
+| `reviewer` | No | No | sonnet | Code review, analysis |
+| `researcher` | No | No | haiku | Information gathering |
+| `tester` | No | Yes | haiku | Running tests |
+
+### Swarm MCP Tools
+
+```python
+# Spawn an agent on a GTD task
+mcp__swarm__spawn(task_id="abc123", agent_type="coder", model="sonnet")
+
+# List running agents
+mcp__swarm__list(status_filter="running")
+
+# Get agent logs
+mcp__swarm__logs(agent_id="xyz789", tail=50)
+
+# Kill a stuck agent
+mcp__swarm__kill(agent_id="xyz789")
+
+# List available agent types
+mcp__swarm__agent_types()
+
+# Clean up old agent records
+mcp__swarm__cleanup(keep_days=1, dry_run=False)
+```
+
+### Best Practices
+
+**Task Atomicity:**
+- Each task should be completable in < 5 minutes
+- One clear objective per task
+- Explicit success criteria
+- All context provided upfront (or via GTD card body)
+
+**Context Management:**
+- Use `data.swarm.context` for files/resources to read
+- Keep instructions in `data.swarm.instruction` concise
+- Link related tasks with dependencies
+
+**Error Handling:**
+- Agents report failures in `data.swarm.result`
+- Check `swarm-status --logs <id>` for details
+- Spawn retry tasks if needed
+
+**Parallelism:**
+- Independent tasks can run simultaneously
+- Use dependencies to enforce ordering
+- Monitor with `swarm-status --watch`
+
+### Custom Agent Types
+
+Create custom agent configurations in `~/.config/claude-swarm/agents/`:
+
+```toml
+# ~/.config/claude-swarm/agents/docwriter.toml
+[agent]
+description = "Documentation writer"
+model = "haiku"
+timeout = 180
+
+[permissions]
+can_edit = true
+can_create_files = true
+can_delete_files = false
+can_run_bash = false
+allowed_mcp_servers = ["gtd"]
+
+[prompt]
+prefix = """
+You are a documentation agent. Write clear, concise docs.
+Follow existing documentation patterns in the codebase.
+"""
+```
+
+### Monitoring with swarm-status
+
+```bash
+swarm-status           # Current status snapshot
+swarm-status -w        # Watch mode (updates every 2s)
+swarm-status -l abc    # Show logs for agent
+swarm-status -a        # Include completed agents
+```
 
 ## Testing Strategy
 

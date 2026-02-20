@@ -331,23 +331,22 @@ class TmuxBackend:
             # Prepend venv bin to PATH and set VIRTUAL_ENV
             clean_path = f"{venv_path}/bin:{clean_path}"
 
-        env_cmd = [
-            "env",
-            "-u",
-            "PYTHONPATH",
-            f"PATH={clean_path}",
-        ]
+        # macOS env requires all -u flags BEFORE any VAR=value assignments
+        env_unsets = ["-u", "PYTHONPATH"]
+        env_sets = [f"PATH={clean_path}"]
 
         # Set VIRTUAL_ENV if using venv, otherwise unset it
         if venv_path:
-            env_cmd.append(f"VIRTUAL_ENV={venv_path}")
+            env_sets.append(f"VIRTUAL_ENV={venv_path}")
         else:
-            env_cmd.extend(["-u", "VIRTUAL_ENV"])
+            env_unsets.extend(["-u", "VIRTUAL_ENV"])
 
         # Inject loop env vars for client library
         if socket_path:
-            env_cmd.append(f"MCP_LOOP_SOCKET={socket_path}")
-            env_cmd.append(f"MCP_LOOP_PARENT_ID={loop_id}")
+            env_sets.append(f"MCP_LOOP_SOCKET={socket_path}")
+            env_sets.append(f"MCP_LOOP_PARENT_ID={loop_id}")
+
+        env_cmd = ["env"] + env_unsets + env_sets
 
         command = env_cmd + base_command
         window_name = f"{label}-{loop_id}"

@@ -329,6 +329,7 @@ _PROFILE_SKIP = {
     "SingletonLock",
     "SingletonCookie",
     "SingletonSocket",
+    "RunningChromeVersion",
 }
 
 
@@ -340,7 +341,10 @@ def _ensure_chrome_profile():
     if chrome_profile.exists() and (chrome_profile / "Default").exists():
         return
 
-    source = Path.home() / ".config" / "google-chrome"
+    if sys.platform == "darwin":
+        source = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+    else:
+        source = Path.home() / ".config" / "google-chrome"
     if not (source / "Default").exists():
         raise RuntimeError(
             f"Chrome profile not found at {source}. "
@@ -356,10 +360,18 @@ def _ensure_chrome_profile():
             )
         shutil.rmtree(chrome_profile)
 
+    def _copy_skip_vanished(src, dst, **kwargs):
+        """copy2 wrapper that skips files vanishing mid-copy (Chrome transient files)."""
+        try:
+            shutil.copy2(src, dst, **kwargs)
+        except FileNotFoundError:
+            pass
+
     shutil.copytree(
         str(source),
         str(chrome_profile),
         ignore=shutil.ignore_patterns(*_PROFILE_SKIP),
+        copy_function=_copy_skip_vanished,
     )
     (chrome_profile / _MANAGED_MARKER).touch()
 

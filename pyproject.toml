@@ -46,6 +46,7 @@ dependencies = [
     "wolframclient>=1.1.0",
     "numpy>=1.24.0",
     "lxml>=4.9.0",
+    "keynote-parser>=1.14.0",
 ]
 
 [project.optional-dependencies]
@@ -86,11 +87,18 @@ mcp-word = "mcp_handley_lab.microsoft.word.tool:mcp.run"
 mcp-excel = "mcp_handley_lab.microsoft.excel.tool:mcp.run"
 mcp-powerpoint = "mcp_handley_lab.microsoft.powerpoint.tool:mcp.run"
 mcp-visio = "mcp_handley_lab.microsoft.visio.tool:mcp.run"
+mcp-keynote = "mcp_handley_lab.keynote.tool:mcp.run"
+mcp-pages = "mcp_handley_lab.pages.tool:mcp.run"
+mcp-reminders = "mcp_handley_lab.reminders.tool:mcp.run"
 mcp-mathematica = "mcp_handley_lab.mathematica.cli:main"
 mcp-otter = "mcp_handley_lab.otter.tool:mcp.run"
 messenger = "mcp_handley_lab.messenger.server:main"
 mcp-handley-lab = "mcp_handley_lab.__main__:main"
 mcp-cli = "mcp_handley_lab.cli.main:cli"
+# Swarm orchestration
+mcp-swarm = "mcp_handley_lab.swarm.tool:mcp.run"
+swarm-status = "mcp_handley_lab.swarm.status:main"
+mcp-spotify = "mcp_handley_lab.spotify.tool:mcp.run"
 
 
 [tool.setuptools.packages.find]
