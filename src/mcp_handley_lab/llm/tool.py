@@ -244,6 +244,15 @@ DEFAULT_REVIEW_PROMPT = (
     description="Review code with an external LLM. Runs code2prompt internally "
     "(with --line-numbers) from the current directory, then sends the summary + "
     "plan + any extra files to the LLM for review. "
+    "Default system prompt: 'You are a code reviewer. Review the provided code against "
+    "any plan/specification. Be specific: reference file paths and line numbers. "
+    "Assess: plan adherence, code quality, completeness, and readiness. "
+    "If you cannot make a decision because relevant code is missing from the summary, "
+    "state NEEDS MORE CODE and list the specific files or modules you need to see. "
+    "If no blocking issues remain, state APPROVED. "
+    "Otherwise, list required fixes with specific locations.' "
+    "Default user prompt: 'Review this implementation. "
+    "Check code quality, completeness, and readiness to proceed.' "
     "Returns: {content, usage, branch, commit_sha}."
 )
 def review(
@@ -254,8 +263,8 @@ def review(
     ),
     prompt: str = Field(
         default="",
-        description="Additional instructions for the reviewer. "
-        "If empty, uses a default review prompt.",
+        description="Appended to the default user prompt. Use for extra steering "
+        "(e.g., 'Focus on security'). Leave empty for standard review.",
     ),
     model: str = Field(
         default="openai",
