@@ -50,6 +50,7 @@ TELEGRAM_ALLOWED_CHAT_IDS: set[int] | None = (
 )
 
 CLAUDE_PERMISSION_MODE = os.environ.get("CLAUDE_PERMISSION_MODE", "acceptEdits")
+CLAUDE_DISALLOWED_TOOLS = os.environ.get("CLAUDE_DISALLOWED_TOOLS", "EnterPlanMode")
 _APPEND_SYSTEM_PROMPT = (
     "Keep responses concise for mobile. "
     "When a user sends an image, sticker, video, or document, "
@@ -978,6 +979,8 @@ class ChatActor:
         """Ensure loop exists and run text. Called via to_thread."""
         if not self.loop_id:
             args = f"--permission-mode {CLAUDE_PERMISSION_MODE}"
+            if CLAUDE_DISALLOWED_TOOLS:
+                args += f" --disallowed-tools {CLAUDE_DISALLOWED_TOOLS}"
             if self._model:
                 args += f" --model {self._model}"
             self.loop_id = spawn(
