@@ -160,7 +160,7 @@ def manage(params: ManageArgs) -> ManageResult:
     - kill: Force-kill loop. Params: loop_id
     - prune: Kill a loop only if orphaned (safe kill). Params: loop_id
 
-    Available backends: bash, zsh, python, ipython, julia, R, clojure, apl, maple, ollama, mathematica, claude, gemini, openai
+    Available backends: bash, zsh, python, ipython, julia, R, clojure, apl, maple, ollama, mathematica, claude, gemini, openai, jupyter, jupyter-python, jupyter-julia, jupyter-r
 
     Args:
         params: ManageArgs with action and action-specific fields
