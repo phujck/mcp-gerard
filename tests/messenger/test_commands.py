@@ -398,6 +398,28 @@ class TestQueryThreadsModel:
         args_str = mock_spawn.call_args[1]["args"]
         assert "--model" not in args_str
 
+    @pytest.mark.asyncio
+    async def test_query_disallows_plan_mode(self, tmp_path):
+        platform = MockPlatform()
+        actor = _make_actor(platform, tmp_path=tmp_path)
+        actor.cwd.mkdir(parents=True, exist_ok=True)
+
+        with (
+            patch(
+                "mcp_handley_lab.messenger.server.spawn",
+                return_value="claude-test",
+            ) as mock_spawn,
+            patch(
+                "mcp_handley_lab.messenger.server.run",
+                return_value="response",
+            ),
+        ):
+            actor._query("hello")
+
+        args_str = mock_spawn.call_args[1]["args"]
+        assert "--disallowed-tools" in args_str
+        assert "EnterPlanMode" in args_str
+
 
 class TestStatePersistence:
     def test_save_load_with_model(self, tmp_path):
