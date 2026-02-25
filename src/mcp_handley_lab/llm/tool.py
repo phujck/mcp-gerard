@@ -15,6 +15,7 @@ from mcp.types import TextContent
 from pydantic import Field
 
 from mcp_handley_lab.common.pricing import calculate_cost
+from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.llm.common import load_prompt_text
 from mcp_handley_lab.llm.registry import (
     get_adapter,
@@ -221,6 +222,115 @@ def conversation(
         force=force,
         output_file=output_file,
     )
+
+
+REVIEW_SYSTEM_PROMPT = (
+    "You are a code reviewer. Review the provided code against any plan/specification. "
+    "Be specific: reference file paths and line numbers. "
+    "Assess: plan adherence, code quality, completeness, and readiness. "
+    "If you cannot make a decision because relevant code is missing from the summary, "
+    "state NEEDS MORE CODE and list the specific files or modules you need to see. "
+    "If no blocking issues remain, state APPROVED. "
+    "Otherwise, list required fixes with specific locations."
+)
+
+DEFAULT_REVIEW_PROMPT = (
+    "Review this implementation. "
+    "Check code quality, completeness, and readiness to proceed."
+)
+
+
+@mcp.tool(
+    description="Review code with an external LLM. Runs code2prompt internally "
+    "(with --line-numbers) from the current directory, then sends the summary + "
+    "plan + any extra files to the LLM for review. "
+    "Returns: {content, usage, branch, commit_sha}."
+)
+def review(
+    plan: str = Field(
+        default="",
+        description="Path to plan/specification file to review against. "
+        "Strongly recommended so the reviewer has a spec to assess compliance.",
+    ),
+    prompt: str = Field(
+        default="",
+        description="Additional instructions for the reviewer. "
+        "If empty, uses a default review prompt.",
+    ),
+    model: str = Field(
+        default="openai",
+        description="Model or provider name for the reviewer.",
+    ),
+    branch: str = Field(
+        default="session",
+        description="Conversation branch for multi-round reviews. "
+        "'session' auto-scopes to client.",
+    ),
+    include: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns for code2prompt include (e.g., '*.py').",
+    ),
+    exclude: list[str] = Field(
+        default_factory=list,
+        description="Glob patterns for code2prompt exclude (e.g., '*_test.py').",
+    ),
+    files: list[str] = Field(
+        default_factory=list,
+        description="Additional context files (e.g., CLAUDE.md).",
+    ),
+    output_file: str = Field(
+        default="",
+        description="File path to save the review response.",
+    ),
+    diff: bool = Field(
+        default=False,
+        description="Use git diff mode instead of full codebase scan.",
+    ),
+) -> LLMResult:
+    """Review code by running code2prompt and sending to an LLM."""
+    import tempfile
+
+    if plan:
+        plan = str(Path(plan).expanduser())
+    files = [str(Path(f).expanduser()) for f in files if f]
+    if output_file:
+        output_file = str(Path(output_file).expanduser())
+
+    fd, c2p_output = tempfile.mkstemp(suffix=".md", prefix="review_")
+    os.close(fd)
+
+    try:
+        args = [".", "--output-file", c2p_output, "--line-numbers"]
+        for pat in include:
+            args.extend(["--include", pat])
+        for pat in exclude:
+            args.extend(["--exclude", pat])
+        if diff:
+            args.append("--diff")
+
+        run_command(["code2prompt"] + args, timeout=120)
+
+        all_files = [c2p_output] + ([plan] if plan else []) + files
+        final_prompt = DEFAULT_REVIEW_PROMPT
+        if prompt:
+            final_prompt = f"{DEFAULT_REVIEW_PROMPT}\n\n{prompt}"
+
+        provider, canonical_model, config = resolve_model(model)
+        resolved_branch = _resolve_session_branch(branch)
+        generation_func = resolve_generation_adapter(provider, config)
+
+        return process_llm_request(
+            prompt=final_prompt,
+            output_file=output_file,
+            branch=resolved_branch,
+            model=canonical_model,
+            provider=provider,
+            generation_func=generation_func,
+            files=all_files,
+            system_prompt=REVIEW_SYSTEM_PROMPT,
+        )
+    finally:
+        Path(c2p_output).unlink(missing_ok=True)
 
 
 @mcp.tool(
