@@ -50,7 +50,7 @@ depends=(
     'python-opentelemetry-exporter-otlp-proto-http'
     'python-dateutil>=2.8.0'
     'python-lxml>=4.9.0'
-    'python-jupyter_client>=8.0.0'
+    'python-jupyter-client>=8.0.0'
 )
 makedepends=(
     'python-build'
