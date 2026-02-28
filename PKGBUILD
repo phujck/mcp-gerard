@@ -1,7 +1,7 @@
 # Maintainer: Will Handley <wh260@cam.ac.uk>
 _pkgname=mcp-handley-lab
 pkgname=python-mcp-handley-lab
-pkgver=0.30.1
+pkgver=0.30.2
 pkgrel=1
 pkgdesc="MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
 arch=('any')
@@ -50,7 +50,7 @@ depends=(
     'python-opentelemetry-exporter-otlp-proto-http'
     'python-dateutil>=2.8.0'
     'python-lxml>=4.9.0'
-    'python-jupyter_client>=8.0.0'
+    'python-jupyter-client>=8.0.0'
 )
 makedepends=(
     'python-build'
