@@ -242,7 +242,7 @@ DEFAULT_REVIEW_PROMPT = (
 
 @mcp.tool(
     description="Review code with an external LLM. Runs code2prompt internally "
-    "(with --line-numbers) from the current directory, then sends the summary + "
+    "(with --line-numbers) on the specified path, then sends the summary + "
     "plan + any extra files to the LLM for review. "
     "Default system prompt: 'You are a code reviewer. Review the provided code against "
     "any plan/specification. Be specific: reference file paths and line numbers. "
@@ -256,6 +256,11 @@ DEFAULT_REVIEW_PROMPT = (
     "Returns: {content, usage, branch, commit_sha}."
 )
 def review(
+    path: str = Field(
+        default=".",
+        description="Path to the codebase directory to review. "
+        "Use absolute path when calling from a different working directory.",
+    ),
     plan: str = Field(
         default="",
         description="Path to plan/specification file to review against. "
@@ -309,7 +314,12 @@ def review(
     os.close(fd)
 
     try:
-        args = [".", "--output-file", c2p_output, "--line-numbers"]
+        args = [
+            str(Path(path).expanduser()),
+            "--output-file",
+            c2p_output,
+            "--line-numbers",
+        ]
         for pat in include:
             args.extend(["--include", pat])
         for pat in exclude:
