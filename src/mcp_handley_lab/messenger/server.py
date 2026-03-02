@@ -790,6 +790,9 @@ class ChatActor:
                     continue
                 raise
 
+    # Context window limit (tokens) — used to calculate usage percentage
+    _CONTEXT_WINDOW = 200_000
+
     def _query(self, text: str) -> str:
         """Ensure loop exists and run text. Called via to_thread."""
         if not self.loop_id:
@@ -802,13 +805,31 @@ class ChatActor:
                 session_id=self.session_id,
             )
             self._save_state()
-        output = run(self.loop_id, text, sync_timeout=-1)
+        result = run(self.loop_id, text, sync_timeout=-1)
         # Capture session_id for resume after kill/restart
         if not self.session_id and self.loop_id:
             sid = get_session_id(self.loop_id)
             if sid:
                 self.session_id = sid
                 self._save_state()
+        output = str(result)
+        # Check context usage and append warning if getting high
+        usage = result.usage
+        if usage:
+            total_tokens = (
+                usage.get("input_tokens", 0)
+                + usage.get("cache_read_input_tokens", 0)
+                + usage.get("cache_creation_input_tokens", 0)
+            )
+            if total_tokens > 0:
+                pct = total_tokens / self._CONTEXT_WINDOW * 100
+                if pct >= 80:
+                    output += (
+                        f"\n\n[context: {pct:.0f}% ({total_tokens:,}/{self._CONTEXT_WINDOW:,} tokens)"
+                    )
+                    if pct >= 100:
+                        output += " — auto-compacted"
+                    output += "]"
         return output
 
     def reset(self):

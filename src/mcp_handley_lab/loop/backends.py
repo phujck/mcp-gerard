@@ -769,6 +769,9 @@ class ClaudeBackend(LLMBackend):
                     "output": output,
                     "cell_index": cell_index,
                     "session_id": state.get("session_id", ""),
+                    "usage": result.get("usage", {}) if result else {},
+                    "total_cost_usd": result.get("total_cost_usd", 0.0) if result else 0.0,
+                    "num_turns": result.get("num_turns", 0) if result else 0,
                 }
         finally:
             with self._lock:

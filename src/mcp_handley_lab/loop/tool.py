@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
@@ -76,6 +77,9 @@ class RunResult(BaseModel):
     cell_index: int = 0
     elapsed_seconds: float = 0.0
     running: bool = False  # True if run still executing in background
+    usage: dict[str, Any] = Field(default_factory=dict)  # token usage from LLM backend
+    total_cost_usd: float = 0.0  # session cost (if available)
+    num_turns: int = 0  # agentic turns (if available)
 
 
 class ManageArgs(BaseModel):
@@ -261,4 +265,7 @@ def run(loop_id: str, input: str, sync_timeout: float = 1.0) -> RunResult:
         cell_index=response.cell_index,
         elapsed_seconds=response.elapsed_seconds,
         running=response.running,
+        usage=response.usage,
+        total_cost_usd=response.total_cost_usd,
+        num_turns=response.num_turns,
     )

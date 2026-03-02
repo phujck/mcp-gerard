@@ -355,6 +355,9 @@ class LoopDaemon:
                 cell_index=result.get("cell_index", 0),
                 session_id=loop.session_id,
                 elapsed_seconds=elapsed,
+                usage=result.get("usage", {}),
+                total_cost_usd=result.get("total_cost_usd", 0.0),
+                num_turns=result.get("num_turns", 0),
             )
         else:
             # Still running - return immediately, worker continues in background

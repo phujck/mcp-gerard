@@ -201,6 +201,31 @@ def spawn(
     return response["loop_id"]
 
 
+class RunOutput(str):
+    """Output from a loop run, with optional usage metadata.
+
+    Behaves as a plain string (the output text) but carries extra attributes
+    when the backend provides them (e.g. Claude's result event).
+    """
+
+    usage: dict[str, Any]
+    total_cost_usd: float
+    num_turns: int
+
+    def __new__(
+        cls,
+        text: str,
+        usage: dict[str, Any] | None = None,
+        total_cost_usd: float = 0.0,
+        num_turns: int = 0,
+    ):
+        obj = super().__new__(cls, text)
+        obj.usage = usage or {}
+        obj.total_cost_usd = total_cost_usd
+        obj.num_turns = num_turns
+        return obj
+
+
 def run(loop_id: str, input: str, sync_timeout: float = 30.0) -> str:
     """Run input through a loop.
 
@@ -210,7 +235,8 @@ def run(loop_id: str, input: str, sync_timeout: float = 30.0) -> str:
         sync_timeout: Seconds to wait for completion (default 30s)
 
     Returns:
-        Output string
+        Output string (RunOutput str-subclass carrying .usage, .total_cost_usd,
+        .num_turns when the backend provides them)
     """
     request = {
         "action": "run",
@@ -221,7 +247,13 @@ def run(loop_id: str, input: str, sync_timeout: float = 30.0) -> str:
     response = _send_request(request)
     if response.get("running"):
         raise RuntimeError("Run timed out - use status() to check progress")
-    return response.get("output", response.get("raw_output", ""))
+    text = response.get("output", response.get("raw_output", ""))
+    return RunOutput(
+        text,
+        usage=response.get("usage", {}),
+        total_cost_usd=response.get("total_cost_usd", 0.0),
+        num_turns=response.get("num_turns", 0),
+    )
 
 
 def list_loops(

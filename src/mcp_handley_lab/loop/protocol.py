@@ -114,6 +114,9 @@ class Response:
     raw_output: str = ""
     session_id: str = ""  # for spawn/run: the backend's session_id
     current_session_id: str = ""  # for list: the caller's session_id for context
+    usage: dict[str, Any] = field(default_factory=dict)  # token usage from LLM backend
+    total_cost_usd: float = 0.0  # session cost from LLM backend
+    num_turns: int = 0  # agentic turns from LLM backend
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict. Always includes all fields for protocol consistency."""
@@ -134,6 +137,9 @@ class Response:
             "raw_output": self.raw_output,
             "session_id": self.session_id,
             "current_session_id": self.current_session_id,
+            "usage": self.usage,
+            "total_cost_usd": self.total_cost_usd,
+            "num_turns": self.num_turns,
         }
 
     @classmethod
@@ -155,6 +161,9 @@ class Response:
             raw_output=d.get("raw_output", ""),
             session_id=d.get("session_id", ""),
             current_session_id=d.get("current_session_id", ""),
+            usage=d.get("usage", {}),
+            total_cost_usd=d.get("total_cost_usd", 0.0),
+            num_turns=d.get("num_turns", 0),
         )
 
     @classmethod
