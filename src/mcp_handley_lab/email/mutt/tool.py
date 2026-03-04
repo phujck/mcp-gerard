@@ -7,10 +7,8 @@ import shlex
 import subprocess
 import tempfile
 import uuid
-from email import policy
 from email.message import EmailMessage
-from email.parser import BytesParser, HeaderParser
-from email.utils import formatdate, getaddresses, make_msgid
+from email.utils import formatdate, make_msgid
 from pathlib import Path
 
 from pydantic import Field
