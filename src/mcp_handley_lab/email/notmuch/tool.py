@@ -846,15 +846,9 @@ def _list_folders() -> list[str]:
 # Base descriptions (will have tags/folders appended at module load)
 _READ_DESCRIPTION = """Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators.
 
-Search strategy (when results are empty or sparse):
-1. Check folder quoting: folder:"Hermes/Sent Items" NOT folder:Hermes/"Sent Items" (latter silently returns empty)
-2. Broaden first: remove folder/date constraints, then narrow once you find results
-3. Check alternate folders: Hermes/Archive (unsuffixed), Archive.YYYY (2012-2024), topic archives (.CATAM, .Caius, .PhD, .Examining, .REACH)
-4. INBOX subfolders: .Supervisions, .PhD, .Caius, .CATAM, .Examin, .GitHub, .REACH, .arXiv
-5. Sent mail is year-partitioned: each year needs a separate query
-6. IoA admin emails come from many @ast.cam.ac.uk role addresses -- search from:ast.cam.ac.uk broadly
-7. List-delivered emails won't match to:wh260 -- use from: or subject: instead
-8. Try word variants: examin* matches examiner/examiners/examining"""
+Progressive search: auto-expands year-partitioned folder families detected from your maildir. When 0 results, automatically relaxes constraints (folder, to:, date, sender domain) and reports what was tried.
+
+Folder quoting is auto-normalized (e.g. folder:Account/"Sent Items" → folder:"Account/Sent Items")."""
 
 _UPDATE_DESCRIPTION = """Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder), 'archive' (move to Archive folder)."""
 
@@ -903,7 +897,8 @@ def read(
     """Unified read tool for emails."""
     from mcp_handley_lab.email.notmuch.shared import read as _read
 
-    return _read(
+    diagnostics: list[str] = []
+    results = _read(
         query=query,
         limit=limit,
         offset=offset,
@@ -913,7 +908,11 @@ def read(
         list_type=list_type,
         max_results=max_results,
         segment_quotes=segment_quotes,
+        _diagnostics=diagnostics,
     )
+    if diagnostics and results:
+        return ["\n".join(diagnostics), *results]
+    return results
 
 
 def update(
