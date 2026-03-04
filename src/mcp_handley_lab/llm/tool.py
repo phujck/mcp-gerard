@@ -225,34 +225,32 @@ def conversation(
 
 
 REVIEW_SYSTEM_PROMPT = (
-    "You are a code reviewer. Review the provided code against any plan/specification. "
-    "Be specific: reference file paths and line numbers. "
-    "Assess: plan adherence, code quality, completeness, and readiness. "
-    "If you cannot make a decision because relevant code is missing from the summary, "
+    "You are a reviewer. Assess the provided materials (code, plans, "
+    "specifications, diffs) based on the user's instructions. "
+    "Be specific: reference file paths, line numbers, and section names. "
+    "When a plan is provided, treat it as proposed future work — evaluate "
+    "feasibility and correctness, do not flag unimplemented plan items as "
+    "code defects. "
+    "If you cannot make a decision because relevant context is missing, "
     "state NEEDS MORE CODE and list the specific files or modules you need to see. "
     "If no blocking issues remain, state APPROVED. "
     "Otherwise, list required fixes with specific locations."
 )
 
 DEFAULT_REVIEW_PROMPT = (
-    "Review this implementation. "
-    "Check code quality, completeness, and readiness to proceed."
+    "Review the provided materials. "
+    "Check quality, completeness, and readiness to proceed."
 )
 
 
 @mcp.tool(
-    description="Review code with an external LLM. Runs code2prompt internally "
+    description="Review code or plans with an external LLM. Runs code2prompt internally "
     "(with --line-numbers) on the specified path, then sends the summary + "
     "plan + any extra files to the LLM for review. "
-    "Default system prompt: 'You are a code reviewer. Review the provided code against "
-    "any plan/specification. Be specific: reference file paths and line numbers. "
-    "Assess: plan adherence, code quality, completeness, and readiness. "
-    "If you cannot make a decision because relevant code is missing from the summary, "
-    "state NEEDS MORE CODE and list the specific files or modules you need to see. "
-    "If no blocking issues remain, state APPROVED. "
-    "Otherwise, list required fixes with specific locations.' "
-    "Default user prompt: 'Review this implementation. "
-    "Check code quality, completeness, and readiness to proceed.' "
+    "Use 'prompt' to steer the review (e.g., plan review, security audit, "
+    "spec compliance). When 'prompt' is provided, it replaces the default "
+    "user prompt entirely. When a plan file is provided, the reviewer treats "
+    "it as proposed future work and will not flag unimplemented items as defects. "
     "Returns: {content, usage, branch, commit_sha}."
 )
 def review(
@@ -268,8 +266,9 @@ def review(
     ),
     prompt: str = Field(
         default="",
-        description="Appended to the default user prompt. Use for extra steering "
-        "(e.g., 'Focus on security'). Leave empty for standard review.",
+        description="Replaces the default user prompt. Use to steer the review "
+        "(e.g., 'Review this plan against the codebase', 'Focus on security'). "
+        "Leave empty for standard review.",
     ),
     model: str = Field(
         default="openai",
@@ -330,9 +329,7 @@ def review(
         run_command(["code2prompt"] + args, timeout=120)
 
         all_files = [c2p_output] + ([plan] if plan else []) + files
-        final_prompt = DEFAULT_REVIEW_PROMPT
-        if prompt:
-            final_prompt = f"{DEFAULT_REVIEW_PROMPT}\n\n{prompt}"
+        final_prompt = prompt if prompt else DEFAULT_REVIEW_PROMPT
 
         provider, canonical_model, config = resolve_model(model)
         resolved_branch = _resolve_session_branch(branch)
