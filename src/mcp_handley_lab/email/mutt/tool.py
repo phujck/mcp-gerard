@@ -2,21 +2,24 @@
 
 import builtins
 import contextlib
+import mimetypes
 import os
 import shlex
+import subprocess
 import tempfile
 import time
 import uuid
 from email import policy
+from email.message import EmailMessage
 from email.parser import BytesParser, HeaderParser
-from email.utils import getaddresses
+from email.utils import formatdate, getaddresses, make_msgid
 from pathlib import Path
 
 from pydantic import Field
 
 from mcp_handley_lab.common.process import run_command
 from mcp_handley_lab.common.terminal import launch_interactive
-from mcp_handley_lab.email.common import _list_accounts, mcp
+from mcp_handley_lab.email.common import _get_account_from_addr, _list_accounts, mcp
 from mcp_handley_lab.shared.models import OperationResult
 
 # Capture directory for msmtp wrapper
@@ -559,6 +562,132 @@ def _execute_mutt_interactive(
         return exit_code, "error", {"exit_code": exit_code}
 
 
+def _send_direct(
+    to: str,
+    subject: str = "",
+    cc: str | None = None,
+    bcc: str | None = None,
+    body: str = "",
+    attachments: list[str] | None = None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
+    account: str = "",
+) -> OperationResult:
+    """Send email directly via mcp-msmtp-capture, bypassing Mutt."""
+    correlation_id = str(uuid.uuid4())
+    from_addr = _get_account_from_addr(account)
+    if not from_addr:
+        raise ValueError(
+            f"Cannot resolve From address for account '{account or 'default'}'. "
+            "Check msmtp config (~/.config/msmtp/config or ~/.msmtprc)."
+        )
+
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg["Subject"] = subject or ""
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid()
+    if cc:
+        msg["Cc"] = cc
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+    if references:
+        msg["References"] = references
+    msg["X-MCP-Correlation-Id"] = correlation_id
+    msg.set_content(body or "")
+
+    if attachments:
+        for filepath in attachments:
+            p = Path(filepath)
+            maintype, subtype = (
+                mimetypes.guess_type(filepath)[0] or "application/octet-stream"
+            ).split("/", 1)
+            msg.add_attachment(
+                p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name
+            )
+
+    email_bytes = msg.as_bytes()
+
+    # Build recipient list for msmtp envelope
+    recipients = _extract_addr_specs(to)
+    if cc:
+        recipients.extend(_extract_addr_specs(cc))
+    if bcc:
+        recipients.extend(_extract_addr_specs(bcc))
+    if not recipients:
+        raise ValueError(f"No valid recipient addresses parsed from: to={to}")
+
+    cmd = ["mcp-msmtp-capture"]
+    if account:
+        cmd.extend(["-a", account])
+    cmd.extend(recipients)
+
+    log_size_before = _get_msmtp_log_size()
+    result = subprocess.run(cmd, input=email_bytes, capture_output=True, check=False)
+
+    attachment_info = f" with {len(attachments)} attachment(s)" if attachments else ""
+
+    if result.returncode != 0:
+        stderr_msg = (
+            result.stderr.decode(errors="replace").strip() if result.stderr else ""
+        )
+        return OperationResult(
+            status="error",
+            message=f"Direct email send failed: {to}{attachment_info} (exit {result.returncode})",
+            data={"send_status": "failed", "error": stderr_msg},
+        )
+
+    # Success — enrich with smtp details and captured content
+    smtp_data = {}
+    log_size_after = _get_msmtp_log_size()
+    if log_size_after > log_size_before:
+        _send_occurred, _send_successful, smtp_data = _check_recent_send(
+            log_size_before, log_size_after
+        )
+
+    captured_path, capture_status, capture_reason = _find_captured_email(
+        correlation_id,
+        subject,
+        recipients,
+        from_addr=smtp_data.get("from"),
+        mail_size_bytes=smtp_data.get("mail_size_bytes"),
+        envelope_recipients=smtp_data.get("all_recipients"),
+    )
+
+    captured = None
+    if captured_path:
+        try:
+            parsed = _parse_captured_email(captured_path)
+            captured = {
+                "subject": parsed["subject"],
+                "to": parsed["to"],
+                "cc": parsed["cc"],
+                "body": parsed["body_text"],
+                "attachments": parsed["attachments"],
+            }
+            with contextlib.suppress(OSError):
+                captured_path.unlink()
+        except Exception:
+            capture_status = "not_found"
+            capture_reason = "parse_error"
+
+    data = {"send_status": "sent", "smtp": _build_smtp_dict(smtp_data)}
+    if captured:
+        data["sent"] = captured
+    else:
+        warning_key = (
+            capture_status if capture_status == "not_configured" else capture_reason
+        )
+        data["warning"] = CAPTURE_WARNINGS.get(warning_key, CAPTURE_WARNING_DEFAULT)
+
+    return OperationResult(
+        status="success",
+        message=f"Email sent directly: {to}{attachment_info}",
+        data=data,
+    )
+
+
 def _compose_email(
     to: str,
     subject: str = "",
@@ -568,8 +697,23 @@ def _compose_email(
     attachments: list[str] = None,
     in_reply_to: str = None,
     references: str = None,
+    direct: bool = False,
+    account: str = "",
 ) -> OperationResult:
     """Internal implementation of email composition."""
+    if direct:
+        return _send_direct(
+            to=to,
+            subject=subject,
+            cc=cc,
+            bcc=bcc,
+            body=body,
+            attachments=attachments,
+            in_reply_to=in_reply_to,
+            references=references,
+            account=account,
+        )
+
     temp_file_path = None
 
     # Generate correlation ID for capture matching
@@ -698,7 +842,9 @@ def _compose_email(
 # Tool Registration with Module-Level Description Injection
 # =============================================================================
 
-_SEND_DESCRIPTION = """Send an email via Mutt. For reply/forward modes, use message_id from the read tool. Supports compose (new), reply, and forward modes. All emails open in Mutt for user sign-off before sending."""
+_SEND_DESCRIPTION = """Send an email. Supports compose (new), reply, and forward modes. For reply/forward modes, use message_id from the read tool.
+
+By default, opens Mutt interactively for user sign-off. Set direct=True to send programmatically via msmtp (bypasses Mutt — for non-interactive contexts like WhatsApp bridge). Direct mode uses the specified account or msmtp default."""
 
 
 def _inject_accounts() -> None:
@@ -755,8 +901,19 @@ def send(
         default=5,
         description="For reply mode: number of previous thread messages to include (0 to disable, -1 for all).",
     ),
+    direct: bool = Field(
+        default=False,
+        description="If True, send directly via msmtp without opening Mutt. "
+        "For non-interactive contexts (WhatsApp bridge, automation). Email is sent as-is without terminal review.",
+    ),
+    account: str = Field(
+        default="",
+        description="msmtp account name to send from (e.g., 'Hermes', 'PolyChord'). "
+        "Determines the From address and SMTP server. "
+        "Defaults to msmtp default account.",
+    ),
 ) -> OperationResult:
-    """Send an email using mutt's interactive interface."""
+    """Send an email."""
     from mcp_handley_lab.email.mutt.shared import send as _send
 
     return _send(
@@ -771,6 +928,8 @@ def send(
         mode=mode,
         reply_all=reply_all,
         thread_context=thread_context,
+        direct=direct,
+        account=account,
     )
 
 

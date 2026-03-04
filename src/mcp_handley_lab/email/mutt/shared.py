@@ -58,6 +58,8 @@ def send(
     mode: str = "compose",
     reply_all: bool = False,
     thread_context: int = 5,
+    direct: bool = False,
+    account: str = "",
 ) -> OperationResult:
     """Send an email via Mutt.
 
@@ -113,6 +115,8 @@ def send(
             bcc=bcc,
             body=body,
             attachments=attachments,
+            direct=direct,
+            account=account,
         )
 
     elif mode == "reply":
@@ -224,6 +228,8 @@ def send(
             attachments=attachments,
             in_reply_to=in_reply_to,
             references=references,
+            direct=direct,
+            account=account,
         )
 
     elif mode == "forward":
@@ -310,6 +316,8 @@ def send(
                 subject=forward_subject,
                 body=complete_forward_body,
                 attachments=all_attachments or None,
+                direct=direct,
+                account=account,
             )
 
     else:
