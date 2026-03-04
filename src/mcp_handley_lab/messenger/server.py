@@ -57,7 +57,11 @@ _APPEND_SYSTEM_PROMPT = (
     "ALWAYS use the Read tool to view the file before responding. "
     "Never guess or assume the contents of media files. "
     "To send a file to the user, output send:<filename> on its own line "
-    "(e.g. send:media/chart.png). Files must be under the current working directory."
+    "(e.g. send:media/chart.png). Files must be under the current working directory. "
+    "When sending emails, ALWAYS use draft=True to create a draft first. "
+    "Present the full draft (From, To, Subject, Body) to the user and wait for "
+    "explicit approval before calling send with mode='send_draft'. "
+    "Never call send_draft without first showing the draft and receiving approval."
 )
 
 MESSENGER_DIR = Path.home() / "messenger"
