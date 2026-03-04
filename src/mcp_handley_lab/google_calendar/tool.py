@@ -107,6 +107,16 @@ class CalendarEvent(BaseModel):
     )
 
 
+class CompactCalendarEvent(BaseModel):
+    """Compact calendar event for search results (reduces token usage)."""
+
+    id: str
+    summary: str
+    start: EventDateTime
+    end: EventDateTime
+    calendar_name: str = ""
+
+
 class CreatedEventResult(BaseModel):
     """Result of creating a calendar event."""
 
@@ -475,6 +485,23 @@ def _build_event_model(event_data: dict) -> CalendarEvent:
     )
 
 
+def _build_compact_event(event_data: dict) -> CompactCalendarEvent:
+    """Convert raw Google Calendar API event dict to CompactCalendarEvent."""
+    start_raw = event_data.get("start", {})
+    end_raw = event_data.get("end", {})
+
+    start_normalized = _normalize_datetime_for_output(start_raw)
+    end_normalized = _normalize_datetime_for_output(end_raw)
+
+    return CompactCalendarEvent(
+        id=event_data["id"],
+        summary=event_data.get("summary", "No Title"),
+        start=EventDateTime(**start_normalized),
+        end=EventDateTime(**end_normalized),
+        calendar_name=event_data.get("calendar_name", ""),
+    )
+
+
 def _upload_to_drive(local_path: str, remote: str = "gdrive") -> tuple[str, str]:
     """Upload a local file to Google Drive via rclone, return (fileUrl, fileId)."""
     import json
@@ -688,33 +715,55 @@ _SUFFIXES = (
 )
 
 
-def _stem_for_api(search_text: str) -> str:
-    """Strip common suffixes for broader API substring matching.
+def _normalize_for_match(text: str, case_sensitive: bool = False) -> str:
+    """Normalize text for fuzzy matching.
 
-    Google Calendar API 'q' does substring matching, so shorter stems
-    find more results. The client-side filter handles precision.
+    Applies Unicode NFKD normalization, strips combining marks,
+    normalizes punctuation to spaces, and collapses whitespace.
     """
-    words = search_text.split()
-    stemmed = []
-    for word in words:
-        lower = word.lower()
-        for suffix in _SUFFIXES:
-            if lower.endswith(suffix) and len(lower) - len(suffix) >= 4:
-                word = word[: len(word) - len(suffix)]
-                break
-        stemmed.append(word)
-    return " ".join(stemmed)
+    import re
+    import unicodedata
+
+    # NFKD decomposition and strip combining marks (accents)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(c for c in text if not unicodedata.combining(c))
+
+    if not case_sensitive:
+        text = text.casefold()
+
+    # Normalize punctuation to spaces
+    text = re.sub(r"[-'_/]", " ", text)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
+
+def _stem_term(word: str) -> str:
+    """Strip common English suffix from a single word.
+
+    Preserves at least 4 characters to avoid over-stemming short words.
+    """
+    lower = word.lower()
+    for suffix in _SUFFIXES:
+        if lower.endswith(suffix) and len(lower) - len(suffix) >= 4:
+            return word[: len(word) - len(suffix)]
+    return word
 
 
 def _client_side_filter(
     events: list[dict[str, Any]],
-    search_text: str = "",
+    search_text: str | None = "",
     search_fields: list[str] | None = None,
     case_sensitive: bool = False,
     match_all_terms: bool = True,
 ) -> list[dict[str, Any]]:
     """
-    Client-side filtering of events with advanced search capabilities.
+    Client-side filtering with normalized text matching and stemming.
+
+    Normalizes both search terms and event text (Unicode NFKD, punctuation,
+    suffix stemming) so that "examiner" matches "Examiners meeting" and
+    "followup" matches "follow-up".
 
     Args:
         events: List of calendar events to filter
@@ -727,15 +776,16 @@ def _client_side_filter(
     if not search_text:
         return events
 
-    if search_fields is None:
+    if not search_fields:
+        # None or [] both use default fields
         search_fields = ["summary", "description", "location"]
 
-    search_terms = search_text.split()
+    normalized_query = _normalize_for_match(search_text, case_sensitive)
+    search_terms = normalized_query.split()
     if not search_terms:
         return events
 
-    if not case_sensitive:
-        search_terms = [term.lower() for term in search_terms]
+    stemmed_search_terms = [_stem_term(t) for t in search_terms]
 
     filtered_events = []
 
@@ -743,13 +793,7 @@ def _client_side_filter(
         searchable_text_parts = []
 
         for field in search_fields:
-            if field == "summary":
-                text = event.get("summary", "")
-            elif field == "description":
-                text = event.get("description", "")
-            elif field == "location":
-                text = event.get("location", "")
-            elif field == "attendees":
+            if field == "attendees":
                 attendees = event.get("attendees", [])
                 attendee_texts = []
                 for attendee in attendees:
@@ -762,14 +806,25 @@ def _client_side_filter(
             if text:
                 searchable_text_parts.append(text)
 
-        full_searchable_text = " ".join(searchable_text_parts)
-        if not case_sensitive:
-            full_searchable_text = full_searchable_text.lower()
+        full_text = " ".join(searchable_text_parts)
+        normalized_text = _normalize_for_match(full_text, case_sensitive)
+        # Stem each word in the event text
+        stemmed_words = [_stem_term(w) for w in normalized_text.split()]
+        stemmed_text = " ".join(stemmed_words)
+        # Also check without spaces for punctuation-collapsed matches
+        # (e.g., "followup" matches "follow-up" → "follow up")
+        stemmed_text_nospaces = "".join(stemmed_words)
 
         if match_all_terms:
-            matches = all(term in full_searchable_text for term in search_terms)
+            matches = all(
+                t in stemmed_text or t in stemmed_text_nospaces
+                for t in stemmed_search_terms
+            )
         else:
-            matches = any(term in full_searchable_text for term in search_terms)
+            matches = any(
+                t in stemmed_text or t in stemmed_text_nospaces
+                for t in stemmed_search_terms
+            )
 
         if matches:
             filtered_events.append(event)
@@ -858,7 +913,8 @@ def read(
     max_results: int = Field(100, description="Maximum events to return per calendar."),
     search_fields: list[str] | None = Field(
         None,
-        description="Client-side filter fields (e.g., 'summary', 'description'). None=API search only, []=search all fields.",
+        description="Fields to search in (e.g., ['summary', 'description', 'location', 'attendees']). "
+        "Default (None): summary, description, location.",
     ),
     case_sensitive: bool = Field(
         False,
@@ -867,6 +923,12 @@ def read(
     match_all_terms: bool = Field(
         True,
         description="If True (AND), all words must match. If False (OR), any can match.",
+    ),
+    mode: str = Field(
+        "auto",
+        description="Output detail level. 'compact': id/summary/start/end/calendar_name. "
+        "'full': all fields including description, attendees, attachments. "
+        "'auto' (default): compact for searches, full for get-by-id.",
     ),
     get_instances: bool = Field(
         False,
@@ -880,7 +942,7 @@ def read(
         "",
         description="For get_instances: end of time range (YYYY-MM-DD). Defaults to 1 year from time_min.",
     ),
-) -> list[CalendarEvent]:
+) -> list[CalendarEvent] | list[CompactCalendarEvent]:
     """Read calendar events - either get by ID or search."""
     from mcp_handley_lab.google_calendar.shared import read as _read
 
@@ -894,6 +956,7 @@ def read(
         search_fields=search_fields,
         case_sensitive=case_sensitive,
         match_all_terms=match_all_terms,
+        mode=mode,
         get_instances=get_instances,
         time_min=time_min,
         time_max=time_max,
@@ -1064,8 +1127,10 @@ def delete(
 _TOOL_CONFIGS["read"] = {
     "fn": read,
     "description": "Read calendar events. Get single event by ID or search/list in date range. "
-    "Search terms are automatically stemmed for broader matching "
-    "(e.g., 'examiner' matches 'Examiners meeting').",
+    "Search uses normalized client-side matching with stemming "
+    "(e.g., 'examiner' matches 'Examiners meeting', 'followup' matches 'follow-up', 'cafe' matches 'café'). "
+    "Use mode='compact' (default for searches) for id/summary/start/end only, "
+    "mode='full' for all fields, mode='auto' for compact on search, full on get-by-id.",
 }
 _TOOL_CONFIGS["create"] = {
     "fn": create,

@@ -2,8 +2,13 @@
 
 import pytest
 
-# Test the client-side filtering functionality directly since it doesn't require Google dependencies
-from mcp_handley_lab.google_calendar.tool import _client_side_filter, _stem_for_api
+from mcp_handley_lab.google_calendar.tool import (
+    CompactCalendarEvent,
+    _build_compact_event,
+    _client_side_filter,
+    _normalize_for_match,
+    _stem_term,
+)
 
 
 class TestClientSideFilter:
@@ -155,6 +160,29 @@ class TestClientSideFilter:
         )
         assert len(filtered) == 1  # Only first event has description with "everything"
 
+    def test_normalization_stemming(self):
+        """Test that normalization and stemming enable fuzzy matching."""
+        events = [
+            {"summary": "Examiners meeting", "description": "Board review"},
+            {"summary": "Follow-up call", "description": "Client check-in"},
+            {"summary": "Café discussion", "description": "Informal chat"},
+        ]
+
+        # "examiner" should match "Examiners meeting" via stemming
+        filtered = _client_side_filter(events, search_text="examiner")
+        assert len(filtered) == 1
+        assert filtered[0]["summary"] == "Examiners meeting"
+
+        # "followup" should match "Follow-up call" via punctuation normalization
+        filtered = _client_side_filter(events, search_text="followup")
+        assert len(filtered) == 1
+        assert filtered[0]["summary"] == "Follow-up call"
+
+        # "cafe" should match "Café discussion" via Unicode normalization
+        filtered = _client_side_filter(events, search_text="cafe")
+        assert len(filtered) == 1
+        assert filtered[0]["summary"] == "Café discussion"
+
 
 class TestSearchParameterValidation:
     """Test search parameter validation and combinations."""
@@ -233,43 +261,124 @@ class TestSearchParameterValidation:
         assert len(filtered) == 1
 
 
-class TestStemForApi:
-    """Test search term stemming for broader API matching."""
+class TestNormalizeForMatch:
+    """Test text normalization for matching."""
+
+    def test_casefold(self):
+        """Test case folding (default)."""
+        assert _normalize_for_match("HELLO World") == "hello world"
+
+    def test_case_sensitive(self):
+        """Test that case_sensitive=True preserves case."""
+        assert _normalize_for_match("HELLO World", case_sensitive=True) == "HELLO World"
+
+    def test_unicode_normalization(self):
+        """Test Unicode NFKD normalization strips accents."""
+        assert _normalize_for_match("café") == "cafe"
+        assert _normalize_for_match("naïve") == "naive"
+        assert _normalize_for_match("résumé") == "resume"
+
+    def test_punctuation_normalization(self):
+        """Test punctuation is normalized to spaces."""
+        assert _normalize_for_match("follow-up") == "follow up"
+        assert _normalize_for_match("it's") == "it s"
+        assert _normalize_for_match("path/to/file") == "path to file"
+        assert _normalize_for_match("under_score") == "under score"
+
+    def test_whitespace_collapse(self):
+        """Test multiple spaces are collapsed."""
+        assert _normalize_for_match("  hello   world  ") == "hello world"
+
+    def test_combined(self):
+        """Test multiple normalizations together."""
+        assert _normalize_for_match("Café Follow-Up") == "cafe follow up"
+
+    def test_empty(self):
+        """Test empty input."""
+        assert _normalize_for_match("") == ""
+
+
+class TestStemTerm:
+    """Test single-word suffix stemming."""
 
     def test_common_suffixes(self):
         """Test stripping common English suffixes."""
-        assert _stem_for_api("examiner") == "examin"
-        assert _stem_for_api("examiners") == "examin"
-        assert _stem_for_api("meetings") == "meeting"
-        assert _stem_for_api("cancelled") == "cancell"
-        assert _stem_for_api("presentation") == "present"
-        assert _stem_for_api("discussion") == "discus"
-        assert _stem_for_api("weekly") == "week"
-        assert _stem_for_api("appointment") == "appoint"
+        assert _stem_term("examiner") == "examin"
+        assert _stem_term("examiners") == "examin"
+        assert _stem_term("meetings") == "meeting"
+        assert _stem_term("cancelled") == "cancell"
+        assert _stem_term("presentation") == "present"
+        assert _stem_term("discussion") == "discus"
+        assert _stem_term("weekly") == "week"
+        assert _stem_term("appointment") == "appoint"
 
     def test_short_words_preserved(self):
         """Words where stemming would leave fewer than 4 chars are preserved."""
-        assert _stem_for_api("is") == "is"
-        assert _stem_for_api("ties") == "ties"
-        assert _stem_for_api("does") == "does"
-        assert _stem_for_api("the") == "the"
+        assert _stem_term("is") == "is"
+        assert _stem_term("ties") == "ties"
+        assert _stem_term("does") == "does"
+        assert _stem_term("the") == "the"
 
-    def test_multi_word(self):
-        """Test stemming of multi-word search text."""
-        assert _stem_for_api("Examiners meeting") == "Examin meet"
-        assert _stem_for_api("weekly discussion") == "week discus"
-
-    def test_empty_and_no_suffix(self):
-        """Test empty input and words without matching suffixes."""
-        assert _stem_for_api("") == ""
-        assert _stem_for_api("lunch") == "lunch"
-        assert _stem_for_api("exam") == "exam"
+    def test_no_suffix(self):
+        """Test words without matching suffixes."""
+        assert _stem_term("lunch") == "lunch"
+        assert _stem_term("exam") == "exam"
 
     def test_suffix_priority(self):
         """Longer suffixes match before shorter ones."""
-        # "ation" should match before "tion" or "s"
-        assert _stem_for_api("presentation") == "present"
-        assert _stem_for_api("evaluation") == "evalu"
+        assert _stem_term("presentation") == "present"
+        assert _stem_term("evaluation") == "evalu"
+
+
+class TestCompactMode:
+    """Test compact event model and builder."""
+
+    def test_build_compact_event(self):
+        """Test _build_compact_event produces CompactCalendarEvent."""
+        event_data = {
+            "id": "abc123",
+            "summary": "Test Event",
+            "description": "Should not appear in compact",
+            "location": "Somewhere",
+            "start": {"dateTime": "2026-03-03T10:00:00+00:00", "timeZone": "UTC"},
+            "end": {"dateTime": "2026-03-03T11:00:00+00:00", "timeZone": "UTC"},
+            "attendees": [{"email": "test@example.com"}],
+            "calendar_name": "Primary",
+        }
+
+        result = _build_compact_event(event_data)
+        assert isinstance(result, CompactCalendarEvent)
+        assert result.id == "abc123"
+        assert result.summary == "Test Event"
+        assert result.calendar_name == "Primary"
+        assert result.start.dateTime == "2026-03-03T10:00:00+00:00"
+        assert result.end.dateTime == "2026-03-03T11:00:00+00:00"
+
+        # Compact model should NOT have description, location, attendees
+        assert not hasattr(result, "description")
+        assert not hasattr(result, "location")
+        assert (
+            not hasattr(result, "attendees") or "attendees" not in result.model_fields
+        )
+
+    def test_compact_datetime_normalization(self):
+        """Test that compact builder applies the same datetime normalization."""
+        event_data = {
+            "id": "abc123",
+            "summary": "BST Event",
+            "start": {"dateTime": "2026-06-15T09:00:00Z", "timeZone": "Europe/London"},
+            "end": {"dateTime": "2026-06-15T10:00:00Z", "timeZone": "Europe/London"},
+        }
+
+        result = _build_compact_event(event_data)
+        # UTC 09:00 in BST (UTC+1) should become 10:00+01:00
+        assert "10:00:00+01:00" in result.start.dateTime
+        assert result.start.timeZone == "Europe/London"
+
+    def test_compact_model_fields(self):
+        """Test that CompactCalendarEvent has exactly the expected fields."""
+        fields = set(CompactCalendarEvent.model_fields.keys())
+        assert fields == {"id", "summary", "start", "end", "calendar_name"}
 
 
 if __name__ == "__main__":
