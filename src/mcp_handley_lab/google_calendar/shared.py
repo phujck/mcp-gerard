@@ -23,6 +23,7 @@ from mcp_handley_lab.google_calendar.tool import (
     _prepare_event_datetime,
     _resolve_attachments,
     _resolve_calendar_id,
+    _stem_for_api,
     _validate_recurrence,
     _would_be_timed_event,
     logger,
@@ -178,6 +179,7 @@ def read(
             end_date = _parse_datetime_to_utc(end_date)
 
     events_list: list[dict[str, Any]] = []
+    stemmed_text = _stem_for_api(search_text) if search_text else ""
 
     if calendar_id == "all":
         calendar_list_response = service.calendarList().list().execute()
@@ -194,7 +196,7 @@ def read(
                 "orderBy": "startTime",
             }
             if search_text:
-                params["q"] = search_text
+                params["q"] = stemmed_text
             events_result = service.events().list(**params).execute()
 
             cal_events = events_result.get("items", [])
@@ -213,12 +215,18 @@ def read(
             "orderBy": "startTime",
         }
         if search_text:
-            params["q"] = search_text
+            params["q"] = stemmed_text
         events_result = service.events().list(**params).execute()
         events_list = events_result.get("items", [])
 
-    # Client-side filtering
-    if search_fields is not None or case_sensitive or not match_all_terms:
+    # Client-side filtering (always run when stemming broadened the API query)
+    needs_client_filter = (
+        search_fields is not None
+        or case_sensitive
+        or not match_all_terms
+        or (search_text and stemmed_text != search_text)
+    )
+    if needs_client_filter:
         filtered_events = _client_side_filter(
             events_list,
             search_text=search_text,

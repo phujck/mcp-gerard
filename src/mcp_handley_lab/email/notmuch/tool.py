@@ -844,7 +844,17 @@ def _list_folders() -> list[str]:
 # ============================================================================
 
 # Base descriptions (will have tags/folders appended at module load)
-_READ_DESCRIPTION = """Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators."""
+_READ_DESCRIPTION = """Search and read emails. Returns message IDs needed by send (for replies) and update (for tagging/moving). Supports notmuch query language: sender, subject, date ranges, tags, attachments, and body content filtering with boolean operators.
+
+Search strategy (when results are empty or sparse):
+1. Check folder quoting: folder:"Hermes/Sent Items" NOT folder:Hermes/"Sent Items" (latter silently returns empty)
+2. Broaden first: remove folder/date constraints, then narrow once you find results
+3. Check alternate folders: Hermes/Archive (unsuffixed), Archive.YYYY (2012-2024), topic archives (.CATAM, .Caius, .PhD, .Examining, .REACH)
+4. INBOX subfolders: .Supervisions, .PhD, .Caius, .CATAM, .Examin, .GitHub, .REACH, .arXiv
+5. Sent mail is year-partitioned: each year needs a separate query
+6. IoA admin emails come from many @ast.cam.ac.uk role addresses -- search from:ast.cam.ac.uk broadly
+7. List-delivered emails won't match to:wh260 -- use from: or subject: instead
+8. Try word variants: examin* matches examiner/examiners/examining"""
 
 _UPDATE_DESCRIPTION = """Update email metadata. Requires message_ids from the read tool. Actions: 'tag' (add/remove tags), 'move' (relocate to folder), 'archive' (move to Archive folder)."""
 
@@ -977,3 +987,23 @@ for _name, _config in [
     ("update", _TOOL_CONFIGS["update"]),
 ]:
     mcp.add_tool(_config["fn"], name=_name, description=_config["description"])
+
+
+# Validate unknown parameters before dispatch (FastMCP silently ignores them)
+_original_call_tool = mcp.call_tool
+
+
+async def _validating_call_tool(name, arguments):
+    tool = mcp._tool_manager.get_tool(name)
+    if tool and arguments:
+        valid = set(tool.parameters.get("properties", {}).keys())
+        unknown = set(arguments.keys()) - valid
+        if unknown:
+            raise ValueError(
+                f"Unknown parameter(s) for '{name}': {sorted(unknown)}. "
+                f"Valid: {sorted(valid)}"
+            )
+    return await _original_call_tool(name, arguments)
+
+
+mcp.call_tool = _validating_call_tool

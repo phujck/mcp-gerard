@@ -3,7 +3,7 @@
 import pytest
 
 # Test the client-side filtering functionality directly since it doesn't require Google dependencies
-from mcp_handley_lab.google_calendar.tool import _client_side_filter
+from mcp_handley_lab.google_calendar.tool import _client_side_filter, _stem_for_api
 
 
 class TestClientSideFilter:
@@ -231,6 +231,45 @@ class TestSearchParameterValidation:
             events, search_text="room 101", search_fields=["location"]
         )
         assert len(filtered) == 1
+
+
+class TestStemForApi:
+    """Test search term stemming for broader API matching."""
+
+    def test_common_suffixes(self):
+        """Test stripping common English suffixes."""
+        assert _stem_for_api("examiner") == "examin"
+        assert _stem_for_api("examiners") == "examin"
+        assert _stem_for_api("meetings") == "meeting"
+        assert _stem_for_api("cancelled") == "cancell"
+        assert _stem_for_api("presentation") == "present"
+        assert _stem_for_api("discussion") == "discus"
+        assert _stem_for_api("weekly") == "week"
+        assert _stem_for_api("appointment") == "appoint"
+
+    def test_short_words_preserved(self):
+        """Words where stemming would leave fewer than 4 chars are preserved."""
+        assert _stem_for_api("is") == "is"
+        assert _stem_for_api("ties") == "ties"
+        assert _stem_for_api("does") == "does"
+        assert _stem_for_api("the") == "the"
+
+    def test_multi_word(self):
+        """Test stemming of multi-word search text."""
+        assert _stem_for_api("Examiners meeting") == "Examin meet"
+        assert _stem_for_api("weekly discussion") == "week discus"
+
+    def test_empty_and_no_suffix(self):
+        """Test empty input and words without matching suffixes."""
+        assert _stem_for_api("") == ""
+        assert _stem_for_api("lunch") == "lunch"
+        assert _stem_for_api("exam") == "exam"
+
+    def test_suffix_priority(self):
+        """Longer suffixes match before shorter ones."""
+        # "ation" should match before "tion" or "s"
+        assert _stem_for_api("presentation") == "present"
+        assert _stem_for_api("evaluation") == "evalu"
 
 
 if __name__ == "__main__":

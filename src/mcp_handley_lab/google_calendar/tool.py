@@ -672,6 +672,40 @@ def _parse_datetime_to_utc(dt_str: str, default_tz: str = DEFAULT_TIMEZONE) -> s
         return dt_str + "Z"
 
 
+_SUFFIXES = (
+    "ation",
+    "ment",
+    "tion",
+    "sion",
+    "ting",
+    "ing",
+    "ers",
+    "ed",
+    "er",
+    "es",
+    "ly",
+    "s",
+)
+
+
+def _stem_for_api(search_text: str) -> str:
+    """Strip common suffixes for broader API substring matching.
+
+    Google Calendar API 'q' does substring matching, so shorter stems
+    find more results. The client-side filter handles precision.
+    """
+    words = search_text.split()
+    stemmed = []
+    for word in words:
+        lower = word.lower()
+        for suffix in _SUFFIXES:
+            if lower.endswith(suffix) and len(lower) - len(suffix) >= 4:
+                word = word[: len(word) - len(suffix)]
+                break
+        stemmed.append(word)
+    return " ".join(stemmed)
+
+
 def _client_side_filter(
     events: list[dict[str, Any]],
     search_text: str = "",
@@ -1029,7 +1063,9 @@ def delete(
 
 _TOOL_CONFIGS["read"] = {
     "fn": read,
-    "description": "Read calendar events. Get single event by ID or search/list in date range.",
+    "description": "Read calendar events. Get single event by ID or search/list in date range. "
+    "Search terms are automatically stemmed for broader matching "
+    "(e.g., 'examiner' matches 'Examiners meeting').",
 }
 _TOOL_CONFIGS["create"] = {
     "fn": create,
@@ -1065,6 +1101,26 @@ _inject_calendars_into_descriptions()
 
 for _name, _config in _TOOL_CONFIGS.items():
     mcp.add_tool(_config["fn"], name=_name, description=_config["description"])
+
+
+# Validate unknown parameters before dispatch (FastMCP silently ignores them)
+_original_call_tool = mcp.call_tool
+
+
+async def _validating_call_tool(name, arguments):
+    tool = mcp._tool_manager.get_tool(name)
+    if tool and arguments:
+        valid = set(tool.parameters.get("properties", {}).keys())
+        unknown = set(arguments.keys()) - valid
+        if unknown:
+            raise ValueError(
+                f"Unknown parameter(s) for '{name}': {sorted(unknown)}. "
+                f"Valid: {sorted(valid)}"
+            )
+    return await _original_call_tool(name, arguments)
+
+
+mcp.call_tool = _validating_call_tool
 
 
 if __name__ == "__main__":
