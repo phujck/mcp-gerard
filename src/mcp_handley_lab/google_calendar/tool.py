@@ -2,6 +2,8 @@
 
 import logging
 import pickle
+import re
+import unicodedata
 import zoneinfo
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -15,6 +17,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
+from rapidfuzz import fuzz
 
 from mcp_handley_lab.common.config import settings
 
@@ -699,56 +702,34 @@ def _parse_datetime_to_utc(dt_str: str, default_tz: str = DEFAULT_TIMEZONE) -> s
         return dt_str + "Z"
 
 
-_SUFFIXES = (
-    "ation",
-    "ment",
-    "tion",
-    "sion",
-    "ting",
-    "ing",
-    "ers",
-    "ed",
-    "er",
-    "es",
-    "ly",
-    "s",
-)
-
-
-def _normalize_for_match(text: str, case_sensitive: bool = False) -> str:
+def _normalize_text(text: str, case_sensitive: bool = False) -> str:
     """Normalize text for fuzzy matching.
 
-    Applies Unicode NFKD normalization, strips combining marks,
-    normalizes punctuation to spaces, and collapses whitespace.
+    NFKD decomposition, strip combining marks (accents), punctuation to spaces,
+    optional casefold. Ensures "café" → "cafe", "follow-up" → "follow up".
     """
-    import re
-    import unicodedata
-
-    # NFKD decomposition and strip combining marks (accents)
+    if not text:
+        return ""
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
-
     if not case_sensitive:
         text = text.casefold()
-
-    # Normalize punctuation to spaces
     text = re.sub(r"[-'_/]", " ", text)
-    # Collapse whitespace
     text = re.sub(r"\s+", " ", text).strip()
-
     return text
 
 
-def _stem_term(word: str) -> str:
-    """Strip common English suffix from a single word.
-
-    Preserves at least 4 characters to avoid over-stemming short words.
-    """
-    lower = word.lower()
-    for suffix in _SUFFIXES:
-        if lower.endswith(suffix) and len(lower) - len(suffix) >= 4:
-            return word[: len(word) - len(suffix)]
-    return word
+def _term_threshold(term_len: int) -> float:
+    """Dynamic threshold: short terms need stricter match to avoid noise."""
+    if term_len <= 2:
+        return 95
+    if term_len <= 4:
+        return 90
+    if term_len <= 7:
+        return 85
+    if term_len <= 12:
+        return 80
+    return 75
 
 
 def _client_side_filter(
@@ -758,12 +739,11 @@ def _client_side_filter(
     case_sensitive: bool = False,
     match_all_terms: bool = True,
 ) -> list[dict[str, Any]]:
-    """
-    Client-side filtering with normalized text matching and stemming.
+    """Client-side fuzzy search over calendar events using rapidfuzz.
 
-    Normalizes both search terms and event text (Unicode NFKD, punctuation,
-    suffix stemming) so that "examiner" matches "Examiners meeting" and
-    "followup" matches "follow-up".
+    Scores each query term against each event field with partial_ratio
+    (best substring match) and dynamic length-based thresholds.
+    Handles typos, word order, accents, and punctuation differences.
 
     Args:
         events: List of calendar events to filter
@@ -777,59 +757,61 @@ def _client_side_filter(
         return events
 
     if not search_fields:
-        # None or [] both use default fields
         search_fields = ["summary", "description", "location"]
 
-    normalized_query = _normalize_for_match(search_text, case_sensitive)
-    search_terms = normalized_query.split()
-    if not search_terms:
+    norm_query = _normalize_text(str(search_text).strip(), case_sensitive)
+    terms = norm_query.split()
+    if not terms:
         return events
 
-    stemmed_search_terms = [_stem_term(t) for t in search_terms]
-
-    filtered_events = []
+    filtered = []
 
     for event in events:
-        searchable_text_parts = []
+        # Normalize field texts once per event
+        norm_fields: dict[str, str] = {}
+        attendee_strings: list[str] = []
 
         for field in search_fields:
             if field == "attendees":
-                attendees = event.get("attendees", [])
-                attendee_texts = []
-                for attendee in attendees:
-                    attendee_texts.append(attendee.get("email", ""))
-                    attendee_texts.append(attendee.get("displayName", ""))
-                text = " ".join(attendee_texts)
+                for att in event.get("attendees", []):
+                    if not isinstance(att, dict):
+                        continue
+                    for key in ("displayName", "email"):
+                        val = att.get(key)
+                        if val:
+                            attendee_strings.append(
+                                _normalize_text(str(val), case_sensitive)
+                            )
             else:
-                text = event.get(field, "")
+                val = event.get(field, "")
+                if val:
+                    norm_fields[field] = _normalize_text(str(val), case_sensitive)
 
-            if text:
-                searchable_text_parts.append(text)
-
-        full_text = " ".join(searchable_text_parts)
-        normalized_text = _normalize_for_match(full_text, case_sensitive)
-        # Stem each word in the event text
-        stemmed_words = [_stem_term(w) for w in normalized_text.split()]
-        stemmed_text = " ".join(stemmed_words)
-        # Also check without spaces for punctuation-collapsed matches
-        # (e.g., "followup" matches "follow-up" → "follow up")
-        stemmed_text_nospaces = "".join(stemmed_words)
+        def _term_matches(
+            term: str,
+            _nf: dict[str, str] = norm_fields,
+            _as: list[str] = attendee_strings,
+            _sf: list[str] = search_fields,
+        ) -> bool:
+            threshold = _term_threshold(len(term))
+            for text in _nf.values():
+                if fuzz.partial_ratio(term, text) >= threshold:
+                    return True
+            if "attendees" in _sf:
+                for cand in _as:
+                    if fuzz.partial_ratio(term, cand) >= threshold:
+                        return True
+            return False
 
         if match_all_terms:
-            matches = all(
-                t in stemmed_text or t in stemmed_text_nospaces
-                for t in stemmed_search_terms
-            )
+            ok = all(_term_matches(t) for t in terms)
         else:
-            matches = any(
-                t in stemmed_text or t in stemmed_text_nospaces
-                for t in stemmed_search_terms
-            )
+            ok = any(_term_matches(t) for t in terms)
 
-        if matches:
-            filtered_events.append(event)
+        if ok:
+            filtered.append(event)
 
-    return filtered_events
+    return filtered
 
 
 def _get_series_master_id(event_data: dict) -> str | None:
@@ -1127,8 +1109,9 @@ def delete(
 _TOOL_CONFIGS["read"] = {
     "fn": read,
     "description": "Read calendar events. Get single event by ID or search/list in date range. "
-    "Search uses normalized client-side matching with stemming "
-    "(e.g., 'examiner' matches 'Examiners meeting', 'followup' matches 'follow-up', 'cafe' matches 'café'). "
+    "Search uses fuzzy matching with typo tolerance "
+    "(e.g., 'examiner' matches 'Examiners meeting', 'cafe' matches 'café', "
+    "'meting' matches 'Meeting'). "
     "Use mode='compact' (default for searches) for id/summary/start/end only, "
     "mode='full' for all fields, mode='auto' for compact on search, full on get-by-id.",
 }

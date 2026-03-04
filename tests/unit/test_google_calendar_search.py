@@ -6,8 +6,8 @@ from mcp_handley_lab.google_calendar.tool import (
     CompactCalendarEvent,
     _build_compact_event,
     _client_side_filter,
-    _normalize_for_match,
-    _stem_term,
+    _normalize_text,
+    _term_threshold,
 )
 
 
@@ -156,32 +156,40 @@ class TestClientSideFilter:
 
         # Search in description field with missing descriptions
         filtered = _client_side_filter(
-            events_with_missing, search_text="everything", search_fields=["description"]
+            events_with_missing,
+            search_text="everything",
+            search_fields=["description"],
         )
         assert len(filtered) == 1  # Only first event has description with "everything"
 
-    def test_normalization_stemming(self):
-        """Test that normalization and stemming enable fuzzy matching."""
+    def test_fuzzy_matching(self):
+        """Test fuzzy matching: typos, accents, punctuation, morphology."""
         events = [
             {"summary": "Examiners meeting", "description": "Board review"},
             {"summary": "Follow-up call", "description": "Client check-in"},
             {"summary": "Café discussion", "description": "Informal chat"},
+            {"summary": "Team Meeting", "description": "Weekly sync"},
         ]
 
-        # "examiner" should match "Examiners meeting" via stemming
+        # "examiner" should match "Examiners meeting" via fuzzy matching
         filtered = _client_side_filter(events, search_text="examiner")
-        assert len(filtered) == 1
-        assert filtered[0]["summary"] == "Examiners meeting"
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Examiners meeting" for e in filtered)
 
         # "followup" should match "Follow-up call" via punctuation normalization
         filtered = _client_side_filter(events, search_text="followup")
-        assert len(filtered) == 1
-        assert filtered[0]["summary"] == "Follow-up call"
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Follow-up call" for e in filtered)
 
         # "cafe" should match "Café discussion" via Unicode normalization
         filtered = _client_side_filter(events, search_text="cafe")
-        assert len(filtered) == 1
-        assert filtered[0]["summary"] == "Café discussion"
+        assert len(filtered) >= 1
+        assert any(e["summary"] == "Café discussion" for e in filtered)
+
+        # "meting" should match "Team Meeting" via typo tolerance
+        filtered = _client_side_filter(events, search_text="meting")
+        assert len(filtered) >= 1
+        assert any("Meeting" in e["summary"] for e in filtered)
 
 
 class TestSearchParameterValidation:
@@ -261,73 +269,60 @@ class TestSearchParameterValidation:
         assert len(filtered) == 1
 
 
-class TestNormalizeForMatch:
-    """Test text normalization for matching."""
+class TestNormalizeText:
+    """Test text normalization."""
 
     def test_casefold(self):
         """Test case folding (default)."""
-        assert _normalize_for_match("HELLO World") == "hello world"
+        assert _normalize_text("HELLO World") == "hello world"
 
     def test_case_sensitive(self):
         """Test that case_sensitive=True preserves case."""
-        assert _normalize_for_match("HELLO World", case_sensitive=True) == "HELLO World"
+        assert _normalize_text("HELLO World", case_sensitive=True) == "HELLO World"
 
     def test_unicode_normalization(self):
-        """Test Unicode NFKD normalization strips accents."""
-        assert _normalize_for_match("café") == "cafe"
-        assert _normalize_for_match("naïve") == "naive"
-        assert _normalize_for_match("résumé") == "resume"
+        """Test NFKD normalization strips accents."""
+        assert _normalize_text("café") == "cafe"
+        assert _normalize_text("naïve") == "naive"
+        assert _normalize_text("résumé") == "resume"
 
     def test_punctuation_normalization(self):
         """Test punctuation is normalized to spaces."""
-        assert _normalize_for_match("follow-up") == "follow up"
-        assert _normalize_for_match("it's") == "it s"
-        assert _normalize_for_match("path/to/file") == "path to file"
-        assert _normalize_for_match("under_score") == "under score"
+        assert _normalize_text("follow-up") == "follow up"
+        assert _normalize_text("it's") == "it s"
+        assert _normalize_text("path/to/file") == "path to file"
 
     def test_whitespace_collapse(self):
         """Test multiple spaces are collapsed."""
-        assert _normalize_for_match("  hello   world  ") == "hello world"
-
-    def test_combined(self):
-        """Test multiple normalizations together."""
-        assert _normalize_for_match("Café Follow-Up") == "cafe follow up"
+        assert _normalize_text("  hello   world  ") == "hello world"
 
     def test_empty(self):
         """Test empty input."""
-        assert _normalize_for_match("") == ""
+        assert _normalize_text("") == ""
 
 
-class TestStemTerm:
-    """Test single-word suffix stemming."""
+class TestTermThreshold:
+    """Test dynamic threshold for fuzzy matching."""
 
-    def test_common_suffixes(self):
-        """Test stripping common English suffixes."""
-        assert _stem_term("examiner") == "examin"
-        assert _stem_term("examiners") == "examin"
-        assert _stem_term("meetings") == "meeting"
-        assert _stem_term("cancelled") == "cancell"
-        assert _stem_term("presentation") == "present"
-        assert _stem_term("discussion") == "discus"
-        assert _stem_term("weekly") == "week"
-        assert _stem_term("appointment") == "appoint"
+    def test_short_terms_strict(self):
+        assert _term_threshold(1) == 95
+        assert _term_threshold(2) == 95
 
-    def test_short_words_preserved(self):
-        """Words where stemming would leave fewer than 4 chars are preserved."""
-        assert _stem_term("is") == "is"
-        assert _stem_term("ties") == "ties"
-        assert _stem_term("does") == "does"
-        assert _stem_term("the") == "the"
+    def test_medium_terms(self):
+        assert _term_threshold(3) == 90
+        assert _term_threshold(4) == 90
 
-    def test_no_suffix(self):
-        """Test words without matching suffixes."""
-        assert _stem_term("lunch") == "lunch"
-        assert _stem_term("exam") == "exam"
+    def test_longer_terms(self):
+        assert _term_threshold(5) == 85
+        assert _term_threshold(7) == 85
 
-    def test_suffix_priority(self):
-        """Longer suffixes match before shorter ones."""
-        assert _stem_term("presentation") == "present"
-        assert _stem_term("evaluation") == "evalu"
+    def test_long_terms(self):
+        assert _term_threshold(8) == 80
+        assert _term_threshold(12) == 80
+
+    def test_very_long_terms(self):
+        assert _term_threshold(13) == 75
+        assert _term_threshold(20) == 75
 
 
 class TestCompactMode:

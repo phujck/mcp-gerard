@@ -193,7 +193,7 @@ def read(
         end_date = end_dt.isoformat().replace("+00:00", "Z")
     else:
         if "T" not in end_date:
-            end_date = end_date + "T23:59:59Z"
+            end_date = _parse_datetime_to_utc(end_date + "T23:59:59")
         else:
             end_date = _parse_datetime_to_utc(end_date)
 
