@@ -191,6 +191,46 @@ class TestClientSideFilter:
         assert len(filtered) >= 1
         assert any("Meeting" in e["summary"] for e in filtered)
 
+    def test_word_order(self):
+        """Test that word order doesn't matter for multi-term queries."""
+        events = [
+            {"summary": "Lunch with Bob", "description": "Casual catch-up"},
+        ]
+
+        filtered = _client_side_filter(events, search_text="bob lunch")
+        assert len(filtered) == 1
+
+    def test_empty_search_fields_defaults(self):
+        """Test that search_fields=[] behaves like None (uses defaults)."""
+        events = [
+            {"summary": "Team Meeting", "description": "Weekly sync"},
+        ]
+
+        filtered_none = _client_side_filter(
+            events, search_text="team", search_fields=None
+        )
+        filtered_empty = _client_side_filter(
+            events, search_text="team", search_fields=[]
+        )
+        assert filtered_none == filtered_empty
+        assert len(filtered_none) == 1
+
+    def test_short_term_matching(self):
+        """Test short term behavior with partial_ratio."""
+        events = [
+            {"summary": "Air travel plans", "description": "Flight booking"},
+            {"summary": "AI Workshop", "description": "Machine learning"},
+            {"summary": "Lunch", "description": "Team lunch"},
+        ]
+
+        # Short terms (1-2 chars) match broadly via substring with partial_ratio
+        # "AI" matches both "AI Workshop" (exact) and "Air" (substring)
+        filtered = _client_side_filter(events, search_text="AI")
+        assert any(e["summary"] == "AI Workshop" for e in filtered)
+
+        # But unrelated events should not match
+        assert not any(e["summary"] == "Lunch" for e in filtered)
+
 
 class TestSearchParameterValidation:
     """Test search parameter validation and combinations."""

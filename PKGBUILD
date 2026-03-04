@@ -25,6 +25,8 @@ depends=(
     'python-packaging>=21.0'
     'python-yaml>=6.0.0'
     'python-click>=8.0.0'
+    'python-msal>=1.20.0'
+    'python-numpy>=1.24.0'
     'python-html2text'
     'python-beautifulsoup4'
     'python-markdownify'
