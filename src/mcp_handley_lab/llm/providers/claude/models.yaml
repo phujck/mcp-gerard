@@ -165,7 +165,7 @@ display_categories:
     description: "Claude models with extended thinking and enhanced capabilities"
 
 # Default model
-default_model: "claude-sonnet-4-5-20250929"
+default_model: "claude-sonnet-4-6"
 
 # Usage notes
 usage_notes:

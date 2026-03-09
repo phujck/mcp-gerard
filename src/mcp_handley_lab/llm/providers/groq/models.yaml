@@ -263,7 +263,7 @@ display_categories:
     tags: ["asr", "whisper"]
     description: "Automatic speech recognition models (input handling not fully implemented)."
 
-default_model: "moonshotai/kimi-k2-instruct-0905"
+default_model: "meta-llama/llama-4-maverick-17b-128e-instruct"
 
 usage_notes:
   - "Groq models are served via an OpenAI-compatible API."
