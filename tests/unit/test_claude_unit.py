@@ -62,10 +62,7 @@ class TestClaudeModelConfiguration:
         assert resolve_model_alias("haiku") == "claude-haiku-4-5-20251001"
 
         # Test that non-alias models pass through unchanged
-        assert (
-            resolve_model_alias("claude-sonnet-4-6")
-            == "claude-sonnet-4-6"
-        )
+        assert resolve_model_alias("claude-sonnet-4-6") == "claude-sonnet-4-6"
 
 
 class TestClaudeErrorHandling:
