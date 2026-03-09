@@ -58,13 +58,13 @@ class TestClaudeModelConfiguration:
     def test_resolve_model_alias(self):
         """Test model alias resolution."""
         assert resolve_model_alias("opus") == "claude-opus-4-6"
-        assert resolve_model_alias("sonnet") == "claude-sonnet-4-5-20250929"
+        assert resolve_model_alias("sonnet") == "claude-sonnet-4-6"
         assert resolve_model_alias("haiku") == "claude-haiku-4-5-20251001"
 
         # Test that non-alias models pass through unchanged
         assert (
-            resolve_model_alias("claude-sonnet-4-5-20250929")
-            == "claude-sonnet-4-5-20250929"
+            resolve_model_alias("claude-sonnet-4-6")
+            == "claude-sonnet-4-6"
         )
 
 
