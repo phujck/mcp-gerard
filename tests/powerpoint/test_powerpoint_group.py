@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.powerpoint.shared import edit, read
+from mcp_gerard.microsoft.powerpoint.shared import edit, read
 
 
 @pytest.fixture

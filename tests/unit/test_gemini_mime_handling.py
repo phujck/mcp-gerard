@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from mcp_handley_lab.llm.common import (
+from mcp_gerard.llm.common import (
     determine_mime_type,
     get_gemini_safe_mime_type,
     is_gemini_supported_mime_type,

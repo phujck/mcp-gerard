@@ -2,8 +2,8 @@
 
 import io
 
-from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_formula
-from mcp_handley_lab.microsoft.excel.ops.formula_refactor import (
+from mcp_gerard.microsoft.excel.ops.cells import set_cell_formula
+from mcp_gerard.microsoft.excel.ops.formula_refactor import (
     CellRef,
     parse_formula_references,
     shift_formula,
@@ -11,7 +11,7 @@ from mcp_handley_lab.microsoft.excel.ops.formula_refactor import (
     update_formulas_after_delete,
     update_formulas_after_insert,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestParseFormulaReferences:
@@ -236,7 +236,7 @@ class TestUpdateFormulasAfterInsert:
 
         # A5 should become A7 (shifted by 2)
         sheet_xml = pkg.get_sheet_xml("Sheet1")
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         formula = None
         for row in sheet_xml.find(qn("x:sheetData")).findall(qn("x:row")):
@@ -254,7 +254,7 @@ class TestUpdateFormulasAfterInsert:
 
         update_formulas_after_insert(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -274,7 +274,7 @@ class TestUpdateFormulasAfterInsert:
 
         update_formulas_after_insert(pkg, "Sheet1", index=3, count=2, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -294,7 +294,7 @@ class TestUpdateFormulasAfterInsert:
 
         update_formulas_after_insert(pkg, "Sheet1", index=3, count=2, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -313,7 +313,7 @@ class TestUpdateFormulasAfterInsert:
 
         update_formulas_after_insert(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -332,7 +332,7 @@ class TestUpdateFormulasAfterInsert:
 
         update_formulas_after_insert(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -356,7 +356,7 @@ class TestUpdateFormulasAfterDelete:
             pkg, "Sheet1", index=3, count=2, is_row=True
         )
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -376,7 +376,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=3, count=1, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -394,7 +394,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -414,7 +414,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=3, count=2, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -433,7 +433,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=3, count=2, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -453,7 +453,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=3, count=2, is_row=True)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -472,7 +472,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -491,7 +491,7 @@ class TestUpdateFormulasAfterDelete:
 
         update_formulas_after_delete(pkg, "Sheet1", index=2, count=1, is_row=False)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -517,7 +517,7 @@ class TestFormulaRefactorPersistence:
         buf.seek(0)
         pkg2 = ExcelPackage.open(buf)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg2.get_sheet_xml("Sheet1")
         formula = None
@@ -534,14 +534,14 @@ class TestIntegrationWithRangeOps:
 
     def test_insert_rows_updates_formulas(self) -> None:
         """insert_rows from ops/ranges updates formulas."""
-        from mcp_handley_lab.microsoft.excel.ops.ranges import insert_rows
+        from mcp_gerard.microsoft.excel.ops.ranges import insert_rows
 
         pkg = ExcelPackage.new()
         set_cell_formula(pkg, "Sheet1", "A10", "A5")
 
         insert_rows(pkg, "Sheet1", row_num=3, count=2)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -555,14 +555,14 @@ class TestIntegrationWithRangeOps:
 
     def test_delete_rows_updates_formulas(self) -> None:
         """delete_rows from ops/ranges updates formulas."""
-        from mcp_handley_lab.microsoft.excel.ops.ranges import delete_rows
+        from mcp_gerard.microsoft.excel.ops.ranges import delete_rows
 
         pkg = ExcelPackage.new()
         set_cell_formula(pkg, "Sheet1", "A10", "A8")
 
         delete_rows(pkg, "Sheet1", row_num=3, count=2)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -576,14 +576,14 @@ class TestIntegrationWithRangeOps:
 
     def test_insert_columns_updates_formulas(self) -> None:
         """insert_columns from ops/ranges updates formulas."""
-        from mcp_handley_lab.microsoft.excel.ops.ranges import insert_columns
+        from mcp_gerard.microsoft.excel.ops.ranges import insert_columns
 
         pkg = ExcelPackage.new()
         set_cell_formula(pkg, "Sheet1", "E1", "C1")
 
         insert_columns(pkg, "Sheet1", col_ref="B", count=2)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -597,14 +597,14 @@ class TestIntegrationWithRangeOps:
 
     def test_delete_columns_updates_formulas(self) -> None:
         """delete_columns from ops/ranges updates formulas."""
-        from mcp_handley_lab.microsoft.excel.ops.ranges import delete_columns
+        from mcp_gerard.microsoft.excel.ops.ranges import delete_columns
 
         pkg = ExcelPackage.new()
         set_cell_formula(pkg, "Sheet1", "F1", "D1")
 
         delete_columns(pkg, "Sheet1", col_ref="B", count=2)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None
@@ -618,14 +618,14 @@ class TestIntegrationWithRangeOps:
 
     def test_delete_rows_ref_to_deleted_becomes_error(self) -> None:
         """delete_rows makes refs to deleted cells become #REF!."""
-        from mcp_handley_lab.microsoft.excel.ops.ranges import delete_rows
+        from mcp_gerard.microsoft.excel.ops.ranges import delete_rows
 
         pkg = ExcelPackage.new()
         set_cell_formula(pkg, "Sheet1", "A10", "A3")
 
         delete_rows(pkg, "Sheet1", row_num=3, count=1)
 
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
         formula = None

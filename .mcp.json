@@ -1,16 +1,14 @@
 {
   "mcpServers": {
-    "google-calendar": {
-      "type": "stdio",
-      "command": "mcp-google-calendar",
-      "args": [],
-      "env": {}
-    },
-    "mathematica": {
-      "type": "stdio",
-      "command": "mcp-mathematica",
-      "args": [],
-      "env": {}
-    }
+    "llm": { "type": "stdio", "command": "mcp-llm", "args": [], "env": {} },
+    "arxiv": { "type": "stdio", "command": "mcp-arxiv", "args": [], "env": {} },
+    "loop": { "type": "stdio", "command": "mcp-loop", "args": [], "env": {} },
+    "code2prompt": { "type": "stdio", "command": "mcp-code2prompt", "args": [], "env": {} },
+    "google-calendar": { "type": "stdio", "command": "mcp-google-calendar", "args": [], "env": {} },
+    "word": { "type": "stdio", "command": "mcp-word", "args": [], "env": {} },
+    "blog": { "type": "stdio", "command": "mcp-blog", "args": [], "env": {} },
+    "overleaf": { "type": "stdio", "command": "mcp-overleaf", "args": [], "env": {} },
+    "vault": { "type": "stdio", "command": "mcp-vault", "args": [], "env": {} },
+    "projects": { "type": "stdio", "command": "mcp-projects", "args": [], "env": {} }
   }
 }

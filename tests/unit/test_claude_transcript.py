@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from mcp_handley_lab.claude import (
+from mcp_gerard.claude import (
     github_repos,
     history,
     mcp_servers,
@@ -15,7 +15,7 @@ from mcp_handley_lab.claude import (
     skill_usage,
     transcript,
 )
-from mcp_handley_lab.claude.transcript import _extract_message, _get_project_dir
+from mcp_gerard.claude.transcript import _extract_message, _get_project_dir
 
 
 class TestProjectDirEncoding:

@@ -5,14 +5,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mcp_handley_lab.llm.shared import process_llm_request
+from mcp_gerard.llm.shared import process_llm_request
 
 
 class TestProcessLLMRequestPromptResolution:
     """Test prompt resolution logic in process_llm_request."""
 
-    @patch("mcp_handley_lab.llm.shared.memory")
-    @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
+    @patch("mcp_gerard.llm.shared.memory")
+    @patch("mcp_gerard.common.pricing.calculate_cost", return_value=0.001)
     def test_resolves_prompt_file_and_vars(
         self, mock_calculate_cost, mock_memory, tmp_path
     ):
@@ -55,8 +55,8 @@ class TestProcessLLMRequestPromptResolution:
         assert result.usage.input_tokens == 10
         assert result.usage.output_tokens == 5
 
-    @patch("mcp_handley_lab.llm.shared.memory")
-    @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
+    @patch("mcp_gerard.llm.shared.memory")
+    @patch("mcp_gerard.common.pricing.calculate_cost", return_value=0.001)
     def test_resolves_system_prompt_file_and_vars(
         self, mock_calculate_cost, mock_memory, tmp_path
     ):
@@ -217,8 +217,8 @@ class TestProcessLLMRequestPromptResolution:
                 system_prompt_vars={"wrong_key": "value"},
             )
 
-    @patch("mcp_handley_lab.llm.shared.memory")
-    @patch("mcp_handley_lab.common.pricing.calculate_cost", return_value=0.001)
+    @patch("mcp_gerard.llm.shared.memory")
+    @patch("mcp_gerard.common.pricing.calculate_cost", return_value=0.001)
     def test_system_prompt_passed_to_llm_for_new_branch(
         self, mock_calculate_cost, mock_memory, tmp_path
     ):

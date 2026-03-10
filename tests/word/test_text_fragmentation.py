@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from lxml import etree
 
-from mcp_handley_lab.microsoft.common.text import (
+from mcp_gerard.microsoft.common.text import (
     NS_DRAWINGML,
     NS_WORD,
     _set_text_with_space_preserve,

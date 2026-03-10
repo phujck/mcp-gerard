@@ -4,7 +4,7 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.protection import (
+from mcp_gerard.microsoft.excel.ops.protection import (
     get_sheet_protection,
     get_workbook_protection,
     is_cell_locked,
@@ -17,7 +17,7 @@ from mcp_handley_lab.microsoft.excel.ops.protection import (
     unprotect_sheet,
     unprotect_workbook,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestProtectSheet:
@@ -238,7 +238,7 @@ class TestStylePreservation:
 
     def test_unlock_preserves_existing_style(self) -> None:
         """Unlocking a styled cell preserves font/fill/border."""
-        from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_style
+        from mcp_gerard.microsoft.excel.ops.cells import set_cell_style
 
         pkg = ExcelPackage.new()
         # Apply a style first

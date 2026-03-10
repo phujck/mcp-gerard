@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from mcp_handley_lab.google_calendar.tool import mcp
+from mcp_gerard.google_calendar.tool import mcp
 
 
 @pytest.mark.vcr

@@ -1,1 +1,0 @@
-"""Mutt email tool for MCP."""

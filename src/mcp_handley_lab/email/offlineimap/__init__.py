@@ -1,1 +1,0 @@
-"""OfflineIMAP email synchronization provider."""

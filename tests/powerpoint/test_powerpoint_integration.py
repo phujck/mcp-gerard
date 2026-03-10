@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.powerpoint.tool import mcp
+from mcp_gerard.microsoft.powerpoint.tool import mcp
 
 
 def _parse_result(result):
@@ -36,8 +36,8 @@ def pptx_path():
 @pytest.fixture
 def pptx_with_slide(pptx_path):
     """Create a .pptx with one slide."""
-    from mcp_handley_lab.microsoft.powerpoint.ops.slides import add_slide
-    from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
+    from mcp_gerard.microsoft.powerpoint.ops.slides import add_slide
+    from mcp_gerard.microsoft.powerpoint.package import PowerPointPackage
 
     pkg = PowerPointPackage.new()
     add_slide(pkg, "Blank")

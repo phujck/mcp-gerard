@@ -219,7 +219,7 @@ Bridge WhatsApp and Telegram to Claude via persistent loop sessions
   **Setup:**
   1. Install this package (provides the `messenger` command)
   2. Install and authenticate the `claude` CLI
-  3. Set environment variables (see `src/mcp_handley_lab/messenger/.env.example`):
+  3. Set environment variables (see `src/mcp_gerard/messenger/.env.example`):
      ```bash
      # Telegram (easiest — just need a bot token)
      export TELEGRAM_BOT_TOKEN="123456:ABC..."
@@ -295,7 +295,7 @@ This pattern works because:
 For advanced workflows, you can use the `llm` module directly from Python without going through MCP:
 
 ```python
-from mcp_handley_lab import llm
+from mcp_gerard import llm
 
 # Stateless query (branch="" disables memory)
 result = llm.chat("What is 2+2?", branch="")
@@ -321,7 +321,7 @@ For documents too large to fit in context (>100K tokens), use the Recursive LLM 
 
 ```python
 # In a Python REPL session (mcp__repl__session)
-from mcp_handley_lab import llm
+from mcp_gerard import llm
 from pathlib import Path
 
 # Process a large file in chunks

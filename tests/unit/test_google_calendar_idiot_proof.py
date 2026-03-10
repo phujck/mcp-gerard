@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_handley_lab.google_calendar.tool import _prepare_event_datetime
+from mcp_gerard.google_calendar.tool import _prepare_event_datetime
 
 
 class TestIdiotProofTimezoneHandling:

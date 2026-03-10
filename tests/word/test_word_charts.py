@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.word.ops.charts import (
+from mcp_gerard.microsoft.word.ops.charts import (
     create_chart,
     delete_chart,
     list_charts,
     update_chart_data,
 )
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 SAMPLE_DATA = [["Category", "S1", "S2"], ["A", 10, 30], ["B", 20, 40], ["C", 15, 25]]
 
@@ -24,7 +24,7 @@ SAMPLE_DATA = [["Category", "S1", "S2"], ["A", 10, 30], ["B", 20, 40], ["C", 15,
 def _make_doc_with_paragraph() -> WordPackage:
     """Create a WordPackage with a single paragraph for testing."""
     pkg = WordPackage.new()
-    from mcp_handley_lab.microsoft.word.ops.core import append_paragraph_ooxml
+    from mcp_gerard.microsoft.word.ops.core import append_paragraph_ooxml
 
     append_paragraph_ooxml(pkg, "Test paragraph")
     return pkg
@@ -32,7 +32,7 @@ def _make_doc_with_paragraph() -> WordPackage:
 
 def _get_first_para_id(pkg: WordPackage) -> str:
     """Get block ID of first paragraph with text."""
-    from mcp_handley_lab.microsoft.word.ops.core import build_blocks
+    from mcp_gerard.microsoft.word.ops.core import build_blocks
 
     blocks, _total = build_blocks(pkg)
     # Find first paragraph with text (skip empty default paragraph)
@@ -353,7 +353,7 @@ class TestChartSeriesShapeProperties:
 
     def test_bar_chart_series_has_sppr(self):
 
-        from mcp_handley_lab.microsoft.common.charts import CHART_NSMAP
+        from mcp_gerard.microsoft.common.charts import CHART_NSMAP
 
         pkg = _make_doc_with_paragraph()
         target = _get_first_para_id(pkg)
@@ -385,7 +385,7 @@ class TestChartInlineDataCaches:
     """Integration test: chart XML parts have inline data caches."""
 
     def test_column_chart_has_inline_caches(self):
-        from mcp_handley_lab.microsoft.common.charts import CHART_NSMAP
+        from mcp_gerard.microsoft.common.charts import CHART_NSMAP
 
         pkg = _make_doc_with_paragraph()
         target = _get_first_para_id(pkg)

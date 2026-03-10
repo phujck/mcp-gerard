@@ -1,6 +1,6 @@
 """Unit tests for Claude LLM provider adapter."""
 
-from mcp_handley_lab.llm.providers.claude.adapter import (
+from mcp_gerard.llm.providers.claude.adapter import (
     DEFAULT_MODEL,
     MODEL_CONFIGS,
     get_model_config,

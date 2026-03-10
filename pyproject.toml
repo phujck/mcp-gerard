@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-handley-lab"
+name = "mcp-gerard"
 
-version = "0.31.9"
-description = "MCP Handley Lab - A comprehensive MCP toolkit for research productivity and lab management"
+version = "0.1.0"
+description = "Personal MCP toolkit for Gerard McCaul"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    {name = "Handley Research Group", email = "wh260@cam.ac.uk"}
+    {name = "Gerard McCaul"}
 ]
 dependencies = [
     "mcp[cli]>=1.0.0",
@@ -20,11 +20,9 @@ dependencies = [
     "google-auth-httplib2>=0.1.0",
     "google-auth-oauthlib>=0.5.0",
     "google-genai>=1.24.0",
-    "googlemaps>=4.0.0",
     "openai>=1.0.0",
     "anthropic>=0.21.3",
     "mistralai>=1.9.0",
-    "xai-sdk>=1.0.0",
     "Pillow>=10.0.0",
     "httpx>=0.25.0",
     "packaging>=21.0",
@@ -37,11 +35,9 @@ dependencies = [
     "python-dateutil>=2.8.0",
     "dateparser>=1.2.0",
     "pendulum>=3.0.0",
-    "wolframclient>=1.1.0",
     "lxml>=4.9.0",
-    "pycookiecheat>=0.7.0",
-    "jupyter_client>=8.0.0",
     "rapidfuzz>=3.0.0",
+    "matplotlib>=3.7.0",
 ]
 
 [project.optional-dependencies]
@@ -59,36 +55,26 @@ dev = [
 ]
 
 [project.scripts]
-# Unified LLM tools
-mcp-llm = "mcp_handley_lab.llm.tool:mcp.run"
-mcp-llm-embeddings = "mcp_handley_lab.llm.embeddings.tool:mcp.run"
-# Other tools
-mcp-code2prompt = "mcp_handley_lab.code2prompt.tool:mcp.run"
-mcp-arxiv = "mcp_handley_lab.arxiv.tool:mcp.run"
-mcp-google-calendar = "mcp_handley_lab.google_calendar.tool:mcp.run"
-mcp-google-maps = "mcp_handley_lab.google_maps.tool:mcp.run"
-mcp-google-photos = "mcp_handley_lab.google_photos.tool:mcp.run"
-mcp-email = "mcp_handley_lab.email.tool:mcp.run"
-mcp-msmtp-capture = "mcp_handley_lab.email.mutt.capture:main"
-mcp-search = "mcp_handley_lab.search.tool:mcp.run"
-mcp-loop = "mcp_handley_lab.loop.tool:mcp.run"
-mcp-otter = "mcp_handley_lab.otter.tool:mcp.run"
-mcp-screenshot = "mcp_handley_lab.screenshot.tool:mcp.run"
-mcp-word = "mcp_handley_lab.microsoft.word.tool:mcp.run"
-mcp-excel = "mcp_handley_lab.microsoft.excel.tool:mcp.run"
-mcp-powerpoint = "mcp_handley_lab.microsoft.powerpoint.tool:mcp.run"
-mcp-visio = "mcp_handley_lab.microsoft.visio.tool:mcp.run"
-mcp-mathematica = "mcp_handley_lab.mathematica.cli:main"
-messenger = "mcp_handley_lab.messenger.server:main"
-mcp-handley-lab = "mcp_handley_lab.__main__:main"
-mcp-cli = "mcp_handley_lab.cli.main:cli"
+# Inherited tools from mcp-handley-lab
+mcp-llm = "mcp_gerard.llm.tool:mcp.run"
+mcp-llm-embeddings = "mcp_gerard.llm.embeddings.tool:mcp.run"
+mcp-code2prompt = "mcp_gerard.code2prompt.tool:mcp.run"
+mcp-arxiv = "mcp_gerard.arxiv.tool:mcp.run"
+mcp-google-calendar = "mcp_gerard.google_calendar.tool:mcp.run"
+mcp-loop = "mcp_gerard.loop.tool:mcp.run"
+mcp-word = "mcp_gerard.microsoft.word.tool:mcp.run"
+# Personal tools
+mcp-blog = "mcp_gerard.blog:main"
+mcp-overleaf = "mcp_gerard.overleaf:main"
+mcp-vault = "mcp_gerard.vault:main"
+mcp-projects = "mcp_gerard.projects:main"
 
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-mcp_handley_lab = ["py.typed", "llm/providers/*/models.yaml", "tool_schemas.json"]
+mcp_gerard = ["py.typed", "llm/providers/*/models.yaml", "tool_schemas.json", "_shared/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -113,18 +99,18 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
 ignore = ["E501", "B008"]  # Line too long, function call in default arguments (intentional for FastMCP Field patterns)
 
 [tool.ruff.lint.per-file-ignores]
-"src/mcp_handley_lab/google_calendar/tool.py" = ["N815"]  # Allow mixedCase for Google Calendar API field names
-"src/mcp_handley_lab/microsoft/opc/*.py" = ["N802", "N803", "N806"]  # OPC uses rId naming convention
-"src/mcp_handley_lab/microsoft/word/*.py" = ["N802", "N803", "N806", "E402", "SIM102", "SIM105", "SIM108", "SIM117", "B007", "B904"]  # OOXML naming conventions
-"src/mcp_handley_lab/microsoft/excel/*.py" = ["N802", "N803", "N806"]  # SpreadsheetML uses OOXML naming conventions
-"src/mcp_handley_lab/microsoft/powerpoint/*.py" = ["N802", "N803", "N806"]  # PresentationML uses OOXML naming conventions
+"src/mcp_gerard/google_calendar/tool.py" = ["N815"]  # Allow mixedCase for Google Calendar API field names
+"src/mcp_gerard/microsoft/opc/*.py" = ["N802", "N803", "N806"]  # OPC uses rId naming convention
+"src/mcp_gerard/microsoft/word/*.py" = ["N802", "N803", "N806", "E402", "SIM102", "SIM105", "SIM108", "SIM117", "B007", "B904"]  # OOXML naming conventions
+"src/mcp_gerard/microsoft/excel/*.py" = ["N802", "N803", "N806"]  # SpreadsheetML uses OOXML naming conventions
+"src/mcp_gerard/microsoft/powerpoint/*.py" = ["N802", "N803", "N806"]  # PresentationML uses OOXML naming conventions
 "tests/word/*.py" = ["N806"]  # Allow OOXML element naming in tests
 "tests/excel/*.py" = ["N806"]  # Allow OOXML element naming in tests
 "tests/powerpoint/*.py" = ["N806"]  # Allow OOXML element naming in tests
 
 [tool.coverage.run]
 omit = [
-    "src/mcp_handley_lab/__main__.py",
+    "src/mcp_gerard/__main__.py",
     "tests/*",
     "venv/*",
 ]

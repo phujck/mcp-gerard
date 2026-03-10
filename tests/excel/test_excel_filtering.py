@@ -4,8 +4,8 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.filtering import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.filtering import (
     apply_filter,
     clear_autofilter,
     clear_filter,
@@ -13,7 +13,7 @@ from mcp_handley_lab.microsoft.excel.ops.filtering import (
     set_autofilter,
     sort_range,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestGetAutofilter:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_handley_lab.google_calendar.tool import (
+from mcp_gerard.google_calendar.tool import (
     CompactCalendarEvent,
     _build_compact_event,
     _client_side_filter,

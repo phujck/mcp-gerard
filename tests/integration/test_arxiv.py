@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from mcp_handley_lab.arxiv.tool import download, search
+from mcp_gerard.arxiv.tool import download, search
 
 
 class TestArxivIntegration:

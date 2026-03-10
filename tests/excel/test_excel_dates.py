@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, time
 
-from mcp_handley_lab.microsoft.excel.ops.dates import (
+from mcp_gerard.microsoft.excel.ops.dates import (
     datetime_to_excel,
     excel_to_date,
     excel_to_datetime,

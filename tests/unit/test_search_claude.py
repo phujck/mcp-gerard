@@ -5,11 +5,11 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_handley_lab.search import db
-from mcp_handley_lab.search.core import context
-from mcp_handley_lab.search.models import SyncItem
-from mcp_handley_lab.search.sources import claude
-from mcp_handley_lab.search.sync import sync_single_source
+from mcp_gerard.search import db
+from mcp_gerard.search.core import context
+from mcp_gerard.search.models import SyncItem
+from mcp_gerard.search.sources import claude
+from mcp_gerard.search.sync import sync_single_source
 
 
 @pytest.fixture

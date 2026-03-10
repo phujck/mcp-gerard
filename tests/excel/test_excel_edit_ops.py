@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.cells import (
+from mcp_gerard.microsoft.excel.ops.cells import (
     get_cell_data,
     set_cell_formula,
     set_cell_value,
 )
-from mcp_handley_lab.microsoft.excel.ops.ranges import (
+from mcp_gerard.microsoft.excel.ops.ranges import (
     delete_columns,
     delete_rows,
     get_range_values,
@@ -20,14 +20,14 @@ from mcp_handley_lab.microsoft.excel.ops.ranges import (
     set_range_values,
     unmerge_cells,
 )
-from mcp_handley_lab.microsoft.excel.ops.sheets import (
+from mcp_gerard.microsoft.excel.ops.sheets import (
     add_sheet,
     copy_sheet,
     delete_sheet,
     list_sheets,
     rename_sheet,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestSetCellValue:
@@ -571,7 +571,7 @@ class TestRecalculate:
         """Recalculate should populate cached values for formulas."""
         import shutil
 
-        from mcp_handley_lab.microsoft.excel.tool import recalculate
+        from mcp_gerard.microsoft.excel.tool import recalculate
 
         if not shutil.which("libreoffice"):
             pytest.skip("LibreOffice not installed")

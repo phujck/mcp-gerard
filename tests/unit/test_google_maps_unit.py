@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcp_handley_lab.google_maps.tool import (
+from mcp_gerard.google_maps.tool import (
     DirectionLeg,
     DirectionRoute,
     DirectionStep,
@@ -18,8 +18,8 @@ from mcp_handley_lab.google_maps.tool import (
 class TestClientInitialization:
     """Test Google Maps client initialization."""
 
-    @patch("mcp_handley_lab.google_maps.tool.settings")
-    @patch("mcp_handley_lab.google_maps.tool.googlemaps.Client")
+    @patch("mcp_gerard.google_maps.tool.settings")
+    @patch("mcp_gerard.google_maps.tool.googlemaps.Client")
     def test_get_maps_client(self, mock_client_class, mock_settings):
         """Test client initialization with API key from config."""
         mock_settings.google_maps_api_key = "test_api_key"

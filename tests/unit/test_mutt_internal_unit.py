@@ -1,6 +1,6 @@
 """Tests for mutt tool internal logic."""
 
-from mcp_handley_lab.email.mutt.tool import _build_mutt_command
+from mcp_gerard.email.mutt.tool import _build_mutt_command
 
 
 class TestMuttCommandConstruction:

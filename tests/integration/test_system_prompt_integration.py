@@ -5,7 +5,7 @@ import os
 import pytest
 from PIL import Image
 
-from mcp_handley_lab.llm.tool import mcp
+from mcp_gerard.llm.tool import mcp
 
 # Skip all API-requiring tests if API keys not available
 gemini_available = bool(os.getenv("GEMINI_API_KEY"))

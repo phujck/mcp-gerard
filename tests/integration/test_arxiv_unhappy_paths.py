@@ -7,7 +7,7 @@ network failures, and edge cases not covered by basic integration tests.
 import httpx
 import pytest
 
-from mcp_handley_lab.arxiv.tool import download
+from mcp_gerard.arxiv.tool import download
 
 
 @pytest.mark.integration

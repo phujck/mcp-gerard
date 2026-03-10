@@ -4,14 +4,14 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_value
-from mcp_handley_lab.microsoft.excel.ops.charts import (
+from mcp_gerard.microsoft.excel.ops.cells import set_cell_value
+from mcp_gerard.microsoft.excel.ops.charts import (
     create_chart,
     delete_chart,
     list_charts,
     update_chart_data,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestCreateChart:
@@ -273,7 +273,7 @@ class TestDrawingObjectIds:
         create_chart(pkg, "Sheet1", "pie", "A1:A5", "M1")
 
         # Get the drawing XML and check cNvPr IDs are unique
-        from mcp_handley_lab.microsoft.excel.constants import RT
+        from mcp_gerard.microsoft.excel.constants import RT
 
         for name, _rId, partname in pkg.get_sheet_paths():
             if name == "Sheet1":

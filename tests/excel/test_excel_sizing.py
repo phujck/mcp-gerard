@@ -2,14 +2,14 @@
 
 import io
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.sheets import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.sheets import (
     get_column_width,
     get_row_height,
     set_column_width,
     set_row_height,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestSetColumnWidth:

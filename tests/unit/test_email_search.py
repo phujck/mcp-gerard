@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from mcp_handley_lab.email.notmuch.shared import (
+from mcp_gerard.email.notmuch.shared import (
     _auto_relax,
     _build_folder_families,
     _expand_folder_families,
@@ -19,7 +19,7 @@ from mcp_handley_lab.email.notmuch.shared import (
 
 
 class TestNotmuchCount:
-    @patch("mcp_handley_lab.email.notmuch.shared.subprocess.run")
+    @patch("mcp_gerard.email.notmuch.shared.subprocess.run")
     def test_basic_count(self, mock_run):
         mock_run.return_value = MagicMock(stdout="42\n")
         assert _notmuch_count("tag:inbox") == 42
@@ -30,7 +30,7 @@ class TestNotmuchCount:
             capture_output=True,
         )
 
-    @patch("mcp_handley_lab.email.notmuch.shared.subprocess.run")
+    @patch("mcp_gerard.email.notmuch.shared.subprocess.run")
     def test_include_excluded(self, mock_run):
         mock_run.return_value = MagicMock(stdout="5\n")
         _notmuch_count("tag:spam", include_excluded=True)
@@ -41,7 +41,7 @@ class TestNotmuchCount:
             capture_output=True,
         )
 
-    @patch("mcp_handley_lab.email.notmuch.shared.subprocess.run")
+    @patch("mcp_gerard.email.notmuch.shared.subprocess.run")
     def test_error_returns_negative(self, mock_run):
         from subprocess import CalledProcessError
 
@@ -315,9 +315,9 @@ class TestRelaxQuery:
 
 
 class TestAutoRelax:
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._search_emails")
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._search_emails")
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_folder_relaxation(self, mock_count, mock_search, _mock_families):
         mock_search_result = [MagicMock()]
         mock_count.return_value = 5
@@ -339,9 +339,9 @@ class TestAutoRelax:
         search_query = mock_search.call_args[0][0]
         assert "folder:" not in search_query
 
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._search_emails")
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._search_emails")
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_to_relaxation(self, mock_count, mock_search, _mock_families):
         mock_count.return_value = 3
         mock_search.return_value = [MagicMock()]
@@ -360,9 +360,9 @@ class TestAutoRelax:
         assert "to:" not in relaxed_query
         assert "subject:hello" in relaxed_query
 
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._search_emails")
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._search_emails")
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_from_domain_relaxation(self, mock_count, mock_search, _mock_families):
         mock_count.return_value = 2
         mock_search.return_value = [MagicMock()]
@@ -381,8 +381,8 @@ class TestAutoRelax:
         assert "from:domain.com" in relaxed_query
         assert "from:user@domain.com" not in relaxed_query
 
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_no_constraints_returns_empty(self, mock_count, _mock_families):
         results, diag = _auto_relax(
             "subject:hello",
@@ -395,9 +395,9 @@ class TestAutoRelax:
         assert diag is None
         mock_count.assert_not_called()
 
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._search_emails")
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._search_emails")
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_stops_at_first_success(self, mock_count, mock_search, _mock_families):
         mock_count.return_value = 5
         mock_search.return_value = [MagicMock()]
@@ -414,9 +414,9 @@ class TestAutoRelax:
         assert mock_count.call_count == 1
         assert mock_search.call_count == 1
 
-    @patch("mcp_handley_lab.email.notmuch.shared._get_folder_families", return_value={})
-    @patch("mcp_handley_lab.email.notmuch.shared._search_emails")
-    @patch("mcp_handley_lab.email.notmuch.shared._notmuch_count")
+    @patch("mcp_gerard.email.notmuch.shared._get_folder_families", return_value={})
+    @patch("mcp_gerard.email.notmuch.shared._search_emails")
+    @patch("mcp_gerard.email.notmuch.shared._notmuch_count")
     def test_count_fetch_mismatch_continues(
         self, mock_count, mock_search, _mock_families
     ):
@@ -506,12 +506,12 @@ class TestNormalizeFolderQuery:
         """Auto-relax with non-headers mode calls _show_email."""
         with (
             patch(
-                "mcp_handley_lab.email.notmuch.shared._get_folder_families",
+                "mcp_gerard.email.notmuch.shared._get_folder_families",
                 return_value={},
             ),
-            patch("mcp_handley_lab.email.notmuch.shared._show_email") as mock_show,
+            patch("mcp_gerard.email.notmuch.shared._show_email") as mock_show,
             patch(
-                "mcp_handley_lab.email.notmuch.shared._notmuch_count", return_value=3
+                "mcp_gerard.email.notmuch.shared._notmuch_count", return_value=3
             ),
         ):
             mock_show.return_value = [MagicMock()]

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_handley_lab.messenger.server import (
+from mcp_gerard.messenger.server import (
     ChatActor,
     IncomingEvent,
     _context_footer,
@@ -140,7 +140,7 @@ class TestResetCommand:
         actor._save_state()
 
         event = _make_event("/reset", platform)
-        with patch("mcp_handley_lab.messenger.server.kill") as mock_kill:
+        with patch("mcp_gerard.messenger.server.kill") as mock_kill:
             await actor._handle(event)
             mock_kill.assert_called_once_with("claude-123")
 
@@ -156,7 +156,7 @@ class TestInterruptCommands:
     @pytest.mark.parametrize("cmd", ["/reset", "/cancel"])
     async def test_dispatch_terminates_running_loop(self, cmd):
         """_dispatch sends terminate before enqueueing /reset or /cancel."""
-        import mcp_handley_lab.messenger.server as srv
+        import mcp_gerard.messenger.server as srv
 
         old_actors = srv._actors
         old_loop = srv._loop
@@ -172,7 +172,7 @@ class TestInterruptCommands:
             actor.loop_id = "claude-stuck"
 
             event = _make_event(cmd, platform, conversation_id=conv_id)
-            with patch("mcp_handley_lab.messenger.server.terminate") as mock_terminate:
+            with patch("mcp_gerard.messenger.server.terminate") as mock_terminate:
                 await _dispatch(event)
                 mock_terminate.assert_called_once_with("claude-stuck")
 
@@ -185,7 +185,7 @@ class TestInterruptCommands:
     @pytest.mark.asyncio
     async def test_dispatch_no_terminate_without_loop(self):
         """_dispatch skips terminate when no active loop."""
-        import mcp_handley_lab.messenger.server as srv
+        import mcp_gerard.messenger.server as srv
 
         old_actors = srv._actors
         old_loop = srv._loop
@@ -198,7 +198,7 @@ class TestInterruptCommands:
             conv_id = "test:noop"
 
             event = _make_event("/reset", platform, conversation_id=conv_id)
-            with patch("mcp_handley_lab.messenger.server.terminate") as mock_terminate:
+            with patch("mcp_gerard.messenger.server.terminate") as mock_terminate:
                 await _dispatch(event)
                 mock_terminate.assert_not_called()
         finally:
@@ -265,7 +265,7 @@ class TestModelCommand:
         actor.cwd.mkdir(parents=True, exist_ok=True)
 
         event = _make_event("/model opus", platform)
-        with patch("mcp_handley_lab.messenger.server.kill") as mock_kill:
+        with patch("mcp_gerard.messenger.server.kill") as mock_kill:
             await actor._handle(event)
             mock_kill.assert_called_once_with("claude-123")
 
@@ -283,7 +283,7 @@ class TestStatusCommand:
         actor.session_id = "sess-abc"
 
         with patch(
-            "mcp_handley_lab.messenger.server.loop_status",
+            "mcp_gerard.messenger.server.loop_status",
             return_value={"ok": True, "running": True, "elapsed_seconds": 42.0},
         ):
             event = _make_event("/status", platform)
@@ -311,7 +311,7 @@ class TestStatusCommand:
         actor.cwd.mkdir(parents=True, exist_ok=True)
 
         with patch(
-            "mcp_handley_lab.messenger.server.loop_status",
+            "mcp_gerard.messenger.server.loop_status",
             side_effect=RuntimeError("not_found: loop not found"),
         ):
             event = _make_event("/status", platform)
@@ -324,7 +324,7 @@ class TestStatusCommand:
 class TestActorLifecycle:
     def test_stopped_actor_replaced(self, tmp_path):
         """_get_or_create_actor replaces a stopped actor."""
-        import mcp_handley_lab.messenger.server as srv
+        import mcp_gerard.messenger.server as srv
 
         old_actors = srv._actors
         old_loop = srv._loop
@@ -363,11 +363,11 @@ class TestQueryThreadsModel:
 
         with (
             patch(
-                "mcp_handley_lab.messenger.server.spawn",
+                "mcp_gerard.messenger.server.spawn",
                 return_value="claude-test",
             ) as mock_spawn,
             patch(
-                "mcp_handley_lab.messenger.server.run",
+                "mcp_gerard.messenger.server.run",
                 return_value="response",
             ),
         ):
@@ -385,11 +385,11 @@ class TestQueryThreadsModel:
 
         with (
             patch(
-                "mcp_handley_lab.messenger.server.spawn",
+                "mcp_gerard.messenger.server.spawn",
                 return_value="claude-test",
             ) as mock_spawn,
             patch(
-                "mcp_handley_lab.messenger.server.run",
+                "mcp_gerard.messenger.server.run",
                 return_value="response",
             ),
         ):
@@ -406,11 +406,11 @@ class TestQueryThreadsModel:
 
         with (
             patch(
-                "mcp_handley_lab.messenger.server.spawn",
+                "mcp_gerard.messenger.server.spawn",
                 return_value="claude-test",
             ) as mock_spawn,
             patch(
-                "mcp_handley_lab.messenger.server.run",
+                "mcp_gerard.messenger.server.run",
                 return_value="response",
             ),
         ):
@@ -529,11 +529,11 @@ class TestContextFooterOnResponse:
 
         with (
             patch(
-                "mcp_handley_lab.messenger.server.run",
+                "mcp_gerard.messenger.server.run",
                 return_value="Hello there!",
             ),
             patch(
-                "mcp_handley_lab.messenger.server.read_cells_raw",
+                "mcp_gerard.messenger.server.read_cells_raw",
                 return_value=cells,
             ),
         ):
@@ -555,11 +555,11 @@ class TestContextFooterOnResponse:
 
         with (
             patch(
-                "mcp_handley_lab.messenger.server.run",
+                "mcp_gerard.messenger.server.run",
                 return_value="Hello there!",
             ),
             patch(
-                "mcp_handley_lab.messenger.server.read_cells_raw",
+                "mcp_gerard.messenger.server.read_cells_raw",
                 return_value=[],
             ),
         ):

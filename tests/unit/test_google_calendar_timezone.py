@@ -4,7 +4,7 @@ import zoneinfo
 
 import pytest
 
-from mcp_handley_lab.google_calendar.tool import (
+from mcp_gerard.google_calendar.tool import (
     CalendarEvent,
     EventDateTime,
     _build_event_model,

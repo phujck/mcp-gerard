@@ -32,8 +32,8 @@ Thank you for your interest in contributing! This is beta software with room for
 ## Development Guidelines
 
 ### Project Structure
-- Each tool is a self-contained Python module in `src/mcp_handley_lab/`
-- Shared logic goes in `src/mcp_handley_lab/common/`
+- Each tool is a self-contained Python module in `src/mcp_gerard/`
+- Shared logic goes in `src/mcp_gerard/common/`
 - Tests are organized in `tests/` with unit and integration categories
 - Follow existing patterns when adding new tools
 
@@ -46,7 +46,7 @@ ruff format .
 ruff check . --fix
 
 # Run tests with coverage
-pytest --cov=mcp_handley_lab --cov-report=term-missing
+pytest --cov=mcp_gerard --cov-report=term-missing
 
 # Run only unit tests (fast)
 pytest -m unit
@@ -76,7 +76,7 @@ The script automatically updates both `pyproject.toml` and `PKGBUILD`. **Never e
 
 ### Adding New Tools
 
-1. **Study existing tools** in `src/mcp_handley_lab/` to understand patterns
+1. **Study existing tools** in `src/mcp_gerard/` to understand patterns
 2. **Create your tool module** following the established structure
 3. **Add entry points** in `pyproject.toml` under `[project.scripts]`
 4. **Write comprehensive tests** including both unit and integration tests

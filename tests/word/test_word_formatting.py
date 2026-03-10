@@ -13,13 +13,13 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.microsoft.word.constants import qn
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.shared import (
+from mcp_gerard.microsoft.word.constants import qn
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.shared import (
     _parse_bool_param,
     _parse_json_param,
 )
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 def _ops(operations: list[dict]) -> str:

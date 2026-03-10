@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
-from mcp_handley_lab.microsoft.excel.shared import edit
+from mcp_gerard.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.shared import edit
 
 
 @pytest.fixture

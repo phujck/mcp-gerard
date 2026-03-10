@@ -24,7 +24,7 @@ async def event_creator(
             # Use event_id in test...
             # Event will be automatically cleaned up
     """
-    from mcp_handley_lab.google_calendar.tool import mcp
+    from mcp_gerard.google_calendar.tool import mcp
 
     created_event_ids = []
 

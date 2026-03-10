@@ -8,7 +8,7 @@ import shutil
 
 import pytest
 
-from mcp_handley_lab.email.mutt.tool import run_command
+from mcp_gerard.email.mutt.tool import run_command
 
 
 @pytest.fixture
@@ -179,7 +179,7 @@ class TestMuttCLIErrorScenarios:
         monkeypatch.setattr("shutil.which", mock_which)
 
         # Test that our tools handle missing mutt gracefully
-        from mcp_handley_lab.common.process import run_command
+        from mcp_gerard.common.process import run_command
 
         with pytest.raises(
             (RuntimeError, FileNotFoundError)
@@ -200,11 +200,11 @@ class TestMuttCLIErrorScenarios:
                 return (b"", b"")
 
         monkeypatch.setattr(
-            "mcp_handley_lab.common.process.run_command", mock_run_command
+            "mcp_gerard.common.process.run_command", mock_run_command
         )
 
         # The tools should handle malformed output gracefully
-        from mcp_handley_lab.common.process import run_command
+        from mcp_gerard.common.process import run_command
 
         stdout, stderr = run_command(["mutt", "-v"], timeout=5)
 

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.word.ops.render import render_to_images, render_to_pdf
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.ops.render import render_to_images, render_to_pdf
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 def _ops(operations: list[dict]) -> str:

@@ -8,9 +8,9 @@ import pytest
 from lxml import etree
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.microsoft.word.constants import qn
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.constants import qn
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 def _ops(operations: list[dict]) -> str:
@@ -7594,7 +7594,7 @@ async def test_accept_all_includes_moves(move_fixture_copy):
 @pytest.mark.asyncio
 async def test_accept_move_removes_all_markers(move_fixture_copy):
     """Test that accepting a move removes all range markers from XML."""
-    from mcp_handley_lab.microsoft.word.document import _rev_xpath
+    from mcp_gerard.microsoft.word.document import _rev_xpath
 
     # Get a move ID
     _, before_result = await mcp.call_tool(

@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.powerpoint.constants import EMU_PER_INCH, NSMAP, qn
-from mcp_handley_lab.microsoft.powerpoint.ops.core import (
+from mcp_gerard.microsoft.powerpoint.constants import EMU_PER_INCH, NSMAP, qn
+from mcp_gerard.microsoft.powerpoint.ops.core import (
     emu_to_inches,
     inches_to_emu,
     make_shape_key,
     parse_shape_key,
     spatial_sort_shapes,
 )
-from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
+from mcp_gerard.microsoft.powerpoint.package import PowerPointPackage
 
 
 class TestEmuConversion:
@@ -105,13 +105,13 @@ class TestSlideOperations:
     """Tests for slide operations."""
 
     def test_get_slide_count_empty(self):
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import get_slide_count
+        from mcp_gerard.microsoft.powerpoint.ops.slides import get_slide_count
 
         pkg = PowerPointPackage.new()
         assert get_slide_count(pkg) == 0
 
     def test_list_slides_empty(self):
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import list_slides
+        from mcp_gerard.microsoft.powerpoint.ops.slides import list_slides
 
         pkg = PowerPointPackage.new()
         slides = list_slides(pkg)
@@ -126,7 +126,7 @@ class TestImageDimensions:
 
         from PIL import Image
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+        from mcp_gerard.microsoft.powerpoint.ops.images import (
             _get_image_dimensions,
         )
 
@@ -145,7 +145,7 @@ class TestImageDimensions:
 
         from PIL import Image
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+        from mcp_gerard.microsoft.powerpoint.ops.images import (
             _get_image_dimensions,
         )
 
@@ -164,7 +164,7 @@ class TestImageDimensions:
 
         from PIL import Image
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+        from mcp_gerard.microsoft.powerpoint.ops.images import (
             _get_image_dimensions,
         )
 
@@ -181,7 +181,7 @@ class TestImageDimensions:
     def test_corrupted_image_raises(self):
         from PIL import UnidentifiedImageError
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+        from mcp_gerard.microsoft.powerpoint.ops.images import (
             _get_image_dimensions,
         )
 
@@ -196,7 +196,7 @@ class TestPhase12BugFixes:
 
     def test_image_namespace_on_root(self):
         """12a: r namespace should be on root p:pic, not on child a:blip."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.images import (
+        from mcp_gerard.microsoft.powerpoint.ops.images import (
             _create_pic_element,
         )
 
@@ -227,7 +227,7 @@ class TestPhase12BugFixes:
         """12b: a:blipFill should not be in fill removal list."""
         import inspect
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_shape_fill
+        from mcp_gerard.microsoft.powerpoint.ops.styling import set_shape_fill
 
         source = inspect.getsource(set_shape_fill)
         assert "a:blipFill" not in source
@@ -236,7 +236,7 @@ class TestPhase12BugFixes:
         """12d: a:tab elements should be extracted as tab characters."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import (
+        from mcp_gerard.microsoft.powerpoint.ops.text import (
             extract_text_from_txBody,
         )
 
@@ -258,7 +258,7 @@ class TestPhase12BugFixes:
         """12d: Tabs in text should create a:tab elements."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import (
+        from mcp_gerard.microsoft.powerpoint.ops.text import (
             extract_text_from_txBody,
             set_shape_text,
         )
@@ -282,7 +282,7 @@ class TestPhase12BugFixes:
 
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import _set_cell_text
+        from mcp_gerard.microsoft.powerpoint.ops.tables import _set_cell_text
 
         # Create a cell with formatting
         tc = etree.Element(qn("a:tc"))
@@ -326,7 +326,7 @@ def _add_test_slide(pkg):
     """
     from lxml import etree
 
-    from mcp_handley_lab.microsoft.powerpoint.constants import RT
+    from mcp_gerard.microsoft.powerpoint.constants import RT
 
     slide_xml = etree.fromstring(
         b'<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
@@ -364,7 +364,7 @@ class TestPhase13SlideBackground:
 
     def test_set_slide_background(self):
         """Setting a background creates p:bg as first child of p:cSld."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
+        from mcp_gerard.microsoft.powerpoint.ops.styling import (
             set_slide_background,
         )
 
@@ -395,7 +395,7 @@ class TestPhase13SlideBackground:
 
     def test_replace_existing_background(self):
         """Setting background twice replaces the first."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import (
+        from mcp_gerard.microsoft.powerpoint.ops.styling import (
             set_slide_background,
         )
 
@@ -422,7 +422,7 @@ class TestPhase15BulletLists:
         """bullet_style='bullet' creates a:buChar with bullet character."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         set_shape_text(sp, "Item 1\nItem 2", bullet_style="bullet")
@@ -444,7 +444,7 @@ class TestPhase15BulletLists:
         """bullet_style='dash' creates a:buChar with en-dash."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         set_shape_text(sp, "Item", bullet_style="dash")
@@ -459,7 +459,7 @@ class TestPhase15BulletLists:
         """bullet_style='number' creates a:buAutoNum."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         set_shape_text(sp, "Step 1\nStep 2", bullet_style="number")
@@ -475,7 +475,7 @@ class TestPhase15BulletLists:
         """bullet_style='none' adds a:buNone and removes indent."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         # First add bullets
@@ -496,7 +496,7 @@ class TestPhase15BulletLists:
         import pytest
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         with pytest.raises(ValueError, match="Unknown bullet_style"):
@@ -506,7 +506,7 @@ class TestPhase15BulletLists:
         """bullet_style=None does not modify bullet state."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import set_shape_text
+        from mcp_gerard.microsoft.powerpoint.ops.text import set_shape_text
 
         sp = etree.Element(qn("p:sp"))
         set_shape_text(sp, "Item", bullet_style="bullet")
@@ -530,7 +530,7 @@ class TestPhase14Hyperlinks:
         """Adding a hyperlink creates a:hlinkClick on text runs."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -575,7 +575,7 @@ class TestPhase14Hyperlinks:
         """Adding a hyperlink replaces any existing one."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -614,7 +614,7 @@ class TestPhase14Hyperlinks:
         """Hyperlink on shape with no text raises ValueError."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -641,8 +641,8 @@ class TestPhase14Hyperlinks:
         """Adding an internal hyperlink links to another slide."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.constants import RT
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.constants import RT
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)  # Slide 1
@@ -714,7 +714,7 @@ class TestPhase14Hyperlinks:
         """Hyperlink requires either url or target_slide."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -726,7 +726,7 @@ class TestPhase14Hyperlinks:
         """Cannot specify both url and target_slide."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.text import add_hyperlink
+        from mcp_gerard.microsoft.powerpoint.ops.text import add_hyperlink
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -763,7 +763,7 @@ class TestRender:
         """Test render input validation."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.render import render_to_images
+        from mcp_gerard.microsoft.powerpoint.ops.render import render_to_images
 
         # Empty pages list should raise
         with pytest.raises(ValueError, match="pages is required"):
@@ -779,7 +779,7 @@ class TestPhase18aSlideDimensions:
 
     def test_set_dimensions_preset_16x9(self):
         """Test setting 16:9 preset dimensions."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -802,7 +802,7 @@ class TestPhase18aSlideDimensions:
 
     def test_set_dimensions_preset_4x3(self):
         """Test setting 4:3 preset dimensions."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -822,7 +822,7 @@ class TestPhase18aSlideDimensions:
 
     def test_set_dimensions_preset_aliases(self):
         """Test preset aliases (wide, standard, 16x9, 4x3)."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -843,7 +843,7 @@ class TestPhase18aSlideDimensions:
 
     def test_set_dimensions_custom(self):
         """Test setting custom dimensions in inches."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -864,7 +864,7 @@ class TestPhase18aSlideDimensions:
         """Test that invalid preset raises ValueError."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -875,7 +875,7 @@ class TestPhase18aSlideDimensions:
         """Test that missing parameters raises ValueError."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -895,7 +895,7 @@ class TestPhase18aSlideDimensions:
         """Test that zero or negative dimensions raise ValueError."""
         import pytest
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import set_slide_dimensions
+        from mcp_gerard.microsoft.powerpoint.ops.slides import set_slide_dimensions
 
         pkg = PowerPointPackage.new()
 
@@ -911,7 +911,7 @@ class TestPhase18bShapeTransform:
 
     def test_transform_move_shape(self):
         """Test moving a shape by changing position."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import (
             add_shape,
             set_shape_transform,
         )
@@ -941,7 +941,7 @@ class TestPhase18bShapeTransform:
 
     def test_transform_resize_shape(self):
         """Test resizing a shape by changing dimensions."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import (
             add_shape,
             set_shape_transform,
         )
@@ -970,7 +970,7 @@ class TestPhase18bShapeTransform:
 
     def test_transform_move_and_resize(self):
         """Test moving and resizing in one operation."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import (
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import (
             add_shape,
             set_shape_transform,
         )
@@ -998,7 +998,7 @@ class TestPhase18bShapeTransform:
 
     def test_transform_nonexistent_shape_raises(self):
         """Test that transforming a nonexistent shape raises ValueError."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import set_shape_transform
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import set_shape_transform
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1011,7 +1011,7 @@ class TestPhase18bShapeTransform:
         """Test that transforming a shape preserves rotation attributes."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import set_shape_transform
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import set_shape_transform
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1048,7 +1048,7 @@ class TestPhase18cDuplicateSlide:
 
     def test_duplicate_slide_basic(self):
         """Test basic slide duplication."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+        from mcp_gerard.microsoft.powerpoint.ops.slides import duplicate_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1081,7 +1081,7 @@ class TestPhase18cDuplicateSlide:
 
     def test_duplicate_slide_at_position(self):
         """Test duplicating a slide at a specific position."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+        from mcp_gerard.microsoft.powerpoint.ops.slides import duplicate_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1099,8 +1099,8 @@ class TestPhase18cDuplicateSlide:
 
     def test_duplicate_slide_preserves_layout_relationship(self):
         """Test that duplicated slide keeps layout relationship."""
-        from mcp_handley_lab.microsoft.powerpoint.constants import RT
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+        from mcp_gerard.microsoft.powerpoint.constants import RT
+        from mcp_gerard.microsoft.powerpoint.ops.slides import duplicate_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1123,7 +1123,7 @@ class TestPhase18cDuplicateSlide:
 
     def test_duplicate_slide_unique_sld_id(self):
         """Test that duplicated slide gets unique sld_id."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+        from mcp_gerard.microsoft.powerpoint.ops.slides import duplicate_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1148,9 +1148,9 @@ class TestPhase18cDuplicateSlide:
 
     def test_duplicate_slide_excludes_notes(self):
         """Test that notes slide is NOT duplicated."""
-        from mcp_handley_lab.microsoft.powerpoint.constants import RT
-        from mcp_handley_lab.microsoft.powerpoint.ops.notes import set_notes
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import duplicate_slide
+        from mcp_gerard.microsoft.powerpoint.constants import RT
+        from mcp_gerard.microsoft.powerpoint.ops.notes import set_notes
+        from mcp_gerard.microsoft.powerpoint.ops.slides import duplicate_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1176,8 +1176,8 @@ class TestPhase18dFontSelection:
     def test_set_font_on_shape(self):
         """Test setting font family on shape text."""
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_gerard.microsoft.powerpoint.ops.styling import set_text_style
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1202,8 +1202,8 @@ class TestPhase18dFontSelection:
     def test_set_font_updates_existing(self):
         """Test that setting font updates existing a:latin element."""
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_gerard.microsoft.powerpoint.ops.styling import set_text_style
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1231,7 +1231,7 @@ class TestPhase18dFontSelection:
         """Test that font is set on endParaRPr as well."""
         from lxml import etree
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+        from mcp_gerard.microsoft.powerpoint.ops.styling import set_text_style
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1267,8 +1267,8 @@ class TestPhase18dFontSelection:
 
     def test_set_font_with_other_styles(self):
         """Test setting font along with other text styles."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.shapes import add_shape
-        from mcp_handley_lab.microsoft.powerpoint.ops.styling import set_text_style
+        from mcp_gerard.microsoft.powerpoint.ops.shapes import add_shape
+        from mcp_gerard.microsoft.powerpoint.ops.styling import set_text_style
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1302,7 +1302,7 @@ class TestPhase17cDocumentProperties:
 
     def test_get_core_properties_empty(self):
         """Test getting core properties from new presentation (empty values)."""
-        from mcp_handley_lab.microsoft.common.properties import get_core_properties
+        from mcp_gerard.microsoft.common.properties import get_core_properties
 
         pkg = PowerPointPackage.new()
         props = get_core_properties(pkg)
@@ -1314,7 +1314,7 @@ class TestPhase17cDocumentProperties:
 
     def test_set_core_properties(self):
         """Test setting core properties."""
-        from mcp_handley_lab.microsoft.common.properties import (
+        from mcp_gerard.microsoft.common.properties import (
             get_core_properties,
             set_core_properties,
         )
@@ -1335,7 +1335,7 @@ class TestPhase17cDocumentProperties:
 
     def test_set_custom_property(self):
         """Test setting custom properties."""
-        from mcp_handley_lab.microsoft.common.properties import (
+        from mcp_gerard.microsoft.common.properties import (
             get_custom_properties,
             set_custom_property,
         )
@@ -1356,7 +1356,7 @@ class TestPhase17cDocumentProperties:
 
     def test_delete_custom_property(self):
         """Test deleting custom properties."""
-        from mcp_handley_lab.microsoft.common.properties import (
+        from mcp_gerard.microsoft.common.properties import (
             delete_custom_property,
             get_custom_properties,
             set_custom_property,
@@ -1380,7 +1380,7 @@ class TestPhase17cDocumentProperties:
         import tempfile
         from pathlib import Path
 
-        from mcp_handley_lab.microsoft.common.properties import (
+        from mcp_gerard.microsoft.common.properties import (
             get_core_properties,
             get_custom_properties,
             set_core_properties,
@@ -1410,7 +1410,7 @@ class TestPhase17cDocumentProperties:
         """Test that unknown property types raise ValueError."""
         import pytest
 
-        from mcp_handley_lab.microsoft.common.properties import set_custom_property
+        from mcp_gerard.microsoft.common.properties import set_custom_property
 
         pkg = PowerPointPackage.new()
 
@@ -1426,7 +1426,7 @@ class TestPhase17cDocumentProperties:
 
         import pytest
 
-        from mcp_handley_lab.microsoft.common.properties import (
+        from mcp_gerard.microsoft.common.properties import (
             get_custom_properties,
             set_custom_property,
         )
@@ -1455,7 +1455,7 @@ class TestPhase17cDocumentProperties:
 
         import pytest
 
-        from mcp_handley_lab.microsoft.common.properties import set_custom_property
+        from mcp_gerard.microsoft.common.properties import set_custom_property
 
         pkg = PowerPointPackage.new()
 
@@ -1472,7 +1472,7 @@ class TestPhase19bHideSlides:
 
     def test_hide_slide(self):
         """Test hiding a slide."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+        from mcp_gerard.microsoft.powerpoint.ops.slides import (
             hide_slide,
             is_slide_hidden,
         )
@@ -1489,7 +1489,7 @@ class TestPhase19bHideSlides:
 
     def test_show_hidden_slide(self):
         """Test showing a hidden slide."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+        from mcp_gerard.microsoft.powerpoint.ops.slides import (
             hide_slide,
             is_slide_hidden,
         )
@@ -1506,7 +1506,7 @@ class TestPhase19bHideSlides:
 
     def test_hide_nonexistent_slide_raises(self):
         """Test that hiding a non-existent slide raises ValueError."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import hide_slide
+        from mcp_gerard.microsoft.powerpoint.ops.slides import hide_slide
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1517,7 +1517,7 @@ class TestPhase19bHideSlides:
 
     def test_is_slide_hidden_nonexistent_raises(self):
         """Test that checking hidden state of non-existent slide raises ValueError."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import is_slide_hidden
+        from mcp_gerard.microsoft.powerpoint.ops.slides import is_slide_hidden
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1531,7 +1531,7 @@ class TestPhase19bHideSlides:
         import tempfile
         from pathlib import Path
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import (
+        from mcp_gerard.microsoft.powerpoint.ops.slides import (
             hide_slide,
             is_slide_hidden,
         )
@@ -1552,8 +1552,8 @@ class TestPhase19bHideSlides:
         """Test hiding a slide via the edit tool interface."""
         import json
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.slides import is_slide_hidden
-        from mcp_handley_lab.microsoft.powerpoint.tool import edit
+        from mcp_gerard.microsoft.powerpoint.ops.slides import is_slide_hidden
+        from mcp_gerard.microsoft.powerpoint.tool import edit
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1595,7 +1595,7 @@ class TestPhase19cTableRowColumnOps:
 
     def _create_pkg_with_table(self):
         """Create a package with a slide and a 2x3 table."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import add_table
+        from mcp_gerard.microsoft.powerpoint.ops.tables import add_table
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)
@@ -1606,7 +1606,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_add_table_row_at_end(self):
         """Test adding a row at the end of a table."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table_row,
             list_tables,
         )
@@ -1626,7 +1626,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_add_table_row_at_position(self):
         """Test adding a row at a specific position."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table_row,
             list_tables,
             set_table_cell,
@@ -1653,7 +1653,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_add_table_column_at_end(self):
         """Test adding a column at the end of a table."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table_column,
             list_tables,
         )
@@ -1673,7 +1673,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_add_table_column_at_position(self):
         """Test adding a column at a specific position."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table_column,
             list_tables,
             set_table_cell,
@@ -1703,7 +1703,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_delete_table_row(self):
         """Test deleting a row from a table."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             delete_table_row,
             list_tables,
             set_table_cell,
@@ -1728,7 +1728,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_delete_table_column(self):
         """Test deleting a column from a table."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             delete_table_column,
             list_tables,
             set_table_cell,
@@ -1755,7 +1755,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_delete_last_row_raises(self):
         """Test that deleting the last row raises ValueError."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table,
             delete_table_row,
         )
@@ -1772,7 +1772,7 @@ class TestPhase19cTableRowColumnOps:
 
     def test_delete_last_column_raises(self):
         """Test that deleting the last column raises ValueError."""
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import (
+        from mcp_gerard.microsoft.powerpoint.ops.tables import (
             add_table,
             delete_table_column,
         )
@@ -1791,8 +1791,8 @@ class TestPhase19cTableRowColumnOps:
         """Test table operations via the edit tool interface."""
         import json
 
-        from mcp_handley_lab.microsoft.powerpoint.ops.tables import list_tables
-        from mcp_handley_lab.microsoft.powerpoint.tool import edit
+        from mcp_gerard.microsoft.powerpoint.ops.tables import list_tables
+        from mcp_gerard.microsoft.powerpoint.tool import edit
 
         pkg = PowerPointPackage.new()
         _add_test_slide(pkg)

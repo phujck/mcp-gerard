@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.code2prompt.tool import mcp
+from mcp_gerard.code2prompt.tool import mcp
 
 
 class TestCode2PromptIntegration:

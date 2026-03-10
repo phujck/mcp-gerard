@@ -2,12 +2,12 @@
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.formatting import (
+from mcp_gerard.microsoft.excel.ops.formatting import (
     get_number_format,
     get_style_by_index,
     list_styles,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestListStyles:

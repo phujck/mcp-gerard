@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_handley_lab.common.config import Settings
-from mcp_handley_lab.common.pricing import (
+from mcp_gerard.common.config import Settings
+from mcp_gerard.common.pricing import (
     PricingCalculator,
     calculate_cost,
     format_usage,

@@ -18,7 +18,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
 # Import after path manipulation to find local modules
-from mcp_handley_lab.notes.manager import NotesManager  # noqa: E402
+from mcp_gerard.notes.manager import NotesManager  # noqa: E402
 
 
 def load_group_data(yaml_path: str) -> dict[str, Any]:
@@ -336,7 +336,7 @@ def main():
     # Initialize notes manager (disable semantic search to avoid hanging)
     try:
         # Use a simpler storage directory for testing
-        storage_dir = ".mcp_handley_lab"
+        storage_dir = ".mcp_gerard"
         manager = NotesManager(local_storage_dir=storage_dir)
         print(f"Initialized notes manager with storage: {storage_dir}")
     except Exception as e:

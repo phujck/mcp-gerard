@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.loop.sandbox import (
+from mcp_gerard.loop.sandbox import (
     default_mounts,
     sandbox_cmd,
     write_launcher_script,

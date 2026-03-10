@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_handley_lab.llm.providers.mistral.adapter import (
+from mcp_gerard.llm.providers.mistral.adapter import (
     MODEL_CONFIGS,
     get_model_config,
     resolve_files,

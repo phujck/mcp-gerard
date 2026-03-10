@@ -2,8 +2,8 @@
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_value
-from mcp_handley_lab.microsoft.excel.ops.tables import (
+from mcp_gerard.microsoft.excel.ops.cells import set_cell_value
+from mcp_gerard.microsoft.excel.ops.tables import (
     add_table_row,
     create_table,
     delete_table,
@@ -12,7 +12,7 @@ from mcp_handley_lab.microsoft.excel.ops.tables import (
     get_table_data,
     list_tables,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestListTables:
@@ -164,7 +164,7 @@ class TestDeleteTable:
         delete_table(pkg, "Table")
 
         # Data should still be there
-        from mcp_handley_lab.microsoft.excel.ops.cells import get_cell_value
+        from mcp_gerard.microsoft.excel.ops.cells import get_cell_value
 
         assert get_cell_value(pkg, "Sheet1", "A1") == "Header"
         assert get_cell_value(pkg, "Sheet1", "A2") == "Value"

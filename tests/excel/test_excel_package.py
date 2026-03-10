@@ -4,8 +4,8 @@ from io import BytesIO
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.constants import CT, RT, qn
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage, SharedStrings
+from mcp_gerard.microsoft.excel.constants import CT, RT, qn
+from mcp_gerard.microsoft.excel.package import ExcelPackage, SharedStrings
 
 
 class TestSharedStrings:

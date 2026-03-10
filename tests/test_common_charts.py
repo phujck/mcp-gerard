@@ -7,15 +7,15 @@ import io
 import pytest
 from lxml import etree
 
-from mcp_handley_lab.microsoft.common.charts import (
+from mcp_gerard.microsoft.common.charts import (
     CHART_NSMAP,
     SERIES_COLORS,
     _col_letter,
     compute_chart_refs,
     create_chart_xml,
 )
-from mcp_handley_lab.microsoft.excel.embedding import create_embedded_excel
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.embedding import create_embedded_excel
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestColLetter:
@@ -375,7 +375,7 @@ class TestCreateEmbeddedExcel:
         data = [["Name", "Score"], ["Alice", 95], ["Bob", 87]]
         xlsx_bytes, sheet_name, n_rows, n_cols = create_embedded_excel(data)
 
-        from mcp_handley_lab.microsoft.excel.ops.cells import get_cell_value
+        from mcp_gerard.microsoft.excel.ops.cells import get_cell_value
 
         pkg = ExcelPackage.open(io.BytesIO(xlsx_bytes))
         assert get_cell_value(pkg, sheet_name, "A1") == "Name"

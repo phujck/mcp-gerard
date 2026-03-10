@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.llm.embeddings.tool import mcp
+from mcp_gerard.llm.embeddings.tool import mcp
 
 
 def skip_if_no_openai_key():

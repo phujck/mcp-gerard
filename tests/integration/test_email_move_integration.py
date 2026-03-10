@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_handley_lab.email.common import mcp
+from mcp_gerard.email.common import mcp
 
 
 class TestEmailMoveIntegration:
@@ -63,8 +63,8 @@ class TestEmailMoveIntegration:
             "gmail_email": str(gmail_email),
         }
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool._new")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool._new")
     async def test_move_hermes_inbox_to_archive(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -126,8 +126,8 @@ class TestEmailMoveIntegration:
         # Verify notmuch new was called to update index
         mock_new.assert_called_once()
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool._new")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool._new")
     async def test_move_gmail_inbox_to_trash(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -168,7 +168,7 @@ class TestEmailMoveIntegration:
         # Verify original file no longer exists
         assert not Path(sample_emails["gmail_email"]).exists()
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
     async def test_move_to_nonexistent_folder_raises_error(
         self, mock_run_command, mock_maildir, sample_emails
     ):
@@ -201,7 +201,7 @@ class TestEmailMoveIntegration:
         )
         assert "Available folders:" in error_msg
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
     async def test_move_no_emails_found_raises_error(
         self, mock_run_command, mock_maildir
     ):
@@ -240,8 +240,8 @@ class TestEmailMoveIntegration:
         # The update tool validates message_ids are required for move action
         assert "At least one message_id required" in str(exc_info.value)
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
-    @patch("mcp_handley_lab.email.notmuch.tool._new")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool._new")
     async def test_move_handles_partial_success(
         self, mock_new, mock_run_command, mock_maildir, sample_emails
     ):
@@ -282,7 +282,7 @@ class TestEmailMoveIntegration:
         # Note: The status message only reports file-level failures, not missing message IDs
         assert "Successfully moved 1 file(s) to 'Archive'" in move_result["status"]
 
-    @patch("mcp_handley_lab.email.notmuch.tool.run_command")
+    @patch("mcp_gerard.email.notmuch.tool.run_command")
     async def test_move_os_rename_failure_raises_error(
         self, mock_run_command, mock_maildir, sample_emails
     ):

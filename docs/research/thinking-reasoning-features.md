@@ -19,7 +19,7 @@ complex tasks like math, coding, and multi-step analysis.
 
 ## 1. Mistral (Already Implemented)
 
-**File:** `src/mcp_handley_lab/llm/mistral/tool.py`
+**File:** `src/mcp_gerard/llm/mistral/tool.py`
 
 ### Parameters
 - `include_thinking: bool = False` - Include reasoning model thinking in output

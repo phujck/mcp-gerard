@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel import shared
+from mcp_gerard.microsoft.excel import shared
 
 
 @pytest.fixture

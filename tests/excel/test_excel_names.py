@@ -4,16 +4,16 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.names import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.names import (
     create_name,
     delete_name,
     get_name,
     list_names,
     update_name,
 )
-from mcp_handley_lab.microsoft.excel.ops.sheets import add_sheet
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.ops.sheets import add_sheet
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestListNames:

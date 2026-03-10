@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.email.notmuch.tool import _find_smart_destination
+from mcp_gerard.email.notmuch.tool import _find_smart_destination
 
 
 class TestFindSmartDestination:

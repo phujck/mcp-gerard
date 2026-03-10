@@ -6,7 +6,7 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 from PIL import Image
 
-from mcp_handley_lab.llm.tool import mcp
+from mcp_gerard.llm.tool import mcp
 
 # Define provider-specific parameters (unified MCP, model determines provider)
 llm_providers = [

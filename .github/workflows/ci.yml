@@ -107,7 +107,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         echo "Running fast VCR-backed tests (excluding live API contract validation)"
-        python -m pytest tests/ -m "not live" --cov=mcp_handley_lab --cov-report=xml --cov-report=term-missing -v
+        python -m pytest tests/ -m "not live" --cov=mcp_gerard --cov-report=xml --cov-report=term-missing -v
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

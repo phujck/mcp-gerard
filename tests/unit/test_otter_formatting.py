@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from mcp_handley_lab.otter.shared import (
+from mcp_gerard.otter.shared import (
     MeetingSummary,
     OtterResult,
     TranscriptResult,
@@ -200,7 +200,7 @@ def _patch_api(speech=_MOCK_SPEECH, speakers=_MOCK_SPEAKERS):
             return speakers
         raise ValueError(f"Unexpected path: {path}")
 
-    return patch("mcp_handley_lab.otter.shared._api_get", side_effect=fake_api_get)
+    return patch("mcp_gerard.otter.shared._api_get", side_effect=fake_api_get)
 
 
 class TestGetTranscriptSinceOffset:

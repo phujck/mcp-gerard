@@ -54,17 +54,17 @@ async def generate_schemas():
 
     # Map tool names to their module paths
     tool_modules = {
-        "vim": "mcp_handley_lab.vim.tool",
-        "code2prompt": "mcp_handley_lab.code2prompt.tool",
-        "arxiv": "mcp_handley_lab.arxiv.tool",
-        "google-calendar": "mcp_handley_lab.google_calendar.tool",
-        "google-maps": "mcp_handley_lab.google_maps.tool",
-        "gemini": "mcp_handley_lab.llm.gemini.tool",
-        "openai": "mcp_handley_lab.llm.openai.tool",
-        "claude": "mcp_handley_lab.llm.claude.tool",
-        "grok": "mcp_handley_lab.llm.grok.tool",
-        "email": "mcp_handley_lab.email.tool",
-        "py2nb": "mcp_handley_lab.py2nb.tool",
+        "vim": "mcp_gerard.vim.tool",
+        "code2prompt": "mcp_gerard.code2prompt.tool",
+        "arxiv": "mcp_gerard.arxiv.tool",
+        "google-calendar": "mcp_gerard.google_calendar.tool",
+        "google-maps": "mcp_gerard.google_maps.tool",
+        "gemini": "mcp_gerard.llm.gemini.tool",
+        "openai": "mcp_gerard.llm.openai.tool",
+        "claude": "mcp_gerard.llm.claude.tool",
+        "grok": "mcp_gerard.llm.grok.tool",
+        "email": "mcp_gerard.email.tool",
+        "py2nb": "mcp_gerard.py2nb.tool",
     }
 
     schema_data = {
@@ -91,7 +91,7 @@ async def generate_schemas():
     schema_data["generated_at"] = datetime.utcnow().isoformat() + "Z"
 
     # Write to package data directory
-    package_dir = Path(__file__).parent.parent / "src" / "mcp_handley_lab"
+    package_dir = Path(__file__).parent.parent / "src" / "mcp_gerard"
     schema_file = package_dir / "tool_schemas.json"
 
     with open(schema_file, "w") as f:

@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 import vcr
 
-from mcp_handley_lab.otter.shared import _clear_session_cache
-from mcp_handley_lab.otter.tool import mcp
+from mcp_gerard.otter.shared import _clear_session_cache
+from mcp_gerard.otter.tool import mcp
 
 otter_vcr = vcr.VCR(
     serializer="yaml",
@@ -63,7 +63,7 @@ def mock_session(tmp_path):
             )
         )
     with patch(
-        "mcp_handley_lab.otter.shared.settings.otter_session_file",
+        "mcp_gerard.otter.shared.settings.otter_session_file",
         str(session_file),
     ):
         yield session_file

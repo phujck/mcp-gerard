@@ -2,8 +2,8 @@
 
 import pytest
 
-from mcp_handley_lab.google_calendar.shared import _merge_recurrence
-from mcp_handley_lab.google_calendar.tool import (
+from mcp_gerard.google_calendar.shared import _merge_recurrence
+from mcp_gerard.google_calendar.tool import (
     _build_event_model,
     _get_series_master_id,
     _validate_recurrence,

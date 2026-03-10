@@ -14,7 +14,7 @@ import pytest
 # Add the source directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mcp_handley_lab.mathematica.tool import (
+from mcp_gerard.mathematica.tool import (
     EvaluationCancelledError,
     _get_kernel_pid,
     _get_session,
@@ -48,7 +48,7 @@ class TestPreprocessPercentReferences:
         global _result_history
         _result_history.clear()
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_single_percent_reference(self, mock_to_input):
         """Test % (last result) reference."""
         mock_to_input.return_value = "x^2 - 1"
@@ -58,7 +58,7 @@ class TestPreprocessPercentReferences:
         assert result == "Factor[(x^2 - 1)]"
         mock_to_input.assert_called_once()
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_double_percent_reference(self, mock_to_input):
         """Test %% (second-to-last result) reference."""
         mock_to_input.return_value = "(x-1)*(x+1)"
@@ -68,7 +68,7 @@ class TestPreprocessPercentReferences:
         assert result == "Expand[((x-1)*(x+1))]"
         mock_to_input.assert_called_once()
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_triple_percent_reference(self, mock_to_input):
         """Test %%% (third-to-last result) reference."""
         mock_to_input.return_value = "x^2 + 1"
@@ -78,7 +78,7 @@ class TestPreprocessPercentReferences:
         assert result == "D[(x^2 + 1), x]"
         mock_to_input.assert_called_once()
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_numbered_percent_reference(self, mock_to_input):
         """Test %n (specific result number) references."""
         mock_to_input.side_effect = ["x^2 + 1", "x^2 - 1"]
@@ -88,7 +88,7 @@ class TestPreprocessPercentReferences:
         assert result == "Plot[(x^2 + 1) + (x^2 - 1), {x, 0, 5}]"
         assert mock_to_input.call_count == 2
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_mixed_percent_references(self, mock_to_input):
         """Test mixed % and %n references in same expression."""
         mock_to_input.side_effect = ["(x-1)*(x+1)", "x^2 - 1"]
@@ -141,7 +141,7 @@ class TestPreprocessPercentReferences:
         # Should remain unchanged (% is inside string)
         assert result == expression
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_percent_with_numbers_ignored(self, mock_to_input):
         """Test that % preceded by digits (like 5%2) are not processed."""
         mock_to_input.return_value = "x^2 - 1"
@@ -177,7 +177,7 @@ class TestApplyToLastLogic:
         last_result = _result_history[-1]
 
         # This is the actual logic from apply_to_last
-        with patch("mcp_handley_lab.mathematica.tool._to_input_form") as mock_to_input:
+        with patch("mcp_gerard.mathematica.tool._to_input_form") as mock_to_input:
             mock_to_input.return_value = "x^2 - 4"
 
             last_result_str = mock_to_input(last_result)
@@ -190,7 +190,7 @@ class TestApplyToLastLogic:
             assert operation_expr == "Solve[x^2 - 4 == 0, x]"
             mock_to_input.assert_called_once_with(last_result)
 
-    @patch("mcp_handley_lab.mathematica.tool._to_input_form")
+    @patch("mcp_gerard.mathematica.tool._to_input_form")
     def test_operation_without_hash_gets_wrapped(self, mock_to_input):
         """Test operation string without # gets function-wrapped."""
         mock_to_input.return_value = "x^2 - 4"
@@ -214,12 +214,12 @@ class TestApplyToLastLogic:
 class TestSessionManagement:
     """Test session management singleton behavior."""
 
-    @patch("mcp_handley_lab.mathematica.tool.WolframLanguageSession")
-    @patch("mcp_handley_lab.mathematica.tool._find_wolfram_kernel")
-    @patch("mcp_handley_lab.mathematica.tool._session", None)  # Start with None
+    @patch("mcp_gerard.mathematica.tool.WolframLanguageSession")
+    @patch("mcp_gerard.mathematica.tool._find_wolfram_kernel")
+    @patch("mcp_gerard.mathematica.tool._session", None)  # Start with None
     def test_get_session_singleton(self, mock_find_kernel, mock_session_class):
         """Test that _get_session returns the same instance on multiple calls."""
-        import mcp_handley_lab.mathematica.tool as tool_module
+        import mcp_gerard.mathematica.tool as tool_module
 
         original_session = tool_module._session
         original_kernel_path = tool_module._kernel_path
@@ -357,7 +357,7 @@ class TestHandleCancellationDecorator:
 class TestKernelInterruptHandler:
     """Test the kernel interrupt handler context manager."""
 
-    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("mcp_gerard.mathematica.tool._get_kernel_pid")
     @patch("signal.getsignal")
     @patch("signal.signal")
     def test_kernel_interrupt_handler_no_pid(
@@ -373,7 +373,7 @@ class TestKernelInterruptHandler:
         # Should not install signal handler
         mock_signal_set.assert_not_called()
 
-    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("mcp_gerard.mathematica.tool._get_kernel_pid")
     @patch("signal.getsignal")
     @patch("signal.signal")
     def test_kernel_interrupt_handler_with_pid(
@@ -393,7 +393,7 @@ class TestKernelInterruptHandler:
         # First call installs new handler, second restores original
         mock_signal_set.assert_any_call(2, mock_original_handler)  # SIGINT = 2
 
-    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("mcp_gerard.mathematica.tool._get_kernel_pid")
     @patch("signal.getsignal")
     @patch("signal.signal")
     @patch("os.kill")
@@ -422,7 +422,7 @@ class TestKernelInterruptHandler:
         # Should have sent SIGINT to kernel PID
         mock_kill.assert_called_once_with(12345, 2)  # PID, SIGINT
 
-    @patch("mcp_handley_lab.mathematica.tool._get_kernel_pid")
+    @patch("mcp_gerard.mathematica.tool._get_kernel_pid")
     @patch("signal.getsignal")
     @patch("signal.signal")
     @patch("os.kill")

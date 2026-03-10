@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.llm import memory
+from mcp_gerard.llm import memory
 
 
 class TestPathEncoding:

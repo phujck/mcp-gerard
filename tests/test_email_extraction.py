@@ -7,15 +7,15 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 
-from mcp_handley_lab.email.extraction import (
+from mcp_gerard.email.extraction import (
     extract_email_content,
 )
-from mcp_handley_lab.email.extraction.html_converter import (
+from mcp_gerard.email.extraction.html_converter import (
     html_to_markdown,
     sanitize_html_minimal,
 )
-from mcp_handley_lab.email.extraction.mime_extractor import extract_mime_parts
-from mcp_handley_lab.email.extraction.quote_detector import (
+from mcp_gerard.email.extraction.mime_extractor import extract_mime_parts
+from mcp_gerard.email.extraction.quote_detector import (
     segment_email_content,
 )
 
@@ -308,7 +308,7 @@ class TestProgressiveDisclosureProjection:
         The contract specifies these fields are omitted from response (not empty string).
         Using model_dump(exclude_none=True) achieves this.
         """
-        from mcp_handley_lab.email.notmuch.tool import EmailContent
+        from mcp_gerard.email.notmuch.tool import EmailContent
 
         # Simulate summary mode content (preservation fields are None)
         summary_content = EmailContent(
@@ -347,8 +347,8 @@ class TestProgressiveDisclosureProjection:
 
     def test_full_mode_includes_preservation_fields(self):
         """Full mode must include body_raw, parts_manifest when applicable."""
-        from mcp_handley_lab.email.extraction.models import EmailPartInfo
-        from mcp_handley_lab.email.notmuch.tool import EmailContent
+        from mcp_gerard.email.extraction.models import EmailPartInfo
+        from mcp_gerard.email.notmuch.tool import EmailContent
 
         # Simulate full mode content (preservation fields populated)
         full_content = EmailContent(
@@ -390,8 +390,8 @@ class TestProgressiveDisclosureProjection:
 
     def test_html_full_mode_includes_html_raw(self):
         """Full mode for HTML emails must include body_html_raw."""
-        from mcp_handley_lab.email.extraction.models import EmailPartInfo
-        from mcp_handley_lab.email.notmuch.tool import EmailContent
+        from mcp_gerard.email.extraction.models import EmailPartInfo
+        from mcp_gerard.email.notmuch.tool import EmailContent
 
         full_content = EmailContent(
             id="test@example.com",
@@ -422,8 +422,8 @@ class TestProgressiveDisclosureProjection:
 
     def test_segments_only_present_when_requested(self):
         """segments field only present in full mode when segment_quotes=True."""
-        from mcp_handley_lab.email.extraction.models import EmailBodySegment
-        from mcp_handley_lab.email.notmuch.tool import EmailContent
+        from mcp_gerard.email.extraction.models import EmailBodySegment
+        from mcp_gerard.email.notmuch.tool import EmailContent
 
         # Without segment_quotes
         without_segments = EmailContent(
@@ -474,7 +474,7 @@ class TestProgressiveDisclosureProjection:
         assert len(result.parts_manifest) >= 1
 
         # Verify serialization includes these
-        from mcp_handley_lab.email.notmuch.tool import EmailContent
+        from mcp_gerard.email.notmuch.tool import EmailContent
 
         content = EmailContent(
             id="test",
@@ -511,7 +511,7 @@ class TestProgressiveDisclosureProjection:
         returning a completely different model (SearchResult) that
         structurally doesn't have these fields.
         """
-        from mcp_handley_lab.email.notmuch.tool import SearchResult
+        from mcp_gerard.email.notmuch.tool import SearchResult
 
         # SearchResult is the model returned by headers mode
         result = SearchResult(

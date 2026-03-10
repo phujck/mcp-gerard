@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from mcp_handley_lab.llm.common import determine_mime_type, is_text_file
-from mcp_handley_lab.llm.providers.openai.adapter import (
+from mcp_gerard.llm.common import determine_mime_type, is_text_file
+from mcp_gerard.llm.providers.openai.adapter import (
     MODEL_CONFIGS,
     get_model_config,
 )

@@ -13,9 +13,9 @@ import pytest
 from lxml import etree
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.microsoft.word.constants import qn
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.constants import qn
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 def _ops(operations: list[dict]) -> str:

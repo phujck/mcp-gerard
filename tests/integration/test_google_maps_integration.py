@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import vcr
 
-from mcp_handley_lab.google_maps.tool import mcp
+from mcp_gerard.google_maps.tool import mcp
 
 
 # VCR configuration for Google Maps API

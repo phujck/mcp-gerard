@@ -26,7 +26,7 @@ import pytest
 # Add the source directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mcp_handley_lab.mathematica.tool import (
+from mcp_gerard.mathematica.tool import (
     EvaluationCancelledError,
     _get_session,
     evaluate,
@@ -43,7 +43,7 @@ class TestLiveCancellation:
     def setup_test_environment(self):
         """Set up test environment and ensure clean state."""
         # Clear any existing session state
-        import mcp_handley_lab.mathematica.tool as tool_module
+        import mcp_gerard.mathematica.tool as tool_module
 
         # Reset global state
         tool_module._session = None
@@ -199,7 +199,7 @@ class TestSessionManagement:
     @pytest.fixture(autouse=True)
     def reset_session(self):
         """Reset session state between tests."""
-        import mcp_handley_lab.mathematica.tool as tool_module
+        import mcp_gerard.mathematica.tool as tool_module
 
         if tool_module._session:
             with contextlib.suppress(Exception):

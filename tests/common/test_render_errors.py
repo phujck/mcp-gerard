@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcp_handley_lab.microsoft.common.render import (
+from mcp_gerard.microsoft.common.render import (
     _convert_to_pdf,
     _find_pdf_output,
     render_pages_to_images,
@@ -26,7 +26,7 @@ class TestConvertToPdfErrors:
         doc_path.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render.subprocess.run"
+            "mcp_gerard.microsoft.common.render.subprocess.run"
         ) as mock_run:
             mock_run.side_effect = FileNotFoundError("libreoffice")
 
@@ -42,7 +42,7 @@ class TestConvertToPdfErrors:
         doc_path.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render.subprocess.run"
+            "mcp_gerard.microsoft.common.render.subprocess.run"
         ) as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired("libreoffice", 60)
 
@@ -58,7 +58,7 @@ class TestConvertToPdfErrors:
         doc_path.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render.subprocess.run"
+            "mcp_gerard.microsoft.common.render.subprocess.run"
         ) as mock_run:
             error = subprocess.CalledProcessError(
                 returncode=1, cmd="libreoffice", stderr="Unable to compress image data"
@@ -79,7 +79,7 @@ class TestConvertToPdfErrors:
         doc_path.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render.subprocess.run"
+            "mcp_gerard.microsoft.common.render.subprocess.run"
         ) as mock_run:
             error = subprocess.CalledProcessError(
                 returncode=1, cmd="libreoffice", stderr="Unknown error occurred"
@@ -135,13 +135,13 @@ class TestRenderPagesToImagesErrors:
         mock_pdf.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render._convert_to_pdf"
+            "mcp_gerard.microsoft.common.render._convert_to_pdf"
         ) as mock_convert:
             mock_convert.return_value = mock_pdf
 
             # Mock pdftoppm to succeed but not create the expected PNG
             with patch(
-                "mcp_handley_lab.microsoft.common.render.subprocess.run"
+                "mcp_gerard.microsoft.common.render.subprocess.run"
             ) as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
 
@@ -161,12 +161,12 @@ class TestRenderPagesToImagesErrors:
         mock_pdf.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render._convert_to_pdf"
+            "mcp_gerard.microsoft.common.render._convert_to_pdf"
         ) as mock_convert:
             mock_convert.return_value = mock_pdf
 
             with patch(
-                "mcp_handley_lab.microsoft.common.render.subprocess.run"
+                "mcp_gerard.microsoft.common.render.subprocess.run"
             ) as mock_run:
                 error = subprocess.CalledProcessError(
                     returncode=1, cmd="pdftoppm", stderr="Memory allocation failed"
@@ -188,12 +188,12 @@ class TestRenderPagesToImagesErrors:
         mock_pdf.touch()
 
         with patch(
-            "mcp_handley_lab.microsoft.common.render._convert_to_pdf"
+            "mcp_gerard.microsoft.common.render._convert_to_pdf"
         ) as mock_convert:
             mock_convert.return_value = mock_pdf
 
             with patch(
-                "mcp_handley_lab.microsoft.common.render.subprocess.run"
+                "mcp_gerard.microsoft.common.render.subprocess.run"
             ) as mock_run:
                 mock_run.side_effect = subprocess.TimeoutExpired("pdftoppm", 60)
 

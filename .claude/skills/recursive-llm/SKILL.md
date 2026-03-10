@@ -23,7 +23,7 @@ The prompt is loaded as a **variable in the REPL environment**, not fed directly
 
 ## Prerequisites
 
-- `mcp_handley_lab` must be installed in the Python environment
+- `mcp_gerard` must be installed in the Python environment
 - API keys configured for desired providers (GEMINI_API_KEY, OPENAI_API_KEY, etc.)
 
 ## Pattern
@@ -35,7 +35,7 @@ The prompt is loaded as a **variable in the REPL environment**, not fed directly
 
 2. **Import llm module and survey the context**
    ```python
-   from mcp_handley_lab import llm
+   from mcp_gerard import llm
    from pathlib import Path
 
    context_path = Path("/path/to/large/document.txt")
@@ -164,7 +164,7 @@ for i in range(0, len(lines), batch_size):
 ## API Reference
 
 ```python
-from mcp_handley_lab import llm
+from mcp_gerard import llm
 
 result = llm.chat(
     prompt: str,                    # The question/task

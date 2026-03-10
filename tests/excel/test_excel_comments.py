@@ -4,15 +4,15 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.comments import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.comments import (
     add_comment,
     delete_comment,
     get_comment,
     list_comments,
     update_comment,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestListComments:
@@ -235,7 +235,7 @@ class TestDeleteComment:
 
     def test_delete_last_comment_cleans_up_relationships(self) -> None:
         """Deleting last comment removes relationships to avoid orphans."""
-        from mcp_handley_lab.microsoft.excel.constants import RT
+        from mcp_gerard.microsoft.excel.constants import RT
 
         pkg = ExcelPackage.new()
         add_comment(pkg, "Sheet1", "A1", "Only one")

@@ -171,7 +171,7 @@ def reset_llm_client_singletons():
     """
     # Reset before the test
     try:
-        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+        from mcp_gerard.llm.providers.gemini.adapter import reset_client
 
         reset_client()
     except ImportError:
@@ -181,7 +181,7 @@ def reset_llm_client_singletons():
 
     # Reset after the test to clean up
     try:
-        from mcp_handley_lab.llm.providers.gemini.adapter import reset_client
+        from mcp_gerard.llm.providers.gemini.adapter import reset_client
 
         reset_client()
     except ImportError:
@@ -191,7 +191,7 @@ def reset_llm_client_singletons():
 @pytest.fixture(scope="session")
 def google_calendar_test_config():
     """Configure Google Calendar to use test credentials during testing."""
-    from mcp_handley_lab.common.config import settings
+    from mcp_gerard.common.config import settings
 
     # Check if test credentials exist
     test_creds_path = Path("~/.google_calendar_test_credentials.json").expanduser()

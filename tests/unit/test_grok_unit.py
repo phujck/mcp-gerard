@@ -1,6 +1,6 @@
 """Unit tests for Grok LLM provider adapter."""
 
-from mcp_handley_lab.llm.providers.grok.adapter import (
+from mcp_gerard.llm.providers.grok.adapter import (
     DEFAULT_MODEL,
     MODEL_CONFIGS,
     get_model_config,

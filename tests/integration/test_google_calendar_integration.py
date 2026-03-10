@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from mcp_handley_lab.google_calendar.shared import list_calendars
-from mcp_handley_lab.google_calendar.tool import mcp
+from mcp_gerard.google_calendar.shared import list_calendars
+from mcp_gerard.google_calendar.tool import mcp
 
 
 @pytest.mark.vcr

@@ -4,9 +4,9 @@ import inspect
 
 import pytest
 
-from mcp_handley_lab.llm.common import load_prompt_text
-from mcp_handley_lab.llm.registry import PROVIDERS, get_default_model, resolve_model
-from mcp_handley_lab.llm.tool import chat
+from mcp_gerard.llm.common import load_prompt_text
+from mcp_gerard.llm.registry import PROVIDERS, get_default_model, resolve_model
+from mcp_gerard.llm.tool import chat
 
 
 class TestXORValidation:

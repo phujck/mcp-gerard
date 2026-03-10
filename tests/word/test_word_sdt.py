@@ -10,13 +10,13 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from mcp_handley_lab.microsoft.word.constants import NSMAP, qn
-from mcp_handley_lab.microsoft.word.ops.sdt import (
+from mcp_gerard.microsoft.word.constants import NSMAP, qn
+from mcp_gerard.microsoft.word.ops.sdt import (
     build_content_controls,
     create_content_control,
 )
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 @pytest.fixture

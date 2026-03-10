@@ -458,8 +458,8 @@ Subject: {test_subject}
     @pytest.mark.asyncio
     async def test_email_tool_functions_integration(self):
         """Test email tool functions that don't require credentials."""
-        from mcp_handley_lab.email.common import _list_accounts
-        from mcp_handley_lab.email.tool import mcp
+        from mcp_gerard.email.common import _list_accounts
+        from mcp_gerard.email.tool import mcp
 
         # Test msmtp account parsing with real config file
         fixtures_dir = Path(__file__).parent.parent / "fixtures" / "email"
@@ -486,7 +486,7 @@ Subject: {test_subject}
         """Test notmuch functions with real database (if available)."""
         from mcp.server.fastmcp.exceptions import ToolError
 
-        from mcp_handley_lab.email.tool import mcp
+        from mcp_gerard.email.tool import mcp
 
         try:
             # Test read function via MCP (search mode)
@@ -524,7 +524,7 @@ Subject: {test_subject}
     @pytest.mark.asyncio
     async def test_offlineimap_dry_run_integration(self):
         """Test offlineimap sync with status mode."""
-        from mcp_handley_lab.email.tool import mcp
+        from mcp_gerard.email.tool import mcp
 
         # Test with real config file
         fixtures_dir = Path(__file__).parent.parent / "fixtures" / "email"

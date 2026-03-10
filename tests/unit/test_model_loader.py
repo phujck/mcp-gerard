@@ -5,7 +5,7 @@ from unittest.mock import mock_open, patch
 import pytest
 import yaml
 
-from mcp_handley_lab.llm.model_loader import (
+from mcp_gerard.llm.model_loader import (
     build_model_configs_dict,
     format_model_listing,
     get_models_by_tags,
@@ -268,7 +268,7 @@ class TestModelConfigErrorHandling:
 
     def test_build_model_configs_missing_output_tokens_openai(self):
         """Test error when OpenAI model missing output_tokens."""
-        with patch("mcp_handley_lab.llm.model_loader.load_model_config") as mock_load:
+        with patch("mcp_gerard.llm.model_loader.load_model_config") as mock_load:
             mock_load.return_value = {
                 "models": {
                     "test-model": {
@@ -286,7 +286,7 @@ class TestModelConfigErrorHandling:
 
     def test_build_model_configs_missing_param_openai(self):
         """Test error when OpenAI model missing param."""
-        with patch("mcp_handley_lab.llm.model_loader.load_model_config") as mock_load:
+        with patch("mcp_gerard.llm.model_loader.load_model_config") as mock_load:
             mock_load.return_value = {
                 "models": {
                     "test-model": {
@@ -304,7 +304,7 @@ class TestModelConfigErrorHandling:
 
     def test_build_model_configs_missing_input_tokens_claude(self):
         """Test error when Claude model missing input_tokens."""
-        with patch("mcp_handley_lab.llm.model_loader.load_model_config") as mock_load:
+        with patch("mcp_gerard.llm.model_loader.load_model_config") as mock_load:
             mock_load.return_value = {
                 "models": {
                     "test-model": {
@@ -322,7 +322,7 @@ class TestModelConfigErrorHandling:
 
     def test_build_model_configs_missing_output_tokens_gemini(self):
         """Test error when Gemini text model missing output_tokens."""
-        with patch("mcp_handley_lab.llm.model_loader.load_model_config") as mock_load:
+        with patch("mcp_gerard.llm.model_loader.load_model_config") as mock_load:
             mock_load.return_value = {
                 "models": {
                     "test-model": {

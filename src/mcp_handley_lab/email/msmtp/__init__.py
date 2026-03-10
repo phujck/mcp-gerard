@@ -1,1 +1,0 @@
-"""MSMTP email sending provider."""

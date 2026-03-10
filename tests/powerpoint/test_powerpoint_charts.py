@@ -9,15 +9,15 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.powerpoint.ops.charts import (
+from mcp_gerard.microsoft.powerpoint.ops.charts import (
     create_chart,
     delete_chart,
     list_charts,
     update_chart_data,
 )
-from mcp_handley_lab.microsoft.powerpoint.ops.slides import add_slide
-from mcp_handley_lab.microsoft.powerpoint.package import PowerPointPackage
-from mcp_handley_lab.microsoft.powerpoint.tool import mcp
+from mcp_gerard.microsoft.powerpoint.ops.slides import add_slide
+from mcp_gerard.microsoft.powerpoint.package import PowerPointPackage
+from mcp_gerard.microsoft.powerpoint.tool import mcp
 
 
 def _new_pptx_with_slide() -> PowerPointPackage:

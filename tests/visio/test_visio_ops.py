@@ -12,7 +12,7 @@ import zipfile
 import pytest
 from lxml import etree
 
-from mcp_handley_lab.microsoft.visio.constants import (
+from mcp_gerard.microsoft.visio.constants import (
     CT,
     NS_VISIO_2012,
     RT,
@@ -20,7 +20,7 @@ from mcp_handley_lab.microsoft.visio.constants import (
     findall_v,
     qn,
 )
-from mcp_handley_lab.microsoft.visio.ops.core import (
+from mcp_gerard.microsoft.visio.ops.core import (
     extract_shape_text,
     get_all_cells,
     get_cell_float,
@@ -30,7 +30,7 @@ from mcp_handley_lab.microsoft.visio.ops.core import (
     make_shape_key,
     parse_shape_key,
 )
-from mcp_handley_lab.microsoft.visio.package import VisioPackage
+from mcp_gerard.microsoft.visio.package import VisioPackage
 
 NS = NS_VISIO_2012
 NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -582,7 +582,7 @@ class TestVisioPackage:
 
 class TestPageOps:
     def test_list_pages(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(
             num_pages=2,
@@ -600,7 +600,7 @@ class TestPageOps:
         assert pages[1].name == "Layout"
 
     def test_list_pages_background(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(num_pages=2, background_pages=[1])
         pkg = VisioPackage.open(buf)
@@ -610,7 +610,7 @@ class TestPageOps:
         assert pages[1].is_background
 
     def test_get_page_dimensions(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import get_page_dimensions
+        from mcp_gerard.microsoft.visio.ops.pages import get_page_dimensions
 
         buf = _build_minimal_vsdx(page_dimensions=[(11.0, 8.5)])
         pkg = VisioPackage.open(buf)
@@ -619,7 +619,7 @@ class TestPageOps:
         assert h == 8.5
 
     def test_page_shape_count(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -655,7 +655,7 @@ class TestPageOps:
 
 class TestShapeOps:
     def test_list_shapes(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -691,7 +691,7 @@ class TestShapeOps:
         assert orders == [0, 1]
 
     def test_shape_type_detection(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -733,7 +733,7 @@ class TestShapeOps:
         assert types_by_name["Grp"] == "group"
 
     def test_connector_endpoints(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -760,7 +760,7 @@ class TestShapeOps:
         assert conn.end_y == 6.0
 
     def test_master_reference(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -785,7 +785,7 @@ class TestShapeOps:
         assert shapes[0].master_name == "Rectangle"
 
     def test_group_children(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -830,7 +830,7 @@ class TestShapeOps:
         assert len(children) == 2
 
     def test_get_text_in_reading_order(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import get_text_in_reading_order
+        from mcp_gerard.microsoft.visio.ops.shapes import get_text_in_reading_order
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -874,7 +874,7 @@ class TestShapeOps:
 
 class TestConnectionOps:
     def test_list_connections(self):
-        from mcp_handley_lab.microsoft.visio.ops.connections import list_connections
+        from mcp_gerard.microsoft.visio.ops.connections import list_connections
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -924,7 +924,7 @@ class TestConnectionOps:
         assert conn.to_shape_name == "End"
 
     def test_no_connections(self):
-        from mcp_handley_lab.microsoft.visio.ops.connections import list_connections
+        from mcp_gerard.microsoft.visio.ops.connections import list_connections
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -952,7 +952,7 @@ class TestConnectionOps:
 
 class TestMasterOps:
     def test_list_masters(self):
-        from mcp_handley_lab.microsoft.visio.ops.masters import list_masters
+        from mcp_gerard.microsoft.visio.ops.masters import list_masters
 
         buf = _build_minimal_vsdx(
             masters=[
@@ -970,7 +970,7 @@ class TestMasterOps:
         assert masters[0].shape_count == 1  # dummy shape from fixture
 
     def test_resolve_master_name(self):
-        from mcp_handley_lab.microsoft.visio.ops.masters import resolve_master_name
+        from mcp_gerard.microsoft.visio.ops.masters import resolve_master_name
 
         buf = _build_minimal_vsdx(
             masters=[
@@ -985,7 +985,7 @@ class TestMasterOps:
         assert names[5] == "Diamond"
 
     def test_no_masters(self):
-        from mcp_handley_lab.microsoft.visio.ops.masters import list_masters
+        from mcp_gerard.microsoft.visio.ops.masters import list_masters
 
         buf = _build_minimal_vsdx()
         pkg = VisioPackage.open(buf)
@@ -999,7 +999,7 @@ class TestMasterOps:
 
 class TestShapeDataOps:
     def test_get_shape_data(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import get_shape_data
+        from mcp_gerard.microsoft.visio.ops.shapes import get_shape_data
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1034,7 +1034,7 @@ class TestShapeDataOps:
         assert props[1].label == "Status"
 
     def test_get_shape_data_missing_shape(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import get_shape_data
+        from mcp_gerard.microsoft.visio.ops.shapes import get_shape_data
 
         buf = _build_minimal_vsdx(shapes_per_page=[[]])
         pkg = VisioPackage.open(buf)
@@ -1042,7 +1042,7 @@ class TestShapeDataOps:
             get_shape_data(pkg, 1, 99)
 
     def test_get_shape_cells(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import get_shape_cells
+        from mcp_gerard.microsoft.visio.ops.shapes import get_shape_cells
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1075,7 +1075,7 @@ class TestShapeDataOps:
 
 class TestVisioTool:
     def test_read_meta(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(num_pages=2, masters=[{"id": 1, "name": "Rect"}])
         path = tmp_path / "test.vsdx"
@@ -1087,7 +1087,7 @@ class TestVisioTool:
         assert result["meta"]["master_count"] == 1
 
     def test_read_pages(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             num_pages=2,
@@ -1102,7 +1102,7 @@ class TestVisioTool:
         assert result["pages"][0]["name"] == "Flow"
 
     def test_read_shapes(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1128,7 +1128,7 @@ class TestVisioTool:
         assert result["shapes"][0]["text"] == "Hello"
 
     def test_read_text(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1163,7 +1163,7 @@ class TestVisioTool:
         assert "Bottom" in result["text"]
 
     def test_read_connections(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1209,7 +1209,7 @@ class TestVisioTool:
         assert len(result["connections"]) == 1
 
     def test_read_masters(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(masters=[{"id": 1, "name": "Rect"}])
         path = tmp_path / "test.vsdx"
@@ -1221,7 +1221,7 @@ class TestVisioTool:
         assert result["masters"][0]["name"] == "Rect"
 
     def test_read_shape_data(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1249,7 +1249,7 @@ class TestVisioTool:
         assert result["shape_data"][0]["label"] == "Cost"
 
     def test_read_shape_cells(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1274,7 +1274,7 @@ class TestVisioTool:
         assert "PinX" in cell_names
 
     def test_read_requires_page_num(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -1284,7 +1284,7 @@ class TestVisioTool:
             read(str(path), scope="shapes")
 
     def test_read_requires_shape_id(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import read
+        from mcp_gerard.microsoft.visio.tool import read
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -1389,7 +1389,7 @@ class TestNamespace2011EndToEnd:
         return buf
 
     def test_2011_shapes_parse(self):
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = self._build_2011_vsdx()
         pkg = VisioPackage.open(buf)
@@ -1400,7 +1400,7 @@ class TestNamespace2011EndToEnd:
         assert shapes[0].text == "Hello from 2011"
 
     def test_2011_pages_list(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = self._build_2011_vsdx()
         pkg = VisioPackage.open(buf)
@@ -1416,7 +1416,7 @@ class TestFromPartFallback:
 
     def test_from_part_9_12(self):
         """FromPart=9 maps to begin, FromPart=12 maps to end."""
-        from mcp_handley_lab.microsoft.visio.ops.connections import list_connections
+        from mcp_gerard.microsoft.visio.ops.connections import list_connections
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1477,7 +1477,7 @@ class TestFromPartFallback:
 
     def test_unknown_from_cell_no_from_part(self):
         """Unknown FromCell without FromPart falls back to first-available slots."""
-        from mcp_handley_lab.microsoft.visio.ops.connections import list_connections
+        from mcp_gerard.microsoft.visio.ops.connections import list_connections
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1529,7 +1529,7 @@ class TestConnectionsGroupedShapes:
     """Test that connections resolve names for shapes nested in groups."""
 
     def test_grouped_shape_name_resolved(self):
-        from mcp_handley_lab.microsoft.visio.ops.connections import list_connections
+        from mcp_gerard.microsoft.visio.ops.connections import list_connections
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1625,7 +1625,7 @@ class TestNestedGroups:
 
     def test_groups_of_groups(self):
         """Groups containing groups with shapes inside."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1690,7 +1690,7 @@ class TestVisioPackageNew:
         assert pages[0][0] == 1  # page number
 
     def test_new_has_one_page(self):
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         pkg = VisioPackage.new()
         pages = list_pages(pkg)
@@ -1716,7 +1716,7 @@ class TestVisioPackageNew:
 
 class TestEditOps:
     def test_set_shape_text(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_text
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_text
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1743,8 +1743,8 @@ class TestEditOps:
         assert text == "New text"
 
     def test_set_shape_text_roundtrip(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_text
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_text
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1773,7 +1773,7 @@ class TestEditOps:
         assert shapes[0].text == "Updated"
 
     def test_set_shape_cell(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_cell
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_cell
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1793,14 +1793,14 @@ class TestEditOps:
         key = set_shape_cell(pkg, 1, 1, "Width", "5.0", unit="IN")
         assert key == "1:1"
         # Verify
-        from mcp_handley_lab.microsoft.visio.ops.core import get_cell_value
-        from mcp_handley_lab.microsoft.visio.ops.shapes import find_shape_element
+        from mcp_gerard.microsoft.visio.ops.core import get_cell_value
+        from mcp_gerard.microsoft.visio.ops.shapes import find_shape_element
 
         shape_el = find_shape_element(pkg, 1, 1)
         assert get_cell_value(shape_el, "Width") == "5.0"
 
     def test_set_shape_cell_creates_new(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_cell
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_cell
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1818,14 +1818,14 @@ class TestEditOps:
         )
         pkg = VisioPackage.open(buf)
         set_shape_cell(pkg, 1, 1, "FillForegnd", "#FF0000")
-        from mcp_handley_lab.microsoft.visio.ops.core import get_cell_value
-        from mcp_handley_lab.microsoft.visio.ops.shapes import find_shape_element
+        from mcp_gerard.microsoft.visio.ops.core import get_cell_value
+        from mcp_gerard.microsoft.visio.ops.shapes import find_shape_element
 
         shape_el = find_shape_element(pkg, 1, 1)
         assert get_cell_value(shape_el, "FillForegnd") == "#FF0000"
 
     def test_set_shape_data(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_data
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_data
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1852,13 +1852,13 @@ class TestEditOps:
         key = set_shape_data(pkg, 1, 1, "Prop1", "200")
         assert key == "1:1"
         # Verify
-        from mcp_handley_lab.microsoft.visio.ops.shapes import get_shape_data
+        from mcp_gerard.microsoft.visio.ops.shapes import get_shape_data
 
         props = get_shape_data(pkg, 1, 1)
         assert props[0].value == "200"
 
     def test_set_shape_data_missing_row(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_data
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_data
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1879,8 +1879,8 @@ class TestEditOps:
             set_shape_data(pkg, 1, 1, "NonExistent", "val")
 
     def test_delete_shape(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import delete_shape
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.edit import delete_shape
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -1911,7 +1911,7 @@ class TestEditOps:
         assert shapes[0].name == "Keep"
 
     def test_delete_shape_not_found(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import delete_shape
+        from mcp_gerard.microsoft.visio.ops.edit import delete_shape
 
         buf = _build_minimal_vsdx(shapes_per_page=[[]])
         pkg = VisioPackage.open(buf)
@@ -1926,8 +1926,8 @@ class TestEditOps:
 
 class TestPageEditOps:
     def test_add_page(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import add_page
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.edit import add_page
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(num_pages=1)
         pkg = VisioPackage.open(buf)
@@ -1938,8 +1938,8 @@ class TestPageEditOps:
         assert pages[1].name == "NewPage"
 
     def test_add_page_default_name(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import add_page
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.edit import add_page
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(num_pages=1)
         pkg = VisioPackage.open(buf)
@@ -1948,8 +1948,8 @@ class TestPageEditOps:
         assert pages[1].name == "Page-2"
 
     def test_delete_page(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import delete_page
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.edit import delete_page
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(num_pages=2, page_names=["First", "Second"])
         pkg = VisioPackage.open(buf)
@@ -1959,7 +1959,7 @@ class TestPageEditOps:
         assert pages[0].name == "First"
 
     def test_delete_last_page_fails(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import delete_page
+        from mcp_gerard.microsoft.visio.ops.edit import delete_page
 
         buf = _build_minimal_vsdx(num_pages=1)
         pkg = VisioPackage.open(buf)
@@ -1967,8 +1967,8 @@ class TestPageEditOps:
             delete_page(pkg, 1)
 
     def test_rename_page(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import rename_page
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.edit import rename_page
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         buf = _build_minimal_vsdx(num_pages=1, page_names=["Old"])
         pkg = VisioPackage.open(buf)
@@ -1977,7 +1977,7 @@ class TestPageEditOps:
         assert pages[0].name == "New"
 
     def test_rename_page_out_of_range(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import rename_page
+        from mcp_gerard.microsoft.visio.ops.edit import rename_page
 
         buf = _build_minimal_vsdx(num_pages=1)
         pkg = VisioPackage.open(buf)
@@ -1992,7 +1992,7 @@ class TestPageEditOps:
 
 class TestEditTool:
     def test_edit_set_text(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2021,7 +2021,7 @@ class TestEditTool:
         assert result["succeeded"] == 1
 
     def test_edit_atomic_rollback(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2049,7 +2049,7 @@ class TestEditTool:
             )
 
     def test_edit_prev_chaining(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2078,7 +2078,7 @@ class TestEditTool:
         assert result["succeeded"] == 2
 
     def test_edit_auto_create(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         path = tmp_path / "new.vsdx"
         assert not path.exists()
@@ -2092,14 +2092,14 @@ class TestEditTool:
         assert path.exists()
 
         # Verify content
-        from mcp_handley_lab.microsoft.visio.ops.pages import list_pages
+        from mcp_gerard.microsoft.visio.ops.pages import list_pages
 
         pkg = VisioPackage.open(str(path))
         pages = list_pages(pkg)
         assert pages[0].name == "MyDiagram"
 
     def test_edit_invalid_json(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2109,7 +2109,7 @@ class TestEditTool:
             edit(str(path), ops="not json")
 
     def test_edit_empty_ops(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2119,7 +2119,7 @@ class TestEditTool:
             edit(str(path), ops="[]")
 
     def test_edit_unknown_op(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2129,7 +2129,7 @@ class TestEditTool:
             edit(str(path), ops='[{"op": "bogus"}]')
 
     def test_edit_add_and_rename_page(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx(num_pages=1)
         path = tmp_path / "test.vsdx"
@@ -2144,7 +2144,7 @@ class TestEditTool:
         assert result["succeeded"] == 2
 
     def test_edit_set_property(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit, read
+        from mcp_gerard.microsoft.visio.tool import edit, read
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2161,7 +2161,7 @@ class TestEditTool:
         assert props["properties"]["title"] == "My Diagram"
 
     def test_edit_set_custom_property(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2174,7 +2174,7 @@ class TestEditTool:
         assert result["success"]
 
     def test_edit_delete_custom_property_not_found(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2187,7 +2187,7 @@ class TestEditTool:
             )
 
     def test_edit_text_normalization(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import edit
+        from mcp_gerard.microsoft.visio.tool import edit
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2214,7 +2214,7 @@ class TestEditTool:
         assert result["success"]
 
         # Verify text has actual newline
-        from mcp_handley_lab.microsoft.visio.ops.shapes import list_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import list_shapes
 
         pkg = VisioPackage.open(str(path))
         shapes = list_shapes(pkg, 1)
@@ -2230,7 +2230,7 @@ class TestRenderTool:
     def test_render_png(self, tmp_path):
         from unittest.mock import patch
 
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2239,7 +2239,7 @@ class TestRenderTool:
         fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
 
         with patch(
-            "mcp_handley_lab.microsoft.visio.ops.render.render_to_images",
+            "mcp_gerard.microsoft.visio.ops.render.render_to_images",
             return_value=[(1, fake_png)],
         ):
             result = render(str(path), pages=[1], dpi=150, output="png")
@@ -2253,7 +2253,7 @@ class TestRenderTool:
     def test_render_pdf(self, tmp_path):
         from unittest.mock import patch
 
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2262,7 +2262,7 @@ class TestRenderTool:
         fake_pdf = b"%PDF-1.4" + b"\x00" * 100
 
         with patch(
-            "mcp_handley_lab.microsoft.visio.ops.render.render_to_pdf",
+            "mcp_gerard.microsoft.visio.ops.render.render_to_pdf",
             return_value=fake_pdf,
         ):
             result = render(str(path), output="pdf")
@@ -2273,7 +2273,7 @@ class TestRenderTool:
         assert str(tmp_path / "test.pdf") in result[0].text
 
     def test_render_png_requires_pages(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2283,7 +2283,7 @@ class TestRenderTool:
             render(str(path), pages=[], output="png")
 
     def test_render_dpi_max(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2293,7 +2293,7 @@ class TestRenderTool:
             render(str(path), pages=[1], dpi=500, output="png")
 
     def test_render_max_5_pages(self, tmp_path):
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2305,7 +2305,7 @@ class TestRenderTool:
     def test_render_duplicates_dont_count(self, tmp_path):
         from unittest.mock import patch
 
-        from mcp_handley_lab.microsoft.visio.tool import render
+        from mcp_gerard.microsoft.visio.tool import render
 
         buf = _build_minimal_vsdx()
         path = tmp_path / "test.vsdx"
@@ -2315,7 +2315,7 @@ class TestRenderTool:
 
         # 6 entries but only 1 unique page - should not fail
         with patch(
-            "mcp_handley_lab.microsoft.visio.ops.render.render_to_images",
+            "mcp_gerard.microsoft.visio.ops.render.render_to_images",
             return_value=[(1, fake_png)],
         ):
             result = render(str(path), pages=[1, 1, 1, 1, 1, 1], output="png")
@@ -2329,7 +2329,7 @@ class TestRenderTool:
 
 class TestSetShapeCellUnitClearing:
     def test_clear_unit_when_not_specified(self):
-        from mcp_handley_lab.microsoft.visio.ops.edit import set_shape_cell
+        from mcp_gerard.microsoft.visio.ops.edit import set_shape_cell
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2349,7 +2349,7 @@ class TestSetShapeCellUnitClearing:
 
         # Set with unit
         set_shape_cell(pkg, 1, 1, "Width", "5.0", unit="IN")
-        from mcp_handley_lab.microsoft.visio.ops.shapes import find_shape_element
+        from mcp_gerard.microsoft.visio.ops.shapes import find_shape_element
 
         shape_el = find_shape_element(pkg, 1, 1)
         cell = next(c for c in findall_v(shape_el, "Cell") if c.get("N") == "Width")
@@ -2373,7 +2373,7 @@ class TestGroupUngroup:
 
     def test_group_two_shapes(self):
         """Test basic grouping of two shapes."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import (
+        from mcp_gerard.microsoft.visio.ops.shapes import (
             group_shapes,
             list_shapes,
         )
@@ -2417,7 +2417,7 @@ class TestGroupUngroup:
 
     def test_group_requires_two_shapes(self):
         """Test that grouping requires at least 2 shapes."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import group_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import group_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2440,7 +2440,7 @@ class TestGroupUngroup:
 
     def test_group_rejects_connectors(self):
         """Test that grouping connectors is rejected."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import group_shapes
+        from mcp_gerard.microsoft.visio.ops.shapes import group_shapes
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2471,7 +2471,7 @@ class TestGroupUngroup:
 
     def test_ungroup_basic(self):
         """Test basic ungrouping."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import (
+        from mcp_gerard.microsoft.visio.ops.shapes import (
             group_shapes,
             list_shapes,
             ungroup,
@@ -2517,7 +2517,7 @@ class TestGroupUngroup:
 
     def test_ungroup_non_group_fails(self):
         """Test that ungrouping a regular shape fails."""
-        from mcp_handley_lab.microsoft.visio.ops.shapes import ungroup
+        from mcp_gerard.microsoft.visio.ops.shapes import ungroup
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[
@@ -2544,7 +2544,7 @@ class TestGroupUngroup:
         import tempfile
         from pathlib import Path
 
-        from mcp_handley_lab.microsoft.visio.tool import edit, read
+        from mcp_gerard.microsoft.visio.tool import edit, read
 
         buf = _build_minimal_vsdx(
             shapes_per_page=[

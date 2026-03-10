@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.llm.tool import mcp
+from mcp_gerard.llm.tool import mcp
 
 # Provider configurations for systematic testing (unified MCP, model determines provider)
 llm_unhappy_providers = [

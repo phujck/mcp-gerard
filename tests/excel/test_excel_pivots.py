@@ -4,14 +4,14 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.cells import set_cell_value
-from mcp_handley_lab.microsoft.excel.ops.pivots import (
+from mcp_gerard.microsoft.excel.ops.cells import set_cell_value
+from mcp_gerard.microsoft.excel.ops.pivots import (
     create_pivot,
     delete_pivot,
     list_pivots,
     refresh_pivot,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 def _setup_sample_data(pkg: ExcelPackage, sheet: str = "Sheet1") -> None:

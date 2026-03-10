@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.llm.tool import mcp
+from mcp_gerard.llm.tool import mcp
 
 
 def parse_image_result(result) -> tuple[dict, any]:

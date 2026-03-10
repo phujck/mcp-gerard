@@ -3,20 +3,20 @@
 import pytest
 from lxml import etree
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.cells import get_cell_data, get_cells_in_range
-from mcp_handley_lab.microsoft.excel.ops.core import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.cells import get_cell_data, get_cells_in_range
+from mcp_gerard.microsoft.excel.ops.core import (
     column_letter_to_index,
     index_to_column_letter,
     make_cell_ref,
     parse_cell_ref,
     parse_range_ref,
 )
-from mcp_handley_lab.microsoft.excel.ops.sheets import (
+from mcp_gerard.microsoft.excel.ops.sheets import (
     get_used_range,
     list_sheets,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestCoreUtilities:

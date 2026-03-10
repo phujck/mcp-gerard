@@ -4,7 +4,7 @@ import io
 
 import pytest
 
-from mcp_handley_lab.microsoft.excel.ops.print_settings import (
+from mcp_gerard.microsoft.excel.ops.print_settings import (
     add_column_page_break,
     add_row_page_break,
     clear_page_breaks,
@@ -26,7 +26,7 @@ from mcp_handley_lab.microsoft.excel.ops.print_settings import (
     set_print_titles,
     set_scale,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestPrintArea:
@@ -263,7 +263,7 @@ class TestScale:
 
         # Verify by reading pageSetup
         sheet_xml = pkg.get_sheet_xml("Sheet1")
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         page_setup = sheet_xml.find(qn("x:pageSetup"))
         assert page_setup is not None
@@ -293,7 +293,7 @@ class TestFitToPage:
         set_fit_to_page(pkg, "Sheet1", width=1, height=0)
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         page_setup = sheet_xml.find(qn("x:pageSetup"))
         assert page_setup is not None
@@ -306,7 +306,7 @@ class TestFitToPage:
         set_fit_to_page(pkg, "Sheet1", width=2, height=3)
 
         sheet_xml = pkg.get_sheet_xml("Sheet1")
-        from mcp_handley_lab.microsoft.excel.constants import qn
+        from mcp_gerard.microsoft.excel.constants import qn
 
         page_setup = sheet_xml.find(qn("x:pageSetup"))
         assert page_setup is not None
@@ -409,7 +409,7 @@ class TestAbsoluteRefHelper:
 
     def test_cell_ref(self) -> None:
         """Convert cell reference to absolute."""
-        from mcp_handley_lab.microsoft.excel.ops.print_settings import (
+        from mcp_gerard.microsoft.excel.ops.print_settings import (
             _make_absolute_ref,
         )
 
@@ -418,7 +418,7 @@ class TestAbsoluteRefHelper:
 
     def test_range_ref(self) -> None:
         """Convert range reference to absolute."""
-        from mcp_handley_lab.microsoft.excel.ops.print_settings import (
+        from mcp_gerard.microsoft.excel.ops.print_settings import (
             _make_absolute_ref,
         )
 
@@ -426,7 +426,7 @@ class TestAbsoluteRefHelper:
 
     def test_row_range(self) -> None:
         """Convert row range to absolute."""
-        from mcp_handley_lab.microsoft.excel.ops.print_settings import (
+        from mcp_gerard.microsoft.excel.ops.print_settings import (
             _make_absolute_ref,
         )
 
@@ -434,7 +434,7 @@ class TestAbsoluteRefHelper:
 
     def test_column_range(self) -> None:
         """Convert column range to absolute."""
-        from mcp_handley_lab.microsoft.excel.ops.print_settings import (
+        from mcp_gerard.microsoft.excel.ops.print_settings import (
             _make_absolute_ref,
         )
 

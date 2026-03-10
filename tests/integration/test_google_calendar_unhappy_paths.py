@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from mcp_handley_lab.google_calendar.tool import mcp
+from mcp_gerard.google_calendar.tool import mcp
 
 
 @pytest.mark.integration
@@ -483,7 +483,7 @@ class TestGoogleCalendarAllDayEventProtection:
         # test would require a real all-day event
 
         # Import the helper functions for unit testing
-        from mcp_handley_lab.google_calendar.tool import (
+        from mcp_gerard.google_calendar.tool import (
             _is_all_day_event,
             _would_be_timed_event,
         )

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_handley_lab.search import db
+from mcp_gerard.search import db
 
 
 @pytest.fixture

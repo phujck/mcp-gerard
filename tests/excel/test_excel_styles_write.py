@@ -2,20 +2,20 @@
 
 import io
 
-from mcp_handley_lab.microsoft.excel.constants import qn
-from mcp_handley_lab.microsoft.excel.ops.formatting import (
+from mcp_gerard.microsoft.excel.constants import qn
+from mcp_gerard.microsoft.excel.ops.formatting import (
     get_number_format,
     get_style_by_index,
     list_styles,
 )
-from mcp_handley_lab.microsoft.excel.ops.styles_write import (
+from mcp_gerard.microsoft.excel.ops.styles_write import (
     create_border,
     create_cell_style,
     create_fill,
     create_font,
     create_number_format,
 )
-from mcp_handley_lab.microsoft.excel.package import ExcelPackage
+from mcp_gerard.microsoft.excel.package import ExcelPackage
 
 
 class TestCreateFont:

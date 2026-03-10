@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from mcp_handley_lab.microsoft.word.constants import qn
-from mcp_handley_lab.microsoft.word.ops.lists import (
+from mcp_gerard.microsoft.word.constants import qn
+from mcp_gerard.microsoft.word.ops.lists import (
     create_list,
     get_list_info,
 )
-from mcp_handley_lab.microsoft.word.package import WordPackage
-from mcp_handley_lab.microsoft.word.tool import mcp
+from mcp_gerard.microsoft.word.package import WordPackage
+from mcp_gerard.microsoft.word.tool import mcp
 
 
 @pytest.fixture
