@@ -13,7 +13,7 @@ skill makes that distance explicit. It sits at the hinge of the loop: it informs
 
 ## What it does
 
-Given the goals and [the evidence ledger](canon://skills/evidence_ledger/SKILL.md), it classifies every relevant claim into
+Given the goals and [the evidence ledger](canon://skills/evidence_ledger), it classifies every relevant claim into
 a support tier and reports the gaps:
 
 - **strong** - affirmative status, with both literature and numerical support.
@@ -22,7 +22,7 @@ a support tier and reports the gaps:
 
 For each goal it reports coverage (how much is strong), the partial/weak claims
 that must be shored up, and - crucially - **goals with no matching claim at all**,
-which are the prompts for [`literature_scout`](canon://skills/literature_scout/SKILL.md) to extend the evidence base to need.
+which are the prompts for [`literature_scout`](canon://skills/literature_scout) to extend the evidence base to need.
 
 ## Usage
 

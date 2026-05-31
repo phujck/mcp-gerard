@@ -40,7 +40,7 @@ what the session-closer runs.
 4. **Dream.** Call `laplace_dream`. Apply deterministic curation. Forge only against friction that
    genuinely recurred this session. Any forge brief returned is `host_forge` — execute it inline and
    locally, drafting the `SKILL.md` directly. Never delegate a forge brief to an external API.
-5. **Reconcile the brief.** Run the [`reconciler`](canon://skills/reconciler/SKILL.md) pass on the active project: classify what changed
+5. **Reconcile the brief.** Run the [`reconciler`](canon://skills/reconciler) pass on the active project: classify what changed
    (lateral / downward / upward), apply lateral changes to the ledgers, queue structural follow-ons,
    and rewrite the active project's `HANDOFF.md` last (see [core-outward trunk](canon://workflow/core_outward_trunk.md)).
 6. **Sync external state.** Bring any out-of-canon record current — auto-memory, project index,

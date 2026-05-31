@@ -9,7 +9,7 @@ This skill acts as a static sanitiser for `tikzpicture` environments. Mathematic
 
 ## Usage
 
-Before compiling a newly generated or modified TikZ diagram, run the sanitiser to normalise all color profiles and prevent `xcolor` crashes (then compile via [`latex_forge`](canon://skills/latex_forge/SKILL.md)):
+Before compiling a newly generated or modified TikZ diagram, run the sanitiser to normalise all color profiles and prevent `xcolor` crashes (then compile via [`latex_forge`](canon://skills/latex_forge)):
 
 ```
 laplace_run(skill="tikz_mechanic", target="<path_to_tex_file>")

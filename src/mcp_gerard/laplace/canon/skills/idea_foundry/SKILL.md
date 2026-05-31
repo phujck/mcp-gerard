@@ -6,7 +6,7 @@ description: "[EXPERIMENTAL] Seed and sharpen the root idea of a work: state it 
 
 **Status: [EXPERIMENTAL]**
 
-The base of generation is an idea. Before any result, model, or prose, a work needs one root idea that every outward ring serves. This skill forges that seed and keeps it sharp. It is the generating-stage companion to [`result_foundry`](canon://skills/result_foundry/SKILL.md): idea_foundry seeds the trunk-root, result_foundry forges the results that grow from it.
+The base of generation is an idea. Before any result, model, or prose, a work needs one root idea that every outward ring serves. This skill forges that seed and keeps it sharp. It is the generating-stage companion to [`result_foundry`](canon://skills/result_foundry): idea_foundry seeds the trunk-root, result_foundry forges the results that grow from it.
 
 ## What a seeded idea carries
 1. **One sentence.** The idea as a single precise thesis in fixed vocabulary - the thing the whole work is about.

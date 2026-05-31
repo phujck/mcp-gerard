@@ -29,4 +29,4 @@ laplace_run(skill="structural_mechanic", args=[
 1. Wait for The Architect to flag pedagogical bloat.
 2. Ensure The Architect provides the exact `StartLine` and `EndLine` of the offending block.
 3. Run `banish_to_appendix.py` (via `laplace_run`) to seamlessly migrate the block.
-4. Run `laplace_verify(target=..., checks=["crossref"])` and recompile via [`latex_forge`](canon://skills/latex_forge/SKILL.md) to confirm the structural flow and references remain unbroken.
+4. Run `laplace_verify(target=..., checks=["crossref"])` and recompile via [`latex_forge`](canon://skills/latex_forge) to confirm the structural flow and references remain unbroken.

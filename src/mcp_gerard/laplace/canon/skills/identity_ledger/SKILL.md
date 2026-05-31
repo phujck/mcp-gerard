@@ -52,7 +52,7 @@ as present or missing, separating load-bearing from optional. A draft missing an
 load-bearing element has drifted.
 
 ## Protocol
-Run this alongside [`evidence_alignment`](canon://skills/evidence_alignment/SKILL.md) - the two are complementary poles of the
+Run this alongside [`evidence_alignment`](canon://skills/evidence_alignment) - the two are complementary poles of the
 loop. Alignment stops the draft over-claiming beyond the evidence; the identity
 ledger stops it under-claiming its own identity into blandness. Restore any missing
 load-bearing element before presenting the draft. If you deliberately retire one,

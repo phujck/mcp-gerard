@@ -24,4 +24,4 @@ Your target manuscript is: <insert path>.
 2. You MUST report your final diagnostic back to the orchestrator. DO NOT go idle without reporting. Format your findings as a JSON array containing StartLine, EndLine, TargetContent, ReplacementContent, and the specific critique/fix.
 
 ## Protocol
-Wait for all four to return their JSON payloads. Use their structured outputs to autonomously apply fixes via the [`structural_mechanic`](canon://skills/structural_mechanic/SKILL.md) skill and your edit tool, then run `laplace_verify` before reporting to the PI.
+Wait for all four to return their JSON payloads. Use their structured outputs to autonomously apply fixes via the [`structural_mechanic`](canon://skills/structural_mechanic) skill and your edit tool, then run `laplace_verify` before reporting to the PI.

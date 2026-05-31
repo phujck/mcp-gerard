@@ -3,7 +3,7 @@
 A result is not a pile of separate documents - a derivation here, a literature note there, a
 figure somewhere else. It is **one object seen from several sides**. This node defines how the
 faces link to that object and flow into a finished manuscript without any fact living in two places.
-[`evidence_ledger`](canon://skills/evidence_ledger/SKILL.md) defines the per-claim record, [`reconciler`](canon://skills/reconciler/SKILL.md) defines propagation, [`corpus_librarian`](canon://skills/corpus_librarian/SKILL.md)
+[`evidence_ledger`](canon://skills/evidence_ledger) defines the per-claim record, [`reconciler`](canon://skills/reconciler) defines propagation, [`corpus_librarian`](canon://skills/corpus_librarian)
 holds the literature - this node is the architecture that binds them.
 
 ## The one object and its projections

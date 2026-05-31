@@ -6,7 +6,7 @@ description: "[EXPERIMENTAL] Produce a numerical check from a result and a concr
 
 **Status: [EXPERIMENTAL]**
 
-This skill owns the **numerics rail** of the ledger bus - one of the three pieces of the [generation stage](canon://workflow/core_outward_trunk.md), peer to [`result_foundry`](canon://skills/result_foundry/SKILL.md) (results) and [`literature_scout`](canon://skills/literature_scout/SKILL.md) (literature). It does not wait for a draft to flag a gap. For each result it produces the numerics face: a check that runs, a verdict, and a figure that can be looked at.
+This skill owns the **numerics rail** of the ledger bus - one of the three pieces of the [generation stage](canon://workflow/core_outward_trunk.md), peer to [`result_foundry`](canon://skills/result_foundry) (results) and [`literature_scout`](canon://skills/literature_scout) (literature). It does not wait for a draft to flag a gap. For each result it produces the numerics face: a check that runs, a verdict, and a figure that can be looked at.
 
 The figure here is the **simulation-data figure** - the plot of the check itself. A paper's *schematic*, *explanatory*, and *hero* figures are a separate piece, also belonging to generation stage but attached to the identity rail, and are not yet a skill. See the engine backlog, `Generation-stage rails`.
 
@@ -24,7 +24,7 @@ A check is genuine when it verifies at least two of the following three regimes:
 
 The simulation must replicate the derivation's assumptions exactly — particularly any ordering or coupling decisions that look arbitrary in the result but are load-bearing in the derivation. Mismatching them produces a check that passes for the wrong reason.
 
-**Before writing the simulation**: read the derivation's operational ordering (Step 2 of [`derivation_generator`](canon://skills/derivation_generator/SKILL.md)). Match it in the simulation's update loop or evaluation sequence. If the derivation specifies "X before Y", the simulation must do X before Y in each step. Write this as a comment in the code.
+**Before writing the simulation**: read the derivation's operational ordering (Step 2 of [`derivation_generator`](canon://skills/derivation_generator)). Match it in the simulation's update loop or evaluation sequence. If the derivation specifies "X before Y", the simulation must do X before Y in each step. Write this as a comment in the code.
 
 ## Protocol
 
