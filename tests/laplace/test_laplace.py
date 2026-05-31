@@ -83,6 +83,29 @@ def test_orient_infers_domain_and_ranks_skills():
     assert {"latex_forge", "epistemic_ledger"} & names
 
 
+def test_orient_surfaces_generating_skills_for_generation_goals():
+    """orient must return a non-empty generating bucket for goals that signal
+    creation intent, even when no generating-skill tag directly matches the
+    goal tokens.  Non-generating goals must not pick up generating skills.
+    """
+    c = Canon.load()
+    # Goals that clearly signal writing/creation intent.
+    for goal in ("draft the introduction", "write a new section", "generate ideas"):
+        b = c.orient(goal)
+        gen = b["skills"]["generating"]
+        assert gen, (
+            f"orient returned empty generating bucket for goal {goal!r}; "
+            f"expected at least one generating skill"
+        )
+        assert all(s["activity"] == "generating" for s in gen), (
+            "non-generating skill leaked into generating bucket"
+        )
+    # A purely evaluative goal must NOT artificially inject generating skills.
+    b_eval = c.orient("check the equation labels")
+    # The evaluating bucket should be populated; generating may be empty.
+    assert b_eval["skills"]["evaluating"], "evaluating bucket empty for an evaluative goal"
+
+
 # ---------------------------------------------------------------------------
 # verify (mirrors legacy ledgers)
 # ---------------------------------------------------------------------------
@@ -506,6 +529,112 @@ def test_voice_corpus_reader_can_prepare_restartable_queue(tmp_path):
 # ---------------------------------------------------------------------------
 # watchdog: no handler may hang the caller (the assess-hang structural fix)
 # ---------------------------------------------------------------------------
+
+
+def test_run_backing_failure_records_returncode_and_stderr_tail(tmp_path, monkeypatch):
+    """A non-zero backing-script exit must record returncode and stderr_tail in
+    the emitted execute telemetry event, so the dreamer can self-diagnose
+    without re-running the script.
+    """
+    import shutil
+
+    # Build a minimal isolated canon with a skill whose backing script fails.
+    dst = tmp_path / "canon"
+    shutil.copytree(canonmod._PACKAGED_CANON, dst)
+    monkeypatch.setenv("LAPLACE_CANON", str(dst))
+    monkeypatch.setenv("LAPLACE_STATE", str(tmp_path / "state"))
+
+    skill_dir = dst / "skills" / "failing_skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\ndescription: always fails\n---\n# Failing Skill\n",
+        encoding="utf-8",
+    )
+    # A Python backing script that writes a known message to stderr and exits 2.
+    backing = skill_dir / "run.py"
+    backing.write_text(
+        "import sys\n"
+        "sys.stderr.write('something went wrong: detail here\\n')\n"
+        "sys.exit(2)\n",
+        encoding="utf-8",
+    )
+
+    # Register it in the manifest overlay.
+    import yaml
+    idx = yaml.safe_load((dst / "index.yaml").read_text(encoding="utf-8"))
+    idx.setdefault("skills", {})["failing_skill"] = {
+        "description": "always fails",
+        "activity": "staging",
+        "status": "experimental",
+        "backing": "run.py",
+        "tags": [],
+    }
+    (dst / "index.yaml").write_text(yaml.safe_dump(idx), encoding="utf-8")
+    canonmod.get_canon(fresh=True)
+
+    telemetry.clear()
+    result = verify.run_backing("failing_skill")
+    assert result["returncode"] == 2
+    assert result["ok"] is False
+
+    events = telemetry.events()
+    exec_events = [e for e in events if e["phase"] == "execute" and e.get("skill") == "failing_skill"]
+    assert exec_events, "no execute event recorded for failing skill"
+    ev = exec_events[-1]
+    assert ev["ok"] is False
+    assert ev["returncode"] == 2, f"expected returncode=2 in event, got {ev}"
+    assert "stderr_tail" in ev, "stderr_tail must be present in failure event"
+    assert "something went wrong" in ev["stderr_tail"], (
+        f"expected stderr content in stderr_tail, got {ev['stderr_tail']!r}"
+    )
+    # A successful run must NOT include returncode/stderr_tail.
+    telemetry.clear()
+
+
+def test_run_backing_success_does_not_record_failure_fields(tmp_path, monkeypatch):
+    """A successful backing-script run must not include returncode/stderr_tail
+    in the telemetry event - those fields are failure diagnostics only.
+    """
+    import shutil
+
+    dst = tmp_path / "canon"
+    shutil.copytree(canonmod._PACKAGED_CANON, dst)
+    monkeypatch.setenv("LAPLACE_CANON", str(dst))
+    monkeypatch.setenv("LAPLACE_STATE", str(tmp_path / "state"))
+
+    skill_dir = dst / "skills" / "passing_skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\ndescription: always passes\n---\n# Passing Skill\n",
+        encoding="utf-8",
+    )
+    backing = skill_dir / "run.py"
+    backing.write_text("import sys\nprint('all good')\nsys.exit(0)\n", encoding="utf-8")
+
+    import yaml
+    idx = yaml.safe_load((dst / "index.yaml").read_text(encoding="utf-8"))
+    idx.setdefault("skills", {})["passing_skill"] = {
+        "description": "always passes",
+        "activity": "staging",
+        "status": "experimental",
+        "backing": "run.py",
+        "tags": [],
+    }
+    (dst / "index.yaml").write_text(yaml.safe_dump(idx), encoding="utf-8")
+    canonmod.get_canon(fresh=True)
+
+    telemetry.clear()
+    result = verify.run_backing("passing_skill")
+    assert result["returncode"] == 0
+    assert result["ok"] is True
+
+    events = telemetry.events()
+    exec_events = [e for e in events if e["phase"] == "execute" and e.get("skill") == "passing_skill"]
+    assert exec_events
+    ev = exec_events[-1]
+    assert ev["ok"] is True
+    assert "returncode" not in ev, "success event must not carry returncode"
+    assert "stderr_tail" not in ev, "success event must not carry stderr_tail"
 
 
 def test_watchdog_passes_value_through():

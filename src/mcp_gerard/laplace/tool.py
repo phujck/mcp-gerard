@@ -231,6 +231,10 @@ def laplace_graph(
         default="",
         description="Optional .tex file (preferred - its \\input order is authoritative) or directory. When set, builds the manuscript's interlock graph (sections, figures, equations, claims, citations) instead of the canon - same renderers.",
     ),
+    summary: bool = Field(
+        default=False,
+        description="When True and format='json', the response is automatically bounded: graphs larger than the node threshold return kind counts, relation counts, a short node sample, and the full health block instead of every node and edge. Use this for large manuscripts to stay within the MCP token budget. The canon graph is small enough that the threshold is never crossed regardless.",
+    ),
 ) -> dict[str, Any]:
     """Project the canon (or a manuscript) as one typed graph - see how the pieces interlock.
 
@@ -246,7 +250,8 @@ def laplace_graph(
 
     def _do() -> dict[str, Any]:
         return _graph.render(
-            format, focus or None, depth, kinds or None, manuscript=manuscript or None
+            format, focus or None, depth, kinds or None,
+            manuscript=manuscript or None, summary=summary,
         )
 
     return guard("laplace_graph", _FAST, _do)

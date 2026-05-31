@@ -527,7 +527,10 @@ class CanonGraph:
             # before resolving, then drop a bare .md page suffix.
             raw = m.group(1).strip().rstrip(".").removesuffix(".md")
             if raw.startswith("skills/"):
-                token = raw.split("/", 1)[1]
+                # strip the leading "skills/" then drop any trailing "/SKILL"
+                # so both canon://skills/<name> and canon://skills/<name>/SKILL.md
+                # resolve to the same skill:<name> node.
+                token = raw.split("/", 1)[1].removesuffix("/SKILL")
             else:
                 token = raw  # full wiki ref, or agents/<name>.yaml
             self._add_link(src_id, token, resolver, body, m.start(), source)
@@ -655,9 +658,40 @@ class CanonGraph:
         )
 
     # -- projections --------------------------------------------------------
-    def to_json(self) -> dict[str, Any]:
+    # Node threshold above which to_json auto-summarises when summary=True.
+    _SUMMARY_THRESHOLD = 80
+
+    def to_json(self, summary: bool = False) -> dict[str, Any]:
         """The interchange format. Any viewer - and any future graph source,
-        like a manuscript-structure graph - speaks this."""
+        like a manuscript-structure graph - speaks this.
+
+        When ``summary`` is True and the graph exceeds ``_SUMMARY_THRESHOLD``
+        nodes, the full node/edge lists are replaced with kind counts, relation
+        counts, and a small node sample, keeping the response well inside the
+        MCP token budget. The ``health`` block is always returned in full. Pass
+        ``summary=False`` (the default) to get the complete lists.
+        """
+        h = self.health()
+        if summary and len(self.nodes) > self._SUMMARY_THRESHOLD:
+            kind_counts: dict[str, int] = {}
+            for n in self.nodes.values():
+                kind_counts[n.kind] = kind_counts.get(n.kind, 0) + 1
+            rel_counts: dict[str, int] = {}
+            for e in self.edges:
+                rel_counts[e.rel] = rel_counts.get(e.rel, 0) + 1
+            sample = [
+                {"id": n.id, "kind": n.kind, "label": n.label, "group": n.group}
+                for n in list(self.nodes.values())[:20]
+            ]
+            return {
+                "summary": True,
+                "node_count": len(self.nodes),
+                "edge_count": len(self.edges),
+                "kind_counts": kind_counts,
+                "rel_counts": rel_counts,
+                "node_sample": sample,
+                "health": h,
+            }
         return {
             "nodes": [
                 {
@@ -673,7 +707,7 @@ class CanonGraph:
                 }
                 for e in self.edges
             ],
-            "health": self.health(),
+            "health": h,
         }
 
     def to_mermaid(self, direction: str = "LR") -> str:
@@ -994,11 +1028,17 @@ def render(
     kinds: list[str] | None = None,
     canon: Canon | None = None,
     manuscript: str | None = None,
+    summary: bool = False,
 ) -> dict[str, Any]:
     """Build a graph and project it. Source is the canon by default, or a
     manuscript ``.tex``/directory when ``manuscript`` is given - the same
     renderers serve both. Returns the artifact plus a health summary, so a
-    caller sees the topology's defects alongside the picture."""
+    caller sees the topology's defects alongside the picture.
+
+    When ``fmt='json'`` and ``summary=True``, the JSON projection uses a
+    bounded summary when the graph exceeds the node threshold - safe for large
+    manuscripts that would otherwise overflow the MCP token budget.
+    """
     if manuscript:
         from pathlib import Path
 
@@ -1021,7 +1061,7 @@ def render(
     if fmt == "mermaid":
         artifact: Any = scoped.to_mermaid()
     elif fmt == "json":
-        artifact = scoped.to_json()
+        artifact = scoped.to_json(summary=summary)
     elif fmt == "canvas":
         artifact = scoped.to_canvas(radial=radial)
     elif fmt == "obsidian":

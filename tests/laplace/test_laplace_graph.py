@@ -107,6 +107,32 @@ def test_canon_uri_link_resolves_to_skill(linked_canon: Canon):
     assert _edge(g, "wiki:aesthetics/voice_and_style", "skill:epistemic_ledger")
 
 
+def test_canon_uri_skill_ref_with_SKILL_md_suffix_resolves(linked_canon: Canon, tmp_path: Path):
+    """A canon://skills/<name>/SKILL.md reference must resolve to skill:<name>, not dangle.
+
+    Both the short form (canon://skills/<name>) and the fully-qualified form
+    (canon://skills/<name>/SKILL.md) must produce the same resolved edge.
+    """
+    # Rewrite the voice page to use the /SKILL.md form.
+    voice_md = linked_canon.root / "wiki" / "aesthetics" / "voice_and_style.md"
+    voice_md.write_text(
+        "# The Laplace Voice\n\nProofed by "
+        "canon://skills/epistemic_ledger/SKILL.md and by "
+        "canon://skills/result_foundry/SKILL.md.\n",
+        encoding="utf-8",
+    )
+    g = CanonGraph.from_canon(linked_canon, with_fitness=False)
+    assert _edge(g, "wiki:aesthetics/voice_and_style", "skill:epistemic_ledger"), (
+        "canon://skills/epistemic_ledger/SKILL.md did not resolve to skill:epistemic_ledger"
+    )
+    assert _edge(g, "wiki:aesthetics/voice_and_style", "skill:result_foundry"), (
+        "canon://skills/result_foundry/SKILL.md did not resolve to skill:result_foundry"
+    )
+    dangling_targets = {d["to"] for d in g.health()["dangling"]}
+    assert "epistemic_ledger/SKILL" not in dangling_targets
+    assert "result_foundry/SKILL" not in dangling_targets
+
+
 def test_canon_uri_link_resolves_to_agent(linked_canon: Canon):
     """canon://agents/the_dreamer.yaml is a real edge, not a dangling target."""
     g = CanonGraph.from_canon(linked_canon, with_fitness=False)
@@ -270,6 +296,46 @@ def test_real_canon_renders_and_reports_health():
     assert h["node_count"] > 30
     assert g.to_mermaid().startswith("graph ")
     assert isinstance(h["components"], int)
+
+
+def test_json_summary_triggers_on_large_graph_not_small(tmp_path: Path):
+    """summary=True on a small canon graph returns full lists (no trigger);
+    on an artificially large graph it returns kind/rel counts and a sample.
+    This mirrors the real use case: the canon stays full, a large manuscript
+    manuscript gets bounded output.
+    """
+    from mcp_gerard.laplace.graph import CanonGraph, Node, Edge
+
+    # Build a graph that exceeds the threshold.
+    big = CanonGraph()
+    for i in range(CanonGraph._SUMMARY_THRESHOLD + 5):
+        nid = f"section:sec_{i}"
+        big.nodes[nid] = Node(id=nid, kind="section", label=f"Section {i}", group="section")
+    for i in range(CanonGraph._SUMMARY_THRESHOLD + 4):
+        big.edges.append(
+            Edge(f"section:sec_{i}", f"section:sec_{i + 1}", "precedes")
+        )
+
+    j = big.to_json(summary=True)
+    assert j.get("summary") is True, "large graph must trigger summary mode"
+    assert "kind_counts" in j
+    assert "rel_counts" in j
+    assert "node_sample" in j
+    assert len(j["node_sample"]) <= 20
+    assert "health" in j
+    assert "nodes" not in j, "full node list must be absent in summary mode"
+    assert "edges" not in j, "full edge list must be absent in summary mode"
+
+    # The small canon graph must never trigger summary even when requested.
+    from mcp_gerard.laplace.canon import Canon
+    small_canon = Canon.load()
+    sg = CanonGraph.from_canon(small_canon, with_fitness=False)
+    assert len(sg.nodes) <= CanonGraph._SUMMARY_THRESHOLD, (
+        "packaged canon grew past the summary threshold - adjust _SUMMARY_THRESHOLD"
+    )
+    js = sg.to_json(summary=True)
+    assert "nodes" in js, "small graph must return full lists even when summary=True"
+    assert js.get("summary") is not True
 
 
 # --- the interlock layer: claims, citations, and the figure forms -----------

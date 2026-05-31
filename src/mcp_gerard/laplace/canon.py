@@ -250,10 +250,21 @@ class Canon:
                 best, best_score = dname, score
         return best
 
+    # Goal tokens that signal a generating intent, even when no generating-
+    # skill tag overlaps. When the goal contains at least one of these words
+    # and no generating skill makes the natural top-limit cut, the highest-
+    # scoring generating skill is promoted into the result set so the orient
+    # bundle always offers a generating activity when appropriate.
+    _GENERATING_INTENT_TOKENS = frozenset({
+        "write", "draft", "generate", "create", "build", "compose",
+        "produce", "sketch", "scaffold", "seed", "forge", "author",
+    })
+
     def rank_skills(
         self, goal: str, domain: str | None = None, limit: int = 6
     ) -> list[Skill]:
         tokens = _tokenize(goal)
+        generating_intent = bool(tokens & self._GENERATING_INTENT_TOKENS)
         scored: list[tuple[float, Skill]] = []
         for sk in self.skills.values():
             if sk.status == "deprecated":
@@ -268,7 +279,31 @@ class Canon:
             if score > 0:
                 scored.append((score, sk))
         scored.sort(key=lambda x: (-x[0], x[1].name))
-        return [sk for _, sk in scored[:limit]]
+        top = scored[:limit]
+
+        # When the goal signals creation intent but no generating skill made
+        # the cut, promote the highest-scoring non-deprecated generating skill
+        # into the result (replacing the lowest-scoring item) so the orient
+        # bundle always offers at least one generating activity.
+        if generating_intent and not any(sk.activity == "generating" for _, sk in top):
+            gen_candidates = [
+                (sc, sk) for sc, sk in scored[limit:]
+                if sk.activity == "generating"
+            ]
+            if not gen_candidates:
+                # no generating skill scored at all - score them from scratch
+                gen_candidates = [
+                    (0.0, sk)
+                    for sk in self.skills.values()
+                    if sk.activity == "generating" and sk.status != "deprecated"
+                    and not any(s is sk for _, s in top)
+                ]
+                gen_candidates.sort(key=lambda x: (x[0], x[1].name))
+            if gen_candidates:
+                best_gen = gen_candidates[0]
+                top = top[: limit - 1] + [best_gen]
+
+        return [sk for _, sk in top]
 
     def rank_wiki(self, goal: str, domain: str | None, limit: int = 4) -> list[WikiNode]:
         tokens = _tokenize(goal)

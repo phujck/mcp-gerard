@@ -296,12 +296,27 @@ def run_backing(
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
         telemetry.log("execute", skill=skill, ok=False, target=target)
         return {"error": f"execution failed: {e}", "cmd": cmd}
-    telemetry.log("execute", skill=skill, ok=proc.returncode == 0, target=target)
+    ok = proc.returncode == 0
+    if ok:
+        telemetry.log("execute", skill=skill, ok=True, target=target)
+    else:
+        # Capture a short failure signature so the dreamer can self-diagnose
+        # without re-running the script: the exit code and the tail of stderr
+        # (capped to 500 chars so the ledger stays compact).
+        stderr_tail = proc.stderr[-500:] if proc.stderr else ""
+        telemetry.log(
+            "execute",
+            skill=skill,
+            ok=False,
+            target=target,
+            returncode=proc.returncode,
+            stderr_tail=stderr_tail,
+        )
     return {
         "skill": skill,
         "cmd": cmd,
         "returncode": proc.returncode,
         "stdout": proc.stdout,
         "stderr": proc.stderr,
-        "ok": proc.returncode == 0,
+        "ok": ok,
     }
