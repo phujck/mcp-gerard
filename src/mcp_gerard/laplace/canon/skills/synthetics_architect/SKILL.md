@@ -1,23 +1,24 @@
 ---
 name: synthetics_architect
-description: "[EXPERIMENTAL] Manages the high-level intellectual coherence and narrative structure of the Synthetics master guide, ensuring alignment with hierarchical principles."
+description: "[DEPRECATED] Manages the high-level intellectual coherence and narrative structure of the Synthetics master guide, ensuring alignment with hierarchical principles."
 ---
 # synthetics_architect
 
-**Status: [EXPERIMENTAL]**
+**Status: [DEPRECATED]**
 
 ## Purpose
-The `synthetics_architect` skill oversees the high-level intellectual narrative of the 'Synthetics' master guide on the user's website. It ensures that the living experiment in agentic orchestration is coherent, accurately reflects the manuscript 'The Phases of Hierarchy', and correctly incorporates the specific concepts of the Ultraepistemic Catastrophe (UEC) and its resolution via structural hierarchy (the flat, modular, and inertial phases).
 
-## Capabilities
-- **Narrative Mapping**: Validates that any newly added section logically connects to the overarching "Laplace voice", the theoretical framework of "Synthetics", and the thermodynamic toll of hierarchical attenuation.
-- **Hierarchical Phase Enforcement**: Evaluates the website's structure to ensure it properly models the transition from flat (exploratory, UEC-vulnerable) to modular (grouped, functional components) to inertial (hardened, adaptively suppressed) phases.
-- **Interdisciplinary Translation**: Ensures that the architectural concepts (such as Layer Normalisation acting as a structural speed regulator against representation collapse) are accurately framed as physical rather than merely engineering phenomena. It enforces the strict mathematical equivalence between tokens clustering in a Transformer and independent agents forming expectations in a society.
-- **Intellectual Coherence**: Acts as a continuous reviewer of the master guide's arguments, ensuring that nothing is "dumbed down" and the philosophical rigor remains uncompromising. It ensures the Laplacian Renormalisation Group (RG) is invoked correctly when discussing the structural decimation of multi-agent spaces.
+The `synthetics_architect` skill oversees the high-level intellectual narrative of the Synthetics master guide. It ensures the guide is coherent and accurately reflects the domain physics.
 
-## Usage Instructions
-1. Before adding large structural changes to the Synthetics web guide, consult the `synthetics_architect` principles.
-2. Ensure the content map clearly delineates the three phases: Flat, Modular, and Inertial.
-3. Check for conceptual drift. If a section starts reading like a generic blog post rather than a rigorously structured guide on agentic orchestration, aggressively rewrite it.
+The domain physics (Ultraepistemic Catastrophe, Phases of Hierarchy, Laplacian Renormalisation Group, Layer Normalisation as structural speed regulator, and related concepts) are stated authoritatively in [canon://domains/synthetics/axioms.md](canon://domains/synthetics/axioms.md). Do not restate them here. Read that node before making structural decisions.
 
-*This skill is under experimental validation. It should be used to plan HTML/CSS changes before writing the code.*
+## Responsibilities
+
+- **Narrative Mapping**: Validates that any newly added section logically connects to the overarching Laplace voice and the theoretical framework of Synthetics.
+- **Intellectual Coherence**: Acts as a continuous reviewer of the master guide's arguments, ensuring that nothing is simplified beyond what the domain axioms permit and that philosophical rigour is maintained.
+
+## Usage
+
+Before adding large structural changes to the Synthetics guide, consult this skill alongside the domain axioms node. Check for conceptual drift. If a section reads like a generic exposition rather than a rigorously structured guide, rewrite against the axioms.
+
+*This skill is under experimental validation. Web operations (HTML/CSS changes, deployment) belong to the `web_deployment_mechanic`, not here.*

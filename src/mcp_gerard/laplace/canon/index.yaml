@@ -343,3 +343,9 @@ skills:
     status: experimental
     backing: scripts/check_identity.py
     tags: [identity, narrative, thesis, framing, branding, drift, coherence]
+  canon_weaver:
+    activity: evaluating
+    domain: global
+    status: experimental
+    backing: scripts/weave_canon.py
+    tags: [canon, graph, topology, orphans, links, health, audit, self-dev]

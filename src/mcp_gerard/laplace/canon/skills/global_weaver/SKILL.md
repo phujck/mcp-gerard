@@ -5,7 +5,7 @@ description: Automates cross-referencing and label synchronisation across the en
 
 # Global Weaver
 
-The synthetics project requires multiple parallel manuscripts (*Law of Laws*, *Wigner's Many Friends*, *Cost of Complexity*, *Variational Wrong Object*) to reference each other continuously. 
+The synthetics project requires the manuscripts of the Synthetics Grand Orchestra to reference each other continuously. 
 To eliminate the manual friction of checking whether a referenced equation or section exists in another manuscript, use the Global Weaver.
 
 ## Usage

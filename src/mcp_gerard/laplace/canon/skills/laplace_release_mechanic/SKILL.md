@@ -19,7 +19,7 @@ Run the `epistemic_ledger` script to regenerate the Mermaid dependency graph. If
 Pass the `.tex` files through the [`latex_forge`](canon://skills/latex_forge/SKILL.md) compiler. Use the Forge Compiler (`compile_orchestra.py` or equivalent). Verify there are zero `xcolor` or `tikz` geometry warnings (consulting [`tikz_mechanic`](canon://skills/tikz_mechanic/SKILL.md) if needed).
 
 ## Phase 4: Web Deployment
-Use the `web_deployment_mechanic` (if available) to push the final compiled PDF to the PI's web repository (`phujck.github.io`). Automatically generate the required 500-word ordinary-language summary and embed it in `synthetics.html` with a disclaimer regarding experimental algorithmic research.
+Use the `web_deployment_mechanic` (if available) to push the final compiled PDF to the configured web repository. Automatically generate the required 500-word ordinary-language summary and embed it in the relevant section page with a disclaimer regarding experimental algorithmic research.
 
 ## Phase 5: Architect Update
 Review the `synthetics_architect` skill constraints. If the manuscript introduces new structural phases (like the transition from flat to modular to inertial), explicitly update the `synthetics_architect` skill file (`SKILL.md`) so its intellectual constraints reflect the new physical formalism.

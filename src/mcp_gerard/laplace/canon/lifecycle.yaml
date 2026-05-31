@@ -64,3 +64,11 @@ skills:
       to: core
     status: core
     updated: '2026-05-31T17:37:30.761242+00:00'
+  canon_weaver:
+    forged: '2026-05-31T00:00:00+00:00'
+    history:
+    - at: '2026-05-31T00:00:00+00:00'
+      from: null
+      reason: forged by overnight dreamer - canon topology has no repair owner; global_weaver miscast for this role
+      to: experimental
+    status: experimental

@@ -44,10 +44,10 @@ Fixing one collision can open another. Placing elements one at a time, each fix 
 
 ## Usage
 
-This is a protocol, not a backing script. Build every data figure on a house-style module that encodes the forks above. The reference implementation is `scripts/figs/anf_style.py` in the adaptive-normal-form project: `find_clear_box` (occupancy-grid placement with an `edge_pad` band), `orient_inset` (interior-facing inset furniture), `slope_triangle` (enclosed-label annotation), and `finish_axes` (despine, inward ticks, opt-in grid below data).
+This is a protocol, not a backing script. Build every data figure on the active project's figure-style module (the project node names it). That module encodes the forks above and should provide at minimum: an occupancy-grid placer with an edge-pad band for the inward-tick reserve, an interior-facing inset orienter, an enclosed-label slope-triangle annotator, and an axes finisher (despine, inward ticks, opt-in grid below data). The project node identifies the concrete module; do not hard-code it here.
 
 After rendering, inspect the PNG yourself before presenting - catch collisions before the author does - and open the result natively for review.
 
 ## Probationary status
 
-This is an `[EXPERIMENTAL]` discipline forged from the ANF figure rail, where the whole house style was settled live with the author. It generalises beyond that paper but has been exercised on one. Solicit feedback on each new figure surface until the placement primitives prove out on a second project, and lift the project-coupled `anf_style.py` into a canon backing script once they do.
+This is an `[EXPERIMENTAL]` discipline forged from a figure rail where the whole house style was settled live with the author. It generalises beyond any single paper but has been exercised narrowly. Solicit feedback on each new figure surface until the placement primitives prove out across projects.
