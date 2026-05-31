@@ -87,3 +87,21 @@ retention x feedback); only skills that earn it over real uses become `core`, an
 only the unused or degraded are deprecated. Every mutation is a scoped git commit
 in the canon, so `laplace_rollback` undoes anything. New forged skills are born
 `experimental` under the Probationary Protocol.
+
+## The dream kernel vs the full R&R routine
+
+`laplace_dream` is a deterministic kernel, not a full autonomous session. It
+does three things: scopes a fitness assessment to events since the last dream
+boundary, applies lifecycle transitions where the evidence warrants them, and
+produces a `host_forge` brief for any skill that needs re-forging. On a session
+with feedback-only friction the kernel is nearly a no-op - `assess` never demotes
+a `core` skill on negative feedback alone (it flags `refine` at worst), and the
+refine itself is host-executed, not enacted inside the call.
+
+The full R&R routine - reassessing fitness holistically, drafting forge briefs,
+reviewing the autonomy backlog, logging a dream-complete event, and closing the
+session cleanly - is the `session_closer` persona's end-of-session work. That
+routine is host-executed by the most capable model already in the loop; it is not
+a single callable. There is no "full autonomous dream" by design: the depth is
+host-executed, not hidden inside a tool call. If you expect a deep generative pass
+from `laplace_dream` alone and get a narrow report back, this is why.
