@@ -19,4 +19,4 @@ When forging or refining a skill (e.g., as `the_dreamer` or when manually prompt
 1. **Identify the Core Structural Logic**: Extract the meta-operation that needs to be encoded (e.g., "Ban complex derivations from the main text" instead of "Move the domain-specific derivation to the appendix").
 2. **Scrub Local Variables**: Replace project-specific terms with abstract variables or generic functional descriptions.
 3. **Verify Universal Applicability**: Ask: "Would this exact skill instruction work seamlessly for a biology paper or a software manual?" If no, the skill is too specific and must be generalized.
-4. **Enforce Segregation**: If project-specific instructions are strictly necessary, relegate them to a local `project_instructions.md` within the current workspace, leaving the global `SKILL.md` pristine.
+4. **Enforce Segregation**: If project-specific instructions are strictly necessary, relegate them to a local `project_instructions.md` within the current workspace (see [Project Scaffold](canon://templates/project_scaffold.md)), leaving the global `SKILL.md` pristine.

@@ -9,7 +9,7 @@ description: "[EXPERIMENTAL] On an author's sign-off, propagate a finished eleme
 ## Purpose
 A clean-context firewall keeps each element isolated, but real edits have consequences for
 other elements. The `reconciler` is the mechanism that propagates a *committed* change through
-the structure **without** reopening everything in one poisoned context. It is invoked when the
+the structure **without** reopening everything in one poisoned context (see [core-outward trunk](canon://workflow/core_outward_trunk.md)). It is invoked when the
 author signs off on an element ("I'm happy with this") — that sign-off is the trigger.
 
 ## What it is given (and only this)
@@ -56,7 +56,7 @@ mechanism must not cry wolf - a signal that fires on every typo trains the autho
 which is worse than no signal because it gives false confidence. Three rules hold the mechanism in
 the valley:
 
-1. **Hash machine-relevant content, not bytes.** Each element's source of truth (its derivation)
+1. **Hash machine-relevant content, not bytes** (see [Evidence-Schema Flow](canon://workflow/evidence_schema_flow.md)). Each element's source of truth (its derivation)
    carries a small structured header - assumptions, the stated result, the recipe. The reconciler
    hashes *that* normalised content, not the prose narrative. A prose-only edit - rewording,
    a fixed typo, a clearer sentence - never trips staleness. Only a change to what the element

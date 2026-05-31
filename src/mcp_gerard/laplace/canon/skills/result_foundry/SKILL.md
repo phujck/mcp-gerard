@@ -13,12 +13,12 @@ the work teaches what a "result" should look like here.
 ## What a locked result is (the four faces)
 A result is finished when it carries four faces, each serving a different reader and stage. The
 heavy human derivation is *sublinked* so it stays out of the working context while the light,
-high-value content travels. The sublinked derivation is the single source of truth — the statement
+high-value content travels (see [core-outward workflow](canon://workflow/core_outward_trunk.md)). The sublinked derivation is the single source of truth — the statement
 and machine map are views of it, and the `reconciler` propagates on change.
 
-The four faces are filled by three peer staging skills - the three pieces of the generation stage.
-This skill owns the statement and integrates the whole. `literature_scout` owns the literature face
-(the literature rail), and `numerical_evidence` owns the machine map and its figure (the numerics
+The four faces are filled by three peer staging skills - the three pieces of the generation stage (see [Evidence-Schema Flow](canon://workflow/evidence_schema_flow.md)).
+This skill owns the statement and integrates the whole. [`literature_scout`](canon://skills/literature_scout/SKILL.md) owns the literature face
+(the literature rail), and [`numerical_evidence`](canon://skills/numerical_evidence/SKILL.md) owns the machine map and its figure (the numerics
 rail). A result locks when all three rails are filled, not when its statement merely reads well.
 
 1. **Statement** — the claim in one precise sentence, in fixed vocabulary, carrying its **status**
@@ -57,7 +57,7 @@ When establishing or revising a core result:
 2. Assign and *justify* the status; run the supporting check and record its verdict.
 3. Route derivation + numerics + figure; record dependencies.
 4. List any restriction as a named gap. If a gap blocks the claim, the status is not "established".
-5. On the author's sign-off, hand to the `reconciler`.
+5. On the author's sign-off, hand to the [`reconciler`](canon://skills/reconciler/SKILL.md).
 
 *Experimental and coarse by design. Refine in-session whenever the author's edits reveal a
 sharper standard for what a result must carry.*

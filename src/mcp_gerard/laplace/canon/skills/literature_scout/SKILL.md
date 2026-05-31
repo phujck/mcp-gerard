@@ -6,7 +6,7 @@ description: "[EXPERIMENTAL] Owns the literature rail of the generation stage. F
 # Literature Scout [EXPERIMENTAL]
 
 This skill owns the **literature rail** of the ledger bus - one of the three pieces
-of the generation stage, peer to `result_foundry` (results) and `numerical_evidence`
+of the [generation stage](canon://workflow/core_outward_trunk.md), peer to [`result_foundry`](canon://skills/result_foundry/SKILL.md) (results) and [`numerical_evidence`](canon://skills/numerical_evidence/SKILL.md)
 (numerics). It does not wait for a draft to expose a thin citation. As a result is
 established, its literature face is built in parallel: where the claim sits in the
 field, what the field already establishes, and what is therefore novel here.
@@ -20,7 +20,7 @@ Both are distinct from the reference vault, which governs how *internal prior wo
 re-enters by re-derivation - the literature rail is the *external* record of what the
 published field holds.
 
-The store is `corpus_librarian` - one global `corpus.bib` across projects, each record carrying a
+The store is [`corpus_librarian`](canon://skills/corpus_librarian/SKILL.md) - one global `corpus.bib` across projects, each record carrying a
 distilled claim and a trust status. The scout is the rail front-end: it targets a claim, searches,
 reads, and decides what each source establishes. The librarian holds and synthesises. The scout
 hands a confirmed source to the librarian to ingest, and draws on its cluster guide for context.
@@ -50,7 +50,7 @@ It orchestrates the tools already on hand.
    currently uses) and write the result's `Literature` face: what each cited source
    establishes, and the resulting novelty boundary for this claim. If a source only
    partially supports the claim, soften the claim to match - the ledger must stay honest.
-5. **Hand to the reconciler.** A literature face that changes a result's novelty or
+5. **Hand to [the reconciler](canon://skills/reconciler/SKILL.md).** A literature face that changes a result's novelty or
    scope is a commitment - propagate it like any other ledger edit.
 
 ## Honesty axiom

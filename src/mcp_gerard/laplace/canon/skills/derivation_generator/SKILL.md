@@ -21,7 +21,7 @@ Write these in one or two declarative sentences. Do not start from the most gene
 
 ### 2. Commit to the operational ordering
 
-In any multi-step system, the order of operations is load-bearing. The wrong ordering produces spurious terms that must be cancelled by hand; the right one eliminates entire classes before expansion begins.
+In any multi-step system, the order of operations is load-bearing. The wrong ordering produces spurious terms that must be cancelled by hand; the right one eliminates entire classes before expansion begins. (A [numerical check](canon://skills/numerical_evidence/SKILL.md) must replicate this ordering exactly.)
 
 State the ordering explicitly as a numbered decision, and give the reason it is the right one. Form: **"We perform X before Y because Z."** If you cannot state the reason, the ordering is not yet committed — do not proceed.
 
@@ -69,4 +69,4 @@ The named structural steps are the derivation. The algebra is evidence they go t
 
 ## Usage
 
-Invoke when asked to derive a result from stated assumptions. Load the result statement and model assumptions first; do not expand the working context with prior derivations or manuscript text. If a closure condition is not identifiable at Step 3, flag it as an open gap and do not proceed to Step 5.
+Invoke when asked to derive a result from stated assumptions. Load the [result statement](canon://skills/result_foundry/SKILL.md) and model assumptions first; do not expand the working context with prior derivations or manuscript text. If a closure condition is not identifiable at Step 3, flag it as an open gap and do not proceed to Step 5.

@@ -2,7 +2,7 @@
 
 A manuscript is not drafted front-to-back from frozen inputs. It is grown **outward from a
 verified core**, in stages that can be re-entered, with each element worked in an isolated
-context. This node defines the workflow; `reconciler` defines how a finished element propagates.
+context. This node defines the workflow; [`reconciler`](canon://skills/reconciler/SKILL.md) defines how a finished element propagates.
 
 ## The three stages
 
@@ -33,11 +33,11 @@ first — the usual default — forces premature commitment and invites drift.
 Elements never load each other's raw text. They load only a small set of authoritative,
 curated **ledgers** - the trunk-roots the generation stage fills. Four rails carry the work:
 
-- **Results / spine** (owned by `result_foundry`) - the claim in locked vocabulary, with its
+- **Results / spine** (owned by [`result_foundry`](canon://skills/result_foundry/SKILL.md)) - the claim in locked vocabulary, with its
   status and its dependencies.
-- **Literature** (owned by `literature_scout`) - per claim, where it sits in the literature and
+- **Literature** (owned by [`literature_scout`](canon://skills/literature_scout/SKILL.md)) - per claim, where it sits in the literature and
   what is established there, with citable provenance.
-- **Numerics** (owned by `numerical_evidence`) - per claim, the check that runs, its
+- **Numerics** (owned by [`numerical_evidence`](canon://skills/numerical_evidence/SKILL.md)) - per claim, the check that runs, its
   machine-readable PASS/FAIL verdict, the key numbers, and a **figure artifact** linked by
   relative path so it can be eyeballed from the ledger without rerunning anything.
 - **Identity / glossary** - the terminology and framing.
@@ -45,7 +45,7 @@ curated **ledgers** - the trunk-roots the generation stage fills. Four rails car
 The first three are the three pieces of one result - `result_foundry`'s four faces redistributed
 across peer owners - so the generation stage is just filling these rails until every face of a
 result locks. The ledgers are the propagation medium: a local edit updates a ledger - small and
-distilled - and every future context sees the new truth automatically. What travels between
+distilled - and every future context sees the new truth automatically. See [Evidence-Schema Flow](canon://workflow/evidence_schema_flow.md). What travels between
 elements is the *commitment*, never the prose - except the figure, which travels as itself,
 because a plot is read, not distilled.
 

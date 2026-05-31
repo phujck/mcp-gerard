@@ -5,7 +5,7 @@ description: "[EXPERIMENTAL] Automates the 'Hostile Verification' axiom. Invokes
 
 # The Hostile Red-Team Swarm (The Crucible) [EXPERIMENTAL]
 
-Before presenting any final manuscript to the Principal Investigator, you must subject the draft to The Crucible. This swarm will read the document and flag structural, pedagogical, stylistic, and synthetic failures.
+Before presenting any final manuscript to the Principal Investigator, you must subject the draft to The Crucible (see [Iterative Review Schema](canon://workflow/iterative_review_schema.md)). This swarm will read the document and flag structural, pedagogical, stylistic, and synthetic failures.
 
 ## Usage
 
@@ -24,4 +24,4 @@ Your target manuscript is: <insert path>.
 2. You MUST report your final diagnostic back to the orchestrator. DO NOT go idle without reporting. Format your findings as a JSON array containing StartLine, EndLine, TargetContent, ReplacementContent, and the specific critique/fix.
 
 ## Protocol
-Wait for all four to return their JSON payloads. Use their structured outputs to autonomously apply fixes via the `structural_mechanic` skill and your edit tool, then run `laplace_verify` before reporting to the PI.
+Wait for all four to return their JSON payloads. Use their structured outputs to autonomously apply fixes via the [`structural_mechanic`](canon://skills/structural_mechanic/SKILL.md) skill and your edit tool, then run `laplace_verify` before reporting to the PI.

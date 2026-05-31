@@ -3,7 +3,7 @@
 When initiating a new project in a novel domain, clone this scaffold.
 
 ## 1. Domain Epistemology
-- Create a `domains/[domain_name]/axioms.md` file. Define the strict theoretical rules, governing equations, or fundamental laws that apply to this domain. Subagents will load this to prevent hallucinating physics or logic outside of your specific constraints.
+- Create a `domains/[domain_name]/axioms.md` file. Define the strict theoretical rules, governing equations, or fundamental laws that apply to this domain. Subagents will load this to prevent hallucinating physics or logic outside of your specific constraints. Consult [context_firewall](canon://skills/context_firewall/SKILL.md) before writing any global skill or wiki node for this domain.
 
 ## 2. Active Projects
 - Create `domains/[domain_name]/projects/[project_name].md`. Document the current state, active hypotheses, and subagent directives specific to this manuscript.

@@ -8,12 +8,12 @@ description: "[EXPERIMENTAL] The key high-level skill: recognise what the eviden
 The hardest judgement in drafting is not writing - it is recognising the distance
 between what you want to claim (the goal) and what the evidence will bear. This
 skill makes that distance explicit. It sits at the hinge of the loop: it informs
-**orient** (what do we already know that serves this goal?) and it gates
+[**orient**](canon://workflow/core_outward_trunk.md) (what do we already know that serves this goal?) and it gates
 **verify** (does the draft claim only what the ledger supports?).
 
 ## What it does
 
-Given the goals and the evidence ledger, it classifies every relevant claim into
+Given the goals and [the evidence ledger](canon://skills/evidence_ledger/SKILL.md), it classifies every relevant claim into
 a support tier and reports the gaps:
 
 - **strong** - affirmative status, with both literature and numerical support.
@@ -22,7 +22,7 @@ a support tier and reports the gaps:
 
 For each goal it reports coverage (how much is strong), the partial/weak claims
 that must be shored up, and - crucially - **goals with no matching claim at all**,
-which are the prompts for `literature_scout` to extend the evidence base to need.
+which are the prompts for [`literature_scout`](canon://skills/literature_scout/SKILL.md) to extend the evidence base to need.
 
 ## Usage
 

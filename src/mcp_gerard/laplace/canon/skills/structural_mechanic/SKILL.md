@@ -8,7 +8,7 @@ description: "[EXPERIMENTAL] Automates 'Pedagogical Segregation' and structural 
 **Status: [EXPERIMENTAL]**
 
 ## Purpose
-The Architect demands that the main text be a relentless, high-stakes structural argument. Heavy mathematical derivations and pedagogical step-by-step proofs must be banished to the appendices. The `structural_mechanic` automates this migration, eliminating the operational friction of manually cutting, pasting, and patching `.tex` files.
+The Architect demands that the main text be a relentless, high-stakes structural argument (see [Pedagogical Segregation](canon://structure/pedagogical_segregation.md)). Heavy mathematical derivations and pedagogical step-by-step proofs must be banished to the appendices. The `structural_mechanic` automates this migration, eliminating the operational friction of manually cutting, pasting, and patching `.tex` files.
 
 ## Scripts
 
@@ -29,4 +29,4 @@ laplace_run(skill="structural_mechanic", args=[
 1. Wait for The Architect to flag pedagogical bloat.
 2. Ensure The Architect provides the exact `StartLine` and `EndLine` of the offending block.
 3. Run `banish_to_appendix.py` (via `laplace_run`) to seamlessly migrate the block.
-4. Run `laplace_verify(target=..., checks=["crossref"])` and recompile via `latex_forge` to confirm the structural flow and references remain unbroken.
+4. Run `laplace_verify(target=..., checks=["crossref"])` and recompile via [`latex_forge`](canon://skills/latex_forge/SKILL.md) to confirm the structural flow and references remain unbroken.

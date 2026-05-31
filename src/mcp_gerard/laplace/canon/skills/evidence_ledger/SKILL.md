@@ -32,11 +32,11 @@ A record's `Literature` field is not re-written prior-work prose. It is a query 
 sentence and one novelty sentence local to this claim. The reference text lives once in `corpus.bib`
 and is audited once. `established_by` resolves only to records the corpus marks `status: established` -
 provisional, borrowed, and unverified sources may appear as context but never as settled support.
-Fix a corpus record and every citing face is correct without reopening a single face.
+Fix a corpus record and every citing face is correct without reopening a single face. See [Evidence-Schema Flow](canon://workflow/evidence_schema_flow.md).
 
 ## Status is computed, not asserted
 A claim's `Status` is earned, never stamped. It is affirmative (`Proved` / `Supported` / `Established`)
-only when its check has run green against the *current* derivation - the `reconciler`'s
+only when its check has run green against the *current* derivation - the [`reconciler`](canon://skills/reconciler/SKILL.md)'s
 header-hash. The moment the derivation's committed content changes, the record is stale until
 re-checked, and a stale record reads as not-yet-earned to the completeness check below. This is the
 two-tier trust of the corpus carried into the ledger: a claim is usable while provisional, but it
@@ -45,7 +45,7 @@ a declaration over it.
 
 The scheme is not static. During drafting you **extend the ledger to need**: when
 an argument leans on a claim that is not yet recorded, add the record and resolve
-its support (derive it, find the literature via `literature_scout`, or run the
+its support (derive it, find the literature via [`literature_scout`](canon://skills/literature_scout/SKILL.md), or run the
 numerics) before the claim is allowed to carry weight.
 
 ## Usage
@@ -64,5 +64,5 @@ absent or a placeholder.
 ## Protocol
 A claim with a missing field, a placeholder, or a non-affirmative status is **not
 yet earned**. Resolve it - derive, cite, or compute - or soften the claim in the
-manuscript to what the evidence actually supports. Run `evidence_alignment` to see
+manuscript to what the evidence actually supports. Run [`evidence_alignment`](canon://skills/evidence_alignment/SKILL.md) to see
 those records in relation to the paper's goals.

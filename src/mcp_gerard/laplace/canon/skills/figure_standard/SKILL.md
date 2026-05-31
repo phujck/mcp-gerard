@@ -5,7 +5,7 @@ description: The house style for data figures, as render-order discipline. The s
 
 # Figure Standard [EXPERIMENTAL]
 
-A figure is the voice in a non-prose medium. The physics can be right and the figure still fail - if a gridline crosses a label, if an inset lands on the curve, if a number floats free of the thing it measures. This skill is that failure mode stated as a discipline, settled live with the author against his standing peeve: a non-important element drawn over vital information, above all text colliding with a graphic.
+A figure is the voice in a non-prose medium (see [Visual Aesthetics](canon://aesthetics/visual_mechanics.md)). The physics can be right and the figure still fail - if a gridline crosses a label, if an inset lands on the curve, if a number floats free of the thing it measures. This skill is that failure mode stated as a discipline, settled live with the author against his standing peeve: a non-important element drawn over vital information, above all text colliding with a graphic.
 
 State it positively. "Do not overlap" gives no guidance. "Vital information renders on top, and every element's place is computed from the data" does.
 
@@ -16,7 +16,7 @@ State it positively. "Do not overlap" gives no guidance. "Vital information rend
 - **Legend is conditional on geometry.** Direct labels on curves when they are spatially distinct, degrading to a colourbar for a family or ensemble. A discrete legend box when curves overlay or cross - a label at the end is ambiguous then. When exact markers sit *on* a fitted line because their coincidence is the result, a legend is correct, not direct labels.
 - **Panel labels.** Bold lowercase `(a)`, exterior top-left.
 - **Hero intent is per figure.** A mechanism schematic and a result plot want different framing. Decide which a figure is before building it.
-- **Adopted silently (best practice, not peeves).** viridis/cividis continuous, Okabe-Ito categorical. Vector line art (PDF/EPS), raster at 600dpi or more. Match the body face (CM serif via usetex for REVTeX). 6pt floor, 7-8pt target. Exact column-width sizing (APS 8.6cm single, 17.8cm double). Every figure from a version-controlled script.
+- **Adopted silently (best practice, not peeves).** viridis/cividis continuous, Okabe-Ito categorical. Vector line art (PDF/EPS), raster at 600dpi or more. Match the body face (CM serif via usetex for REVTeX). 6pt floor, 7-8pt target. Exact column-width sizing (APS 8.6cm single, 17.8cm double). Every figure from a version-controlled script. (Axiom-level source: [TikZ Guidelines](canon://aesthetics/tikz_guidelines.md).)
 
 ## Render-order discipline (the core)
 

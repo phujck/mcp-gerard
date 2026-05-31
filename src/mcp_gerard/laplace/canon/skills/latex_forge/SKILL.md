@@ -31,9 +31,9 @@ Do not fail the compilation aggressively. The engine will flag concerns "at a gl
 
 ## Compilation 
 
-**CRITICAL RULE:** Never compile manuscripts using raw `latexmk`, `pdflatex`, or `bibtex` commands in the terminal. You must **STRICTLY** default to the Forge Compiler to eliminate manual friction and enforce standard compilation loops.
+**CRITICAL RULE:** Never compile manuscripts using raw `latexmk`, `pdflatex`, or `bibtex` commands in the terminal (see [Compilation and Release](canon://operations/compilation_and_release.md)). You must **STRICTLY** default to the Forge Compiler to eliminate manual friction and enforce standard compilation loops.
 
-The Forge Compiler is the auxiliary `scripts/compile_pdf.py` in this skill (resolve its directory via `laplace_skill("latex_forge").backing_path`). Run it with Python through the shell - on Windows, wrap it in the `shell_mechanic` safe executor to avoid UTF-16 and pathing friction:
+The Forge Compiler is the auxiliary `scripts/compile_pdf.py` in this skill (resolve its directory via `laplace_skill("latex_forge").backing_path`). Run it with Python through the shell - on Windows, wrap it in the [`shell_mechanic`](canon://skills/shell_mechanic/SKILL.md) safe executor to avoid UTF-16 and pathing friction:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File <shell_mechanic>/scripts/Invoke-SafePython.ps1 -ScriptPath "<latex_forge>/scripts/compile_pdf.py" -ScriptArgs "<path_to_tex_file>"
