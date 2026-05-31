@@ -1,0 +1,252 @@
+# The Laplace Canon manifest.
+#
+# This is the machine-readable overlay the engine uses for relevance selection
+# (laplace_orient) and lifecycle/fitness tracking (laplace_assess / laplace_dream).
+#
+# The loader DISCOVERS files on disk (wiki/**.md, skills/*/SKILL.md); this file
+# only supplies overlay metadata keyed by ref/name. Missing entries fall back to
+# sensible defaults (status inferred from an [EXPERIMENTAL] tag, phase=execute,
+# domain=global, tags derived from the path). The dreamer writes status + fitness
+# back into this file, so it is the single mutable record of canon health.
+version: 1
+
+# ---------------------------------------------------------------------------
+# Wiki nodes. `scope: global` nodes are always offered by orient; `scope: domain`
+# nodes are offered only when their domain matches the active goal.
+# ---------------------------------------------------------------------------
+wiki:
+  aesthetics/voice_and_style:
+    title: The Laplace Voice
+    scope: global
+    tags: [style, writing, voice, prose, tone]
+  aesthetics/tikz_guidelines:
+    title: TikZ Guidelines
+    scope: global
+    tags: [figures, tikz, plots, visual]
+  aesthetics/typography_and_layout:
+    title: Typography and Layout
+    scope: global
+    tags: [layout, columns, typography, visual]
+  aesthetics/visual_mechanics:
+    title: Visual Mechanics
+    scope: global
+    tags: [figures, visual, schematic]
+  structure/pedagogical_segregation:
+    title: Pedagogical Segregation
+    scope: global
+    tags: [structure, appendix, narrative, derivation]
+  workflow/iterative_review_schema:
+    title: Iterative Review Schema
+    scope: global
+    tags: [workflow, review, swarm, critical-regime]
+  workflow/core_outward_trunk:
+    title: Core-Outward Trunk
+    scope: global
+    tags: [workflow, drafting, trunk, core-outward, firewall, ledger, propagation, stages]
+  operations/compilation_and_release:
+    title: Compilation & Release
+    scope: global
+    tags: [ops, compile, release, ci]
+  operations/git_mechanics:
+    title: Git Mechanics
+    scope: global
+    tags: [ops, git, revert, windows]
+  operations/shell_mechanics:
+    title: Shell Mechanics
+    scope: global
+    tags: [ops, shell, powershell, python, anti-laziness]
+  templates/project_scaffold:
+    title: Project Scaffold
+    scope: global
+    tags: [meta, scaffold, new-domain]
+  author/the_author:
+    title: The Author
+    scope: global
+    tags: [author, persona, working-style, method, collaboration]
+  domains/synthetics/conjectures:
+    title: Conjectures and Parked Intuitions
+    scope: domain
+    tags: [conjecture, parked, intuition, speculative, future, inertia, mass]
+
+# ---------------------------------------------------------------------------
+# Domains. Theory axioms + active project state, loaded by orient when relevant.
+# ---------------------------------------------------------------------------
+domains:
+  synthetics:
+    axioms: domains/synthetics/axioms
+    tags: [synthetics, hierarchy]
+    projects:
+      adaptive_normal_form: domains/synthetics/projects/adaptive_normal_form
+      the_phases_of_hierarchy: domains/synthetics/projects/the_phases_of_hierarchy
+
+# ---------------------------------------------------------------------------
+# Skills. activity = which operational bucket the skill serves.
+#   generating - raw generative acts that produce material: derive algebra, distil
+#                prior work, seed an idea, hold focus
+#   staging    - fill a trunk-root ledger (results, literature, numerics, identity)
+#                and draft the manuscript core-outward; the generation stage lives here
+#   evaluating - structural linting, cross-referencing, auditing claims against evidence
+# status = experimental | core | deprecated  (mutated by the dreamer on evidence)
+# backing = optional deterministic script, runnable via laplace_run / laplace_verify
+# ---------------------------------------------------------------------------
+skills:
+  context_firewall:
+    activity: staging
+    domain: global
+    status: experimental
+    tags: [architecture, compartmentalisation, scrub]
+  mccaul_protocol:
+    activity: staging
+    domain: global
+    status: core
+    tags: [bootstrap, router, workflow]
+  orient_recovery:
+    activity: staging
+    domain: global
+    status: experimental
+    tags: [orient, routing, recovery, domain, loop-adherence, bootstrap]
+  result_foundry:
+    activity: staging
+    domain: global
+    status: experimental
+    tags: [core, results, ledger, evidence, status, derive-not-assert, craft]
+  reconciler:
+    activity: staging
+    domain: global
+    status: experimental
+    tags: [propagation, commit, ledger, dependency, firewall, brief, reflexive]
+  session_closer:
+    activity: staging
+    domain: global
+    status: experimental
+    tags: [close, session, telemetry, logging, fitness, routine, role-boundary, reflexive, sawbones]
+  synthetics_architect:
+    activity: staging
+    domain: synthetics
+    status: experimental
+    tags: [narrative, coherence, structure]
+
+  structural_mechanic:
+    activity: staging
+    domain: global
+    status: experimental
+    backing: scripts/banish_to_appendix.py
+    tags: [structure, appendix, latex]
+  tikz_mechanic:
+    activity: staging
+    domain: global
+    status: experimental
+    backing: scripts/sanitize_xcolor.py
+    tags: [tikz, xcolor, figures, compile]
+  git_mechanic:
+    activity: staging
+    domain: global
+    status: deprecated
+    backing: scripts/configure_git.py
+    tags: [git, ops, revert, windows]
+  shell_mechanic:
+    activity: staging
+    domain: global
+    status: deprecated
+    backing: scripts/Invoke-SafePython.ps1
+    tags: [shell, python, powershell, ops]
+  css_forge:
+    activity: staging
+    domain: web
+    status: deprecated
+    tags: [css, web, layout]
+  html_mechanic:
+    activity: staging
+    domain: web
+    status: deprecated
+    tags: [html, web, voice, polish]
+  web_deployment_mechanic:
+    activity: staging
+    domain: web
+    status: deprecated
+    tags: [deploy, web, github-pages]
+  laplace_release_mechanic:
+    activity: staging
+    domain: global
+    status: deprecated
+    tags: [release, ci, pipeline, orchestration]
+
+  epistemic_ledger:
+    activity: evaluating
+    domain: global
+    status: core
+    backing: scripts/map_derivations.py
+    tags: [latex, claims, derivation, structure, consistency]
+  empirical_ledger:
+    activity: evaluating
+    domain: global
+    status: experimental
+    tags: [data, simulation, numerical, captions, consistency]
+  reference_archaeologist:
+    activity: generating
+    domain: global
+    status: experimental
+    tags: [archaeology, distillation, firewall, reference, retrieval, scrub]
+  focus_rail:
+    activity: generating
+    domain: global
+    status: experimental
+    tags: [focus, goal, backlog, distraction, ladder, discipline]
+  idea_foundry:
+    activity: generating
+    domain: global
+    status: experimental
+    tags: [idea, seed, thesis, scope, trunk-root, general-first, craft]
+  global_weaver:
+    activity: evaluating
+    domain: global
+    status: core
+    backing: scripts/weave_orchestra.py
+    tags: [crossref, labels, refs, orchestra, consistency]
+  latex_forge:
+    activity: evaluating
+    domain: global
+    status: core
+    backing: scripts/build_and_lint.py
+    tags: [latex, lint, voice, british-english, ai-slop, compile]
+  hostile_redteam_swarm:
+    activity: evaluating
+    domain: global
+    status: experimental
+    tags: [review, swarm, hostile, critique]
+
+  # Research + evidence base (the standardised support scheme)
+  evidence_ledger:
+    activity: evaluating
+    domain: global
+    status: experimental
+    backing: scripts/check_ledger.py
+    tags: [evidence, claims, literature, support, ledger, consistency]
+  evidence_alignment:
+    activity: evaluating
+    domain: global
+    status: experimental
+    backing: scripts/align_evidence.py
+    tags: [evidence, goals, gaps, support, coverage, orient, research]
+  derivation_generator:
+    activity: generating
+    domain: global
+    status: experimental
+    tags: [derivation, algebra, scaffold, structural-decisions, closure, symmetry, generate]
+  numerical_evidence:
+    activity: staging  # owns the numerics rail of the ledger bus
+    domain: global
+    status: experimental
+    tags: [numerical, check, simulation, evidence, pass-fail, ordering, verify, figure, ledger, rail]
+  literature_scout:
+    activity: staging  # owns the literature rail of the ledger bus
+    domain: global
+    status: experimental
+    tags: [research, literature, arxiv, citations, references, evidence, ledger, rail]
+  # deep_corpus_scout: reverted (SKILL.md does not exist); pending re-forge per AUTONOMY_BACKLOG.md
+  identity_ledger:
+    activity: evaluating
+    domain: global
+    status: experimental
+    backing: scripts/check_identity.py
+    tags: [identity, narrative, thesis, framing, branding, drift, coherence]
