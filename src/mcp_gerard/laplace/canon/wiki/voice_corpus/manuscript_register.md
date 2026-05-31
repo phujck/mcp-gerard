@@ -183,6 +183,28 @@ Source: `EPPUR-PRIMARY`. Status: provisional personal-register calibration, pend
 - Where does the journal format flatten the thought?
 - Which collaborator-heavy papers should count as context but not voice evidence?
 
+## Gate 2 Distilled Updates from 55-Ledger Synthesis (2026-06-01)
+
+Source handles: ACAD-02, ACAD-03, CORR-04 through CORR-15, ADMIN-02 through ADMIN-13. Distilled, provenance-tagged.
+
+**Negation-as-definition confirmed cross-source (ACAD-02).**
+The pattern of defining a technical object through enumerated absences appears independently in the minimal quantum reservoir paper (ACAD-02) and in the admin proposals (ADMIN-02 through ADMIN-13). It is a structural habit, not a single-source artefact. Use it when the object is most clearly understood by what it deliberately excludes.
+
+**Contradiction-tension held without resolution (ACAD-02, ACAD-03).**
+Both academic ledgers show the "although...there exists" construction that holds apparent contradiction in one sentence and resolves it by introducing a higher-level object. "Although the mapping may be highly nonlinear, there exists a transformation such that the lifted dynamics evolve approximately linearly." This is the canonical shape for introducing a new formalism that recovers familiar behaviour.
+
+**Dial-and-limit metaphors are load-bearing (ACAD-03).**
+The "commutativity dial" metaphor in ACAD-03 (Hamilton-Jacobi from Schrodinger by turning the quantumness dial to zero) is not decoration. It signals a family of limiting relationships that the formalism explores. Use limit-as-dial metaphors only when the limit is a genuine parameter, not when the limit is a qualitative description.
+
+**Reframing absence as positive property (ACAD-03).**
+"The absence of interference is a direct signature of KvN's strictly classical character, with the Hilbert-space structure serving only as linear book-keeping for ensembles and not as a source of quantum coherence." The negative result is restated as something the formalism correctly predicts and controls. This is the canonical form for a null result in this voice.
+
+**Proof-before-extrapolation across admin proposals (ADMIN-02 through ADMIN-13).**
+Every ambitious claim in the grant/proposal register is immediately grounded in a prior result, a hardware demonstration, or a named preliminary calculation. The structure is always: result-to-date, then proposed extension, then the reason the extension is natural given the result. This pattern should transfer to manuscript introductions.
+
+**Constraint-as-vocabulary (ADMIN-04, ADMIN-11).**
+The voice repeatedly frames a new formalism as a new vocabulary rather than a new technique. "This proposal introduces a unified solution by creating a new language for quantum dynamics." In manuscript prose, when a formalism is introduced, state what conceptual language it provides, not only what it computes.
+
 ## Output Needed
 
 This node eventually needs:
