@@ -23,7 +23,16 @@ from mcp_gerard.laplace.verify import CHECK_SKILL  # re-exported for callers
 __all__ = ["assess", "CHECK_SKILL"]
 
 # Fitness weights (sum to 1).
-W_USAGE, W_QUALITY, W_FEEDBACK, W_RETENTION = 0.30, 0.40, 0.15, 0.15
+#
+# Behavioural evidence (usage + quality) is explicitly dominant - the author
+# under-vocalises praise, so explicit feedback skews negative and must not
+# be the deciding signal. Absence of positive laplace_log calls is NOT a
+# sign of dissatisfaction; it is the normal state. Only genuine negative
+# outcomes (net-negative feedback, low verify/exec pass-rates) should pull
+# fitness down. W_FEEDBACK is kept low enough that zero explicit feedback -
+# which normalises to exactly 0.5 (neutral) - cannot by itself drive fitness
+# below the deprecation threshold when usage and quality are healthy.
+W_USAGE, W_QUALITY, W_FEEDBACK, W_RETENTION = 0.35, 0.45, 0.10, 0.10
 USAGE_SAT = 10          # usage count at which usage_norm saturates to 1
 CONF_SAT = 5            # samples for full confidence in a transition
 
@@ -174,10 +183,31 @@ def _fitness(sig: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _has_genuine_negative_outcome(sig: dict[str, Any]) -> bool:
+    """True only when there is a concrete negative outcome, not merely silence.
+
+    Absence of positive laplace_log feedback is normal - the author rarely
+    vocalises praise. A skill must not be down-ranked for silence. Only act
+    on explicit negative feedback OR a measured low pass/ok-rate.
+    """
+    if sig["feedback"] < 0:
+        return True
+    if sig["verify_total"] and (sig["verify_pass"] / sig["verify_total"]) < DEPRECATE_FITNESS:
+        return True
+    if sig["exec_total"] and (sig["exec_ok"] / sig["exec_total"]) < DEPRECATE_FITNESS:
+        return True
+    return False
+
+
 def _recommend(
     status: str, sig: dict[str, Any], fit: dict[str, Any], recently_touched: bool = False
 ) -> tuple[str, str]:
-    """Return (recommended_status, reason). Conservative: only act on evidence."""
+    """Return (recommended_status, reason). Conservative: only act on evidence.
+
+    Absence of positive feedback is treated as neutral, not negative. A skill
+    is only down-ranked when there is a genuine negative outcome: explicit
+    negative laplace_log signals or a measured low verify/exec pass-rate.
+    """
     usage = sig["usage"]
     fitness = fit["fitness"]
 
@@ -194,13 +224,15 @@ def _recommend(
             if recently_touched:
                 return "experimental", f"offered {sig['offered']}x, unused but newly forged/refined (grace)"
             return "deprecated", f"offered {sig['offered']}x, never used"
-        if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS:
-            return "deprecated", f"used but low fitness {fitness}"
+        # Down-rank only on genuine negative outcomes, never mere silence.
+        if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS and _has_genuine_negative_outcome(sig):
+            return "deprecated", f"used but low fitness {fitness} (genuine negative outcome)"
         return "experimental", "still on probation"
 
     # status == core
-    if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS:
-        return "deprecated", f"core skill degraded to fitness {fitness}"
+    # Down-rank only on genuine negative outcomes, never mere silence.
+    if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS and _has_genuine_negative_outcome(sig):
+        return "deprecated", f"core skill degraded to fitness {fitness} (genuine negative outcome)"
     if sig["offered"] >= OFFERED_UNUSED * 2 and usage == 0 and not recently_touched:
         return "deprecated", f"core skill fell out of use (offered {sig['offered']}x)"
     return "core", "healthy"

@@ -364,7 +364,7 @@ class Canon:
             activity = sk.activity if sk.activity in skills else "staging"
             skills[activity].append(s)
 
-        return {
+        bundle: dict[str, Any] = {
             "goal": goal,
             "domain": domain,
             "loop": (
@@ -379,6 +379,28 @@ class Canon:
                 + [f"canon://skills/{n}" for n in self.skills]
             ),
         }
+
+        # orient-guard: when domain is underdetermined, surface candidate domains
+        # and a recovery hint inline so the model has everything it needs to
+        # re-orient without a second round trip.
+        if domain is None:
+            candidate_domains = [
+                {
+                    "name": dname,
+                    "tags": list((dmeta or {}).get("tags", [])),
+                }
+                for dname, dmeta in self.domains().items()
+            ]
+            bundle["domain_recovery"] = {
+                "hint": (
+                    "Domain could not be inferred from the goal. "
+                    "Pass domain=<name> explicitly or rephrase the goal using "
+                    "domain-specific language. Candidate domains are listed below."
+                ),
+                "candidate_domains": candidate_domains,
+            }
+
+        return bundle
 
 
 def _first_heading(body: str) -> str | None:

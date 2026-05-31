@@ -33,6 +33,44 @@ from mcp_gerard.laplace.gitio import run_git
 from mcp_gerard.laplace.canon import Canon, get_canon
 
 # ---------------------------------------------------------------------------
+# backlog reader
+# ---------------------------------------------------------------------------
+
+# The backlog file lives alongside this module in the engine directory.
+_BACKLOG_PATH = Path(__file__).resolve().parent / "AUTONOMY_BACKLOG.md"
+_BACKLOG_HEADING_RE = re.compile(r"^##\s+(.+)", re.MULTILINE)
+
+
+def _read_backlog() -> dict[str, Any]:
+    """Return a digest of AUTONOMY_BACKLOG.md: its section headings and open items.
+
+    Open items are lines that start with ``- **`` and are NOT struck-through
+    (i.e. do not start with ``- ~~``).  The result is surfaced in the dream
+    bundle under ``"backlog"`` so deferred items resurface each cycle without
+    the dreamer having to remember them.
+    """
+    try:
+        text = _BACKLOG_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return {"available": False, "reason": "backlog file not readable"}
+
+    sections = _BACKLOG_HEADING_RE.findall(text)
+    open_items: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- **") and not stripped.startswith("- ~~"):
+            # Extract the bold label: text between the first pair of **
+            m = re.match(r"- \*\*(.+?)\*\*", stripped)
+            if m:
+                open_items.append(m.group(1))
+    return {
+        "available": True,
+        "sections": sections,
+        "open_items": open_items,
+        "path": str(_BACKLOG_PATH),
+    }
+
+# ---------------------------------------------------------------------------
 # git helpers, scoped to the canon subtree
 # ---------------------------------------------------------------------------
 
@@ -224,7 +262,8 @@ def dream(
             "refine_recommended": report.get("refine_recommended", []),
             "unused": report["unused"],
             "events_seen": report["events_seen"],
-        }
+        },
+        "backlog": _read_backlog(),
     }
     changed: list[Path] = []
 

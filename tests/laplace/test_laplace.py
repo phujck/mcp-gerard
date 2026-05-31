@@ -694,3 +694,120 @@ def test_run_git_returns_text_output():
     proc = gitio.run_git(".", "rev-parse", "--is-inside-work-tree", timeout=10)
     assert proc.returncode == 0
     assert proc.stdout.strip() == "true"
+
+
+# ---------------------------------------------------------------------------
+# Item 1 - dreamer reads the backlog
+# ---------------------------------------------------------------------------
+
+
+def test_dream_exposes_backlog_headers(isolated_canon):
+    """dream() result must carry a 'backlog' key with the section headings from
+    AUTONOMY_BACKLOG.md, so deferred items resurface each cycle.
+    """
+    out = dreamer.dream(apply=False, forge=False)
+    assert "backlog" in out, "dream() must include a 'backlog' key"
+    backlog = out["backlog"]
+    assert backlog.get("available") is True, f"backlog should be readable: {backlog}"
+    sections = backlog.get("sections", [])
+    assert sections, "backlog sections list must not be empty"
+    # The backlog has at least an 'Engine behaviour' section.
+    assert any("Engine behaviour" in s for s in sections), (
+        f"Expected 'Engine behaviour' in backlog sections, got: {sections}"
+    )
+    # Open items should surface too.
+    assert isinstance(backlog.get("open_items"), list)
+
+
+# ---------------------------------------------------------------------------
+# Item 2 - orient-guard for domain=null
+# ---------------------------------------------------------------------------
+
+
+def test_orient_null_domain_carries_candidate_domains():
+    """When a goal is too ambiguous to infer a domain, the orient bundle must
+    include candidate domains inline under 'domain_recovery', so the model has
+    everything it needs to re-orient without a second round trip.
+    """
+    c = Canon.load()
+    # A goal with no domain-specific language should yield domain=None.
+    bundle = c.orient("do something")
+    # If domain inference happened to find a match, skip this check.
+    if bundle["domain"] is not None:
+        pytest.skip("goal unexpectedly matched a domain; need a more ambiguous goal")
+    assert "domain_recovery" in bundle, (
+        "orient bundle must include 'domain_recovery' when domain=None"
+    )
+    recovery = bundle["domain_recovery"]
+    assert "hint" in recovery, "domain_recovery must include a hint"
+    candidates = recovery.get("candidate_domains", [])
+    assert candidates, "domain_recovery must list candidate domains"
+    # Each candidate must have a name.
+    assert all("name" in cd for cd in candidates), (
+        f"all candidate_domains entries must have a 'name' key: {candidates}"
+    )
+
+
+def test_orient_with_explicit_domain_has_no_recovery():
+    """When a domain is supplied or cleanly inferred, no domain_recovery key
+    should appear - it is only an aid for the underdetermined case.
+    """
+    c = Canon.load()
+    # 'synthetics' is a known domain that should be inferred.
+    bundle = c.orient(
+        "lint the latex voice and check derivations for the phases of hierarchy"
+    )
+    assert bundle["domain"] == "synthetics"
+    assert "domain_recovery" not in bundle, (
+        "domain_recovery must not appear when domain is determined"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Item 3 - fitness must not read silence as dissatisfaction
+# ---------------------------------------------------------------------------
+
+
+def test_fitness_silence_does_not_deprecate_healthy_skill(isolated_state):
+    """A skill with healthy usage and verify pass-rate but zero explicit feedback
+    must not be down-ranked relative to its usage.  Absence of praise alone must
+    never trigger a deprecate recommendation.
+    """
+    # Drive a healthy usage pattern: 6 verify passes, zero explicit feedback.
+    for _ in range(6):
+        telemetry.log("verify_check", skill="latex_forge", check="voice", passed=True)
+    # No laplace_log calls - silence, not dissatisfaction.
+
+    rep = assess.assess(Canon.load())
+    skill_row = next((r for r in rep["skills"] if r["name"] == "latex_forge"), None)
+    assert skill_row is not None
+
+    # The skill must not be recommended for deprecation.
+    assert skill_row["recommended_status"] != "deprecated", (
+        f"latex_forge was recommended for deprecation despite healthy usage and "
+        f"zero (not negative) feedback: {skill_row}"
+    )
+    # Fitness must be respectable - usage and quality should dominate.
+    assert skill_row["fitness"] >= 0.5, (
+        f"fitness {skill_row['fitness']} too low for a skill with healthy usage "
+        f"and zero negative feedback"
+    )
+
+
+def test_absence_of_praise_never_triggers_deprecate_recommendation(isolated_state):
+    """Even when a skill has usage but zero laplace_log calls, the assess report
+    must not recommend deprecation - silence is not dissatisfaction.
+    """
+    # Enough usage to pass the PROMOTE_MIN_USES threshold.
+    for _ in range(6):
+        telemetry.log("execute", skill="result_foundry", kind="protocol")
+
+    rep = assess.assess(Canon.load())
+    skill_row = next((r for r in rep["skills"] if r["name"] == "result_foundry"), None)
+    if skill_row is None:
+        pytest.skip("result_foundry not in canon; pick any skill with zero feedback")
+
+    transitions = {t["name"]: t["to"] for t in rep["transitions"]}
+    assert transitions.get("result_foundry") != "deprecated", (
+        "absence of positive feedback alone must not trigger a deprecate recommendation"
+    )
