@@ -196,6 +196,7 @@ skills:
     activity: staging  # owns the Spine stage of the trunk - the NMD / paper blueprint
     domain: global
     status: experimental
+    backing: scripts/project_blueprint.py
     tags: [spine, blueprint, nmd, manuscript, sections, claims, equation-placement, preview, graph, core-outward, drafting]
   reconciler:
     activity: staging

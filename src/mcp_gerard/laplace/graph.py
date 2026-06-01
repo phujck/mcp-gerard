@@ -476,6 +476,78 @@ class CanonGraph:
         g._collapse_parallel_edges()
         return g
 
+    @classmethod
+    def from_blueprint(cls, target) -> CanonGraph:
+        """Build the graph from a manuscript BLUEPRINT (``blueprint.md``).
+
+        The same node/edge model as a compiled manuscript, but sourced from the
+        *plan* that exists before any ``.tex``. This is what makes the paper
+        navigable while it is still being elicited: sections in reading order,
+        the claims each makes (carrying their result-ledger provenance and
+        status), the equations and figures placed in them, and the citations
+        they lean on. Every renderer that serves ``from_canon`` and
+        ``from_manuscript`` serves this unchanged - one model, three sources.
+
+        Node kinds match the manuscript projection (section / claim / equation /
+        figure / citation) so the live preview is the same object the compiled
+        paper will be, only earlier and editable.
+        """
+        from pathlib import Path
+
+        spine, sections = _parse_blueprint(Path(target).read_text(encoding="utf-8"))
+        g = cls()
+        if spine:
+            g.nodes["blueprint:spine"] = Node(
+                id="blueprint:spine", kind="domain", label=spine.get("title", "Spine"),
+                group="domain", meta=spine,
+            )
+        prev = None
+        for order, sec in enumerate(sections):
+            sid = f"sec:{_slug(sec['id'])}"
+            if sid in g.nodes:
+                sid = f"{sid}_{order}"
+            g.nodes[sid] = Node(
+                id=sid, kind="section", label=sec["title"],
+                group=_blueprint_ring_group(sec.get("ring")), status=sec.get("status"),
+                meta={"ring": sec.get("ring"), "status": sec.get("status"),
+                      "intent": sec.get("intent", ""), "order": order},
+            )
+            if "blueprint:spine" in g.nodes and prev is None:
+                g.edges.append(Edge("blueprint:spine", sid, "has_project", source="blueprint"))
+            if prev:
+                g.edges.append(Edge(prev, sid, "precedes", source="blueprint"))
+            prev = sid
+            for i, cl in enumerate(sec.get("claims", [])):
+                cid = f"claim:{_slug(sec['id'])}_{i}"
+                g.nodes[cid] = Node(
+                    id=cid, kind="claim", label=(cl["text"][:60] or cid), group="claim",
+                    status=cl.get("status"),
+                    meta={"result": cl.get("result"), "status": cl.get("status"),
+                          "headline": cl.get("headline", False), "text": cl["text"]},
+                )
+                g.edges.append(Edge(sid, cid, "contains", source="blueprint"))
+                cl["_node"] = cid
+            for eq in sec.get("equations", []):
+                eid = f"eq:{_slug(eq['label'])}"
+                g.nodes.setdefault(eid, Node(id=eid, kind="equation", label=eq["label"],
+                                             group="equation", meta={"latex": eq.get("latex", "")}))
+                g.edges.append(Edge(sid, eid, "contains", source="blueprint"))
+                tc = _match_claim(sec.get("claims", []), eq.get("serves"))
+                if tc and tc.get("_node"):
+                    g.edges.append(Edge(tc["_node"], eid, "supported_by", source="blueprint"))
+            for fg in sec.get("figures", []):
+                fid = f"fig:{_slug(fg['label'])}"
+                g.nodes.setdefault(fid, Node(id=fid, kind="figure", label=(fg.get("caption") or fg["label"]),
+                                             group="figure", meta={"label": fg["label"]}))
+                g.edges.append(Edge(sid, fid, "contains", source="blueprint"))
+            for ct in sec.get("cites", []):
+                cnode = f"cite:{ct['key']}"
+                g.nodes.setdefault(cnode, Node(id=cnode, kind="citation", label=ct["key"],
+                                               group="citation", meta={"relation": ct.get("relation", "context")}))
+                g.edges.append(Edge(sid, cnode, "cites", source="blueprint"))
+        g._collapse_parallel_edges()
+        return g
+
     # -- internals ----------------------------------------------------------
     def _build_resolver(self, canon: Canon) -> dict[str, str]:
         """Map every token a link might use to a node id.
@@ -954,6 +1026,107 @@ def _slug(s: str) -> str:
     return (s[:60] or "x").lower()
 
 
+# -- blueprint parsing (the plan, before the .tex) -------------------------
+_RING_GROUPS = {"core": "ring_core", "inner": "ring_inner", "framing": "ring_outer"}
+
+
+def _blueprint_ring_group(ring: str | None) -> str:
+    return _RING_GROUPS.get((ring or "").strip().lower(), "section")
+
+
+def _match_claim(claims: list[dict], serves: str | None) -> dict | None:
+    """Resolve an equation's ``serves:`` to a claim - by 1-based index (C1/1) or
+    by a case-insensitive substring of the claim text."""
+    if not serves:
+        return None
+    serves = serves.strip()
+    m = re.match(r"[cC]?(\d+)$", serves)
+    if m:
+        idx = int(m.group(1)) - 1
+        if 0 <= idx < len(claims):
+            return claims[idx]
+    for cl in claims:
+        if serves.lower() in cl.get("text", "").lower():
+            return cl
+    return None
+
+
+def _parse_blueprint(text: str) -> tuple[dict, list[dict]]:
+    """Parse blueprint.md into (spine dict, ordered section dicts).
+
+    Format (human-readable, line-parseable):
+      spine lines before the first section: ``- thesis: ...`` / frame / title / register
+      section header:  ``## <id> | <Title> | ring:<core|inner|framing> | status:<...>``
+      ``intent: ...``
+      ``- claim: <text> | result:<Rk> | status:<...> [| headline]``
+      ``- equation: <label> | <latex> | serves:<claim index or substring>``
+      ``- figure: <label> | <caption?>``
+      ``- cite: <key> | relation:<supports|contests|context>``
+    """
+    spine: dict = {}
+    sections: list[dict] = []
+    cur: dict | None = None
+    in_sections = False
+    for raw in text.splitlines():
+        s = raw.strip()
+        if s.startswith("## "):
+            in_sections = True
+            parts = [p.strip() for p in s[3:].split("|")]
+            sec: dict = {
+                "id": parts[0] or f"s{len(sections)}",
+                "title": parts[1] if len(parts) > 1 and parts[1] else parts[0],
+                "claims": [], "equations": [], "figures": [], "cites": [], "intent": "",
+            }
+            for p in parts[2:]:
+                if ":" in p:
+                    k, v = p.split(":", 1)
+                    sec[k.strip().lower()] = v.strip()
+            sections.append(sec)
+            cur = sec
+            continue
+        if not in_sections:
+            m = re.match(r"-?\s*(thesis|frame|title|register)\s*:\s*(.+)", s, re.I)
+            if m:
+                spine[m.group(1).lower()] = m.group(2).strip()
+            continue
+        if cur is None:
+            continue
+        if s.lower().startswith("intent:"):
+            cur["intent"] = s.split(":", 1)[1].strip()
+            continue
+        m = re.match(r"-\s*(claim|equation|figure|cite)\s*:\s*(.+)", s, re.I)
+        if not m:
+            continue
+        kind, rest = m.group(1).lower(), m.group(2)
+        fields = [f.strip() for f in rest.split("|")]
+        if kind == "claim":
+            cl: dict = {"text": fields[0], "headline": False}
+            for f in fields[1:]:
+                if f.lower() == "headline":
+                    cl["headline"] = True
+                elif ":" in f:
+                    k, v = f.split(":", 1)
+                    cl[k.strip().lower()] = v.strip()
+            cur["claims"].append(cl)
+        elif kind == "equation":
+            eq: dict = {"label": fields[0], "latex": fields[1] if len(fields) > 1 else ""}
+            for f in fields[2:]:
+                if ":" in f:
+                    k, v = f.split(":", 1)
+                    eq[k.strip().lower()] = v.strip()
+            cur["equations"].append(eq)
+        elif kind == "figure":
+            cur["figures"].append({"label": fields[0], "caption": fields[1] if len(fields) > 1 else ""})
+        elif kind == "cite":
+            ct: dict = {"key": fields[0]}
+            for f in fields[1:]:
+                if ":" in f:
+                    k, v = f.split(":", 1)
+                    ct[k.strip().lower()] = v.strip()
+            cur["cites"].append(ct)
+    return spine, sections
+
+
 def _fitness_map(canon: Canon) -> dict[str, float]:
     """Per-skill fitness from telemetry, defensively. No ledger -> empty map and
     every skill keeps the neutral prior."""
@@ -1029,6 +1202,7 @@ def render(
     canon: Canon | None = None,
     manuscript: str | None = None,
     summary: bool = False,
+    blueprint: str | None = None,
 ) -> dict[str, Any]:
     """Build a graph and project it. Source is the canon by default, or a
     manuscript ``.tex``/directory when ``manuscript`` is given - the same
@@ -1039,7 +1213,13 @@ def render(
     bounded summary when the graph exceeds the node threshold - safe for large
     manuscripts that would otherwise overflow the MCP token budget.
     """
-    if manuscript:
+    if blueprint:
+        from pathlib import Path
+
+        if not Path(blueprint).exists():
+            return {"error": f"blueprint path not found: {blueprint}"}
+        g = CanonGraph.from_blueprint(blueprint)
+    elif manuscript:
         from pathlib import Path
 
         if not Path(manuscript).exists():
