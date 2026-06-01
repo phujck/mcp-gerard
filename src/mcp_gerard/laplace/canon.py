@@ -325,6 +325,39 @@ class Canon:
     def global_foundation(self) -> list[WikiNode]:
         return [n for n in self.wiki.values() if n.scope == "global"]
 
+    def dashboard(self) -> dict[str, Any]:
+        """The landing view when no task is in focus: what is in play, by project
+        and by activity, so a session with an unclear goal can pick a thread
+        rather than guess. Live per-result status lives in each project's
+        HANDOFF.md (not restated here); engine to-dos live in AUTONOMY_BACKLOG.md.
+        """
+        projects = []
+        for dname, dmeta in self.domains().items():
+            for pkey, pref in ((dmeta or {}).get("projects") or {}).items():
+                node = self.wiki.get(pref)
+                projects.append({
+                    "domain": dname,
+                    "project": pkey,
+                    "ref": f"canon://{pref}",
+                    "title": node.title if node else pkey,
+                })
+        activities: dict[str, list[str]] = {"generating": [], "staging": [], "evaluating": []}
+        for sk in self.skills.values():
+            if sk.status == "deprecated":
+                continue
+            activities.setdefault(sk.activity if sk.activity in activities else "staging", []).append(sk.name)
+        return {
+            "hint": (
+                "No clear task in focus. Pick a project to resume, choose an activity "
+                "(generating | staging | evaluating), or restate the goal in a sentence. "
+                "Each project's live status is in its HANDOFF.md; engine to-dos are in "
+                "AUTONOMY_BACKLOG.md."
+            ),
+            "active_projects": projects,
+            "activities": activities,
+            "domains": list(self.domains().keys()),
+        }
+
     # -- the orient bundle --------------------------------------------------
     def orient(self, goal: str, domain: str | None = None) -> dict[str, Any]:
         """Assemble a concise, relevance-ranked context bundle for a goal.
@@ -381,9 +414,12 @@ class Canon:
             ),
         }
 
-        # orient-guard: when domain is underdetermined, surface candidate domains
-        # and a recovery hint inline so the model has everything it needs to
-        # re-orient without a second round trip.
+        # orient-guard: when the task is underdetermined - no domain inferred, or
+        # an empty/blank goal - surface a dashboard (active projects, activities,
+        # domains) so the session can pick a thread rather than guess, plus the
+        # candidate domains. Everything needed to re-orient, in one response.
+        if domain is None or not goal.strip():
+            bundle["dashboard"] = self.dashboard()
         if domain is None:
             candidate_domains = [
                 {

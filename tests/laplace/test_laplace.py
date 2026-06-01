@@ -248,6 +248,21 @@ def test_structural_skill_spared_from_silence_deprecation(isolated_canon):
     assert moves2.get("css_forge") == "deprecated"
 
 
+def test_orient_dashboard_when_goal_unclear():
+    c = Canon.load()
+    # a blank goal surfaces the dashboard: active projects + the three activities,
+    # so a session with no clear task picks a thread rather than guessing.
+    bundle = c.orient("")
+    assert "dashboard" in bundle
+    dash = bundle["dashboard"]
+    assert dash["active_projects"], "dashboard should list active projects"
+    assert any(p["domain"] == "synthetics" for p in dash["active_projects"])
+    assert set(dash["activities"]) == {"generating", "staging", "evaluating"}
+    # a goal with a clear domain does NOT get the dashboard
+    clear = c.orient("draft the adaptive normal form manuscript", domain="synthetics")
+    assert "dashboard" not in clear
+
+
 # ---------------------------------------------------------------------------
 # dreamer (isolated canon copy outside the repo => independent git repo)
 # ---------------------------------------------------------------------------
