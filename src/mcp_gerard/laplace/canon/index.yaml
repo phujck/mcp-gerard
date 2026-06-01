@@ -59,6 +59,10 @@ wiki:
     title: Project Scaffold
     scope: global
     tags: [meta, scaffold, new-domain]
+  templates/domain_scaffold:
+    title: Domain Scaffold (the extension protocol)
+    scope: global
+    tags: [meta, scaffold, extension, domain, capability, everything-machine, relevance, firewall]
   author/the_author:
     title: The Author
     scope: global
@@ -198,6 +202,16 @@ skills:
     status: experimental
     backing: scripts/project_blueprint.py
     tags: [spine, blueprint, nmd, manuscript, sections, claims, equation-placement, preview, graph, core-outward, drafting]
+  script_editor:
+    activity: staging  # the talk's Spine stage - elicits the beat list (talk_spine_generator slot)
+    domain: talks
+    status: experimental
+    tags: [talk, spine, script, beats, elicitation, narrative, provenance, twin]
+  visual_director:
+    activity: staging  # the talk's Trunk stage - per-slide visual proposals (slide_builder slot)
+    domain: talks
+    status: experimental
+    tags: [talk, slides, visual, substrate, figure, embed-vs-bake, staging, twin]
   reconciler:
     activity: staging
     domain: global
