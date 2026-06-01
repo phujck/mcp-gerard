@@ -212,20 +212,40 @@ def test_recently_committed_skill_is_spared_from_deprecation(isolated_canon):
     md.write_text(md.read_text(encoding="utf-8") + "\n<!-- refined this window -->\n", encoding="utf-8")
     gitio.commit_all(dst, "refine css_forge")  # a non-root commit in-window
 
-    # Both offered+unused. css_forge was just committed; latex_forge was not.
+    # Both offered+unused, both non-structural. css_forge was just committed;
+    # html_mechanic was not. (latex_forge is unusable here as a deprecation
+    # example: it is the structural Trunk owner, so it is protected regardless.)
     for _ in range(9):
         telemetry.log("orient", domain="web", offered=["css_forge"])
-        telemetry.log("orient", domain="web", offered=["latex_forge"])
+        telemetry.log("orient", domain="web", offered=["html_mechanic"])
     rep = assess.assess(Canon.load())
     moves = {t["name"]: t["to"] for t in rep["transitions"]}
-    assert moves.get("css_forge") != "deprecated"      # spared by the grace
-    assert moves.get("latex_forge") == "deprecated"    # not recently committed => deprecates
+    assert moves.get("css_forge") != "deprecated"        # spared by the commit grace
+    assert moves.get("html_mechanic") == "deprecated"    # not recently committed => deprecates
 
 
 def test_unused_experimental_not_promoted(isolated_state):
     rep = assess.assess(Canon.load())
     # With no telemetry, nothing earns promotion.
     assert all(t["to"] != "core" for t in rep["transitions"])
+
+
+def test_structural_skill_spared_from_silence_deprecation(isolated_canon):
+    # literature_scout is referenced by the GLOBAL workflow nodes (core_outward_trunk,
+    # evidence_schema_flow) - structural. Offered-but-unused must NOT deprecate it:
+    # it is phase-dormant (the literature rail is dormant in a figure phase), not unfit.
+    for _ in range(9):
+        telemetry.log("orient", domain="global", offered=["literature_scout"])
+    rep = assess.assess(Canon.load())
+    moves = {t["name"]: t["to"] for t in rep["transitions"]}
+    assert moves.get("literature_scout") != "deprecated"
+    # but a skill only name-dropped in a domain page (css_forge in the web axioms)
+    # is NOT structural and still deprecates on the same silence.
+    for _ in range(9):
+        telemetry.log("orient", domain="web", offered=["css_forge"])
+    rep2 = assess.assess(Canon.load())
+    moves2 = {t["name"]: t["to"] for t in rep2["transitions"]}
+    assert moves2.get("css_forge") == "deprecated"
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +267,7 @@ def isolated_canon(tmp_path, monkeypatch):
     seed = {"skills": {
         "latex_forge": {"status": "experimental"},
         "css_forge": {"status": "experimental"},
+        "html_mechanic": {"status": "experimental"},  # non-structural (domain-only mention)
     }}
     (dst / "lifecycle.yaml").write_text(yaml.safe_dump(seed), encoding="utf-8")
     gitio.commit_all(dst, "seed: experimental baseline")

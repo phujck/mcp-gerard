@@ -182,14 +182,50 @@ def _has_genuine_negative_outcome(sig: dict[str, Any]) -> bool:
     return False
 
 
+def _structural_skills(canon: Canon) -> set[str]:
+    """Skills the documented architecture leans on - referenced by a GLOBAL wiki
+    node (a workflow / structure / aesthetics page) or by a ``core`` skill.
+
+    Such a skill is *structural*: it is unused only because the active project
+    has not reached the stage that exercises it (a literature rail is dormant
+    during a figure phase), not because it failed. It must never be deprecated on
+    silence alone - only on a genuine negative outcome. This is the structural
+    backstop behind the "silence is not dissatisfaction" principle, and it stops
+    the deprecate-on-silence path from eating backbone skills (literature_scout,
+    reconciler, corpus_librarian) that the global workflow nodes still link to.
+
+    Only GLOBAL-scope wiki nodes confer protection - a domain page that merely
+    name-drops a skill as "deprecated, awaiting revival" (e.g. the web axioms on
+    css_forge) is prose, not architecture, and must not shield it.
+    """
+    try:
+        from mcp_gerard.laplace import graph as _graph
+
+        g = _graph.CanonGraph.from_canon(canon, with_fitness=False)  # no fitness: avoid assess recursion
+    except Exception:  # noqa: BLE001 - the guard is an enrichment, never a hard dep
+        return set()
+    core_ids = {f"skill:{n}" for n, sk in canon.skills.items() if sk.status == "core"}
+    protected: set[str] = set()
+    for e in g.edges:
+        if e.rel != "links_to" or not e.dst.startswith("skill:"):
+            continue
+        src = g.nodes.get(e.src)
+        src_global_wiki = src is not None and src.kind == "wiki" and (src.meta or {}).get("scope") == "global"
+        if src_global_wiki or e.src in core_ids:
+            protected.add(e.dst[len("skill:"):])
+    return protected
+
+
 def _recommend(
-    status: str, sig: dict[str, Any], fit: dict[str, Any], recently_touched: bool = False
+    status: str, sig: dict[str, Any], fit: dict[str, Any],
+    recently_touched: bool = False, is_protected: bool = False,
 ) -> tuple[str, str]:
     """Return (recommended_status, reason). Conservative: only act on evidence.
 
     Absence of positive feedback is treated as neutral, not negative. A skill
     is only down-ranked when there is a genuine negative outcome: explicit
-    negative laplace_log signals or a measured low verify/exec pass-rate.
+    negative laplace_log signals or a measured low verify/exec pass-rate. A
+    *structural* skill (referenced by the canon) is never deprecated on silence.
     """
     usage = sig["usage"]
     fitness = fit["fitness"]
@@ -206,6 +242,8 @@ def _recommend(
         if sig["offered"] >= OFFERED_UNUSED and usage == 0:
             if recently_touched:
                 return "experimental", f"offered {sig['offered']}x, unused but newly forged/refined (grace)"
+            if is_protected:
+                return "experimental", f"offered {sig['offered']}x, unused - but structural (canon-referenced); phase-dormant, not unfit"
             return "deprecated", f"offered {sig['offered']}x, never used"
         # Down-rank only on genuine negative outcomes, never mere silence.
         if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS and _has_genuine_negative_outcome(sig):
@@ -216,7 +254,7 @@ def _recommend(
     # Down-rank only on genuine negative outcomes, never mere silence.
     if usage >= PROMOTE_MIN_USES and fitness < DEPRECATE_FITNESS and _has_genuine_negative_outcome(sig):
         return "deprecated", f"core skill degraded to fitness {fitness} (genuine negative outcome)"
-    if sig["offered"] >= OFFERED_UNUSED * 2 and usage == 0 and not recently_touched:
+    if sig["offered"] >= OFFERED_UNUSED * 2 and usage == 0 and not recently_touched and not is_protected:
         return "deprecated", f"core skill fell out of use (offered {sig['offered']}x)"
     return "core", "healthy"
 
@@ -271,11 +309,12 @@ def assess(canon: Canon | None = None, session: str | None = None, since: str | 
     transitions: list[dict[str, Any]] = []
 
     recent = _recent_committed_paths(canon.root, since)
+    protected = _structural_skills(canon)
     for name, sk in canon.skills.items():
         sig = _skill_signals(name, evs)
         fit = _fitness(sig)
         recently_touched = _recently_touched(sk, recent)
-        rec, reason = _recommend(sk.status, sig, fit, recently_touched)
+        rec, reason = _recommend(sk.status, sig, fit, recently_touched, name in protected)
         ref = _refine(sk.status, sig, fit)
         # Keep "healthy" honest: a kept skill that needs a rewrite says so.
         if ref["needs_refine"] and rec == sk.status:

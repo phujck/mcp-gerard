@@ -17,8 +17,16 @@ skills:
       from: experimental
       reason: offered 9x, never used
       to: deprecated
-    status: deprecated
-    updated: '2026-05-31T19:55:37.270065+00:00'
+    - at: '2026-06-01T10:30:00+00:00'
+      from: deprecated
+      reason: dreamer correction - structural skill wrongly deprecated on silence.
+        corpus_librarian holds the literature corpus and is referenced by the global
+        workflow node evidence_schema_flow. Phase-dormant (literature rail not yet
+        exercised), not unfit. Restored; the new structural-protection guard in
+        assess prevents recurrence.
+      to: experimental
+    status: experimental
+    updated: '2026-06-01T10:30:00+00:00'
   evidence_alignment:
     fitness: 0.35
     history:
@@ -70,8 +78,16 @@ skills:
       from: experimental
       reason: offered 8x, never used
       to: deprecated
-    status: deprecated
-    updated: '2026-05-31T19:55:37.270065+00:00'
+    - at: '2026-06-01T10:30:00+00:00'
+      from: deprecated
+      reason: dreamer correction - structural skill wrongly deprecated on silence.
+        reconciler is the propagation owner, referenced by the global workflow node
+        core_outward_trunk and by the manuscript_spine hand-off. Phase-dormant, not
+        unfit. Restored; the new structural-protection guard in assess prevents
+        recurrence.
+      to: experimental
+    status: experimental
+    updated: '2026-06-01T10:30:00+00:00'
   session_closer:
     forged: '2026-05-30T19:40:00+00:00'
     history:
