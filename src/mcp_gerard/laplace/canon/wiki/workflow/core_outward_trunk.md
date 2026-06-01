@@ -12,7 +12,9 @@ context. This node defines the workflow; [`reconciler`](canon://skills/reconcile
    trunk-root ledger and iterates until confident. The Foundry is re-enterable - later work may
    kick a question back down into it.
 2. **Spine** — establish the *narrative spine and thematic identity*: the global frame that
-   constrains every element below it. Pin this before drafting any outward prose.
+   constrains every element below it. Pin this before drafting any outward prose. Owned by
+   [`manuscript_spine`](canon://skills/manuscript_spine), which grows the blueprint (the NMD)
+   one section node at a time and renders it as a live preview network.
 3. **Trunk** — only now draft the manuscript, **element by element, core-outward**.
 
 ## Core-outward order

@@ -33,7 +33,9 @@ A missing structured slot does not block the human - it degrades to `UNVERIFIED`
 steps aside. The tool serves the drafting, never the reverse.
 
 ## The narrative master doc (NMD)
-The NMD is a **composition manifest**, not a prose document. It is an ordered set of transclusion
+The NMD is owned and grown by [`manuscript_spine`](canon://skills/manuscript_spine), the Spine-stage
+skill - it is the live blueprint that skill builds one section node at a time. The NMD is a
+**composition manifest**, not a prose document. It is an ordered set of transclusion
 directives over faces - `include R_i/scaffolding.motivation`, `include R_i/derivation.statement`,
 `include R_i/scaffolding.consequence` - plus the one thing it genuinely owns: **section-level
 connective prose**, the cross-result transitions and section framing. Result-local prose lives in

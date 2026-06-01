@@ -192,6 +192,11 @@ skills:
     domain: global
     status: experimental
     tags: [core, results, ledger, evidence, status, derive-not-assert, craft]
+  manuscript_spine:
+    activity: staging  # owns the Spine stage of the trunk - the NMD / paper blueprint
+    domain: global
+    status: experimental
+    tags: [spine, blueprint, nmd, manuscript, sections, claims, equation-placement, preview, graph, core-outward, drafting]
   reconciler:
     activity: staging
     domain: global
