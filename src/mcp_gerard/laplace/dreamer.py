@@ -19,8 +19,11 @@ Every mutation is a single scoped git commit, so ``rollback`` can undo it.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +34,7 @@ from mcp_gerard.laplace import assess as _assess
 from mcp_gerard.laplace import telemetry as _telemetry
 from mcp_gerard.laplace.gitio import run_git
 from mcp_gerard.laplace.canon import Canon, get_canon
+from mcp_gerard.laplace.locking import CanonBusy, canon_lock
 
 # ---------------------------------------------------------------------------
 # backlog reader
@@ -117,7 +121,30 @@ def _save_lifecycle(canon: Canon, data: dict[str, Any]) -> Path:
         "# Machine-owned lifecycle overlay. The dreamer writes this; do not hand-edit.\n"
         "# It overrides skill `status` in index.yaml based on measured fitness.\n"
     )
-    path.write_text(header + yaml.safe_dump(data, sort_keys=True), encoding="utf-8")
+    # Atomic: write a uniquely-named temp in the same directory then os.replace,
+    # so a lock-free reader (the canon loader) never sees a half-written,
+    # invalid-YAML overlay. The temp name is unique (mkstemp) so the write is
+    # self-contained and safe even off the lock. os.replace is atomic, but on
+    # Windows it raises PermissionError if a reader holds the destination open
+    # for the instant of the swap (CPython opens without share-delete), so retry
+    # briefly - the reader's window is tiny.
+    body = header + yaml.safe_dump(data, sort_keys=True)
+    fd, tmpname = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    tmp = Path(tmpname)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        for attempt in range(100):
+            try:
+                os.replace(tmp, path)
+                return path
+            except PermissionError:
+                if attempt == 99:
+                    raise
+                time.sleep(0.01)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
     return path
 
 
@@ -221,21 +248,28 @@ def persist_forged_skill(canon: Canon, content: str) -> dict[str, Any]:
     if not m:
         return {"forged": False, "reason": "no name found in draft frontmatter"}
     name = m.group(1).lower()
-    skill_dir = canon.root / "skills" / name
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_md = skill_dir / "SKILL.md"
-    skill_md.write_text(content, encoding="utf-8")
+    try:
+        with canon_lock():
+            # Re-read the canon under the lock so the lifecycle mutation is built
+            # on current state, not a snapshot another agent may have superseded.
+            fresh = get_canon(fresh=True)
+            skill_dir = fresh.root / "skills" / name
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_md = skill_dir / "SKILL.md"
+            skill_md.write_text(content, encoding="utf-8")
 
-    # Register as experimental in the machine-owned lifecycle overlay.
-    life = dict(canon.lifecycle or {})
-    life.setdefault("skills", {})
-    life["skills"][name] = {
-        "status": "experimental",
-        "forged": _now(),
-        "history": [{"from": None, "to": "experimental", "reason": "forged by dreamer (host-executed)", "at": _now()}],
-    }
-    _save_lifecycle(canon, life)
-    return {"forged": True, "name": name, "path": skill_md, "skill_md": skill_md}
+            # Register as experimental in the machine-owned lifecycle overlay.
+            life = dict(fresh.lifecycle or {})
+            life.setdefault("skills", {})
+            life["skills"][name] = {
+                "status": "experimental",
+                "forged": _now(),
+                "history": [{"from": None, "to": "experimental", "reason": "forged by dreamer (host-executed)", "at": _now()}],
+            }
+            _save_lifecycle(fresh, life)
+            return {"forged": True, "name": name, "path": skill_md, "skill_md": skill_md}
+    except CanonBusy as exc:
+        return {"forged": False, "busy": True, "reason": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +286,31 @@ def dream(
     model: str = "claude",
     commit: bool = True,
 ) -> dict[str, Any]:
-    """Run the R&R cycle. Deterministic curation by default; forging on request."""
+    """Run the R&R cycle. Deterministic curation by default; forging on request.
+
+    The read-assess-mutate-commit critical section runs under the cross-process
+    canon lock, so concurrent dreams from multiple agents serialise instead of
+    clobbering lifecycle.yaml. On contention it returns a structured busy result
+    rather than blocking.
+    """
     since = _telemetry.last_dream_ts()  # only assess events since the last dream
+    try:
+        with canon_lock():
+            return _dream_locked(apply, forge, friction, transcript, model, commit, since)
+    except CanonBusy as exc:
+        return {"busy": True, "error": str(exc), "boundary_advanced": False}
+
+
+def _dream_locked(
+    apply: bool,
+    forge: bool,
+    friction: str,
+    transcript: str,
+    model: str,
+    commit: bool,
+    since: str | None,
+) -> dict[str, Any]:
+    """The dream body, run while holding the canon write lock."""
     canon = get_canon(fresh=True)
     report = _assess.assess(canon, since=since)
     out: dict[str, Any] = {
@@ -317,7 +374,11 @@ def _audit_message(out: dict[str, Any]) -> str:
 
 def rollback(ref: str) -> dict[str, Any]:
     """Revert a previous dreamer commit (scoped to canon files)."""
-    canon = get_canon()
-    res = _git(canon.root, "revert", "--no-edit", ref)
-    get_canon(fresh=True)
-    return {"ref": ref, "ok": res.returncode == 0, "stdout": res.stdout, "stderr": res.stderr}
+    try:
+        with canon_lock():
+            canon = get_canon()
+            res = _git(canon.root, "revert", "--no-edit", ref)
+            get_canon(fresh=True)
+            return {"ref": ref, "ok": res.returncode == 0, "stdout": res.stdout, "stderr": res.stderr}
+    except CanonBusy as exc:
+        return {"ref": ref, "ok": False, "busy": True, "error": str(exc)}

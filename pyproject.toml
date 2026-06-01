@@ -38,6 +38,7 @@ dependencies = [
     "lxml>=4.9.0",
     "rapidfuzz>=3.0.0",
     "matplotlib>=3.7.0",
+    "filelock>=3.12",
 ]
 
 [project.optional-dependencies]
