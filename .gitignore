@@ -88,3 +88,6 @@ artifacts/laplace_graph/
 
 # macOS system files
 .DS_Store
+
+# Claude Code per-machine launch config
+.claude/launch.json
