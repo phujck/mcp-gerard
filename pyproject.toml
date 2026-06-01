@@ -77,7 +77,7 @@ mcp-laplace = "mcp_gerard.laplace.tool:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-mcp_gerard = ["py.typed", "llm/providers/*/models.yaml", "tool_schemas.json", "_shared/*", "laplace/canon/**/*"]
+mcp_gerard = ["py.typed", "llm/providers/*/models.yaml", "tool_schemas.json", "_shared/*", "laplace/canon/**/*", "laplace/viewer_app.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

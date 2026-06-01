@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Laplace — live preview network</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --line:#283041; --ink:#e6edf3; --dim:#7d8794; --accent:#4A90D9; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font:14px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #top { display:flex; gap:14px; align-items:center; padding:8px 14px; border-bottom:1px solid var(--line);
+    background:var(--panel); }
+  #top b { letter-spacing:.3px; }
+  #top .src { color:var(--dim); font-size:12px; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .seg button { background:transparent; color:var(--dim); border:0; padding:5px 11px; cursor:pointer; font-size:13px; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  #top .btn { background:transparent; color:var(--dim); border:1px solid var(--line); border-radius:7px;
+    padding:5px 10px; cursor:pointer; }
+  #top .btn:hover { color:var(--ink); }
+  #wrap { display:flex; height:calc(100% - 45px); }
+  #cv { flex:1; display:block; cursor:grab; }
+  #cv:active { cursor:grabbing; }
+  #panel { width:360px; border-left:1px solid var(--line); background:var(--panel); padding:16px; overflow-y:auto; }
+  #panel h2 { margin:0 0 4px; font-size:16px; }
+  #panel .kind { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+  .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; margin:6px 6px 0 0; }
+  .row { margin:10px 0; padding-top:10px; border-top:1px solid var(--line); }
+  .row .k { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+  .ev { color:var(--dim); font-size:12px; margin:3px 0; }
+  textarea { width:100%; background:#0e1116; color:var(--ink); border:1px solid var(--line); border-radius:6px;
+    padding:8px; font:13px ui-monospace,monospace; resize:vertical; }
+  .send { margin-top:6px; background:var(--accent); color:#fff; border:0; border-radius:6px; padding:7px 14px; cursor:pointer; }
+  .cmt { background:#0e1116; border:1px solid var(--line); border-radius:6px; padding:7px 9px; margin:6px 0; font-size:13px; }
+  .cmt .t { color:var(--dim); font-size:11px; }
+  .legend { position:absolute; bottom:10px; left:14px; font-size:11px; color:var(--dim); }
+  .legend span { margin-right:10px; }
+  .hint { color:var(--dim); }
+</style>
+</head>
+<body>
+<div id="top">
+  <b>Laplace</b><span class="src" id="src">—</span>
+  <span class="seg" id="levels">
+    <button data-l="macro" class="on">macro</button>
+    <button data-l="meso">meso</button>
+    <button data-l="atom">atom</button>
+  </span>
+  <button class="btn" id="clearFocus">clear focus</button>
+  <button class="btn" id="refresh">refresh</button>
+  <span class="src" id="stat"></span>
+</div>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <aside id="panel"><p class="hint">Click a node to inspect its claims, provenance, and the prose each edge came from — then comment. Use macro / meso / atom to drill across scales.</p></aside>
+</div>
+<div class="legend" id="legend"></div>
+
+<script>
+const GROUP_COLOR = {
+  ring_core:"#E74C3C", ring_inner:"#F39C12", ring_outer:"#4A90D9", section:"#4A90D9",
+  claim:"#D35400", equation:"#9B5DE5", figure:"#16A085", citation:"#7F8C8D",
+  domain:"#E67E22", generating:"#F39C12", staging:"#4A90D9", evaluating:"#9B5DE5",
+  aesthetics:"#EC4899", operations:"#4A90D9", structure:"#84CC16", workflow:"#F39C12",
+  author:"#2ECC71", voice_corpus:"#1ABC9C", missing:"#C0392B"
+};
+const STATUS_COLOR = { established:"#2ECC71", partial:"#F39C12", "open-gap":"#E74C3C",
+  stub:"#C0392B", blueprinted:"#4A90D9", drafted:"#1ABC9C", core:"#9B5DE5",
+  experimental:"#4A90D9", deprecated:"#555" };
+const LEVELS = {
+  macro: new Set(["section","domain"]),
+  meso:  new Set(["section","domain","claim","figure"]),
+  atom:  null  // everything
+};
+
+let G = {nodes:[], edges:[]}, P = {}, comments = {}, meta = {source:"canon", path:null};
+let level = "macro", focusId = null, dragId = null, dragging=false, ox=0, oy=0, scale=1, panx=0, pany=0;
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+
+function resize(){ const r=devicePixelRatio||1, w=cv.clientWidth, h=cv.clientHeight;
+  cv.width=w*r; cv.height=h*r; ctx.setTransform(r,0,0,r,0,0); }
+window.addEventListener("resize", resize);
+
+async function load(){
+  meta = await (await fetch("/meta")).json();
+  document.getElementById("src").textContent = `${meta.source}${meta.path?(" · "+meta.path.split(/[\\/]/).pop()):""}`;
+  await refresh();
+}
+async function refresh(){
+  const r = await (await fetch(`/graph?source=${meta.source}&path=${encodeURIComponent(meta.path||"")}`)).json();
+  const art = r.artifact || r;
+  const old = P;
+  G.nodes = art.nodes || []; G.edges = art.edges || [];
+  P = {};
+  const n = G.nodes.length || 1; let i=0;
+  for(const nd of G.nodes){
+    if(old[nd.id]) P[nd.id] = old[nd.id];          // keep positions across refresh
+    else { const a = 2*Math.PI*i/n; P[nd.id] = {x:Math.cos(a)*220+ (Math.random()*40-20), y:Math.sin(a)*220+(Math.random()*40-20), vx:0, vy:0}; }
+    i++;
+  }
+  comments = await (await fetch(`/comments?source=${meta.source}&path=${encodeURIComponent(meta.path||"")}`)).json();
+  document.getElementById("stat").textContent = `${G.nodes.length} nodes · ${G.edges.length} edges`;
+  buildLegend();
+  if(focusId && !P[focusId]) focusId=null;
+  renderPanel();
+}
+function visible(){
+  const set = LEVELS[level];
+  const ns = set ? G.nodes.filter(n=>set.has(n.kind)) : G.nodes;
+  const ids = new Set(ns.map(n=>n.id));
+  const es = G.edges.filter(e=>ids.has(e.src)&&ids.has(e.dst));
+  return {ns, es, ids};
+}
+function neighbourhood(id){
+  const nb = new Set([id]);
+  for(const e of G.edges){ if(e.src===id) nb.add(e.dst); if(e.dst===id) nb.add(e.src); }
+  return nb;
+}
+function radius(n){ return n.kind==="domain"?16 : n.kind==="section"?13 : n.kind==="claim"?9 : 6.5; }
+function color(n){ return GROUP_COLOR[n.group] || "#7F8C8D"; }
+
+function step(){
+  const {ns, es, ids} = visible();
+  for(let a=0;a<ns.length;a++){ for(let b=a+1;b<ns.length;b++){
+    const A=P[ns[a].id], B=P[ns[b].id]; let dx=A.x-B.x, dy=A.y-B.y, d2=dx*dx+dy*dy+0.01;
+    const f=2600/d2, d=Math.sqrt(d2); const fx=f*dx/d, fy=f*dy/d;
+    A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; }}
+  for(const e of es){ const A=P[e.src], B=P[e.dst]; let dx=B.x-A.x, dy=B.y-A.y, d=Math.sqrt(dx*dx+dy*dy)+0.01;
+    const f=(d-120)*0.012; const fx=f*dx/d, fy=f*dy/d; A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; }
+  for(const n of ns){ const p=P[n.id]; p.vx+=(-p.x)*0.0016; p.vy+=(-p.y)*0.0016;
+    p.vx*=0.86; p.vy*=0.86; if(n.id!==dragId){ p.x+=p.vx; p.y+=p.vy; } }
+}
+function draw(){
+  const w=cv.clientWidth, h=cv.clientHeight; ctx.clearRect(0,0,w,h);
+  ctx.save(); ctx.translate(w/2+panx, h/2+pany); ctx.scale(scale,scale);
+  const {ns, es, ids} = visible();
+  const nb = focusId ? neighbourhood(focusId) : null;
+  for(const e of es){ const A=P[e.src], B=P[e.dst]; const lit = !nb || (nb.has(e.src)&&nb.has(e.dst));
+    ctx.strokeStyle = e.rel==="dangling" ? "#C0392B" : (lit?"#3a455c":"#1c2230");
+    ctx.lineWidth = e.rel==="dangling"?1.2:1; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); }
+  for(const n of ns){ const p=P[n.id], r=radius(n); const lit = !nb || nb.has(n.id);
+    ctx.globalAlpha = lit?1:0.18;
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,2*Math.PI); ctx.fillStyle=color(n); ctx.fill();
+    if(n.id===focusId){ ctx.lineWidth=2.5; ctx.strokeStyle="#fff"; ctx.stroke(); }
+    const st = n.status || (n.meta&&n.meta.status);
+    if(st && STATUS_COLOR[st]){ ctx.lineWidth=2; ctx.strokeStyle=STATUS_COLOR[st]; ctx.stroke(); }
+    if(r>=9 || n.id===focusId){ ctx.globalAlpha=lit?0.92:0.18; ctx.fillStyle="#cdd6e0"; ctx.font="11px sans-serif";
+      ctx.fillText((n.label||n.id).slice(0,26), p.x+r+3, p.y+3); }
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
+function frame(){ step(); draw(); requestAnimationFrame(frame); }
+
+function toWorld(mx,my){ const w=cv.clientWidth,h=cv.clientHeight; return {x:(mx-w/2-panx)/scale, y:(my-h/2-pany)/scale}; }
+function pick(mx,my){ const {ns}=visible(); const wpt=toWorld(mx,my); let best=null,bd=1e9;
+  for(const n of ns){ const p=P[n.id]; const d=Math.hypot(p.x-wpt.x,p.y-wpt.y); if(d<Math.max(14,radius(n)+6)&&d<bd){bd=d;best=n;} } return best; }
+
+cv.addEventListener("mousedown", e=>{ const n=pick(e.offsetX,e.offsetY);
+  if(n){ dragId=n.id; dragging=false; } else { dragging="pan"; ox=e.offsetX-panx; oy=e.offsetY-pany; } });
+cv.addEventListener("mousemove", e=>{ if(dragId){ const wpt=toWorld(e.offsetX,e.offsetY); P[dragId].x=wpt.x; P[dragId].y=wpt.y; P[dragId].vx=0; P[dragId].vy=0; dragging=true; }
+  else if(dragging==="pan"){ panx=e.offsetX-ox; pany=e.offsetY-oy; } });
+cv.addEventListener("mouseup", e=>{ if(dragId && !dragging){ focusId=dragId; renderPanel(); } dragId=null; if(dragging==="pan") dragging=false; });
+cv.addEventListener("wheel", e=>{ e.preventDefault(); const f=e.deltaY<0?1.1:0.9; scale=Math.max(0.2,Math.min(3,scale*f)); }, {passive:false});
+
+document.getElementById("levels").addEventListener("click", e=>{ if(e.target.dataset.l){ level=e.target.dataset.l;
+  for(const b of e.currentTarget.children) b.classList.toggle("on", b.dataset.l===level); } });
+document.getElementById("clearFocus").onclick = ()=>{ focusId=null; renderPanel(); };
+document.getElementById("refresh").onclick = refresh;
+
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function badge(label,val){ const c=STATUS_COLOR[val]||"#445"; return `<span class="badge" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(label)}</span>`; }
+
+function renderPanel(){
+  const panel = document.getElementById("panel");
+  if(!focusId || !G.nodes.find(n=>n.id===focusId)){
+    panel.innerHTML = `<p class="hint">Click a node to inspect its claims, provenance, and the prose each edge came from — then comment. Use macro / meso / atom to drill across scales.</p>`;
+    return;
+  }
+  const n = G.nodes.find(x=>x.id===focusId), m = n.meta||{};
+  let html = `<div class="kind">${esc(n.kind)}</div><h2>${esc(n.label)}</h2>`;
+  const st = n.status || m.status;
+  if(st) html += badge(st, st);
+  if(m.headline) html += badge("headline","drafted");
+  if(m.result) html += badge("result "+m.result, "established");
+  if(m.ring) html += `<div class="ev">ring: ${esc(m.ring)}</div>`;
+  if(m.intent) html += `<div class="row"><div class="k">intent</div>${esc(m.intent)}</div>`;
+  if(m.text && m.text!==n.label) html += `<div class="row"><div class="k">claim</div>${esc(m.text)}</div>`;
+  if(m.latex) html += `<div class="row"><div class="k">equation</div><code>${esc(m.latex)}</code></div>`;
+  if(m.thesis) html += `<div class="row"><div class="k">thesis</div>${esc(m.thesis)}</div>`;
+  if(m.frame) html += `<div class="row"><div class="k">frame</div>${esc(m.frame)}</div>`;
+  // incident edges with the prose they came from
+  const inc = G.edges.filter(e=>e.src===focusId||e.dst===focusId);
+  if(inc.length){ html += `<div class="row"><div class="k">links (${inc.length})</div>`;
+    for(const e of inc.slice(0,40)){ const other = e.src===focusId? e.dst : e.src; const on = G.nodes.find(x=>x.id===other);
+      html += `<div class="ev">${e.src===focusId?"→":"←"} <b>${esc(e.rel)}</b> ${esc(on?on.label:other)}${e.evidence?` <span style="opacity:.7">— ${esc(e.evidence.slice(0,80))}</span>`:""}</div>`; }
+    html += `</div>`; }
+  // comments
+  const cs = comments[focusId]||[];
+  html += `<div class="row"><div class="k">comments (${cs.length})</div>`;
+  for(const c of cs) html += `<div class="cmt">${esc(c.text)}<div class="t">${esc((c.ts||"").slice(0,19).replace("T"," "))}</div></div>`;
+  html += `<textarea id="ctext" rows="3" placeholder="Comment on this node — it's written beside the blueprint for the next reconcile…"></textarea>
+           <button class="send" id="csend">comment</button></div>`;
+  panel.innerHTML = html;
+  document.getElementById("csend").onclick = async ()=>{
+    const text = document.getElementById("ctext").value.trim(); if(!text) return;
+    await fetch("/comment", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({node:focusId, label:n.label, text, source:meta.source, path:meta.path})});
+    comments = await (await fetch(`/comments?source=${meta.source}&path=${encodeURIComponent(meta.path||"")}`)).json();
+    renderPanel();
+  };
+}
+function buildLegend(){
+  const groups = [...new Set(G.nodes.map(n=>n.group))];
+  document.getElementById("legend").innerHTML = groups.map(g=>`<span style="color:${GROUP_COLOR[g]||"#7F8C8D"}">●</span> ${esc(g)}`).join("  ");
+}
+resize(); load(); frame();
+setInterval(()=>{ if(!dragId) refresh(); }, 6000);   // live: pick up blueprint growth
+</script>
+</body>
+</html>
