@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -431,6 +432,37 @@ def _canon_fingerprint(root: Path) -> tuple[tuple[str, int], ...]:
     return tuple(sig)
 
 
+def _ensure_seeded(root: Path) -> None:
+    """First-use bootstrap: if ``LAPLACE_CANON`` points at a location with no
+    canon yet (no ``index.yaml``), seed it from the packaged canon.
+
+    Lets a fresh machine - or a new agent (Codex, Gemini) - point at a shared
+    canon path that the engine populates on first load, rather than failing
+    empty. A real canon (``index.yaml`` present) is never overwritten. The copy
+    runs under the canon write lock so two agents starting at once against an
+    empty shared path cannot interleave a half-seed.
+    """
+    if root == _PACKAGED_CANON:
+        return
+    if (root / "index.yaml").exists():
+        return
+    if not (_PACKAGED_CANON / "index.yaml").exists():
+        return
+    # Lazy import: avoids a module-load cycle (locking -> telemetry only).
+    from mcp_gerard.laplace.locking import CanonBusy, canon_lock
+
+    try:
+        with canon_lock(timeout=60):
+            if (root / "index.yaml").exists():  # re-check under the lock
+                return
+            root.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(_PACKAGED_CANON, root, dirs_exist_ok=True)
+    except CanonBusy:
+        # Another agent is seeding the same path; its copy will land. Proceed to
+        # load - by read time the seed is in place (or the next fresh load gets it).
+        return
+
+
 # root_str -> (fingerprint, canon). The canon is reused until its fingerprint
 # changes, so edits on disk are reflected without a fresh session.
 _CANON_CACHE: dict[str, tuple[tuple[tuple[str, int], ...], Canon]] = {}
@@ -441,6 +473,7 @@ def get_canon(fresh: bool = False) -> Canon:
     disk change. ``fresh=True`` forces an immediate reload regardless.
     """
     root = canon_root()
+    _ensure_seeded(root)
     root_str = str(root)
     fingerprint = _canon_fingerprint(root)
     cached = _CANON_CACHE.get(root_str)
