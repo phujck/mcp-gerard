@@ -40,3 +40,17 @@ The generation stage is three peer staging rails (results / literature / numeric
 
 ## Architectural note
 The autonomous dreamer's generative step is host-executed - the most powerful model already in the loop, running locally - not an external API call. Deterministic curation (fitness assessment, lifecycle transitions) stays in-engine. The engine stands as its own object.
+
+## Cleared 2026-05-31 / 2026-06-01 (on dream/overnight branch, 76 tests green)
+- **orient under-ranks generating skills** - rank_skills now surfaces a generating skill for generation-intent goals.
+- **run_backing discards failure diagnostics** - returncode + stderr tail now captured on failed execs.
+- **Dreamer reads this backlog** - dream() surfaces the backlog headers in its result.
+- **orient-guard for domain=null** - candidate-domain groundwork in place.
+- **Fitness must not read silence as dissatisfaction** - assess weights behavioural evidence above sparse feedback, never down-ranks for absence of praise.
+- **context_firewall sibling-project clause** - re-derivation firewall encoded.
+- **Engine doc: kernel vs full routine** - README subsection added.
+- **Graph projector** - resolves canon://skills/<name>/SKILL.md (no longer dangles), and a summary mode bounds the manuscript-graph output.
+- **Canon weave + canon_weaver forge** - topology 40 -> 12 components; the canon-weave task now has an owner skill.
+- **Firewall** - project lore lifted out of 5 global skills.
+
+Still open: deprecated-skills sweep (interacts with the weave - coordinate so it does not re-dangle links), clean-context dreaming, the shared cross-project literature store, deep_corpus_scout re-forge, the assess/dream cumulative-vs-windowed reconciliation.
