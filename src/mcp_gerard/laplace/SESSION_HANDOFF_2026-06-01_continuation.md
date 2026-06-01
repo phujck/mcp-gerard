@@ -62,6 +62,12 @@ will need real hand-tuning - it is honest scaffolding in your register, not fina
   `anf-talk-slidev` (port 3030). Start with the preview tool. It is a SKELETON -
   the custom layouts and iframe asset paths need setup before it renders cleanly.
   Treat it as content to work from, not a finished deck.
+- Talk round 2 (pedagogy + voice): UV-catastrophe entry made structural ("locally
+  reasonable, globally lethal" planted as the through-line), speaker notes now
+  carry the spoken explanation per slide, the flip caveat reframed as scope-setting.
+  Two weak slides flagged: the domain table (slide 14) is data-thin - it wants a
+  static six-system table embed before any animation; the empirical-handle slide
+  (17) is underspecified and is the right one to cut to questions if time is tight.
 
 ## Not done / deferred
 
