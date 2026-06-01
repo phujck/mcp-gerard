@@ -8,7 +8,7 @@ import shutil
 import pytest
 import yaml
 
-from mcp_gerard.laplace import assess, dreamer, render, telemetry, verify
+from mcp_gerard.laplace import assess, dreamer, gitio, render, telemetry, verify
 from mcp_gerard.laplace import canon as canonmod
 from mcp_gerard.laplace.canon import Canon
 
@@ -210,8 +210,7 @@ def test_recently_committed_skill_is_spared_from_deprecation(isolated_canon):
     dst = isolated_canon
     md = dst / "skills" / "css_forge" / "SKILL.md"
     md.write_text(md.read_text(encoding="utf-8") + "\n<!-- refined this window -->\n", encoding="utf-8")
-    dreamer._git(dst, "add", "-A")
-    dreamer._git(dst, "commit", "-m", "refine css_forge")  # a non-root commit in-window
+    gitio.commit_all(dst, "refine css_forge")  # a non-root commit in-window
 
     # Both offered+unused. css_forge was just committed; latex_forge was not.
     for _ in range(9):
@@ -250,9 +249,7 @@ def isolated_canon(tmp_path, monkeypatch):
         "css_forge": {"status": "experimental"},
     }}
     (dst / "lifecycle.yaml").write_text(yaml.safe_dump(seed), encoding="utf-8")
-    dreamer._ensure_repo(dst)
-    dreamer._git(dst, "add", "-A")
-    dreamer._git(dst, "commit", "-m", "seed: experimental baseline")
+    gitio.commit_all(dst, "seed: experimental baseline")
     canonmod.get_canon(fresh=True)
     yield dst
     telemetry.clear()
@@ -666,34 +663,57 @@ def test_watchdog_propagates_exceptions():
         guard("boom", 5, boom)
 
 
-def test_engine_git_is_deadlock_proof():
-    """Engine git must (a) route through gitio.run_git, (b) disable fsmonitor, and
-    (c) capture via temp files, never pipes - an inherited fsmonitor-daemon pipe
-    handle is what deadlocked laplace_assess on Windows past its own timeout."""
+def test_engine_git_is_pure_python_no_subprocess(tmp_path, monkeypatch):
+    """Engine git is pure-Python (Dulwich): no subprocess, no git.exe, so no
+    fsmonitor-daemon can inherit a pipe and deadlock it past its timeout.
+
+    Proven two ways: gitio's source spawns no subprocess, and a commit still
+    lands with subprocess.run forced to raise.
+    """
     import inspect
+    import subprocess as _sp
 
-    from mcp_gerard.laplace import assess as assessmod
-    from mcp_gerard.laplace import gitio
+    # gitio shells nothing out - it is Dulwich end to end. (The word "subprocess"
+    # in the module docstring is fine; what must be absent is any actual use.)
+    src = inspect.getsource(gitio)
+    assert "import subprocess" not in src, "gitio must not import subprocess"
+    assert "subprocess.run" not in src and "subprocess.Popen" not in src
+    assert "from dulwich" in src or "import dulwich" in src
 
-    # both engine git callers delegate to the one hardened helper
-    assert "run_git(" in inspect.getsource(assessmod._recent_committed_paths)
-    assert "run_git(" in inspect.getsource(dreamer._git)
+    # A commit lands even with subprocess poisoned - there is no git.exe path.
+    def _boom(*a, **k):
+        raise AssertionError("engine git must not call subprocess.run")
 
-    # the helper disables the daemon and redirects stdout/stderr to temp files
-    # (no pipe to inherit) rather than capturing through a pipe
-    src = inspect.getsource(gitio.run_git)
-    assert "core.fsmonitor=false" in src
-    assert "TemporaryFile" in src
-    assert "stdout=out" in src and "stderr=err" in src
+    monkeypatch.setattr(_sp, "run", _boom)
+    repo = tmp_path / "r"
+    repo.mkdir()
+    f = repo / "f.txt"
+    f.write_text("hi", encoding="utf-8")
+    sha = gitio.commit(repo, [f], "init")
+    assert sha and gitio.head_sha(repo) == sha
 
 
-def test_run_git_returns_text_output():
-    """run_git mirrors the CompletedProcess(text) shape callers expect."""
-    from mcp_gerard.laplace import gitio
+def test_gitio_commit_log_revert_roundtrip(tmp_path):
+    """The whole engine git surface: commit_all, commit, log_paths_since, revert."""
+    repo = tmp_path / "r"
+    repo.mkdir()
+    f = repo / "lifecycle.yaml"
+    f.write_text("v: 1\n", encoding="utf-8")
+    sha1 = gitio.commit_all(repo, "seed")
+    assert sha1
 
-    proc = gitio.run_git(".", "rev-parse", "--is-inside-work-tree", timeout=10)
-    assert proc.returncode == 0
-    assert proc.stdout.strip() == "true"
+    f.write_text("v: 2\n", encoding="utf-8")
+    sha2 = gitio.commit(repo, [f], "bump")
+    assert sha2 and sha2 != sha1
+
+    # the non-root commit's changed path shows up in the window
+    paths = gitio.log_paths_since(repo, None)
+    assert paths is not None and any(p.endswith("lifecycle.yaml") for p in paths)
+
+    # reverting the bump restores the seed content
+    ok, _detail = gitio.revert(repo, sha2)
+    assert ok
+    assert f.read_text(encoding="utf-8") == "v: 1\n"
 
 
 # ---------------------------------------------------------------------------

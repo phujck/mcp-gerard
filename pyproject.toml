@@ -39,6 +39,7 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "matplotlib>=3.7.0",
     "filelock>=3.12",
+    "dulwich>=0.22",
 ]
 
 [project.optional-dependencies]

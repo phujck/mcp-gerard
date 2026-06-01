@@ -69,29 +69,12 @@ def _recent_committed_paths(root: Any, since: str | None) -> set[str] | None:
     not every skill an active repo committed in some fixed span. None means "unknown",
     and callers fall back to mtime rather than guessing.
     """
-    import subprocess
+    from mcp_gerard.laplace import gitio
 
-    from mcp_gerard.laplace.gitio import run_git
-
-    window = since if since else "1.day"
-    try:
-        # run_git captures via temp files, not pipes: a git-fsmonitor--daemon
-        # cannot inherit a pipe handle that never exists, so this can never
-        # deadlock past its timeout. See gitio for the full autopsy.
-        out = run_git(
-            root,
-            "log",
-            f"--since={window}",
-            "--min-parents=1",
-            "--name-only",
-            "--format=",
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if out.returncode != 0:
-        return None
-    return {line.strip().replace("\\", "/") for line in out.stdout.splitlines() if line.strip()}
+    # Pure-Python git (Dulwich): non-root commits since the window start, with
+    # the changed paths. No subprocess, so no fsmonitor-daemon pipe to deadlock
+    # on. None means "git unavailable" and the caller grants no grace.
+    return gitio.log_paths_since(root, since)
 
 
 def _recently_touched(sk: Any, recent: set[str] | None) -> bool:

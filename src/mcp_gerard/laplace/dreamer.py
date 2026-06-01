@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -31,8 +30,8 @@ from typing import Any
 import yaml
 
 from mcp_gerard.laplace import assess as _assess
+from mcp_gerard.laplace import gitio
 from mcp_gerard.laplace import telemetry as _telemetry
-from mcp_gerard.laplace.gitio import run_git
 from mcp_gerard.laplace.canon import Canon, get_canon
 from mcp_gerard.laplace.locking import CanonBusy, canon_lock
 
@@ -79,31 +78,13 @@ def _read_backlog() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _git(root: Path, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
-    # Deadlock-proof: captures via temp files, not pipes, so a stray
-    # git-fsmonitor--daemon can never inherit a pipe handle and hang the drain
-    # past the timeout. See gitio for the full autopsy.
-    return run_git(root, *args, timeout=timeout)
-
-
-def _ensure_repo(root: Path) -> None:
-    if _git(root, "rev-parse", "--git-dir").returncode != 0:
-        _git(root, "init")
-
-
 def _commit(root: Path, paths: list[Path], message: str) -> str | None:
-    """Stage only the given paths and commit. Returns the new commit sha or None."""
-    _ensure_repo(root)
-    rels = [str(p) for p in paths]
-    if _git(root, "add", *rels).returncode != 0:
-        return None
-    # Nothing staged => nothing to commit.
-    if _git(root, "diff", "--cached", "--quiet").returncode == 0:
-        return None
-    if _git(root, "commit", "-m", message).returncode != 0:
-        return None
-    res = _git(root, "rev-parse", "HEAD")
-    return res.stdout.strip() if res.returncode == 0 else None
+    """Stage the given paths and commit via pure-Python git (Dulwich).
+
+    Returns the new commit sha, or None if staging produced nothing. No
+    subprocess, so no git.exe and no fsmonitor-daemon pipe to deadlock on.
+    """
+    return gitio.commit(root, paths, message)
 
 
 # ---------------------------------------------------------------------------
@@ -373,12 +354,12 @@ def _audit_message(out: dict[str, Any]) -> str:
 
 
 def rollback(ref: str) -> dict[str, Any]:
-    """Revert a previous dreamer commit (scoped to canon files)."""
+    """Revert a previous dreamer commit (scoped to canon files), via Dulwich."""
     try:
         with canon_lock():
             canon = get_canon()
-            res = _git(canon.root, "revert", "--no-edit", ref)
+            ok, detail = gitio.revert(canon.root, ref)
             get_canon(fresh=True)
-            return {"ref": ref, "ok": res.returncode == 0, "stdout": res.stdout, "stderr": res.stderr}
+            return {"ref": ref, "ok": ok, "detail": detail}
     except CanonBusy as exc:
         return {"ref": ref, "ok": False, "busy": True, "error": str(exc)}
