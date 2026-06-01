@@ -9,11 +9,15 @@ returns. That is the structural defect: a tool able to hang the caller forever.
 ``timeout`` seconds for it. If the work overruns, the engine returns a clean,
 structured timeout dict and abandons the thread rather than blocking. Python
 cannot force-kill a thread, but every blocking call the handlers make is itself
-bounded (git ``timeout=10``, script ``timeout<=110``), so the abandoned worker
-unwinds on its own; the daemon flag keeps it from holding process exit.
+bounded (a backing ``script timeout<=110``, an explicit canon push ``timeout``),
+so the abandoned worker unwinds on its own; the daemon flag keeps it from
+holding process exit.
 
-This is the umbrella that makes the engine honest under *any* future blocking
-fault, not just the fsmonitor pipe deadlock that motivated it.
+The hot-path git that originally motivated this - the fsmonitor pipe deadlock -
+is gone: versioning is now pure-Python Dulwich (see gitio), which spawns no
+subprocess. The watchdog remains the umbrella that keeps the engine honest under
+*any* blocking fault: a wedged backing script, the one explicit ``git push``, or
+a pathological filesystem.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ Exposes the tripartite drafting loop to any MCP client:
   execute  - laplace_skill / laplace_run
   verify   - laplace_verify
   dream    - laplace_assess / laplace_dream / laplace_rollback
-  adapter  - laplace_sync
+  adapter  - laplace_sync / laplace_canon_push
 
 Every orient/execute/verify call is logged to the telemetry ledger, which feeds
 the endogenous fitness assessment that governs the dreamer's silent refinements.
@@ -321,6 +321,22 @@ def laplace_sync(
 ) -> dict[str, Any]:
     """Render (and optionally install) a client's bootstrap shim from the canon."""
     return guard("laplace_sync", _FAST, lambda: _render.sync(client, write=write))
+
+
+@mcp.tool()
+def laplace_canon_push(
+    remote: str = Field(default="origin", description="Remote to push the canon repo to."),
+) -> dict[str, Any]:
+    """Publish the canon to its GitHub remote.
+
+    The one explicit git.exe action, deliberately off the hot path: versioning
+    (commit/log/revert) is pure-Python Dulwich, and this uses your existing git
+    credentials only when you ask to publish. Deadlock-proof (temp-file capture)
+    and watchdog-bounded.
+    """
+    from mcp_gerard.laplace import push as _push
+
+    return guard("laplace_canon_push", _RUN, lambda: _push.push_canon(get_canon().root, remote))
 
 
 def main() -> None:

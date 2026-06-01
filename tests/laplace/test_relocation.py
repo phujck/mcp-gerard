@@ -79,3 +79,35 @@ def test_dream_commit_lands_in_external_canon_repo(fresh_canon_env):
         text=True,
     )
     assert "external canon commit" in log.stdout
+
+
+def test_canon_push_no_repo_is_graceful(tmp_path):
+    from mcp_gerard.laplace import push
+
+    res = push.push_canon(tmp_path / "nope")
+    assert res["ok"] is False
+    assert "no git repo" in res["error"]
+
+
+def test_canon_push_to_local_remote(tmp_path):
+    from mcp_gerard.laplace import gitio, push
+
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    work = tmp_path / "canon"
+    work.mkdir()
+    (work / "index.yaml").write_text("version: 1\nskills: {}\n", encoding="utf-8")
+    gitio.commit_all(work, "seed")
+
+    subprocess.run(["git", "-C", str(work), "remote", "add", "origin", str(remote)], check=True, capture_output=True)
+    branch = subprocess.run(
+        ["git", "-C", str(work), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    # the one-time initial push (what the migration does) sets upstream
+    subprocess.run(["git", "-C", str(work), "push", "-u", "origin", branch], check=True, capture_output=True)
+
+    # a new commit, then the tool's incremental push
+    (work / "index.yaml").write_text("version: 1\nskills: {a: {}}\n", encoding="utf-8")
+    gitio.commit_all(work, "update")
+    res = push.push_canon(work, "origin")
+    assert res["ok"], res
