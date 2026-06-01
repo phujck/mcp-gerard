@@ -1,6 +1,15 @@
 # Machine-owned lifecycle overlay. The dreamer writes this; do not hand-edit.
 # It overrides skill `status` in index.yaml based on measured fitness.
 skills:
+  canon_weaver:
+    forged: '2026-05-31T00:00:00+00:00'
+    history:
+    - at: '2026-05-31T00:00:00+00:00'
+      from: null
+      reason: forged by overnight dreamer - canon topology has no repair owner; global_weaver
+        miscast for this role
+      to: experimental
+    status: experimental
   corpus_librarian:
     fitness: 0.35
     history:
@@ -28,6 +37,23 @@ skills:
       to: deprecated
     status: deprecated
     updated: '2026-05-31T17:37:30.761242+00:00'
+  literature_scout:
+    fitness: 0.325
+    history:
+    - at: '2026-06-01T08:51:00.578869+00:00'
+      from: experimental
+      reason: offered 9x, never used
+      to: deprecated
+    - at: '2026-06-01T09:05:00+00:00'
+      from: deprecated
+      reason: dreamer correction - silence is not dissatisfaction. literature_scout
+        owns the literature rail and is referenced by manuscript_spine and
+        evidence_schema_flow. It is unexercised only because the active project sits
+        at the figure/drafting stage, not the literature stage. Restored to probation
+        pending real use, per the AUTONOMY_BACKLOG principle.
+      to: experimental
+    status: experimental
+    updated: '2026-06-01T09:05:00+00:00'
   orient_recovery:
     fitness: 0.35
     history:
@@ -64,11 +90,3 @@ skills:
       to: core
     status: core
     updated: '2026-05-31T17:37:30.761242+00:00'
-  canon_weaver:
-    forged: '2026-05-31T00:00:00+00:00'
-    history:
-    - at: '2026-05-31T00:00:00+00:00'
-      from: null
-      reason: forged by overnight dreamer - canon topology has no repair owner; global_weaver miscast for this role
-      to: experimental
-    status: experimental
